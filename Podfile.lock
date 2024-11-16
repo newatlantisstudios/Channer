@@ -1,0 +1,32 @@
+PODS:
+  - Alamofire (5.10.1)
+  - ffmpeg-kit-ios-full (6.0)
+  - Kingfisher (8.1.0)
+  - SwiftyJSON (5.0.2)
+  - VLCKit (4.0.0a6)
+
+DEPENDENCIES:
+  - Alamofire
+  - ffmpeg-kit-ios-full (~> 6.0)
+  - Kingfisher
+  - SwiftyJSON
+  - VLCKit (= 4.0.0a6)
+
+SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - Alamofire
+    - ffmpeg-kit-ios-full
+    - Kingfisher
+    - SwiftyJSON
+    - VLCKit
+
+SPEC CHECKSUMS:
+  Alamofire: 840d2a1ad82355b536ec6ba5f97e5bfa54600ca3
+  ffmpeg-kit-ios-full: 0099a769d22114dde52cdc238397941c32f75d27
+  Kingfisher: dfbf20b6249ed4ef6f18d6a96c847bce860bdb95
+  SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
+  VLCKit: 80332c6fbe83e9278aca1b7e27799f2b521a7f76
+
+PODFILE CHECKSUM: 8ba18892a92aa0c9c1254052d24d0681c465278a
+
+COCOAPODS: 1.15.2
