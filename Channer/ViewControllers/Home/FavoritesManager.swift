@@ -25,11 +25,11 @@ class FavoritesManager {
     }
     
     func addFavorite(_ favorite: ThreadData) {
-        print("Adding favorite: \(favorite)")
+        //print("Adding favorite: \(favorite)")
         var favorites = loadFavorites()
         favorites.append(favorite)
         saveFavorites(favorites)
-        print("Favorites after adding: \(favorites)")
+        //print("Favorites after adding: \(favorites)")
     }
 
     func removeFavorite(threadNumber: String) {

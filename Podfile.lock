@@ -1,7 +1,7 @@
 PODS:
   - Alamofire (5.10.1)
   - ffmpeg-kit-ios-full (6.0)
-  - Kingfisher (8.1.0)
+  - Kingfisher (8.1.1)
   - SwiftyJSON (5.0.2)
   - VLCKit (4.0.0a6)
 
@@ -23,7 +23,7 @@ SPEC REPOS:
 SPEC CHECKSUMS:
   Alamofire: 840d2a1ad82355b536ec6ba5f97e5bfa54600ca3
   ffmpeg-kit-ios-full: 0099a769d22114dde52cdc238397941c32f75d27
-  Kingfisher: dfbf20b6249ed4ef6f18d6a96c847bce860bdb95
+  Kingfisher: fc2788e497306f97fdef6e4df49f02106cb57788
   SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
   VLCKit: 80332c6fbe83e9278aca1b7e27799f2b521a7f76
 

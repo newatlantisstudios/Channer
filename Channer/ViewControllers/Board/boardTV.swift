@@ -54,10 +54,10 @@ struct ThreadData: Codable {
     }
 }
 
-class boardTV: UITableViewController, UISearchBarDelegate {
+class boardTV: UITableViewController {
     // Properties
         var boardName = ""
-        var boardAbv = ""
+        var boardAbv = "a"
         var threadData: [ThreadData] = []
         var filteredThreadData: [ThreadData] = []
         private var isLoading = false
@@ -73,58 +73,118 @@ class boardTV: UITableViewController, UISearchBarDelegate {
        private let imageCache = NSCache<NSString, UIImage>()
        private let prefetchQueue = OperationQueue()
        
-       // Search bar
-       private let searchBar: UISearchBar = {
-           let sb = UISearchBar()
-           sb.placeholder = "Search by title or comment"
-           return sb
-       }()
-       
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Remove the title
+        //navigationItem.title = nil
+        
         setupTableView()
         setupImageCache()
         setupLoadingIndicator()
-        setupSearchBar()
         setupSortButton()
+        addHomeButton()
+        setupSearchController()
         
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        tapGesture.cancelsTouchesInView = false
-        tableView.addGestureRecognizer(tapGesture)
+        //let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        //tapGesture.cancelsTouchesInView = false
+        //tableView.addGestureRecognizer(tapGesture)
         
         if isFavoritesView {
-            self.title = "Favorites"
-            
-            // Verify and remove invalid favorites
-            FavoritesManager.shared.verifyAndRemoveInvalidFavorites { updatedFavorites in
-                self.threadData = updatedFavorites
-                self.filteredThreadData = updatedFavorites
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
+               self.title = "Favorites"
+               
+               // Verify and remove invalid favorites
+               FavoritesManager.shared.verifyAndRemoveInvalidFavorites { updatedFavorites in
+                   self.threadData = updatedFavorites
+                   self.filteredThreadData = updatedFavorites
+                   DispatchQueue.main.async {
+                       self.tableView.reloadData()
+                   }
+               }
+               
+               // Add long-press gesture recognizer for deleting favorites
+               let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressForFavorite))
+               tableView.addGestureRecognizer(longPressGesture)
+           } else if isHistoryView {
+               self.title = "History"
+
+               // Add "Clear All" button
+               let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
+
+               if UIDevice.current.userInterfaceIdiom == .phone {
+                   // Add "Home" button for iPhones only, on the left side
+                   let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(showMasterView))
+                   navigationItem.leftBarButtonItem = homeButton
+               }
+
+               // Add "Clear All" button to the right side
+               navigationItem.rightBarButtonItem = clearAllButton
+
+               // Verify and remove invalid history
+               HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
+                   self.threadData = updatedHistory
+                   self.filteredThreadData = updatedHistory
+                   DispatchQueue.main.async {
+                       self.tableView.reloadData()
+                   }
+               }
+           } else {
+               //self.title = "/\(boardAbv)/"
+               loadThreads()
+           }
+        
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        addHomeButton()
+        
+    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        
+        coordinator.animate(alongsideTransition: { _ in
+            if self.splitViewController?.traitCollection.horizontalSizeClass == .compact {
+                self.addHomeButton()
             }
-            
-            // Add long-press gesture recognizer for deleting favorites
-            let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressForFavorite))
-            tableView.addGestureRecognizer(longPressGesture)
-        } else if isHistoryView {
-            self.title = "History"
-            
-            // Add "Clear All" button
-            let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
-            navigationItem.rightBarButtonItem = clearAllButton
-            
-            // Verify and remove invalid history
-            HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
-                self.threadData = updatedHistory
-                self.filteredThreadData = updatedHistory
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
+        })
+        
+    }
+    
+    private func addHomeButton() {
+        // Ensure the device is an iPhone
+        guard UIDevice.current.userInterfaceIdiom == .phone else {
+            navigationItem.leftBarButtonItems = nil // Remove home button if not iPhone
+            return
+        }
+        
+        let homeImage = UIImage(named: "home")
+        let homeButton = UIBarButtonItem(
+            image: homeImage,
+            style: .plain,
+            target: self,
+            action: #selector(showMasterView)
+        )
+
+        if var leftBarButtonItems = navigationItem.leftBarButtonItems {
+            // Check if the home button is already added
+            if !leftBarButtonItems.contains(where: { $0.target === homeButton.target && $0.action == homeButton.action }) {
+                leftBarButtonItems.insert(homeButton, at: 0)
+                navigationItem.leftBarButtonItems = leftBarButtonItems
             }
         } else {
-            self.title = "/\(boardAbv)/"
-            loadThreads()
+            navigationItem.leftBarButtonItems = [homeButton]
+        }
+    }
+    
+    @objc private func showMasterView() {
+        guard let splitVC = splitViewController else { return }
+        if let masterNavVC = splitVC.viewControllers.first as? UINavigationController {
+            masterNavVC.popToRootViewController(animated: true)
+        } else {
+            print("Master view controller not found.")
         }
     }
     
@@ -195,34 +255,46 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             present(alert, animated: true, completion: nil)
         }
     }
-
-    
-    @objc private func dismissKeyboard() {
-        searchBar.resignFirstResponder()
-    }
     
     private func setupSortButton() {
-            let sortButton = UIBarButtonItem(image: UIImage(named: "sort"), style: .plain, target: self, action: #selector(sortButtonTapped))
-            navigationItem.rightBarButtonItem = sortButton
+        // Do not add the sort button if the current view is the history view
+        guard !isHistoryView else { return }
+        
+        let sortButton = UIBarButtonItem(image: UIImage(named: "sort"), style: .plain, target: self, action: #selector(sortButtonTapped))
+        // Check if there are existing right bar button items
+        if var rightBarButtonItems = navigationItem.rightBarButtonItems {
+            rightBarButtonItems.append(sortButton)
+            navigationItem.rightBarButtonItems = rightBarButtonItems
+        } else {
+            navigationItem.rightBarButtonItems = [sortButton]
+        }
+    }
+        
+    @objc private func sortButtonTapped() {
+        let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
+        
+        // Add sorting actions
+        let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
+            self.sortThreads(by: .replyCount)
+        }
+        let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
+            self.sortThreads(by: .newestCreation)
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        alertController.addAction(replyCountAction)
+        alertController.addAction(newestCreationAction)
+        alertController.addAction(cancelAction)
+        
+        // iPad-specific popover configuration
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.barButtonItem = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
+            popoverController.permittedArrowDirections = .up
         }
         
-        @objc private func sortButtonTapped() {
-            let alertController = UIAlertController(title: "Sort Threads", message: nil, preferredStyle: .actionSheet)
-            
-            let replyCountAction = UIAlertAction(title: "Reply Count", style: .default) { _ in
-                self.sortThreads(by: .replyCount)
-            }
-            let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
-                self.sortThreads(by: .newestCreation)
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-            
-            alertController.addAction(replyCountAction)
-            alertController.addAction(newestCreationAction)
-            alertController.addAction(cancelAction)
-            
-            present(alertController, animated: true, completion: nil)
-        }
+        // Present the alert controller
+        present(alertController, animated: true, completion: nil)
+    }
         
         private enum SortOption {
             case replyCount
@@ -293,13 +365,20 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             imageCache.countLimit = 200 // Increased for multiple pages
             prefetchQueue.maxConcurrentOperationCount = 2
         }
+    
+    private func setupSearchController() {
+        let searchController = UISearchController(searchResultsController: nil)
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Title or Comment"
+        navigationItem.searchController = searchController
         
-    private func setupSearchBar() {
-        searchBar.delegate = self
-        searchBar.returnKeyType = .done  // Set return key type to Done
-        navigationItem.titleView = searchBar
+        // Ensure the search bar stays visible when scrolling
+        navigationItem.hidesSearchBarWhenScrolling = true
+        
+        definesPresentationContext = true
     }
-            
+                
     private func loadThreads() {
         guard !isLoading else {
             refreshControl?.endRefreshing()
@@ -390,9 +469,11 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         if isFavoritesView {
             if let currentReplies = thread.currentReplies,
                currentReplies > thread.replies {
-                cell.topicCell?.image = UIImage(named: "topicCellNewData")
+                // Example: Change the background color or border
+                cell.customBackgroundView.layer.borderColor = UIColor.red.cgColor
             } else {
-                cell.topicCell?.image = UIImage(named: "topicCell")
+                // Keep `customBackgroundView` unchanged or reset it to default
+                cell.customBackgroundView.layer.borderColor = UIColor(red: 67/255, green: 160/255, blue: 71/255, alpha: 1.0).cgColor
             }
         }
 
@@ -473,58 +554,68 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         let thread = filteredThreadData[indexPath.row]
         let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
 
-        // Add the selected thread to history
+        print("Selected thread at index \(indexPath.row): \(thread)")
+
+        // Add the selected thread to history (if not already in history or favorites view)
         if !isHistoryView && !isFavoritesView {
             HistoryManager.shared.addThreadToHistory(thread)
-        }
-        if isFavoritesView {
-                var updatedThread = thread
-                updatedThread.replies = thread.currentReplies ?? thread.replies
-                FavoritesManager.shared.updateFavorite(thread: updatedThread)
+            print("Thread added to history.")
         }
 
-        // Display loading view
+        // Show loading indicator overlay
         let loadingView = UIView(frame: view.bounds)
         loadingView.backgroundColor = .systemBackground
-        loadingView.tag = 999
         let indicator = UIActivityIndicatorView(style: .large)
         indicator.translatesAutoresizingMaskIntoConstraints = false
         loadingView.addSubview(indicator)
+        view.addSubview(loadingView)
         NSLayoutConstraint.activate([
             indicator.centerXAnchor.constraint(equalTo: loadingView.centerXAnchor),
             indicator.centerYAnchor.constraint(equalTo: loadingView.centerYAnchor)
         ])
-        navigationController?.view.addSubview(loadingView)
         indicator.startAnimating()
 
-        // Attempt to load the thread data
+        // Load thread data
         AF.request(url).response { response in
-            // Remove loading view
-            loadingView.removeFromSuperview()
-
-            // Check for an error or empty data
-            if let error = response.error {
-                print("Error loading thread: \(error)")
-                self.handleThreadUnavailable(at: indexPath, thread: thread)
-                return
+            DispatchQueue.main.async {
+                loadingView.removeFromSuperview()
             }
 
-            guard let data = response.data, let json = try? JSON(data: data), !json["posts"].isEmpty else {
+            guard let data = response.data,
+                  let json = try? JSON(data: data),
+                  !json["posts"].isEmpty else {
                 print("Thread not available or invalid response.")
                 self.handleThreadUnavailable(at: indexPath, thread: thread)
                 return
             }
 
-            // Proceed with thread data
+            // Instantiate threadRepliesTV view controller
             guard let vc = UIStoryboard(name: "Main", bundle: nil)
                     .instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
+                print("Failed to instantiate threadRepliesTV.")
                 return
             }
 
             vc.boardAbv = thread.boardAbv
             vc.threadNumber = thread.number
-            vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0 // Extract image count from stats
-            self.navigationController?.pushViewController(vc, animated: true)
+            vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+
+            // Handle navigation
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                // iPad behavior
+                if let splitVC = self.splitViewController,
+                   let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
+                    detailNavController.pushViewController(vc, animated: true)
+                    print("Pushed threadRepliesTV on iPad detail navigation stack.")
+                } else {
+                    self.navigationController?.pushViewController(vc, animated: true)
+                    print("Fallback: Pushed threadRepliesTV on main navigation stack (iPad).")
+                }
+            } else {
+                // iPhone behavior
+                self.navigationController?.pushViewController(vc, animated: true)
+                print("Pushed threadRepliesTV on iPhone navigation stack.")
+            }
         }
     }
 
@@ -573,33 +664,6 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         loadThreads() // Re-fetch threads
     }
 
-    
-    // MARK: - UISearchBarDelegate
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        if searchText.isEmpty {
-            isSearching = false
-            filteredThreadData = threadData
-        } else {
-            isSearching = true
-            filteredThreadData = threadData.filter {
-                $0.title.localizedCaseInsensitiveContains(searchText) ||
-                $0.comment.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        tableView.reloadData()
-    }
-
-    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.text = ""
-        isSearching = false
-        filteredThreadData = threadData
-        tableView.reloadData()
-        searchBar.resignFirstResponder()
-    }
-
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()  // Dismiss the keyboard when Done is pressed
-    }
     // MARK: - Helper Methods
     private func formatText(_ text: String) -> NSAttributedString {
         var formattedText = text
@@ -747,5 +811,23 @@ extension boardTV: UITableViewDataSourcePrefetching {
     
     func tableView(_ tableView: UITableView, cancelPrefetchingForRowsAt indexPaths: [IndexPath]) {
         // Cancel any ongoing prefetch operations
+    }
+}
+
+extension boardTV: UISearchResultsUpdating {
+    func updateSearchResults(for searchController: UISearchController) {
+        guard let searchText = searchController.searchBar.text, !searchText.isEmpty else {
+            isSearching = false
+            filteredThreadData = threadData
+            tableView.reloadData()
+            return
+        }
+
+        isSearching = true
+        filteredThreadData = threadData.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText) ||
+            $0.comment.localizedCaseInsensitiveContains(searchText)
+        }
+        tableView.reloadData()
     }
 }

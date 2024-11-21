@@ -78,11 +78,13 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
             let webMViewController = WebMViewController()
             webMViewController.videoURL = selectedURL.absoluteString
             webMViewController.hideDownloadButton = true // Hide download button when accessed from ThumbnailGridVC
-            navigationController?.pushViewController(webMViewController, animated: true)
+            let splitVC = self.splitViewController
+            splitVC?.showDetailViewController(webMViewController, sender: self)
         } else if ["jpg", "jpeg", "png"].contains(selectedURL.pathExtension.lowercased()) {
             // Show image in full view using ImageViewController
             let imageVC = ImageViewController(imageURL: selectedURL)
-            navigationController?.pushViewController(imageVC, animated: true)
+            let splitVC = self.splitViewController
+            splitVC?.showDetailViewController(imageVC, sender: self)
         } else {
             print("Selected file is not a supported format.")
         }

@@ -63,6 +63,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
         setupNavigationItems()
         
         // Enable automatic dimension for row height
@@ -146,7 +147,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         }
         
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            print("Number of rows: \(isLoading ? 0 : replyCount)")
+            //print("Number of rows: \(isLoading ? 0 : replyCount)")
             return isLoading ? 0 : replyCount
         }
 
@@ -157,10 +158,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         cell.replyTextDelegate = self
 
         // Debug: Start of cell configuration
-        print("Debug: Configuring cell at row \(indexPath.row)")
+        //print("Debug: Configuring cell at row \(indexPath.row)")
 
         if threadReplies.isEmpty {
-            print("Debug: No replies available, showing loading text")
+            //print("Debug: No replies available, showing loading text")
             cell.configure(withImage: false,
                            text: NSAttributedString(string: "Loading..."),
                            boardNumber: "")
@@ -171,7 +172,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             let boardNumber = threadBoardReplyNumber[indexPath.row]
 
             // Debug: Content of the reply
-            print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
+            //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
 
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
@@ -180,16 +181,16 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
             // Set the attributed text based on whether the cell has an image
             if hasImage {
-                print("Debug: Cell contains an image, setting replyText")
+                //print("Debug: Cell contains an image, setting replyText")
                 cell.replyText.attributedText = attributedText
             } else {
-                print("Debug: Cell does not contain an image, setting replyTextNoImage")
+                //print("Debug: Cell does not contain an image, setting replyTextNoImage")
                 cell.replyTextNoImage.attributedText = attributedText
             }
 
             // Set up image if present
             if hasImage {
-                print("Debug: Configuring image with URL: \(imageUrl)")
+                //print("Debug: Configuring image with URL: \(imageUrl)")
                 configureImage(for: cell, with: imageUrl)
                 cell.threadImage.tag = indexPath.row
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
@@ -197,19 +198,19 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
             // Configure reply button visibility
             if let replies = threadBoardReplies[boardNumber], !replies.isEmpty {
-                print("Debug: Found \(replies.count) replies for boardNumber \(boardNumber), showing thread button")
+                //print("Debug: Found \(replies.count) replies for boardNumber \(boardNumber), showing thread button")
                 cell.thread.isHidden = false
                 cell.thread.tag = indexPath.row
                 cell.thread.addTarget(self, action: #selector(showThread), for: .touchUpInside)
             } else {
-                print("Debug: No replies for boardNumber \(boardNumber), hiding thread button")
+                //print("Debug: No replies for boardNumber \(boardNumber), hiding thread button")
                 cell.thread.isHidden = true
             }
         }
 
         // Force layout to calculate cell height
         cell.layoutIfNeeded()
-        print("Debug: Cell at index \(indexPath.row) height after layout: \(cell.frame.size.height)")
+        //print("Debug: Cell at index \(indexPath.row) height after layout: \(cell.frame.size.height)")
 
         return cell
     }
@@ -350,33 +351,46 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         // Add a cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
+        // Configure the popover presentation controller for iPad or SplitView
+        if let popover = actionSheet.popoverPresentationController {
+            popover.barButtonItem = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) })
+            popover.sourceView = self.view
+            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        
         // Present the action sheet
         present(actionSheet, animated: true, completion: nil)
     }
     
     @objc private func showGallery() {
-        // Filter and map URLs for valid images and thumbnails for .webm files
+        print("Gallery button tapped.")
+
+        // Map valid image URLs
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
-            
-            // Check if the URL is a placeholder and skip it
-            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" {
-                return nil
-            }
-            
-            // Replace .webm URLs with their corresponding thumbnail URLs for gallery view
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
             if imageUrlString.contains(".webm") {
                 return URL(string: imageUrlString.replacingOccurrences(of: ".webm", with: "s.jpg"))
             }
-            
-            // Return the URL as-is if it's a valid image URL
             return url
         }
-        
-        print("showGallery: \(imageUrls)")
-        // Initialize ImageGalleryVC with the filtered image URLs
+
+        print("Filtered image URLs: \(imageUrls)")
+
+        // Instantiate the gallery view controller
         let galleryVC = ImageGalleryVC(images: imageUrls)
-        navigationController?.pushViewController(galleryVC, animated: true)
+        print("GalleryVC instantiated.")
+
+        // Navigate to the gallery
+        if let navController = navigationController {
+            print("Pushing galleryVC onto navigation stack.")
+            navController.pushViewController(galleryVC, animated: true)
+        } else {
+            print("Navigation controller is nil. Attempting modal presentation.")
+            let navController = UINavigationController(rootViewController: galleryVC)
+            present(navController, animated: true)
+        }
     }
 
     @objc private func toggleFavorite() {
@@ -679,11 +693,11 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
-        print("Raw comment: \(comment)")
+        //print("Raw comment: \(comment)")
 
         // Format the comment text with spoiler visibility
         let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
-        print("Formatted comment: \(formattedComment)")
+        //print("Formatted comment: \(formattedComment)")
         threadReplies.append(formattedComment)
     }
     
@@ -939,29 +953,53 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         let selectedImageURLString = threadRepliesImages[sender.tag]
         print("threadContentOpen: \(selectedImageURLString)")
 
+        // Validate URL
         guard let selectedImageURL = URL(string: selectedImageURLString) else {
             print("Invalid URL: \(selectedImageURLString)")
             return
         }
 
-        // Check if the selected URL is a webm video or an image
         if selectedImageURL.pathExtension.lowercased() == "webm" {
-            // For webm videos, open WebMViewController
+            // Create WebMViewController for video
             let webmVC = WebMViewController()
             webmVC.videoURL = selectedImageURL.absoluteString
-            navigationController?.pushViewController(webmVC, animated: true)
+            print("Navigating to WebMViewController.")
+
+            // Navigate based on the environment
+            if let splitVC = self.splitViewController,
+               let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
+                detailNavController.pushViewController(webmVC, animated: true)
+            } else if let navController = self.navigationController {
+                navController.pushViewController(webmVC, animated: true)
+            } else {
+                // Fallback to modal presentation
+                let navController = UINavigationController(rootViewController: webmVC)
+                present(navController, animated: true)
+            }
         } else {
-            // For images, open urlWeb but pass only the selected image and disable swiping
+            // Create urlWeb for images
             let urlWebVC = urlWeb()
-            urlWebVC.images = [selectedImageURL] // Pass only the selected image
-            urlWebVC.currentIndex = 0 // Set the current index to 0 since there is only one image
-            urlWebVC.enableSwipes = false // Disable swipes for single image viewing
-            navigationController?.pushViewController(urlWebVC, animated: true)
+            urlWebVC.images = [selectedImageURL]
+            urlWebVC.currentIndex = 0
+            urlWebVC.enableSwipes = false
+            print("Navigating to urlWeb for image display.")
+
+            // Navigate based on the environment
+            if let splitVC = self.splitViewController,
+               let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
+                detailNavController.pushViewController(urlWebVC, animated: true)
+            } else if let navController = self.navigationController {
+                navController.pushViewController(urlWebVC, animated: true)
+            } else {
+                // Fallback to modal presentation
+                let navController = UINavigationController(rootViewController: urlWebVC)
+                present(navController, animated: true)
+            }
         }
     }
     
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
-        print("Debug: Starting image configuration for URL: \(imageUrl)")
+        //print("Debug: Starting image configuration for URL: \(imageUrl)")
 
         let finalUrl: String
         if imageUrl.contains(".webm") {
@@ -979,10 +1017,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         KingfisherManager.shared.retrieveImage(with: url) { result in
             switch result {
             case .success(let value):
-                print("Debug: Successfully loaded image for URL: \(url), size: \(value.image.size)")
+                //print("Debug: Successfully loaded image for URL: \(url), size: \(value.image.size)")
                 cell.threadImage.setBackgroundImage(value.image, for: .normal)
             case .failure(let error):
-                print("Debug: Failed to load image for URL: \(url), error: \(error)")
+                //print("Debug: Failed to load image for URL: \(url), error: \(error)")
                 cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
             }
 
@@ -1042,7 +1080,8 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         newThreadVC.title = "\(selectedBoardNumber)"
         
         // Push the new view controller
-        navigationController?.pushViewController(newThreadVC, animated: true)
+        let splitVC = self.splitViewController
+        splitVC?.showDetailViewController(newThreadVC, sender: self)
     }
     
     @objc private func completeThread() {

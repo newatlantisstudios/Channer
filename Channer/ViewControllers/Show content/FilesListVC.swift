@@ -18,9 +18,15 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        print("viewDidLoad - FilesListVC")
         view.backgroundColor = .systemBackground
         self.navigationItem.title = "Files"
+        
+        // Add the Home button only for iPhone
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(goHome))
+            self.navigationItem.leftBarButtonItem = homeButton
+        }
         
         tableView.delegate = self
         tableView.dataSource = self
@@ -29,6 +35,16 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
         view.addSubview(tableView)
         
         loadFiles()
+    }
+    
+    @objc func goHome() {
+        // Navigate back to the master view
+        guard let splitVC = splitViewController else { return }
+        if let masterNavVC = splitVC.viewControllers.first as? UINavigationController {
+            masterNavVC.popToRootViewController(animated: true)
+        } else {
+            print("Master view controller not found.")
+        }
     }
     
     func loadFiles() {
@@ -67,15 +83,18 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
             if selectedURL.lastPathComponent.lowercased() == "images" {
                 // Push a thumbnail grid for image files
                 let imageGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["jpg", "jpeg", "png"])
-                navigationController?.pushViewController(imageGalleryVC, animated: true)
+                let splitVC = self.splitViewController
+                splitVC?.showDetailViewController(imageGalleryVC, sender: self)
             } else if selectedURL.lastPathComponent.lowercased() == "webm" {
                 // Push a thumbnail grid for webm files
                 let webmGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["webm"])
-                navigationController?.pushViewController(webmGalleryVC, animated: true)
+                let splitVC = self.splitViewController
+                splitVC?.showDetailViewController(webmGalleryVC, sender: self)
             } else {
                 // For other directories, push FilesListVC to continue exploring
                 let filesListVC = FilesListVC(directory: selectedURL)
-                navigationController?.pushViewController(filesListVC, animated: true)
+                let splitVC = self.splitViewController
+                splitVC?.showDetailViewController(filesListVC, sender: self)
             }
         }
     }
