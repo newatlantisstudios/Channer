@@ -60,9 +60,19 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     }
     
     @objc func openFilesList() {
-        let filesVC = FilesListVC()
-        let splitVC = self.splitViewController
-        splitVC?.showDetailViewController(filesVC, sender: self)
+        authenticateUser { [weak self] isAuthenticated in
+            guard isAuthenticated else {
+                let alert = UIAlertController(title: "Authentication Failed", message: "Unable to authenticate. Access denied.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                self?.present(alert, animated: true, completion: nil)
+                return
+            }
+            
+            // Proceed with opening files list
+            let filesVC = FilesListVC()
+            let splitVC = self?.splitViewController
+            splitVC?.showDetailViewController(filesVC, sender: self)
+        }
     }
     
     @objc func openHistory() {

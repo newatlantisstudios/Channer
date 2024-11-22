@@ -80,8 +80,16 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         urlWebVC.images = images // Pass the entire list of images/videos
         urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
         urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
-        let splitVC = self.splitViewController
-        splitVC?.showDetailViewController(urlWebVC, sender: self)
+        
+        // Navigate to the gallery
+        if let navController = navigationController {
+            print("Pushing galleryVC onto navigation stack.")
+            navController.pushViewController(urlWebVC, animated: true)
+        } else {
+            print("Navigation controller is nil. Attempting modal presentation.")
+            let navController = UINavigationController(rootViewController: urlWebVC)
+            present(navController, animated: true)
+        }
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {

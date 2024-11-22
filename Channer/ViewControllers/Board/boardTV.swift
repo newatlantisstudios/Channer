@@ -479,9 +479,9 @@ class boardTV: UITableViewController {
 
         // Set up other cell components (text, image, etc.)
         let formattedComment = formatText(thread.comment)
-        let formattedTitle = thread.title
+        let formattedTitle = formatText(thread.title)
 
-        if formattedTitle.isEmpty || formattedTitle == "null" {
+        if formattedTitle.string.isEmpty || formattedTitle.string == "null" {
             cell.topicTextTitle.isHidden = true
             cell.topicTextNoTitle.isHidden = false
             cell.topicTitle.isHidden = true
@@ -491,7 +491,7 @@ class boardTV: UITableViewController {
             cell.topicTextNoTitle.isHidden = true
             cell.topicTitle.isHidden = false
             cell.topicTextTitle.attributedText = formattedComment
-            cell.topicTitle.text = formattedTitle // Use plain text
+            cell.topicTitle.text = formattedTitle.string // Use plain text
         }
 
         configureImage(for: cell, with: thread.imageUrl)

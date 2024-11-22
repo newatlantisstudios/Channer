@@ -965,15 +965,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             webmVC.videoURL = selectedImageURL.absoluteString
             print("Navigating to WebMViewController.")
 
-            // Navigate based on the environment
-            if let splitVC = self.splitViewController,
-               let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
-                detailNavController.pushViewController(webmVC, animated: true)
-            } else if let navController = self.navigationController {
+            // Handle navigation stack
+            if let navController = navigationController {
                 navController.pushViewController(webmVC, animated: true)
             } else {
-                // Fallback to modal presentation
+                // Fallback to modal presentation for iPhones
                 let navController = UINavigationController(rootViewController: webmVC)
+                navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         } else {
@@ -984,15 +982,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             urlWebVC.enableSwipes = false
             print("Navigating to urlWeb for image display.")
 
-            // Navigate based on the environment
-            if let splitVC = self.splitViewController,
-               let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
-                detailNavController.pushViewController(urlWebVC, animated: true)
-            } else if let navController = self.navigationController {
+            // Handle navigation stack
+            if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
             } else {
-                // Fallback to modal presentation
+                // Fallback to modal presentation for iPhones
                 let navController = UINavigationController(rootViewController: urlWebVC)
+                navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         }
