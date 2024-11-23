@@ -1,0 +1,37 @@
+{
+  "name": "New Atlantis Studios",
+  "subtitle": "Where Innovation Meets Imagination",
+  "description": "Welcome to New Atlantis Studios' official app source. Here you'll find our latest apps.",
+  "iconURL": "https://img1.wsimg.com/isteam/ip/da8adcad-c484-4597-8810-27cd156cb0ab/48fa523a-b233-48c0-8945-9a5bc821fc6c.jpeg/:/cr=t:4.47%25,l:16.51%25,w:68.44%25,h:68.44%25/rs=w:700,cg:true,m",
+  "headerURL": "https://img1.wsimg.com/isteam/ip/da8adcad-c484-4597-8810-27cd156cb0ab/48fa523a-b233-48c0-8945-9a5bc821fc6c.jpeg/:/cr=t:4.47%25,l:16.51%25,w:68.44%25,h:68.44%25/rs=w:700,cg:true,m",
+  "website": "https://newatlantisstudios.com",
+  "tintColor": "#2A96FF",
+  "apps": [
+    {
+      "name": "Channer",
+      "bundleIdentifier": "com.newatlantisstudios.channer",
+      "developerName": "New Atlantis Studios",
+      "subtitle": "Unofficial 4chan App",
+      "localizedDescription": "Channer v1.1",
+      "iconURL": "https://raw.githubusercontent.com/newatlantisstudios/Channer/main/Channer/Application/Assets.xcassets/AppIcon.appiconset/Icon-1024.png",
+      "tintColor": "#77DD77",
+      "category": "Social Network",
+      "screenshots": [
+        "https://raw.githubusercontent.com/newatlantisstudios/Channer/main/App%20Images/iOS/iOS-1.png",
+        "https://raw.githubusercontent.com/newatlantisstudios/Channer/main/App%20Images/iOS/iOS-2.png",
+        "https://raw.githubusercontent.com/newatlantisstudios/Channer/main/App%20Images/iOS/iOS-3.png"
+      ],
+      "versions": [
+        {
+          "version": "1.1",
+          "buildVersion": "1",
+          "date": "2024-11-22",
+          "localizedDescription": "Channer v1.1",
+          "downloadURL": "https://github.com/newatlantisstudios/Channer/releases/download/v1.1/Channer.V1.1.ipa",
+          "size": 29800000,
+          "minOSVersion": "18.0"
+        }
+      ]
+    }
+  ]
+}
