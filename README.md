@@ -1,5 +1,3 @@
-**Channer** is an iOS and iPadOS app designed to elevate your 4chan browsing experience. It provides a smooth, feature-rich interface, making it easier to navigate, save, and revisit your favorite threads.
-
 ## Features
 
 - **Seamless Browsing Experience**
