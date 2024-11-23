@@ -24,8 +24,8 @@
 - **Advanced Search**
   - Quickly search threads by title or replies.
 
-
-
+Alt Store Repo:
+https://newatlantisstudios.github.io/altstore-repo/altStoreApps.json
 
 ### Screenshot 1
 ![iOS Screenshot 1](App%20Images/iOS/iOS-1.png)
