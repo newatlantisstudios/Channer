@@ -3,41 +3,46 @@ import Alamofire
 import Kingfisher
 import SwiftyJSON
 
+// MARK: - Thread Replies Table View Controller
 class threadRepliesTV: UITableViewController, UITextViewDelegate {
-    @IBOutlet var threadTV: UITableView!
-    var onViewReady: (() -> Void)?
     
     // MARK: - Properties
-        var boardAbv = ""
-        var threadNumber = ""
-        private var showSpoilers = false
-        private var spoilerButton: UIBarButtonItem?
+    /// Outlets and general properties for the thread view
+    @IBOutlet var threadTV: UITableView!
+    var onViewReady: (() -> Void)?
+    var boardAbv = ""
+    var threadNumber = ""
+    private var showSpoilers = false
+    private var spoilerButton: UIBarButtonItem?
     private var favoriteButton: UIBarButtonItem?
-        private var originalTexts: [String] = []
-        private var isLoading = true {
-            didSet {
-                updateLoadingUI()
-            }
+    private var originalTexts: [String] = []
+    private var isLoading = true {
+        didSet {
+            updateLoadingUI()
         }
+    }
     private var isThreadFavorited = false
     private var favorites: [String: [String: Any]] = [:] // Store favorites as [threadNumber: threadData]
-        
-    private lazy var loadingContainer: UIView = {
-            let container = UIView()
-            container.backgroundColor = .systemBackground
-            container.translatesAutoresizingMaskIntoConstraints = false
-            return container
-        }()
-        
-    private lazy var loadingIndicator: UIActivityIndicatorView = {
-            let indicator = UIActivityIndicatorView(style: .medium)
-            indicator.hidesWhenStopped = true
-            indicator.color = .systemGray
-            indicator.translatesAutoresizingMaskIntoConstraints = false
-            return indicator
-        }()
     
-    // Thread Data
+    // MARK: - Loading Indicator
+    /// UI components for displaying a loading indicator
+    private lazy var loadingContainer: UIView = {
+        let container = UIView()
+        container.backgroundColor = .systemBackground
+        container.translatesAutoresizingMaskIntoConstraints = false
+        return container
+    }()
+    
+    private lazy var loadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.hidesWhenStopped = true
+        indicator.color = .systemGray
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+    
+    // MARK: - Thread Data
+    /// Data structures for storing thread replies and related information
     var replyCount = 0
     var threadReplies = [NSAttributedString]()
     var threadBoardReplyNumber = [String]()
@@ -50,16 +55,18 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     private var threadBoardReplyNumberOld = [String]()
     private var threadRepliesImagesOld = [String]()
     
+    // MARK: - View Lifecycle Methods
+    /// Lifecycle methods to set up the view
     override func loadView() {
-            super.loadView()
-            // Set up loading indicator immediately when view is created
-            view.addSubview(loadingIndicator)
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
-            loadingIndicator.startAnimating()
-        }
+        super.loadView()
+        // Set up loading indicator immediately when view is created
+        view.addSubview(loadingIndicator)
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        loadingIndicator.startAnimating()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -84,74 +91,287 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         // Load initial data
         loadInitialData()
     }
-
     
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+
+        /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
+        /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
+        /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
+        if !threadNumber.isEmpty { // Use threadNumber instead of threadID
+            FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
+        }
+    }
+
     override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
+        super.viewWillAppear(animated)
         navigationController?.navigationBar.isHidden = false
         
-            // Ensure navigation bar is properly configured
-            navigationController?.navigationBar.isTranslucent = true
-            navigationController?.navigationBar.backgroundColor = .systemBackground
-            
-            // Ensure view is visible
-            view.isHidden = false
-            tableView.isHidden = false
+        // Ensure navigation bar is properly configured
+        navigationController?.navigationBar.isTranslucent = true
+        navigationController?.navigationBar.backgroundColor = .systemBackground
+        
+        // Ensure view is visible
+        view.isHidden = false
+        tableView.isHidden = false
+    }
+    
+    override func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 172
+    }
+    
+    // MARK: - UI Setup Methods
+    /// Methods to set up the UI components and appearance
+    private func setupTableView() {
+        // Clear background
+        view.backgroundColor = .white
+        tableView.backgroundColor = .white
+        
+        // Remove any automatic adjustments
+        if #available(iOS 11.0, *) {
+            tableView.contentInsetAdjustmentBehavior = .never
         }
         
-        private func setupTableView() {
-            // Clear background
-            view.backgroundColor = .white
-            tableView.backgroundColor = .white
-            
-            // Remove any automatic adjustments
-            if #available(iOS 11.0, *) {
-                tableView.contentInsetAdjustmentBehavior = .never
-            }
-            
-            // Configure table view
-            tableView.separatorStyle = .none
-            tableView.estimatedRowHeight = 0 // Disable estimated height
-            tableView.rowHeight = 170 // Fixed height for cells
-            
-            // Register cell if using programmatic cell
-            // tableView.register(threadRepliesCell.self, forCellReuseIdentifier: "threadReplyCell")
-            
-            // Add loading indicator
-            view.addSubview(loadingIndicator)
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
-        }
+        // Configure table view
+        tableView.separatorStyle = .none
+        tableView.estimatedRowHeight = 0 // Disable estimated height
+        tableView.rowHeight = 170 // Fixed height for cells
+        
+        // Register cell if using programmatic cell
+        // tableView.register(threadRepliesCell.self, forCellReuseIdentifier: "threadReplyCell")
+        
+        // Add loading indicator
+        view.addSubview(loadingIndicator)
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
     
     func setupTableViewLayout() {
-            // Configure table view basic properties
-            tableView.translatesAutoresizingMaskIntoConstraints = false
-            
-            // Set background colors
-            view.backgroundColor = .systemBackground
-            tableView.backgroundColor = .systemBackground
-            
-            // Configure table view properties
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-        }
-    
-    
+        // Configure table view basic properties
+        tableView.translatesAutoresizingMaskIntoConstraints = false
         
-        // MARK: - Table View Data Source
-    override func numberOfSections(in tableView: UITableView) -> Int {
-            return 1
+        // Set background colors
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+        
+        // Configure table view properties
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 172
+    }
+    
+    private func setupUI() {
+        // Configure view and table view
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+        tableView.separatorStyle = .none
+        
+        // Remove any extra spacing or insets
+        tableView.contentInset = .zero
+        tableView.scrollIndicatorInsets = .zero
+        
+        // Configure loading indicator in center of view
+        view.addSubview(loadingIndicator)
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        
+        // Setup navigation items
+        setupNavigationItems()
+        
+        // Start in loading state
+        isLoading = true
+        updateLoadingUI()
+    }
+    
+    private func configureView() {
+        // Set background colors immediately
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+        
+        // Configure navigation bar
+        navigationController?.navigationBar.backgroundColor = .systemBackground
+        navigationController?.view.backgroundColor = .systemBackground
+        
+        // Configure table view
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 172
+        
+        // Setup loading indicator
+        setupLoadingIndicator()
+        
+        // Setup navigation items
+        setupNavigationItems()
+    }
+    
+    private func configureViewAppearance() {
+        // Clear background colors
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+        
+        // Configure table view
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 172
+        
+        // Ensure proper view hierarchy
+        if let navigationBar = navigationController?.navigationBar {
+            navigationBar.isTranslucent = true
+            navigationBar.barTintColor = .systemBackground
+        }
+    }
+    
+    private func configureInitialUI() {
+        // Set background colors
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+        
+        // Configure table view
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 172
+        
+        // Initially hide the table view while loading
+        tableView.isHidden = true
+        
+        // Add and configure loading indicator
+        view.addSubview(loadingIndicator)
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        
+        // Start loading state
+        isLoading = true
+        
+        // Set up navigation items
+        setupNavigationItems()
+    }
+    
+    private func setupLoadingIndicator() {
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(loadingIndicator)
+        view.bringSubviewToFront(loadingIndicator)
+        
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+        
+        loadingIndicator.startAnimating()
+    }
+    
+    // MARK: - Navigation Item Setup Methods
+    /// Methods to configure navigation bar items and actions
+    private func setupNavigationItems() {
+        // Create the Favorites button
+        favoriteButton = UIBarButtonItem(image: UIImage(named: isThreadFavorited ? "favoriteFilled" : "favorite"),
+                                         style: .plain,
+                                         target: self,
+                                         action: #selector(toggleFavorite))
+        
+        // Create the Gallery button
+        let galleryButton = UIBarButtonItem(image: UIImage(named: "gallery"),
+                                            style: .plain,
+                                            target: self,
+                                            action: #selector(showGallery))
+        
+        // Create the More button
+        let moreButton = UIBarButtonItem(image: UIImage(named: "more"),
+                                         style: .plain,
+                                         target: self,
+                                         action: #selector(showActionSheet))
+        
+        // Set the buttons in the navigation bar
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!]
+    }
+    
+    @objc private func showActionSheet() {
+        // Create an action sheet
+        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        
+        // Add actions for additional navigation options
+        actionSheet.addAction(UIAlertAction(title: "Refresh", style: .default, handler: { _ in
+            self.refresh()
+        }))
+        
+        actionSheet.addAction(UIAlertAction(title: "Bottom", style: .default, handler: { _ in
+            self.down()
+        }))
+        
+        actionSheet.addAction(UIAlertAction(title: showSpoilers ? "Hide Spoilers" : "Show Spoilers", style: .default, handler: { _ in
+            self.toggleSpoilers()
+        }))
+        
+        // Add a cancel action
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+        
+        // Configure the popover presentation controller for iPad or SplitView
+        if let popover = actionSheet.popoverPresentationController {
+            popover.barButtonItem = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) })
+            popover.sourceView = self.view
+            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
         }
         
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            //print("Number of rows: \(isLoading ? 0 : replyCount)")
-            return isLoading ? 0 : replyCount
+        // Present the action sheet
+        present(actionSheet, animated: true, completion: nil)
+    }
+    
+    @objc private func showGallery() {
+        print("Gallery button tapped.")
+
+        // Map valid image URLs
+        let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
+            guard let url = URL(string: imageUrlString) else { return nil }
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
+            if imageUrlString.contains(".webm") {
+                return URL(string: imageUrlString.replacingOccurrences(of: ".webm", with: "s.jpg"))
+            }
+            return url
         }
 
+        print("Filtered image URLs: \(imageUrls)")
+
+        // Instantiate the gallery view controller
+        let galleryVC = ImageGalleryVC(images: imageUrls)
+        print("GalleryVC instantiated.")
+
+        // Navigate to the gallery
+        if let navController = navigationController {
+            print("Pushing galleryVC onto navigation stack.")
+            navController.pushViewController(galleryVC, animated: true)
+        } else {
+            print("Navigation controller is nil. Attempting modal presentation.")
+            let navController = UINavigationController(rootViewController: galleryVC)
+            present(navController, animated: true)
+        }
+    }
+    
+    // MARK: - Table View Data Source Methods
+    /// Methods required to display data in the table view
+    override func numberOfSections(in tableView: UITableView) -> Int {
+        return 1
+    }
+        
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        //print("Number of rows: \(isLoading ? 0 : replyCount)")
+        return isLoading ? 0 : threadReplies.count
+    }
+
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        //print("Configuring cell at index: \(indexPath.row)")
+            //print("threadReplies count: \(threadReplies.count)")
+            
+            guard indexPath.row < threadReplies.count else {
+                print("Index out of bounds: \(indexPath.row)")
+                return UITableViewCell() // Placeholder to avoid crashing
+            }
+        
         let cell = tableView.dequeueReusableCell(withIdentifier: "threadReplyCell", for: indexPath) as! threadRepliesCell
 
         // Set the text view delegate to self
@@ -214,44 +434,49 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
         return cell
     }
-        
-        // MARK: - Helper Methods
-        private func updateLoadingUI() {
-            if isLoading {
-                loadingIndicator.startAnimating()
-                tableView.isHidden = true
-            } else {
-                loadingIndicator.stopAnimating()
-                tableView.isHidden = false
-            }
-        }
-        
+
+    // MARK: - Data Loading Methods
+    /// Methods to handle data fetching and processing
+    var shouldLoadFullThread: Bool = true
+
     private func loadInitialData() {
+        // If shouldLoadFullThread is false, do not reload data
+        guard shouldLoadFullThread else {
+            isLoading = false
+            print("Loading initial data...")
+            print("Reply count: \(replyCount), Thread replies: \(threadReplies.count)")
+            tableView.reloadData()
+            return
+        }
+
         // Check if threadNumber is set
         guard !threadNumber.isEmpty else {
             isLoading = false
             onViewReady?()
             return
         }
-        
+
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         print("Loading data from: \(urlString)") // Debug print
-        
+
         // Perform network request
         AF.request(urlString).responseData { [weak self] response in
             guard let self = self else { return }
-            
+
             DispatchQueue.main.async {
                 switch response.result {
                 case .success(let data):
                     do {
                         // Parse JSON response
                         let json = try JSON(data: data)
+                        //print(json)
                         self.processThreadData(json)
                         self.structureThreadReplies()
                         self.isLoading = false
-                        print("Data loaded successfully. Thread count: \(self.threadReplies.count)") // Debug print
+                        //print("Data loaded successfully. Thread count: \(self.threadReplies.count)") // Debug print
+                        //print(self.threadReplies)
                         
+
                         // Reload table view and stop loading indicator
                         self.loadingIndicator.stopAnimating()
                         self.tableView.reloadData()
@@ -269,130 +494,105 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             }
         }
     }
-        
-        private func configureView() {
-            // Set background colors immediately
-            view.backgroundColor = .systemBackground
-            tableView.backgroundColor = .systemBackground
-            
-            // Configure navigation bar
-            navigationController?.navigationBar.backgroundColor = .systemBackground
-            navigationController?.view.backgroundColor = .systemBackground
-            
-            // Configure table view
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-            
-            // Setup loading indicator
-            setupLoadingIndicator()
-            
-            // Setup navigation items
-            setupNavigationItems()
+    
+    private func loadData() {
+        guard !threadNumber.isEmpty else {
+            isLoading = false
+            return
         }
         
-        private func setupLoadingIndicator() {
-            loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(loadingIndicator)
-            view.bringSubviewToFront(loadingIndicator)
+        let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
+        
+        AF.request(urlString).responseData { [weak self] response in
+            guard let self = self else { return }
             
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
-            
-            loadingIndicator.startAnimating()
+            DispatchQueue.main.async {
+                switch response.result {
+                case .success(let data):
+                    do {
+                        let json = try JSON(data: data)
+                        //print("threadRepliesTV - JSON")
+                        //print(json)
+                        self.processThreadData(json)
+                        self.structureThreadReplies()
+                        self.isLoading = false
+                        self.tableView.reloadData()
+                    } catch {
+                        print("JSON parsing error: \(error)")
+                        self.handleLoadError()
+                    }
+                case .failure(let error):
+                    print("Network error: \(error)")
+                    self.handleLoadError()
+                }
+            }
         }
-       
-       override func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-           return 172
-       }
-        
-    private func setupNavigationItems() {
-        // Create the Favorites button
-        favoriteButton = UIBarButtonItem(image: UIImage(named: isThreadFavorited ? "favoriteFilled" : "favorite"),
-                                         style: .plain,
-                                         target: self,
-                                         action: #selector(toggleFavorite))
-        
-        // Create the Gallery button
-        let galleryButton = UIBarButtonItem(image: UIImage(named: "gallery"),
-                                            style: .plain,
-                                            target: self,
-                                            action: #selector(showGallery))
-        
-        // Create the More button
-        let moreButton = UIBarButtonItem(image: UIImage(named: "more"),
-                                         style: .plain,
-                                         target: self,
-                                         action: #selector(showActionSheet))
-        
-        // Set the buttons in the navigation bar
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!]
-    }
-
-    @objc private func showActionSheet() {
-        // Create an action sheet
-        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        
-        // Add actions for additional navigation options
-        actionSheet.addAction(UIAlertAction(title: "Refresh", style: .default, handler: { _ in
-            self.refresh()
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: "Bottom", style: .default, handler: { _ in
-            self.down()
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: showSpoilers ? "Hide Spoilers" : "Show Spoilers", style: .default, handler: { _ in
-            self.toggleSpoilers()
-        }))
-        
-        // Add a cancel action
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        
-        // Configure the popover presentation controller for iPad or SplitView
-        if let popover = actionSheet.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) })
-            popover.sourceView = self.view
-            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
-        }
-        
-        // Present the action sheet
-        present(actionSheet, animated: true, completion: nil)
     }
     
-    @objc private func showGallery() {
-        print("Gallery button tapped.")
-
-        // Map valid image URLs
-        let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
-            guard let url = URL(string: imageUrlString) else { return nil }
-            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
-            if imageUrlString.contains(".webm") {
-                return URL(string: imageUrlString.replacingOccurrences(of: ".webm", with: "s.jpg"))
-            }
-            return url
-        }
-
-        print("Filtered image URLs: \(imageUrls)")
-
-        // Instantiate the gallery view controller
-        let galleryVC = ImageGalleryVC(images: imageUrls)
-        print("GalleryVC instantiated.")
-
-        // Navigate to the gallery
-        if let navController = navigationController {
-            print("Pushing galleryVC onto navigation stack.")
-            navController.pushViewController(galleryVC, animated: true)
-        } else {
-            print("Navigation controller is nil. Attempting modal presentation.")
-            let navController = UINavigationController(rootViewController: galleryVC)
-            present(navController, animated: true)
-        }
+    private func handleLoadError() {
+        isLoading = false
+        
+        let alert = UIAlertController(
+            title: "Loading Error",
+            message: "Failed to load thread data. Please try again.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
+            self?.loadInitialData()
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alert, animated: true)
     }
+    
+    private func processThreadData(_ json: JSON) {
+        // Get reply count
+        replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
 
+        // Handle case with no replies
+        if replyCount == 0 {
+            processPost(json["posts"][0], index: 0)
+            replyCount = 1
+            structureThreadReplies()
+            return
+        }
+
+        // Process all posts in the thread
+        for i in 0...replyCount {
+            processPost(json["posts"][i], index: i)
+        }
+
+        // Finalize thread structure
+        structureThreadReplies()
+    }
+    
+    private func processPost(_ post: JSON, index: Int) {
+        // Extract the board reply number
+        threadBoardReplyNumber.append(String(describing: post["no"]))
+
+        // Extract the image URL
+        let imageTimestamp = post["tim"].stringValue
+        let imageExtension = post["ext"].stringValue
+        let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
+        threadRepliesImages.append(imageURL)
+
+        // Extract and process the comment text
+        let comment = post["com"].stringValue
+
+        // Store the original unprocessed text for toggling spoilers later
+        originalTexts.append(comment)
+        //print("Raw comment: \(comment)")
+
+        // Format the comment text with spoiler visibility
+        let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
+        //print("Formatted comment: \(formattedComment)")
+        threadReplies.append(formattedComment)
+    }
+    
+    // MARK: - Favorite Handling Methods
+    /// Methods to manage thread favorites
     @objc private func toggleFavorite() {
         guard !threadNumber.isEmpty else { return }
 
@@ -453,23 +653,20 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
         print("Added to favorites: \(favorite)")
     }
-
-
+    
     private func removeFavorite() {
         FavoritesManager.shared.removeFavorite(threadNumber: threadNumber)
     }
-
-
+    
     private func loadFavorites() -> [ThreadData] {
         return FavoritesManager.shared.loadFavorites()
     }
-
-
+    
     // Save a single favorite thread
     func saveFavorite(_ favorite: ThreadData) {
         FavoritesManager.shared.addFavorite(favorite)
     }
-
+    
     private func checkIfFavorited() {
         let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
         
@@ -481,224 +678,22 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             print("Favorite button not found in rightBarButtonItems")
         }
     }
+    
+    // MARK: - Spoiler Handling Methods
+    /// Methods to handle spoiler visibility in comments
+    @objc private func toggleSpoilers() {
+        showSpoilers.toggle()
+        spoilerButton?.image = UIImage(named: showSpoilers ? "hide" : "show")
+        print("Spoiler visibility toggled. Current state: \(showSpoilers)")
 
-        
-        private func handleLoadError() {
-            isLoading = false
-            
-            let alert = UIAlertController(
-                title: "Loading Error",
-                message: "Failed to load thread data. Please try again.",
-                preferredStyle: .alert
-            )
-            
-            alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
-                self?.loadInitialData()
-            })
-            
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            
-            present(alert, animated: true)
-        }
-    
-    private func configureTableView() {
-            // Configure table view
-            tableView.backgroundColor = .systemBackground
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-            
-            // Ensure proper view hierarchy
-            if let navigationBar = navigationController?.navigationBar {
-                navigationBar.isTranslucent = true
-                navigationBar.barTintColor = .systemBackground
-            }
-            
-            // Register cell if using prototype cell
-            tableView.register(threadRepliesCell.self, forCellReuseIdentifier: "threadReplyCell")
-        }
-    
-    private func setupUI() {
-            // Configure view and table view
-            view.backgroundColor = .systemBackground
-            tableView.backgroundColor = .systemBackground
-            tableView.separatorStyle = .none
-            
-            // Remove any extra spacing or insets
-            tableView.contentInset = .zero
-            tableView.scrollIndicatorInsets = .zero
-            
-            // Configure loading indicator in center of view
-            view.addSubview(loadingIndicator)
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
-            
-            // Setup navigation items
-            setupNavigationItems()
-            
-            // Start in loading state
-            isLoading = true
-            updateLoadingUI()
-        }
-    
-    
-        
-        private func loadData() {
-            guard !threadNumber.isEmpty else {
-                isLoading = false
-                return
-            }
-            
-            let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
-            
-            AF.request(urlString).responseData { [weak self] response in
-                guard let self = self else { return }
-                
-                DispatchQueue.main.async {
-                    switch response.result {
-                    case .success(let data):
-                        do {
-                            let json = try JSON(data: data)
-                            print("threadRepliesTV - JSON")
-                            print(json)
-                            self.processThreadData(json)
-                            self.structureThreadReplies()
-                            self.isLoading = false
-                            self.tableView.reloadData()
-                        } catch {
-                            print("JSON parsing error: \(error)")
-                            self.handleLoadError()
-                        }
-                    case .failure(let error):
-                        print("Network error: \(error)")
-                        self.handleLoadError()
-                    }
-                }
-            }
-        }
-        
-        
-    
-    private func configureViewAppearance() {
-            // Clear background colors
-            view.backgroundColor = .systemBackground
-            tableView.backgroundColor = .systemBackground
-            
-            // Configure table view
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-            
-            // Ensure proper view hierarchy
-            if let navigationBar = navigationController?.navigationBar {
-                navigationBar.isTranslucent = true
-                navigationBar.barTintColor = .systemBackground
-            }
-        }
-        
-        private func updateLoadingState() {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                
-                if self.isLoading {
-                    self.loadingIndicator.startAnimating()
-                    self.tableView.alpha = 0
-                } else {
-                    self.loadingIndicator.stopAnimating()
-                    UIView.animate(withDuration: 0.3) {
-                        self.tableView.alpha = 1
-                    }
-                }
-            }
-        }
-        
-        @objc func refresh() {
-            print("Refresh triggered")
-            threadReplies.removeAll()
-            threadBoardReplyNumber.removeAll()
-            threadRepliesImages.removeAll()
-            threadBoardReplies.removeAll()
-            replyCount = 0
-            loadInitialData()
-        }
-    
-    private func configureInitialUI() {
-            // Set background colors
-            view.backgroundColor = .systemBackground
-            tableView.backgroundColor = .systemBackground
-            
-            // Configure table view
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-            
-            // Initially hide the table view while loading
-            tableView.isHidden = true
-            
-            // Add and configure loading indicator
-            view.addSubview(loadingIndicator)
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
-            
-            // Start loading state
-            isLoading = true
-            
-            // Set up navigation items
-            setupNavigationItems()
-        }
-    
-    @objc private func down() {
-        let lastRow = threadTV.numberOfRows(inSection: 0) - 1
-        let indexPath = IndexPath(row: lastRow, section: 0)
-        threadTV.scrollToRow(at: indexPath, at: .top, animated: false)
-    }
-    
-    private func processThreadData(_ json: JSON) {
-        // Get reply count
-        replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
-
-        // Handle case with no replies
-        if replyCount == 0 {
-            processPost(json["posts"][0], index: 0)
-            replyCount = 1
-            structureThreadReplies()
-            return
+        // Reprocess all replies with updated spoiler state
+        for (index, originalText) in originalTexts.enumerated() {
+            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers)
+            threadReplies[index] = updatedText
         }
 
-        // Process all posts in the thread
-        for i in 0...replyCount {
-            processPost(json["posts"][i], index: i)
-        }
-
-        // Finalize thread structure
-        structureThreadReplies()
-    }
-    
-    private func processPost(_ post: JSON, index: Int) {
-        // Extract the board reply number
-        threadBoardReplyNumber.append(String(describing: post["no"]))
-
-        // Extract the image URL
-        let imageTimestamp = post["tim"].stringValue
-        let imageExtension = post["ext"].stringValue
-        let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
-        threadRepliesImages.append(imageURL)
-
-        // Extract and process the comment text
-        let comment = post["com"].stringValue
-
-        // Store the original unprocessed text for toggling spoilers later
-        originalTexts.append(comment)
-        //print("Raw comment: \(comment)")
-
-        // Format the comment text with spoiler visibility
-        let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
-        //print("Formatted comment: \(formattedComment)")
-        threadReplies.append(formattedComment)
+        // Reload the table view
+        tableView.reloadData()
     }
     
     private func formatComment(_ comment: String, preserveOriginal: Bool = false) -> NSAttributedString {
@@ -769,6 +764,25 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
 
         return attributedString
     }
+
+    private func processSpoilerText(_ text: String) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let lines = text.components(separatedBy: "\n")
+        
+        for (index, line) in lines.enumerated() {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .foregroundColor: showSpoilers ? UIColor.white : UIColor.black,
+                .backgroundColor: UIColor.black
+            ]
+            result.append(NSAttributedString(string: line, attributes: attributes))
+            
+            if index < lines.count - 1 {
+                result.append(NSAttributedString(string: "\n"))
+            }
+        }
+        
+        return result
+    }
     
     private func processNormalText(_ text: String) -> NSAttributedString {
         let result = NSMutableAttributedString()
@@ -806,6 +820,8 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         return result
     }
     
+    // MARK: - Text View Delegate Methods
+    /// UITextViewDelegate methods for handling text interactions
     func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {
         if URL.scheme == "post" {
             let postNumber = URL.host ?? ""
@@ -819,12 +835,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         // Handle any other types of URL as needed
         return true
     }
-    
+
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         return false
     }
     
-    // Handle tap gestures on the text view
+    // MARK: - Gesture Handling Methods
+    /// Methods to handle gestures in the view
     @objc private func handleTextViewTap(_ gesture: UITapGestureRecognizer) {
         guard let textView = gesture.view as? UITextView else { return }
         
@@ -842,6 +859,241 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 // Find index and open the thread
                 if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
                     showThread(sender: UIButton().apply { $0.tag = index })
+                }
+            }
+        }
+    }
+    
+    // MARK: - Image Handling Methods
+    /// Methods to handle image loading and interactions
+    private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
+        //print("Debug: Starting image configuration for URL: \(imageUrl)")
+
+        let finalUrl: String
+        if imageUrl.contains(".webm") {
+            finalUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
+        } else {
+            finalUrl = imageUrl
+        }
+
+        guard let url = URL(string: finalUrl) else {
+            print("Debug: Invalid URL: \(finalUrl)")
+            cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            return
+        }
+
+        KingfisherManager.shared.retrieveImage(with: url) { result in
+            switch result {
+            case .success(let value):
+                //print("Debug: Successfully loaded image for URL: \(url), size: \(value.image.size)")
+                cell.threadImage.setBackgroundImage(value.image, for: .normal)
+            case .failure(let error):
+                //print("Debug: Failed to load image for URL: \(url), error: \(error)")
+                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            }
+
+            // Recalculate layout after image loads
+            DispatchQueue.main.async {
+                cell.setNeedsLayout()
+                cell.layoutIfNeeded()
+                self.tableView.beginUpdates()
+                self.tableView.endUpdates()
+            }
+        }
+    }
+    
+    @objc func threadContentOpen(sender: UIButton) {
+        let selectedImageURLString = threadRepliesImages[sender.tag]
+        print("threadContentOpen: \(selectedImageURLString)")
+
+        // Validate URL
+        guard let selectedImageURL = URL(string: selectedImageURLString) else {
+            print("Invalid URL: \(selectedImageURLString)")
+            return
+        }
+
+        if selectedImageURL.pathExtension.lowercased() == "webm" {
+            // Create WebMViewController for video
+            let webmVC = WebMViewController()
+            webmVC.videoURL = selectedImageURL.absoluteString
+            print("Navigating to WebMViewController.")
+
+            // Handle navigation stack
+            if let navController = navigationController {
+                navController.pushViewController(webmVC, animated: true)
+            } else {
+                // Fallback to modal presentation for iPhones
+                let navController = UINavigationController(rootViewController: webmVC)
+                navController.modalPresentationStyle = .fullScreen
+                present(navController, animated: true)
+            }
+        } else {
+            // Create urlWeb for images
+            let urlWebVC = urlWeb()
+            urlWebVC.images = [selectedImageURL]
+            urlWebVC.currentIndex = 0
+            urlWebVC.enableSwipes = false
+            print("Navigating to urlWeb for image display.")
+
+            // Handle navigation stack
+            if let navController = navigationController {
+                navController.pushViewController(urlWebVC, animated: true)
+            } else {
+                // Fallback to modal presentation for iPhones
+                let navController = UINavigationController(rootViewController: urlWebVC)
+                navController.modalPresentationStyle = .fullScreen
+                present(navController, animated: true)
+            }
+        }
+    }
+    
+    // MARK: - Thread Structure Methods
+    /// Methods to structure and display thread replies
+    private func structureThreadReplies() {
+        for (i, reply) in threadReplies.enumerated() {
+            // Get the string content from NSAttributedString
+            let replyString = reply.string
+
+            if replyString.contains(">>") {
+                for (a, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
+                    if replyString.contains(">>" + boardReplyNumber) {
+                        if threadBoardReplies[boardReplyNumber] == nil {
+                            threadBoardReplies[boardReplyNumber] = [threadBoardReplyNumber[i]]
+                        } else if !threadBoardReplies[boardReplyNumber]!.contains(threadBoardReplyNumber[i]) {
+                            threadBoardReplies[boardReplyNumber]?.append(threadBoardReplyNumber[i])
+                        }
+                    }
+                }
+            }
+        }
+
+        threadTV.reloadData()
+    }
+    @objc private func showThread(sender: UIButton) {
+        print("🔴showThread")
+        let tag = sender.tag
+
+        // Create thread data for the new view
+        var threadRepliesNew: [NSAttributedString] = []
+        var threadBoardReplyNumberNew: [String] = []
+        var threadRepliesImagesNew: [String] = []
+
+        // Get the board number that was clicked
+        let selectedBoardNumber = threadBoardReplyNumber[tag]
+
+        // Start with the original post
+        if let index = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
+            threadRepliesNew.append(threadReplies[index])
+            threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
+            threadRepliesImagesNew.append(threadRepliesImages[index])
+        }
+
+        // Use a Set to deduplicate replies
+        var uniqueReplies = Set<String>()
+
+        // Add only replies to this post (not the whole thread)
+        if let replies = threadBoardReplies[selectedBoardNumber] {
+            for replyNumber in replies {
+                // Add to the set to prevent duplicates
+                if uniqueReplies.insert(replyNumber).inserted,
+                   let index = threadBoardReplyNumber.firstIndex(of: replyNumber) {
+                    threadRepliesNew.append(threadReplies[index])
+                    threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
+                    threadRepliesImagesNew.append(threadRepliesImages[index])
+                }
+            }
+        }
+
+        // Create and configure new threadRepliesTV instance
+        guard let newThreadVC = storyboard?.instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
+            return
+        }
+
+        // Set the data and prevent full thread load
+        newThreadVC.threadReplies = threadRepliesNew
+        newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
+        newThreadVC.threadRepliesImages = threadRepliesImagesNew
+        newThreadVC.replyCount = threadRepliesNew.count
+        newThreadVC.boardAbv = self.boardAbv
+        newThreadVC.threadNumber = self.threadNumber
+        newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
+
+        print("Selected post: \(selectedBoardNumber)")
+        print("Filtered replies: \(Array(uniqueReplies))")
+        print("New threadReplies count: \(threadRepliesNew.count)")
+
+        // Set the title to show which post is being viewed
+        newThreadVC.title = "\(selectedBoardNumber)"
+
+        // Adapt behavior based on device type
+        if let navController = navigationController {
+            navController.pushViewController(newThreadVC, animated: true)
+        } else {
+            // Fallback to modal presentation for iPhones
+            let navController = UINavigationController(rootViewController: newThreadVC)
+            navController.modalPresentationStyle = .fullScreen
+            present(navController, animated: true)
+        }
+        
+    }
+    
+    @objc private func completeThread() {
+        // Restore navigation items
+        setupNavigationItems()
+        
+        // Restore full thread
+        threadReplies = threadRepliesOld
+        threadBoardReplyNumber = threadBoardReplyNumberOld
+        threadRepliesImages = threadRepliesImagesOld
+        
+        // Clear saved state
+        threadRepliesOld.removeAll()
+        threadBoardReplyNumberOld.removeAll()
+        threadRepliesImagesOld.removeAll()
+        
+        replyCount = threadReplies.count
+        threadTV.reloadData()
+    }
+    
+    // MARK: - Helper Methods
+    /// General helper methods used throughout the class
+    @objc func refresh() {
+        print("Refresh triggered")
+        threadReplies.removeAll()
+        threadBoardReplyNumber.removeAll()
+        threadRepliesImages.removeAll()
+        threadBoardReplies.removeAll()
+        replyCount = 0
+        loadInitialData()
+    }
+    
+    @objc private func down() {
+        let lastRow = threadTV.numberOfRows(inSection: 0) - 1
+        let indexPath = IndexPath(row: lastRow, section: 0)
+        threadTV.scrollToRow(at: indexPath, at: .top, animated: false)
+    }
+    
+    private func updateLoadingUI() {
+        if isLoading {
+            loadingIndicator.startAnimating()
+            tableView.isHidden = true
+        } else {
+            loadingIndicator.stopAnimating()
+            tableView.isHidden = false
+        }
+    }
+    
+    private func updateLoadingState() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            if self.isLoading {
+                self.loadingIndicator.startAnimating()
+                self.tableView.alpha = 0
+            } else {
+                self.loadingIndicator.stopAnimating()
+                UIView.animate(withDuration: 0.3) {
+                    self.tableView.alpha = 1
                 }
             }
         }
@@ -891,215 +1143,11 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         
         return result
     }
-
     
-    private func processSpoilerText(_ text: String) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        let lines = text.components(separatedBy: "\n")
-        
-        for (index, line) in lines.enumerated() {
-            let attributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: showSpoilers ? UIColor.white : UIColor.black,
-                .backgroundColor: UIColor.black
-            ]
-            result.append(NSAttributedString(string: line, attributes: attributes))
-            
-            if index < lines.count - 1 {
-                result.append(NSAttributedString(string: "\n"))
-            }
-        }
-        
-        return result
-    }
-    
-    
-    @objc private func toggleSpoilers() {
-        showSpoilers.toggle()
-        spoilerButton?.image = UIImage(named: showSpoilers ? "hide" : "show")
-        print("Spoiler visibility toggled. Current state: \(showSpoilers)")
-
-        // Reprocess all replies with updated spoiler state
-        for (index, originalText) in originalTexts.enumerated() {
-            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers)
-            threadReplies[index] = updatedText
-        }
-
-        // Reload the table view
-        tableView.reloadData()
-    }
-    
-    private func structureThreadReplies() {
-        for (i, reply) in threadReplies.enumerated() {
-            // Get the string content from NSAttributedString
-            let replyString = reply.string
-            
-            if replyString.contains(">>") {
-                for (a, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
-                    if replyString.contains(">>" + boardReplyNumber) {
-                        if threadBoardReplies[boardReplyNumber] == nil {
-                            threadBoardReplies[boardReplyNumber] = [threadBoardReplyNumber[i]]
-                        } else {
-                            threadBoardReplies[boardReplyNumber]?.append(threadBoardReplyNumber[i])
-                        }
-                    }
-                }
-            }
-        }
-        
-        threadTV.reloadData()
-    }
-    
-    @objc func threadContentOpen(sender: UIButton) {
-        let selectedImageURLString = threadRepliesImages[sender.tag]
-        print("threadContentOpen: \(selectedImageURLString)")
-
-        // Validate URL
-        guard let selectedImageURL = URL(string: selectedImageURLString) else {
-            print("Invalid URL: \(selectedImageURLString)")
-            return
-        }
-
-        if selectedImageURL.pathExtension.lowercased() == "webm" {
-            // Create WebMViewController for video
-            let webmVC = WebMViewController()
-            webmVC.videoURL = selectedImageURL.absoluteString
-            print("Navigating to WebMViewController.")
-
-            // Handle navigation stack
-            if let navController = navigationController {
-                navController.pushViewController(webmVC, animated: true)
-            } else {
-                // Fallback to modal presentation for iPhones
-                let navController = UINavigationController(rootViewController: webmVC)
-                navController.modalPresentationStyle = .fullScreen
-                present(navController, animated: true)
-            }
-        } else {
-            // Create urlWeb for images
-            let urlWebVC = urlWeb()
-            urlWebVC.images = [selectedImageURL]
-            urlWebVC.currentIndex = 0
-            urlWebVC.enableSwipes = false
-            print("Navigating to urlWeb for image display.")
-
-            // Handle navigation stack
-            if let navController = navigationController {
-                navController.pushViewController(urlWebVC, animated: true)
-            } else {
-                // Fallback to modal presentation for iPhones
-                let navController = UINavigationController(rootViewController: urlWebVC)
-                navController.modalPresentationStyle = .fullScreen
-                present(navController, animated: true)
-            }
-        }
-    }
-    
-    private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
-        //print("Debug: Starting image configuration for URL: \(imageUrl)")
-
-        let finalUrl: String
-        if imageUrl.contains(".webm") {
-            finalUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
-        } else {
-            finalUrl = imageUrl
-        }
-
-        guard let url = URL(string: finalUrl) else {
-            print("Debug: Invalid URL: \(finalUrl)")
-            cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
-            return
-        }
-
-        KingfisherManager.shared.retrieveImage(with: url) { result in
-            switch result {
-            case .success(let value):
-                //print("Debug: Successfully loaded image for URL: \(url), size: \(value.image.size)")
-                cell.threadImage.setBackgroundImage(value.image, for: .normal)
-            case .failure(let error):
-                //print("Debug: Failed to load image for URL: \(url), error: \(error)")
-                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
-            }
-
-            // Recalculate layout after image loads
-            DispatchQueue.main.async {
-                cell.setNeedsLayout()
-                cell.layoutIfNeeded()
-                self.tableView.beginUpdates()
-                self.tableView.endUpdates()
-            }
-        }
-    }
-    
-    @objc private func showThread(sender: UIButton) {
-        let tag = sender.tag
-        
-        // Create thread data for the new view
-        var threadRepliesNew: [NSAttributedString] = []
-        var threadBoardReplyNumberNew: [String] = []
-        var threadRepliesImagesNew: [String] = []
-        
-        // Get the board number that was clicked
-        let selectedBoardNumber = threadBoardReplyNumber[tag]
-        
-        // Start with the original post
-        threadBoardReplyNumberNew.append(selectedBoardNumber)
-        if let index = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
-            threadRepliesNew.append(threadReplies[index])
-            threadRepliesImagesNew.append(threadRepliesImages[index])
-        }
-        
-        // Add all replies to this post
-        if let replies = threadBoardReplies[selectedBoardNumber] {
-            for replyNumber in replies {
-                if let index = threadBoardReplyNumber.firstIndex(of: replyNumber) {
-                    threadRepliesNew.append(threadReplies[index])
-                    threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
-                    threadRepliesImagesNew.append(threadRepliesImages[index])
-                }
-            }
-        }
-        
-        // Create and configure new threadRepliesTV instance
-        guard let newThreadVC = storyboard?.instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
-            return
-        }
-        
-        // Set the data
-        newThreadVC.threadReplies = threadRepliesNew
-        newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
-        newThreadVC.threadRepliesImages = threadRepliesImagesNew
-        newThreadVC.replyCount = threadRepliesNew.count
-        newThreadVC.boardAbv = self.boardAbv
-        newThreadVC.threadNumber = self.threadNumber
-        
-        // Set the title to show which post is being viewed
-        newThreadVC.title = "\(selectedBoardNumber)"
-        
-        // Push the new view controller
-        let splitVC = self.splitViewController
-        splitVC?.showDetailViewController(newThreadVC, sender: self)
-    }
-    
-    @objc private func completeThread() {
-        // Restore navigation items
-        setupNavigationItems()
-        
-        // Restore full thread
-        threadReplies = threadRepliesOld
-        threadBoardReplyNumber = threadBoardReplyNumberOld
-        threadRepliesImages = threadRepliesImagesOld
-        
-        // Clear saved state
-        threadRepliesOld.removeAll()
-        threadBoardReplyNumberOld.removeAll()
-        threadRepliesImagesOld.removeAll()
-        
-        replyCount = threadReplies.count
-        threadTV.reloadData()
-    }
 }
 
-// Helper extension for button configuration
+// MARK: - UIButton Extension
+/// Helper extension for button configuration
 private extension UIButton {
     @discardableResult
     func apply(_ closure: (UIButton) -> Void) -> UIButton {

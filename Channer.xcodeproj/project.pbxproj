@@ -143,9 +143,9 @@
 			isa = PBXGroup;
 			children = (
 				1781F6442CEEEBA800CE243D /* Home */,
-				179B6B992CDDF0910099D980 /* Show content */,
 				1731C6C62CD1606000764AED /* Board */,
 				1731C6C72CD1608800764AED /* Thread Replies */,
+				179B6B992CDDF0910099D980 /* Show content */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -226,6 +226,7 @@
 				1781F6462CEEEC7B00CE243D /* boardsCV.swift */,
 				178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */,
 				1776B0A72CE3079E00B304E7 /* HistoryManager.swift */,
+				179B6B952CDDEC960099D980 /* FilesListVC.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -233,13 +234,12 @@
 		179B6B992CDDF0910099D980 /* Show content */ = {
 			isa = PBXGroup;
 			children = (
-				177BC7F42CDECD05000FE370 /* ImageViewController.swift */,
 				177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */,
-				177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */,
-				17DD68412249B84100641BCA /* urlWeb.swift */,
-				170F90E622506E7C00F52BBD /* WebMViewController.swift */,
 				179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */,
-				179B6B952CDDEC960099D980 /* FilesListVC.swift */,
+				177BC7F42CDECD05000FE370 /* ImageViewController.swift */,
+				177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */,
+				170F90E622506E7C00F52BBD /* WebMViewController.swift */,
+				17DD68412249B84100641BCA /* urlWeb.swift */,
 			);
 			path = "Show content";
 			sourceTree = "<group>";
@@ -670,6 +670,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.2;
 				DEVELOPMENT_TEAM = VT7544UV35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -687,7 +688,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.x.channer;
+				MARKETING_VERSION = 1.1;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -704,6 +707,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.2;
 				DEVELOPMENT_TEAM = VT7544UV35;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -717,7 +721,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.x.channer;
+				MARKETING_VERSION = 1.1;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;

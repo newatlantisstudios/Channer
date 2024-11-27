@@ -1,21 +1,33 @@
 import UIKit
 
+/// A view controller that displays an image with zooming and panning capabilities.
 class ImageViewController: UIViewController, UIScrollViewDelegate {
     
+    // MARK: - Properties
+    /// The image view that displays the image.
     private var imageView: UIImageView!
+    /// The scroll view that enables zooming and panning.
     private var scrollView: UIScrollView!
+    /// The URL of the image to be displayed.
     var imageURL: URL
+    /// A flag to ensure zoom scale is initialized only once.
     private var hasInitializedZoomScale = false
     
+    // MARK: - Initializers
+    /// Initializes the view controller with the given image URL.
+    /// - Parameter imageURL: The URL of the image to display.
     init(imageURL: URL) {
         self.imageURL = imageURL
         super.init(nibName: nil, bundle: nil)
     }
     
+    /// Required initializer with coder (not implemented).
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // MARK: - View Lifecycle Methods
+    /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -30,10 +42,11 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         }
     }
     
+    /// Notifies the view controller that its view is about to be added to a view hierarchy.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        // Set the navigation bar appearance to black for this view
+        // Set the navigation bar appearance to black for this view.
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = .black
@@ -45,10 +58,11 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         navigationController?.navigationBar.tintColor = .white
     }
     
+    /// Notifies the view controller that its view is about to be removed from a view hierarchy.
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        // Revert the navigation bar appearance to the default
+        // Revert the navigation bar appearance to the default.
         let defaultAppearance = UINavigationBarAppearance()
         defaultAppearance.configureWithDefaultBackground()
         navigationController?.navigationBar.standardAppearance = defaultAppearance
@@ -58,6 +72,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         navigationController?.navigationBar.tintColor = nil
     }
     
+    /// Lays out subviews and initializes zoom scale if needed.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
@@ -68,6 +83,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         }
     }
     
+    // MARK: - UI Setup Methods
+    /// Sets up the scroll view for zooming and panning.
     private func setupScrollView() {
         scrollView = UIScrollView()
         scrollView.backgroundColor = .black
@@ -85,22 +102,23 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         ])
     }
     
+    /// Sets up the image view inside the scroll view.
     private func setupImageView() {
         imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
         scrollView.addSubview(imageView)
     }
     
-    // MARK: - Align Image to Top
-    
+    // MARK: - Image Alignment
+    /// Aligns the image to the top of the scroll view.
     private func alignImageToTop() {
         let scrollViewSize = scrollView.bounds.size
         let imageViewSize = imageView.frame.size
 
-        // Calculate horizontal inset for centering
+        // Calculate horizontal inset for centering.
         let horizontalInset = max(0, (scrollViewSize.width - imageViewSize.width) / 2)
         
-        // Set vertical inset to 0 to align at the top
+        // Set vertical inset to 0 to align at the top.
         scrollView.contentInset = UIEdgeInsets(
             top: 0,
             left: horizontalInset,
@@ -108,28 +126,31 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             right: horizontalInset
         )
     }
-
-    // MARK: - Zoom Support
     
+    // MARK: - Zoom Handling Methods
+    /// Updates the zoom scale based on the provided size.
+    /// - Parameter size: The size to use for calculating the zoom scale.
     private func updateZoomScaleForSize(_ size: CGSize) {
         guard let image = imageView.image else { return }
 
-        // Calculate scales to fit image in view
+        // Calculate scales to fit image in view.
         let widthScale = size.width / image.size.width
         let heightScale = size.height / image.size.height
         let minScale = min(widthScale, heightScale)
 
         scrollView.minimumZoomScale = minScale
-        scrollView.zoomScale = minScale // Reset zoom to minimum
+        scrollView.zoomScale = minScale // Reset zoom to minimum.
 
-        // Align image at the top
+        // Align image at the top.
         alignImageToTop()
     }
     
+    /// Asks the delegate for the view to scale when zooming is about to occur.
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         return imageView
     }
     
+    /// Tells the delegate that the scroll view’s zoom factor changed.
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         alignImageToTop()
     }

@@ -1,24 +1,31 @@
 import UIKit
 
+/// A custom `UICollectionViewCell` subclass representing a board cell with an image and labels.
 class boardCVCell: UICollectionViewCell {
 
+    // MARK: - UI Components
+    // Define UI elements for the cell's content.
+
+    /// Image view displaying the board's image.
     let boardImage: UIImageView = {
         let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
+        imageView.contentMode = .scaleAspectFill // Set the image to scale aspect fill.
+        imageView.clipsToBounds = true // Ensure the image doesn't overflow its bounds.
         return imageView
     }()
 
+    /// Label displaying the board's name.
     let boardName: UILabel = {
         let label = UILabel()
         label.font = UIFont.boldSystemFont(ofSize: 12) // Slightly smaller font for narrow width
-        label.textAlignment = .center
+        label.textAlignment = .center // Center the text.
         label.textColor = UIColor.black
-        label.numberOfLines = 2 // Single line only
-        label.lineBreakMode = .byTruncatingTail // Truncate with ellipsis if it exceeds the width
+        label.numberOfLines = 2 // Allow up to 2 lines.
+        label.lineBreakMode = .byTruncatingTail // Truncate with ellipsis if it exceeds the width.
         return label
     }()
 
+    /// Label displaying the board's abbreviation.
     let boardNameAbv: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 10)
@@ -27,6 +34,9 @@ class boardCVCell: UICollectionViewCell {
         label.numberOfLines = 1
         return label
     }()
+
+    // MARK: - Initializers
+    // Initialize the cell and set up its views and constraints.
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -38,6 +48,10 @@ class boardCVCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Setup Methods
+    // Private methods to set up views and constraints.
+
+    /// Sets up the views by adding subviews and configuring their properties.
     private func setupViews() {
         contentView.addSubview(boardImage)
         boardImage.addSubview(boardName)
@@ -46,6 +60,7 @@ class boardCVCell: UICollectionViewCell {
         contentView.layer.masksToBounds = true
     }
 
+    /// Sets up the Auto Layout constraints for the subviews.
     private func setupConstraints() {
         boardImage.translatesAutoresizingMaskIntoConstraints = false
         boardName.translatesAutoresizingMaskIntoConstraints = false
@@ -69,5 +84,4 @@ class boardCVCell: UICollectionViewCell {
             boardNameAbv.topAnchor.constraint(equalTo: boardName.bottomAnchor, constant: 4)
         ])
     }
-    
 }

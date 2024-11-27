@@ -1,6 +1,15 @@
 import UIKit
 
+// MARK: - TextFormatter Class
+/// A utility class for formatting text with special styling like spoilers and quotes.
 class TextFormatter {
+
+    // MARK: - Formatting Function
+    /// Formats the given text into an `NSAttributedString` with styling for spoilers, quotes, and quote links.
+    /// - Parameters:
+    ///   - text: The raw text to format.
+    ///   - showSpoilers: A Boolean value indicating whether to reveal spoilers.
+    /// - Returns: An `NSAttributedString` with the formatted text.
     static func formatText(_ text: String, showSpoilers: Bool = false) -> NSAttributedString {
         // Decode HTML entities and remove unnecessary tags, but keep <s>, </s>, <span class="quote">, </span>, <a href=... class="quotelink">, and </a>
         let processedText = text
@@ -8,6 +17,7 @@ class TextFormatter {
             // Remove all HTML tags except allowed ones
             .replacingOccurrences(of: "<(?!/?s>|span class=\"quote\">|/span>|a href=\"#p\\d+\" class=\"quotelink\">|/a>).+?>", with: "", options: .regularExpression)
 
+        // Tokenize the processed text
         let tokens = tokenize(processedText)
         let attributedText = NSMutableAttributedString()
         var isSpoiler = false
@@ -15,6 +25,7 @@ class TextFormatter {
         var isQuotelink = false
         var quotelinkPostNumber: String?
 
+        // Define text attributes
         let normalAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.black,
             .font: UIFont.systemFont(ofSize: 14)
@@ -31,6 +42,7 @@ class TextFormatter {
             .font: UIFont.systemFont(ofSize: 14)
         ]
 
+        // Process tokens and build the attributed string
         for token in tokens {
             switch token {
             case .spoilerStart:
@@ -72,6 +84,8 @@ class TextFormatter {
         return attributedText
     }
 
+    // MARK: - Token Types
+    /// An enumeration of possible token types for text parsing.
     private enum TokenType {
         case text(String)
         case spoilerStart
@@ -83,6 +97,10 @@ class TextFormatter {
         case quotelinkEnd
     }
 
+    // MARK: - Tokenization Methods
+    /// Tokenizes the given text into an array of `TokenType`.
+    /// - Parameter text: The text to tokenize.
+    /// - Returns: An array of `TokenType` representing the tokenized text.
     private static func tokenize(_ text: String) -> [TokenType] {
         var tokens: [TokenType] = []
         var index = text.startIndex
@@ -129,6 +147,11 @@ class TextFormatter {
         return tokens
     }
 
+    /// Extracts text tokens from the given index in the text.
+    /// - Parameters:
+    ///   - index: The current index in the text (will be updated).
+    ///   - text: The full text.
+    /// - Returns: An array of `TokenType` representing the extracted text tokens.
     private static func extractTextTokens(from index: inout String.Index, in text: String) -> [TokenType] {
         var textContent = ""
         while index < text.endIndex,

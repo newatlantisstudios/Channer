@@ -1,27 +1,49 @@
 import UIKit
 
 class boardTVCell: UITableViewCell {
+
+    // MARK: - IBOutlets
+    /// Outlets connected to UI elements in Interface Builder.
     
-    // Existing IBOutlets
+    /// Label for topic text when title is present.
     @IBOutlet weak var topicTextTitle: UILabel! {
         didSet {
             topicTextTitle.numberOfLines = 0
             topicTextTitle.font = UIFont.boldSystemFont(ofSize: 14) // Set bold font with size 14
         }
     }
+    
+    /// Label for topic text when title is not present.
     @IBOutlet weak var topicTextNoTitle: UILabel! {
         didSet {
             topicTextNoTitle.numberOfLines = 0
         }
     }
+    
+    /// Label displaying topic statistics.
     @IBOutlet weak var topicStats: UILabel!
+    
+    /// Label for the topic title.
     @IBOutlet weak var topicTitle: UILabel! {
         didSet {
             topicTitle.numberOfLines = 0
         }
     }
+    
+    /// Image view for the topic image.
+    @IBOutlet weak var topicImage: UIImageView! {
+        didSet {
+            topicImage.layer.cornerRadius = 8
+            topicImage.layer.masksToBounds = true
+            topicImage.clipsToBounds = true
+            topicImage.contentMode = .scaleAspectFill
+        }
+    }
 
-    // Custom Background View
+    // MARK: - UI Components
+    /// UI elements that are programmatically created.
+    
+    /// Custom background view for the cell.
     let customBackgroundView: UIView = {
         let view = UIView()
         view.backgroundColor = UIColor(red: 255/255, green: 236/255, blue: 219/255, alpha: 1.0)
@@ -35,22 +57,17 @@ class boardTVCell: UITableViewCell {
         return view
     }()
     
-    // Topic Image
-    @IBOutlet weak var topicImage: UIImageView! {
-        didSet {
-            topicImage.layer.cornerRadius = 8
-            topicImage.layer.masksToBounds = true
-            topicImage.clipsToBounds = true
-            topicImage.contentMode = .scaleAspectFill
-        }
-    }
-
+    // MARK: - Lifecycle Methods
+    /// Methods related to the cell's lifecycle.
+    
+    /// Called after the cell has been loaded from the nib file.
     override func awakeFromNib() {
         super.awakeFromNib()
         setupCell()
         setupConstraints()
     }
     
+    /// Prepares the cell for reuse by resetting its content.
     override func prepareForReuse() {
         super.prepareForReuse()
         topicImage.image = UIImage(named: "loadingBoardImage")
@@ -60,6 +77,10 @@ class boardTVCell: UITableViewCell {
         topicTitle.text = nil
     }
 
+    // MARK: - Setup Methods
+    /// Methods for configuring UI components and constraints.
+    
+    /// Configures the cell's UI components.
     private func setupCell() {
         // Add customBackgroundView to the cell first, so it sits at the back
         contentView.addSubview(customBackgroundView)
@@ -82,6 +103,7 @@ class boardTVCell: UITableViewCell {
         contentView.backgroundColor = .clear
     }
     
+    /// Sets up the Auto Layout constraints for the UI components.
     private func setupConstraints() {
         // Enable auto layout for all views
         [customBackgroundView, topicImage, topicStats, topicTitle, topicTextTitle, topicTextNoTitle].forEach {

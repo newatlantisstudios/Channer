@@ -5,10 +5,16 @@ import VLCKit
 class urlWeb: UIViewController {
 
     // MARK: - Properties
+    // Array of image URLs to display
     var images: [URL] = []
-    var currentIndex: Int = 0
-    var enableSwipes: Bool = true // Property to enable or disable swipes
 
+    // Current index in the images array
+    var currentIndex: Int = 0
+
+    // Property to enable or disable swipes
+    var enableSwipes: Bool = true
+
+    // Lazy-loaded web view for displaying web content
     private lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
@@ -21,6 +27,7 @@ class urlWeb: UIViewController {
         return webView
     }()
 
+    // View to display video content
     private lazy var videoView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -28,6 +35,7 @@ class urlWeb: UIViewController {
         return view
     }()
 
+    // Media player for playing videos using VLCMediaPlayer
     private lazy var mediaPlayer: VLCMediaPlayer = {
         let player = VLCMediaPlayer()
         player.delegate = self
@@ -35,6 +43,7 @@ class urlWeb: UIViewController {
         return player
     }()
 
+    // Activity indicator to show loading status
     private lazy var activityIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .medium)
         indicator.hidesWhenStopped = true
@@ -42,7 +51,8 @@ class urlWeb: UIViewController {
         return indicator
     }()
 
-    // MARK: - Lifecycle
+    // MARK: - Lifecycle Methods
+    /// Called after the controller's view is loaded into memory
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -63,18 +73,18 @@ class urlWeb: UIViewController {
         navigationController?.navigationBar.tintColor = .white // Update button colors
         
         // Add swipe gestures only if enabled and there are multiple images
-                if enableSwipes && images.count > 1 {
-                    let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
-                    swipeLeft.direction = .left
-                    view.addGestureRecognizer(swipeLeft)
+        if enableSwipes && images.count > 1 {
+            let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+            swipeLeft.direction = .left
+            view.addGestureRecognizer(swipeLeft)
 
-                    let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
-                    swipeRight.direction = .right
-                    view.addGestureRecognizer(swipeRight)
-                }
-        
+            let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
+            swipeRight.direction = .right
+            view.addGestureRecognizer(swipeRight)
+        }
     }
 
+    /// Notifies the view controller that its view is about to be removed from a view hierarchy
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
@@ -88,8 +98,8 @@ class urlWeb: UIViewController {
         navigationController?.navigationBar.tintColor = nil // Reset button color to default
     }
 
-
-    // MARK: - Setup
+    // MARK: - UI Setup
+    /// Sets up the user interface elements
     private func setupUI() {
         view.backgroundColor = .black
 
@@ -98,18 +108,21 @@ class urlWeb: UIViewController {
         view.addSubview(videoView)
         view.addSubview(activityIndicator)
 
-        // Setup constraints for webView
+        // Setup constraints for webView, videoView, and activityIndicator
         NSLayoutConstraint.activate([
+            // WebView constraints
             webView.topAnchor.constraint(equalTo: view.topAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            // VideoView constraints
             videoView.topAnchor.constraint(equalTo: view.topAnchor),
             videoView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             videoView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            // ActivityIndicator constraints
             activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
@@ -118,8 +131,9 @@ class urlWeb: UIViewController {
         videoView.isHidden = true
     }
 
-
+    /// Configures the navigation bar appearance and adds buttons
     private func setupNavigationBar() {
+        // Remove default back button text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
 
         // Add download button to navigation bar
@@ -130,6 +144,8 @@ class urlWeb: UIViewController {
         navigationItem.rightBarButtonItem = downloadButton
     }
 
+    // MARK: - Content Loading
+    /// Loads the content based on the current index
     private func loadContent() {
         guard currentIndex >= 0 && currentIndex < images.count else {
             showAlert(title: "Error", message: "Invalid index")
@@ -167,10 +183,11 @@ class urlWeb: UIViewController {
         }
     }
 
-
     // MARK: - Swipe Handling
+    /// Handles left and right swipe gestures to navigate content
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
         if gesture.direction == .left {
+            // Move to next content if available
             if currentIndex < images.count - 1 {
                 currentIndex += 1
                 loadContent()
@@ -178,6 +195,7 @@ class urlWeb: UIViewController {
                 showAlert(title: "End", message: "No more images")
             }
         } else if gesture.direction == .right {
+            // Move to previous content if available
             if currentIndex > 0 {
                 currentIndex -= 1
                 loadContent()
@@ -188,8 +206,10 @@ class urlWeb: UIViewController {
     }
 
     // MARK: - Actions
+    /// Initiates the download process for the current content
     @objc private func downloadData() {
         let folderName: String
+        // Determine folder based on file type
         if images[currentIndex].absoluteString.contains("png") || images[currentIndex].absoluteString.contains("jpg") {
             folderName = "images"
         } else if images[currentIndex].absoluteString.contains("gif") || images[currentIndex].absoluteString.contains("webm") {
@@ -199,6 +219,7 @@ class urlWeb: UIViewController {
             return
         }
 
+        // Get documents directory
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             showAlert(title: "Error", message: "Could not access documents directory")
             return
@@ -206,6 +227,7 @@ class urlWeb: UIViewController {
 
         let folderURL = documentsDirectory.appendingPathComponent(folderName)
 
+        // Create directory if it doesn't exist
         do {
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
         } catch {
@@ -216,11 +238,13 @@ class urlWeb: UIViewController {
         let filename = images[currentIndex].lastPathComponent
         let destinationURL = folderURL.appendingPathComponent(filename)
 
+        // Start download
         Task {
             await download(url: images[currentIndex], to: destinationURL)
         }
     }
 
+    /// Downloads content from the given URL to the specified local URL
     private func download(url: URL, to localUrl: URL) async {
         let request = URLRequest(url: url)
 
@@ -232,6 +256,7 @@ class urlWeb: UIViewController {
                 return
             }
 
+            // Save downloaded content to local file system
             try FileManager.default.copyItem(at: tempLocalUrl, to: localUrl)
             showAlert(title: "Success", message: "Download complete")
         } catch {
@@ -239,6 +264,8 @@ class urlWeb: UIViewController {
         }
     }
 
+    // MARK: - Utility Methods
+    /// Displays an alert with the given title and message
     @MainActor
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title,
@@ -249,24 +276,28 @@ class urlWeb: UIViewController {
     }
 }
 
-// MARK: - WKNavigationDelegate
+// MARK: - WKNavigationDelegate Methods
 extension urlWeb: WKNavigationDelegate {
+    /// Called when the web view begins to load content
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         activityIndicator.startAnimating()
     }
 
+    /// Called when the web view finishes loading content
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         activityIndicator.stopAnimating()
     }
 
+    /// Called when the web view fails to load content
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         activityIndicator.stopAnimating()
         showAlert(title: "Error", message: error.localizedDescription)
     }
 }
 
-// MARK: - VLCMediaPlayerDelegate
+// MARK: - VLCMediaPlayerDelegate Methods
 extension urlWeb: VLCMediaPlayerDelegate {
+    /// Handles changes in the media player's state
     func mediaPlayerStateChanged(_ aNotification: Notification) {
         if let player = aNotification.object as? VLCMediaPlayer {
             switch player.state {

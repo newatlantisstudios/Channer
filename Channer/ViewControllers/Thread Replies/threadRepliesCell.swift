@@ -1,13 +1,28 @@
 import UIKit
 
+/// A custom `UITableViewCell` subclass that displays thread replies with optional images.
 class threadRepliesCell: UITableViewCell {
-    // MARK: - Outlets
+
+    // MARK: - UI Outlets
+
+    /// Button that displays the thread image.
     @IBOutlet weak var threadImage: UIButton!
+
+    /// Text view that displays the reply text when an image is present.
     @IBOutlet weak var replyText: UITextView!
+
+    /// Text view that displays the reply text when no image is present.
     @IBOutlet weak var replyTextNoImage: UITextView!
+
+    /// Label that displays the board reply count.
     @IBOutlet weak var boardReplyCount: UILabel!
+
+    /// Button that represents the thread.
     @IBOutlet weak var thread: UIButton!
-    
+
+    // MARK: - Properties
+
+    /// Delegate for handling text view interactions.
     weak var replyTextDelegate: UITextViewDelegate? {
         didSet {
             replyText.delegate = replyTextDelegate
@@ -15,6 +30,7 @@ class threadRepliesCell: UITableViewCell {
         }
     }
 
+    /// Custom background view for styling the cell.
     private let customBackgroundView: UIView = {
         let view = UIView()
         view.backgroundColor = UIColor(red: 255/255, green: 236/255, blue: 219/255, alpha: 1.0)
@@ -27,8 +43,10 @@ class threadRepliesCell: UITableViewCell {
         view.layer.shadowRadius = 3
         return view
     }()
-    
-    // MARK: - Lifecycle
+
+    // MARK: - Initialization and Lifecycle Methods
+
+    /// Called when the cell is awakened from the nib file.
     override func awakeFromNib() {
         super.awakeFromNib()
         
@@ -50,10 +68,16 @@ class threadRepliesCell: UITableViewCell {
         replyText.isSelectable = true
         replyTextNoImage.isSelectable = true
 
-        // Set corner radius for threadImage
+        // Set corner radius and clipping for threadImage
         threadImage.layer.cornerRadius = 8
         threadImage.clipsToBounds = true
+
+        // Set content mode and clipping for threadImage's imageView
+        threadImage.imageView?.contentMode = .scaleAspectFill
+        threadImage.imageView?.clipsToBounds = true
         
+        threadImage.layer.masksToBounds = true
+
         // Set content hugging and compression resistance priorities
         replyText.setContentHuggingPriority(.required, for: .vertical)
         replyText.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -65,7 +89,9 @@ class threadRepliesCell: UITableViewCell {
         setupConstraints()
     }
 
-    // MARK: - Setup Subviews
+    // MARK: - Setup Methods
+
+    /// Adds and configures subviews within the cell.
     private func setupSubviews() {
         // Add subviews to contentView
         contentView.addSubview(customBackgroundView)
@@ -75,7 +101,7 @@ class threadRepliesCell: UITableViewCell {
         contentView.addSubview(boardReplyCount)
         contentView.addSubview(thread)
 
-        // Configure the text views to be non-scrollable for dynamic height
+        // Configure the text views for dynamic height and clear background
         replyText.isScrollEnabled = false
         replyTextNoImage.isScrollEnabled = false
         replyText.backgroundColor = .clear
@@ -84,7 +110,7 @@ class threadRepliesCell: UITableViewCell {
         replyTextNoImage.isEditable = false
     }
 
-    // MARK: - Setup Constraints
+    /// Sets up Auto Layout constraints for the subviews.
     private func setupConstraints() {
         [customBackgroundView, threadImage, replyText, replyTextNoImage, boardReplyCount, thread].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -130,30 +156,37 @@ class threadRepliesCell: UITableViewCell {
         ])
     }
 
-    // MARK: - Configure Cell
+    // MARK: - Configuration Method
+
+    /// Configures the cell with provided data.
+    ///
+    /// - Parameters:
+    ///   - withImage: A Boolean indicating whether an image is available.
+    ///   - text: The attributed text to display in the reply text view.
+    ///   - boardNumber: The board reply count to display.
     func configure(withImage: Bool, text: NSAttributedString, boardNumber: String) {
-                // Set visibility based on image availability
-                threadImage.isHidden = !withImage
-                replyText.isHidden = !withImage
-                replyTextNoImage.isHidden = withImage
+        // Set visibility based on image availability
+        threadImage.isHidden = !withImage
+        replyText.isHidden = !withImage
+        replyTextNoImage.isHidden = withImage
 
-                // Adjust the font size of the attributed text to 14
-                let updatedText = NSMutableAttributedString(attributedString: text)
-                updatedText.addAttribute(.font, value: UIFont.systemFont(ofSize: 14), range: NSRange(location: 0, length: updatedText.length))
-                
-                // Set attributed text for the appropriate text view
-                if withImage {
-                    replyText.attributedText = updatedText
-                } else {
-                    replyTextNoImage.attributedText = updatedText
-                }
-
-                // Set board reply count label
-                boardReplyCount.text = boardNumber
-
-                // Update layout to reflect changes
-                setNeedsLayout()
-                layoutIfNeeded()
+        // Adjust the font size of the attributed text to 14
+        let updatedText = NSMutableAttributedString(attributedString: text)
+        updatedText.addAttribute(.font, value: UIFont.systemFont(ofSize: 14), range: NSRange(location: 0, length: updatedText.length))
+        
+        // Set attributed text for the appropriate text view
+        if withImage {
+            replyText.attributedText = updatedText
+        } else {
+            replyTextNoImage.attributedText = updatedText
         }
+
+        // Set board reply count label
+        boardReplyCount.text = boardNumber
+
+        // Update layout to reflect changes
+        setNeedsLayout()
+        layoutIfNeeded()
+    }
 
 }

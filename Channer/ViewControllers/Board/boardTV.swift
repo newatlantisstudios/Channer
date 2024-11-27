@@ -4,16 +4,17 @@ import SwiftyJSON
 import Kingfisher
 
 // MARK: - Thread Model
+/// Represents the data structure for a thread, conforming to Codable for easy serialization.
 struct ThreadData: Codable {
     let number: String
-        var stats: String
-        let title: String
-        let comment: String
-        let imageUrl: String
-        let boardAbv: String
-        var replies: Int // Stored replies count
-        var currentReplies: Int? // Latest replies count
-        let createdAt: String
+    var stats: String
+    let title: String
+    let comment: String
+    let imageUrl: String
+    let boardAbv: String
+    var replies: Int // Stored replies count
+    var currentReplies: Int? // Latest replies count
+    let createdAt: String
 
     // Initializer from JSON
     init(from json: JSON, boardAbv: String) {
@@ -55,29 +56,34 @@ struct ThreadData: Codable {
 }
 
 class boardTV: UITableViewController {
-    // Properties
-        var boardName = ""
-        var boardAbv = "a"
-        var threadData: [ThreadData] = []
-        var filteredThreadData: [ThreadData] = []
-        private var isLoading = false
-        private let totalPages = 10
-        private var loadedPages = 0
-        private let loadingIndicator = UIActivityIndicatorView(style: .medium)
-        private var isSearching = false
-        
-        var isHistoryView: Bool = false
+    // MARK: - Properties
+    // This section contains properties and variables used throughout the class,
+    // including data arrays, UI components, and flags.
+
+    var boardName = ""
+    var boardAbv = "a"
+    var threadData: [ThreadData] = []
+    var filteredThreadData: [ThreadData] = []
+    private var isLoading = false
+    private let totalPages = 10
+    private var loadedPages = 0
+    private let loadingIndicator = UIActivityIndicatorView(style: .medium)
+    private var isSearching = false
+    var isHistoryView: Bool = false
     var isFavoritesView: Bool = false
-    
+
     // Image cache configuration
-       private let imageCache = NSCache<NSString, UIImage>()
-       private let prefetchQueue = OperationQueue()
-       
+    private let imageCache = NSCache<NSString, UIImage>()
+    private let prefetchQueue = OperationQueue()
+
+    // MARK: - Lifecycle Methods
+    // Methods related to the view controller's lifecycle.
+
     override func viewDidLoad() {
         super.viewDidLoad()
         
         // Remove the title
-        //navigationItem.title = nil
+        // navigationItem.title = nil
         
         setupTableView()
         setupImageCache()
@@ -86,60 +92,64 @@ class boardTV: UITableViewController {
         addHomeButton()
         setupSearchController()
         
-        //let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        //tapGesture.cancelsTouchesInView = false
-        //tableView.addGestureRecognizer(tapGesture)
+        // let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        // tapGesture.cancelsTouchesInView = false
+        // tableView.addGestureRecognizer(tapGesture)
         
         if isFavoritesView {
-               self.title = "Favorites"
-               
-               // Verify and remove invalid favorites
-               FavoritesManager.shared.verifyAndRemoveInvalidFavorites { updatedFavorites in
-                   self.threadData = updatedFavorites
-                   self.filteredThreadData = updatedFavorites
-                   DispatchQueue.main.async {
-                       self.tableView.reloadData()
-                   }
-               }
-               
-               // Add long-press gesture recognizer for deleting favorites
-               let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressForFavorite))
-               tableView.addGestureRecognizer(longPressGesture)
-           } else if isHistoryView {
-               self.title = "History"
-
-               // Add "Clear All" button
-               let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
-
-               if UIDevice.current.userInterfaceIdiom == .phone {
-                   // Add "Home" button for iPhones only, on the left side
-                   let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(showMasterView))
-                   navigationItem.leftBarButtonItem = homeButton
-               }
-
-               // Add "Clear All" button to the right side
-               navigationItem.rightBarButtonItem = clearAllButton
-
-               // Verify and remove invalid history
-               HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
-                   self.threadData = updatedHistory
-                   self.filteredThreadData = updatedHistory
-                   DispatchQueue.main.async {
-                       self.tableView.reloadData()
-                   }
-               }
-           } else {
-               //self.title = "/\(boardAbv)/"
-               loadThreads()
-           }
-        
+                self.title = "Favorites"
+                
+                // Add long-press gesture recognizer for deleting favorites
+                let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressForFavorite))
+                tableView.addGestureRecognizer(longPressGesture)
+        } else if isHistoryView {
+            self.title = "History"
+            
+            // Add "Clear All" button
+            let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
+            
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                // Add "Home" button for iPhones only, on the left side
+                let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(showMasterView))
+                navigationItem.leftBarButtonItem = homeButton
+            }
+            
+            // Add "Clear All" button to the right side
+            navigationItem.rightBarButtonItem = clearAllButton
+            
+            // Verify and remove invalid history
+            HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
+                self.threadData = updatedHistory
+                self.filteredThreadData = updatedHistory
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                }
+            }
+        } else {
+            // self.title = "/\(boardAbv)/"
+            loadThreads()
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        addHomeButton()
-        
+
+        if isFavoritesView {
+            // Step 1: Verify and remove invalid favorites
+            FavoritesManager.shared.verifyAndRemoveInvalidFavorites { [weak self] updatedFavorites in
+                guard let self = self else { return }
+                
+                self.threadData = updatedFavorites
+                self.filteredThreadData = updatedFavorites
+
+                // Step 2: Update current replies after verification
+                FavoritesManager.shared.updateCurrentReplies {
+                    DispatchQueue.main.async {
+                        self.tableView.reloadData() // Reload table view once, after all updates
+                    }
+                }
+            }
+        }
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -150,11 +160,13 @@ class boardTV: UITableViewController {
                 self.addHomeButton()
             }
         })
-        
     }
     
+    // MARK: - UI Setup Methods
+    // Methods that set up the UI components.
+
     private func addHomeButton() {
-        // Ensure the device is an iPhone
+        // Adds a home button to the navigation bar on iPhones.
         guard UIDevice.current.userInterfaceIdiom == .phone else {
             navigationItem.leftBarButtonItems = nil // Remove home button if not iPhone
             return
@@ -167,7 +179,7 @@ class boardTV: UITableViewController {
             target: self,
             action: #selector(showMasterView)
         )
-
+        
         if var leftBarButtonItems = navigationItem.leftBarButtonItems {
             // Check if the home button is already added
             if !leftBarButtonItems.contains(where: { $0.target === homeButton.target && $0.action == homeButton.action }) {
@@ -179,7 +191,66 @@ class boardTV: UITableViewController {
         }
     }
     
+    private func setupSortButton() {
+        // Adds a sort button to the navigation bar, unless in history view.
+        guard !isHistoryView else { return }
+        
+        let sortButton = UIBarButtonItem(image: UIImage(named: "sort"), style: .plain, target: self, action: #selector(sortButtonTapped))
+        // Check if there are existing right bar button items
+        if var rightBarButtonItems = navigationItem.rightBarButtonItems {
+            rightBarButtonItems.append(sortButton)
+            navigationItem.rightBarButtonItems = rightBarButtonItems
+        } else {
+            navigationItem.rightBarButtonItems = [sortButton]
+        }
+    }
+    
+    private func setupTableView() {
+        // Configures the table view's appearance and behavior.
+        tableView.backgroundColor = .systemBackground
+        tableView.separatorStyle = .none
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 172
+        tableView.prefetchDataSource = self
+    }
+    
+    private func setupLoadingIndicator() {
+        // Sets up the loading indicator to show when data is loading.
+        loadingIndicator.hidesWhenStopped = true
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(loadingIndicator)
+        
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+    
+    private func setupImageCache() {
+        // Configures the image cache for efficient image loading.
+        imageCache.countLimit = 200 // Increased for multiple pages
+        prefetchQueue.maxConcurrentOperationCount = 2
+    }
+    
+    private func setupSearchController() {
+        // Sets up the search controller for searching threads.
+        let searchController = UISearchController(searchResultsController: nil)
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Title or Comment"
+        navigationItem.searchController = searchController
+        
+        // Ensure the search bar stays visible when scrolling
+        navigationItem.hidesSearchBarWhenScrolling = true
+        
+        definesPresentationContext = true
+    }
+    
+    // MARK: - Actions
+    // Methods that respond to user interactions.
+
     @objc private func showMasterView() {
+        // Navigates back to the master view controller.
         guard let splitVC = splitViewController else { return }
         if let masterNavVC = splitVC.viewControllers.first as? UINavigationController {
             masterNavVC.popToRootViewController(animated: true)
@@ -189,6 +260,7 @@ class boardTV: UITableViewController {
     }
     
     @objc private func clearAllHistory() {
+        // Clears all browsing history.
         let alert = UIAlertController(title: "Clear History", message: "Are you sure you want to clear all history?", preferredStyle: .alert)
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
@@ -204,23 +276,8 @@ class boardTV: UITableViewController {
         present(alert, animated: true, completion: nil)
     }
     
-    func loadFavorites() {
-        print("boardTV - loadFavorites")
-        threadData = FavoritesManager.shared.loadFavorites()
-        filteredThreadData = threadData
-
-        print("threadData")
-        print(threadData)
-        print("filteredThreadData")
-        print(filteredThreadData)
-
-        // Reload the table view after updating `threadData` and `filteredThreadData`
-        DispatchQueue.main.async {
-            self.tableView.reloadData()
-        }
-    }
-
     @objc private func handleLongPressForFavorite(gestureRecognizer: UILongPressGestureRecognizer) {
+        // Handles long-press gesture on favorites to delete them.
         guard isFavoritesView else { return }
         
         let location = gestureRecognizer.location(in: tableView)
@@ -256,21 +313,8 @@ class boardTV: UITableViewController {
         }
     }
     
-    private func setupSortButton() {
-        // Do not add the sort button if the current view is the history view
-        guard !isHistoryView else { return }
-        
-        let sortButton = UIBarButtonItem(image: UIImage(named: "sort"), style: .plain, target: self, action: #selector(sortButtonTapped))
-        // Check if there are existing right bar button items
-        if var rightBarButtonItems = navigationItem.rightBarButtonItems {
-            rightBarButtonItems.append(sortButton)
-            navigationItem.rightBarButtonItems = rightBarButtonItems
-        } else {
-            navigationItem.rightBarButtonItems = [sortButton]
-        }
-    }
-        
     @objc private func sortButtonTapped() {
+        // Presents sorting options when the sort button is tapped.
         let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
         
         // Add sorting actions
@@ -295,113 +339,66 @@ class boardTV: UITableViewController {
         // Present the alert controller
         present(alertController, animated: true, completion: nil)
     }
-        
-        private enum SortOption {
-            case replyCount
-            case newestCreation
-        }
-        
-        private func sortThreads(by option: SortOption) {
-            switch option {
-            case .replyCount:
-                filteredThreadData.sort { $0.replies > $1.replies }
-            case .newestCreation:
-                filteredThreadData.sort { $0.createdAt > $1.createdAt }
-            }
-            tableView.reloadData()
-        }
     
     @objc private func handleLongPress(gestureRecognizer: UILongPressGestureRecognizer) {
-            guard isHistoryView else { return }
+        // Handles long-press gesture on history items to delete them.
+        guard isHistoryView else { return }
+        
+        let location = gestureRecognizer.location(in: tableView)
+        if let indexPath = tableView.indexPathForRow(at: location), gestureRecognizer.state == .began {
             
-            let location = gestureRecognizer.location(in: tableView)
-            if let indexPath = tableView.indexPathForRow(at: location), gestureRecognizer.state == .began {
+            let alert = UIAlertController(title: "Delete Thread", message: "Are you sure you want to delete this thread from history?", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+            alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
+                // Remove the thread from data sources
+                let threadToDelete = self.filteredThreadData[indexPath.row]
+                HistoryManager.shared.removeThreadFromHistory(threadToDelete)
                 
-                let alert = UIAlertController(title: "Delete Thread", message: "Are you sure you want to delete this thread from history?", preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-                alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
-                    // Remove the thread from data sources
-                    let threadToDelete = self.filteredThreadData[indexPath.row]
-                    HistoryManager.shared.removeThreadFromHistory(threadToDelete)
-                    
-                    // Remove from both filteredThreadData and threadData
-                    self.filteredThreadData.remove(at: indexPath.row)
-                    if let index = self.threadData.firstIndex(where: { $0.number == threadToDelete.number && $0.boardAbv == threadToDelete.boardAbv }) {
-                        self.threadData.remove(at: index)
-                    }
-                    
-                    // Update table view
-                    if self.filteredThreadData.isEmpty {
-                        self.tableView.reloadData()
-                    } else {
-                        self.tableView.deleteRows(at: [indexPath], with: .fade)
-                    }
-                }))
+                // Remove from both filteredThreadData and threadData
+                self.filteredThreadData.remove(at: indexPath.row)
+                if let index = self.threadData.firstIndex(where: { $0.number == threadToDelete.number && $0.boardAbv == threadToDelete.boardAbv }) {
+                    self.threadData.remove(at: index)
+                }
                 
-                present(alert, animated: true, completion: nil)
-            }
-        }
-        
-    private func setupTableView() {
-            tableView.backgroundColor = .systemBackground
-            tableView.separatorStyle = .none
-            tableView.rowHeight = UITableView.automaticDimension
-            tableView.estimatedRowHeight = 172
-            tableView.prefetchDataSource = self
-        }
-    
-    private func setupLoadingIndicator() {
-            loadingIndicator.hidesWhenStopped = true
-            loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(loadingIndicator)
+                // Update table view
+                if self.filteredThreadData.isEmpty {
+                    self.tableView.reloadData()
+                } else {
+                    self.tableView.deleteRows(at: [indexPath], with: .fade)
+                }
+            }))
             
-            NSLayoutConstraint.activate([
-                loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-            ])
+            present(alert, animated: true, completion: nil)
         }
-        
-        private func setupImageCache() {
-            imageCache.countLimit = 200 // Increased for multiple pages
-            prefetchQueue.maxConcurrentOperationCount = 2
-        }
-    
-    private func setupSearchController() {
-        let searchController = UISearchController(searchResultsController: nil)
-        searchController.searchResultsUpdater = self
-        searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.placeholder = "Title or Comment"
-        navigationItem.searchController = searchController
-        
-        // Ensure the search bar stays visible when scrolling
-        navigationItem.hidesSearchBarWhenScrolling = true
-        
-        definesPresentationContext = true
     }
-                
+    
+    // MARK: - Data Loading Methods
+    // Methods responsible for loading data, such as threads and favorites.
+
     private func loadThreads() {
+        // Loads threads from the server.
         guard !isLoading else {
             refreshControl?.endRefreshing()
             return
         }
-
+    
         isLoading = true
         loadingIndicator.startAnimating()
-
+    
         let dispatchGroup = DispatchGroup()
         var newThreadData: [ThreadData] = []
         var errors: [Error] = []
-
+    
         let serialQueue = DispatchQueue(label: "com.channer.threadDataQueue")
-
+    
         for page in 1...totalPages {
             dispatchGroup.enter()
-
+    
             let url = "https://a.4cdn.org/\(boardAbv)/\(page).json"
-
+    
             AF.request(url).responseData { response in
                 defer { dispatchGroup.leave() }
-
+    
                 switch response.result {
                 case .success(let data):
                     do {
@@ -411,7 +408,7 @@ class boardTV: UITableViewController {
                                 let thread = ThreadData(from: threadJson, boardAbv: self.boardAbv)
                                 return thread.number.isEmpty ? nil : thread
                             }
-
+    
                             serialQueue.sync {
                                 newThreadData.append(contentsOf: pageThreads)
                             }
@@ -421,7 +418,7 @@ class boardTV: UITableViewController {
                             errors.append(error)
                         }
                     }
-
+    
                 case .failure(let error):
                     serialQueue.sync {
                         errors.append(error)
@@ -429,34 +426,54 @@ class boardTV: UITableViewController {
                 }
             }
         }
-
+    
         dispatchGroup.notify(queue: .main) { [weak self] in
             guard let self = self else { return }
-
+    
             self.isLoading = false
             self.loadingIndicator.stopAnimating()
             self.refreshControl?.endRefreshing()
-
+    
             if !errors.isEmpty {
                 print("Errors loading threads: \(errors)")
             }
-
+    
             self.threadData = newThreadData.sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
             self.filteredThreadData = self.threadData
             self.tableView.reloadData()
         }
     }
     
-    // MARK: - TableView DataSource
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            return filteredThreadData.count
+    func loadFavorites() {
+        // Loads favorite threads.
+        print("boardTV - loadFavorites")
+        threadData = FavoritesManager.shared.loadFavorites()
+        filteredThreadData = threadData
+    
+        print("threadData")
+        print(threadData)
+        print("filteredThreadData")
+        print(filteredThreadData)
+    
+        // Reload the table view after updating `threadData` and `filteredThreadData`
+        DispatchQueue.main.async {
+            self.tableView.reloadData()
         }
-        
+    }
+
+    // MARK: - TableView DataSource Methods
+    // UITableViewDataSource methods for populating the table view.
+
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return filteredThreadData.count
+    }
+            
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+
         let cell = tableView.dequeueReusableCell(withIdentifier: "boardTVCell", for: indexPath) as! boardTVCell
         let thread = filteredThreadData[indexPath.row]
-        //print("boardTV - cellForRowAt")
-        //print(thread)
+        // print("boardTV - cellForRowAt")
+        // print(thread)
         
         // Configure stats under the topicImage
         if isHistoryView {
@@ -465,8 +482,12 @@ class boardTV: UITableViewController {
             cell.topicStats.isHidden = false
             cell.topicStats.text = thread.stats
         }
-
+        
         if isFavoritesView {
+            
+            print("currentReplies: \(thread.currentReplies)")
+            print("thread.replies: \(thread.replies)")
+            
             if let currentReplies = thread.currentReplies,
                currentReplies > thread.replies {
                 // Example: Change the background color or border
@@ -476,11 +497,11 @@ class boardTV: UITableViewController {
                 cell.customBackgroundView.layer.borderColor = UIColor(red: 67/255, green: 160/255, blue: 71/255, alpha: 1.0).cgColor
             }
         }
-
+        
         // Set up other cell components (text, image, etc.)
         let formattedComment = formatText(thread.comment)
         let formattedTitle = formatText(thread.title)
-
+        
         if formattedTitle.string.isEmpty || formattedTitle.string == "null" {
             cell.topicTextTitle.isHidden = true
             cell.topicTextNoTitle.isHidden = false
@@ -493,75 +514,27 @@ class boardTV: UITableViewController {
             cell.topicTextTitle.attributedText = formattedComment
             cell.topicTitle.text = formattedTitle.string // Use plain text
         }
-
+        
         configureImage(for: cell, with: thread.imageUrl)
-
+        
         return cell
     }
 
-    private func extractFirstNumber(from stats: String) -> Int? {
-        // Split stats by the slash ("/") and return the first part as an integer
-        let components = stats.split(separator: "/")
-        guard let firstComponent = components.first, let number = Int(firstComponent) else {
-            return nil
-        }
-        return number
-    }
-    
-    private func configureImage(for cell: boardTVCell, with urlString: String) {
-            if urlString.isEmpty {
-                cell.topicImage.image = UIImage(named: "loadingBoardImage")
-                return
-            }
-            
-            let finalUrl: String
-            if urlString.hasSuffix(".webm") {
-                let components = urlString.components(separatedBy: "/")
-                if let last = components.last {
-                    let base = last.replacingOccurrences(of: ".webm", with: "")
-                    finalUrl = urlString.replacingOccurrences(of: last, with: "\(base)s.jpg")
-                } else {
-                    finalUrl = urlString
-                }
-            } else {
-                finalUrl = urlString
-            }
-            
-            guard let url = URL(string: finalUrl) else {
-                cell.topicImage.image = UIImage(named: "loadingBoardImage")
-                return
-            }
-            
-            // Updated corner radius from 15 to 8
-            let options: KingfisherOptionsInfo = [
-                .transition(.fade(0.2)),
-                .processor(RoundCornerImageProcessor(cornerRadius: 8)),
-                .scaleFactor(UIScreen.main.scale),
-                .cacheOriginalImage,
-                .memoryCacheExpiration(.days(1)),
-                .diskCacheExpiration(.days(7)),
-                .backgroundDecode
-            ]
-            
-            cell.topicImage.kf.setImage(
-                with: url,
-                placeholder: UIImage(named: "loadingBoardImage"),
-                options: options
-            )
-    }
-    
+    // MARK: - TableView Delegate Methods
+    // UITableViewDelegate methods for handling table view interactions.
+
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let thread = filteredThreadData[indexPath.row]
         let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
-
+    
         print("Selected thread at index \(indexPath.row): \(thread)")
-
+    
         // Add the selected thread to history (if not already in history or favorites view)
         if !isHistoryView && !isFavoritesView {
             HistoryManager.shared.addThreadToHistory(thread)
             print("Thread added to history.")
         }
-
+    
         // Show loading indicator overlay
         let loadingView = UIView(frame: view.bounds)
         loadingView.backgroundColor = .systemBackground
@@ -574,13 +547,13 @@ class boardTV: UITableViewController {
             indicator.centerYAnchor.constraint(equalTo: loadingView.centerYAnchor)
         ])
         indicator.startAnimating()
-
+    
         // Load thread data
         AF.request(url).response { response in
             DispatchQueue.main.async {
                 loadingView.removeFromSuperview()
             }
-
+    
             guard let data = response.data,
                   let json = try? JSON(data: data),
                   !json["posts"].isEmpty else {
@@ -588,18 +561,18 @@ class boardTV: UITableViewController {
                 self.handleThreadUnavailable(at: indexPath, thread: thread)
                 return
             }
-
+    
             // Instantiate threadRepliesTV view controller
             guard let vc = UIStoryboard(name: "Main", bundle: nil)
                     .instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
                 print("Failed to instantiate threadRepliesTV.")
                 return
             }
-
+    
             vc.boardAbv = thread.boardAbv
             vc.threadNumber = thread.number
             vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
-
+    
             // Handle navigation
             if UIDevice.current.userInterfaceIdiom == .pad {
                 // iPad behavior
@@ -619,7 +592,63 @@ class boardTV: UITableViewController {
         }
     }
 
+    // MARK: - Helper Methods
+    // Helper methods used throughout the class.
+
+    private func extractFirstNumber(from stats: String) -> Int? {
+        // Extracts the first number from a stats string.
+        let components = stats.split(separator: "/")
+        guard let firstComponent = components.first, let number = Int(firstComponent) else {
+            return nil
+        }
+        return number
+    }
+    
+    private func configureImage(for cell: boardTVCell, with urlString: String) {
+        // Configures the image for a table view cell.
+        if urlString.isEmpty {
+            cell.topicImage.image = UIImage(named: "loadingBoardImage")
+            return
+        }
+        
+        let finalUrl: String
+        if urlString.hasSuffix(".webm") {
+            let components = urlString.components(separatedBy: "/")
+            if let last = components.last {
+                let base = last.replacingOccurrences(of: ".webm", with: "")
+                finalUrl = urlString.replacingOccurrences(of: last, with: "\(base)s.jpg")
+            } else {
+                finalUrl = urlString
+            }
+        } else {
+            finalUrl = urlString
+        }
+        
+        guard let url = URL(string: finalUrl) else {
+            cell.topicImage.image = UIImage(named: "loadingBoardImage")
+            return
+        }
+        
+        // Updated corner radius from 15 to 8
+        let options: KingfisherOptionsInfo = [
+            .transition(.fade(0.2)),
+            .processor(RoundCornerImageProcessor(cornerRadius: 8)),
+            .scaleFactor(UIScreen.main.scale),
+            .cacheOriginalImage,
+            .memoryCacheExpiration(.days(1)),
+            .diskCacheExpiration(.days(7)),
+            .backgroundDecode
+        ]
+        
+        cell.topicImage.kf.setImage(
+            with: url,
+            placeholder: UIImage(named: "loadingBoardImage"),
+            options: options
+        )
+    }
+    
     private func handleThreadUnavailable(at indexPath: IndexPath, thread: ThreadData) {
+        // Handles the case when a thread is unavailable.
         let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
             // Remove thread from favorites, history, or refresh if in default view
@@ -645,7 +674,7 @@ class boardTV: UITableViewController {
                 if let index = self.threadData.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
                     self.threadData.remove(at: index)
                 }
-
+    
                 // Update table view and refresh thread list
                 DispatchQueue.main.async {
                     self.tableView.reloadData()
@@ -655,17 +684,18 @@ class boardTV: UITableViewController {
         }))
         present(alert, animated: true, completion: nil)
     }
-
+    
     private func refreshThreadList() {
+        // Refreshes the list of threads.
         guard !isFavoritesView && !isHistoryView else { return } // Only refresh in default view
         threadData.removeAll()
         filteredThreadData.removeAll()
         tableView.reloadData()
         loadThreads() // Re-fetch threads
     }
-
-    // MARK: - Helper Methods
+    
     private func formatText(_ text: String) -> NSAttributedString {
+        // Formats text by applying styles and processing HTML tags.
         var formattedText = text
         
         // First handle all replacements except spoiler tags
@@ -785,12 +815,33 @@ class boardTV: UITableViewController {
         
         return finalAttributedString
     }
-            
+    
+    // MARK: - Sorting
+    // Methods and types related to sorting threads.
+
+    private enum SortOption {
+        case replyCount
+        case newestCreation
+    }
+    
+    private func sortThreads(by option: SortOption) {
+        // Sorts threads based on the selected sort option.
+        switch option {
+        case .replyCount:
+            filteredThreadData.sort { $0.replies > $1.replies }
+        case .newestCreation:
+            filteredThreadData.sort { $0.createdAt > $1.createdAt }
+        }
+        tableView.reloadData()
+    }
 }
 
 // MARK: - UITableViewDataSourcePrefetching
+// Extension implementing prefetching methods for table view cells.
+
 extension boardTV: UITableViewDataSourcePrefetching {
     func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
+        // Prefetches data for upcoming table view cells.
         let limitedPaths = Array(indexPaths.prefix(5))
         
         let urls = limitedPaths.compactMap { indexPath -> URL? in
@@ -810,19 +861,24 @@ extension boardTV: UITableViewDataSourcePrefetching {
     }
     
     func tableView(_ tableView: UITableView, cancelPrefetchingForRowsAt indexPaths: [IndexPath]) {
+        // Cancels prefetching for cells that are no longer needed.
         // Cancel any ongoing prefetch operations
     }
 }
 
+// MARK: - UISearchResultsUpdating
+// Extension updating the search results as the user types in the search bar.
+
 extension boardTV: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
+        // Updates the search results based on the search text.
         guard let searchText = searchController.searchBar.text, !searchText.isEmpty else {
             isSearching = false
             filteredThreadData = threadData
             tableView.reloadData()
             return
         }
-
+    
         isSearching = true
         filteredThreadData = threadData.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
