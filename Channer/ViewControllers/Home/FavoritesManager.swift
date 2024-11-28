@@ -2,59 +2,106 @@ import Foundation
 import Alamofire
 import SwiftyJSON
 
-// FavoritesManager handles saving/loading operations
 class FavoritesManager {
     
     // MARK: - Singleton Instance
-    /// Shared instance of FavoritesManager for global access
     static let shared = FavoritesManager()
+    let iCloudStore = NSUbiquitousKeyValueStore.default
+    private let favoritesKey = "favorites"
     
     // MARK: - Persistence Methods
-    /// Loads the list of favorite threads from UserDefaults
     func loadFavorites() -> [ThreadData] {
-        guard let data = UserDefaults.standard.data(forKey: "favorites"),
-              let favorites = try? JSONDecoder().decode([ThreadData].self, from: data) else {
-            print("No favorites found.")
-            return []
+        // Check if iCloud is available
+        if isICloudAvailable() {
+            print("Loading favorites from iCloud.")
+            printICloudStoreContents()
+            guard let data = iCloudStore.data(forKey: favoritesKey),
+                  let favorites = try? JSONDecoder().decode([ThreadData].self, from: data) else {
+                print("No favorites found in iCloud.")
+                return []
+            }
+            return favorites
+        } else {
+            print("Loading favorites from local storage.")
+            guard let data = UserDefaults.standard.data(forKey: favoritesKey),
+                  let favorites = try? JSONDecoder().decode([ThreadData].self, from: data) else {
+                print("No favorites found locally.")
+                return []
+            }
+            return favorites
         }
-        return favorites
     }
-    
-    /// Saves the list of favorite threads to UserDefaults
+
     func saveFavorites(_ favorites: [ThreadData]) {
         if let encoded = try? JSONEncoder().encode(favorites) {
-            UserDefaults.standard.set(encoded, forKey: "favorites")
-            print("Favorites successfully saved to UserDefaults.")
+            if isICloudAvailable() {
+                print("Saving favorites to iCloud.")
+                printICloudStoreContents()
+                iCloudStore.set(encoded, forKey: favoritesKey)
+                iCloudStore.synchronize()
+            } else {
+                print("Saving favorites to local storage.")
+                UserDefaults.standard.set(encoded, forKey: favoritesKey)
+                showICloudFallbackWarning() // Warn the user once
+            }
+            print("Favorites successfully saved.")
         } else {
             print("Failed to encode favorites.")
         }
     }
+
+    // MARK: - iCloud Availability Check
+    private func isICloudAvailable() -> Bool {
+        return FileManager.default.ubiquityIdentityToken != nil
+    }
+
+    // MARK: - Warn User About iCloud Fallback
+    private func showICloudFallbackWarning() {
+        let hasShownWarning = UserDefaults.standard.bool(forKey: "iCloudFallbackWarningShown")
+        if !hasShownWarning {
+            DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: "iCloud Sync Unavailable",
+                    message: "You're not signed into iCloud. Favorites are being saved locally. Sign in to iCloud to enable syncing across devices.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                
+                if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                   let rootViewController = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+                    rootViewController.present(alert, animated: true, completion: nil)
+                }
+            }
+            UserDefaults.standard.set(true, forKey: "iCloudFallbackWarningShown")
+        }
+    }
     
     // MARK: - Favorite Management
-    /// Adds a thread to the favorites list
     func addFavorite(_ favorite: ThreadData) {
-        //print("Adding favorite: \(favorite)")
         var favorites = loadFavorites()
         favorites.append(favorite)
         saveFavorites(favorites)
-        //print("Favorites after adding: \(favorites)")
     }
     
-    /// Removes a thread from the favorites list by its number
     func removeFavorite(threadNumber: String) {
-        print("FavoritesManager - removeFavorite")
         var favorites = loadFavorites()
         favorites.removeAll { $0.number == threadNumber }
         saveFavorites(favorites)
     }
     
-    /// Checks if a thread is in the favorites list
     func isFavorited(threadNumber: String) -> Bool {
         return loadFavorites().contains { $0.number == threadNumber }
     }
     
+    func updateFavorite(thread: ThreadData) {
+        var favorites = loadFavorites()
+        if let index = favorites.firstIndex(where: { $0.number == thread.number }) {
+            favorites[index] = thread
+            saveFavorites(favorites)
+        }
+    }
+    
     // MARK: - Verification Methods
-    /// Verifies all favorite threads by checking if they still exist and removes invalid ones
     func verifyAndRemoveInvalidFavorites(completion: @escaping ([ThreadData]) -> Void) {
         let favorites = loadFavorites()
         let dispatchGroup = DispatchGroup()
@@ -88,9 +135,6 @@ class FavoritesManager {
         }
     }
     
-    /// Updates the latest reply counts for all favorite threads by fetching the current data from the server.
-    /// This ensures that each thread's `currentReplies` reflects the most up-to-date count.
-    /// The updated reply counts can be used to indicate whether there are new replies since the thread was last viewed.
     func updateCurrentReplies(completion: @escaping () -> Void) {
         var favorites = loadFavorites()
         
@@ -98,7 +142,6 @@ class FavoritesManager {
             fetchLatestReplyCount(for: favorite.number, boardAbv: favorite.boardAbv) { latestCount in
                 favorites[index].currentReplies = latestCount
                 
-                // Save the updated favorites after all threads are processed
                 if index == favorites.count - 1 {
                     self.saveFavorites(favorites)
                     completion()
@@ -106,13 +149,7 @@ class FavoritesManager {
             }
         }
     }
-        
-    /// Fetches the latest reply count for a given thread from the server.
-    /// - Parameters:
-    ///   - threadID: The unique identifier of the thread.
-    ///   - boardAbv: The abbreviation of the board where the thread resides.
-    ///   - completion: A closure that receives the latest reply count as an integer.
-    /// If the fetch or parsing fails, the closure returns a default value of 0.
+    
     private func fetchLatestReplyCount(for threadID: String, boardAbv: String, completion: @escaping (Int) -> Void) {
         let url = "https://a.4cdn.org/\(boardAbv)/thread/\(threadID).json"
         
@@ -121,38 +158,51 @@ class FavoritesManager {
             case .success(let data):
                 if let json = try? JSON(data: data),
                    let firstPost = json["posts"].array?.first {
-                    let latestReplies = firstPost["replies"].intValue // Extract latest replies count
+                    let latestReplies = firstPost["replies"].intValue
                     completion(latestReplies)
                 } else {
-                    print("Error: Unable to parse reply count for thread \(threadID).")
-                    completion(0) // Default to 0 if parsing fails
+                    completion(0)
                 }
-            case .failure(let error):
-                print("Error fetching reply count for thread \(threadID): \(error.localizedDescription)")
-                completion(0) // Default to 0 on failure
+            case .failure:
+                completion(0)
             }
         }
     }
     
-    // MARK: - Favorite Management (continued)
-    /// Updates a favorite thread's data in the list
-    func updateFavorite(thread: ThreadData) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == thread.number }) {
-            favorites[index] = thread
-            saveFavorites(favorites)
-        }
-    }
-    
+    // MARK: - Additional Methods
     func markThreadAsSeen(threadID: String) {
-        var favorites = loadFavorites() // Load the list of favorites
+        var favorites = loadFavorites()
         if let index = favorites.firstIndex(where: { $0.number == threadID }) {
             if let currentReplies = favorites[index].currentReplies {
-                favorites[index].replies = currentReplies // Update replies to match currentReplies
-                saveFavorites(favorites) // Persist changes to UserDefaults
+                favorites[index].replies = currentReplies
+                saveFavorites(favorites)
             } else {
                 print("Error: currentReplies is nil for thread \(threadID).")
             }
+        }
+    }
+    
+    func printICloudStoreContents() {
+        print("NSUbiquitousKeyValueStore contents:")
+
+        // Print all key-value pairs in the iCloud store
+        for (key, value) in iCloudStore.dictionaryRepresentation {
+            print("\(key): \(value)")
+        }
+
+        // Attempt to decode favorites if the key exists
+        if let data = iCloudStore.data(forKey: favoritesKey) {
+            do {
+                let favorites = try JSONDecoder().decode([ThreadData].self, from: data)
+                print("Favorites in iCloud:")
+                for favorite in favorites {
+                    print("Board: \(favorite.boardAbv), Thread Number: \(favorite.number), Replies: \(favorite.currentReplies ?? 0)")
+                }
+            } catch {
+                print("Failed to decode favorites from iCloud: \(error)")
+            }
+        } else {
+            print("No favorites found in iCloud.")
         }
     }
     

@@ -9,11 +9,15 @@ class HistoryManager {
     static let shared = HistoryManager()
     
     // MARK: - Properties
-    /// Key used for saving and retrieving history from `UserDefaults`.
+    /// Key used for saving and retrieving history from `NSUbiquitousKeyValueStore` or `UserDefaults`.
     private let historyKey = "threadHistory"
+    private let iCloudFallbackWarningKey = "iCloudFallbackWarningShown"
     
     /// Array to store the history of threads.
     private(set) var history: [ThreadData] = []
+    
+    /// iCloud Key-Value Store
+    private let iCloudStore = NSUbiquitousKeyValueStore.default
     
     // MARK: - Initialization
     /// Private initializer to enforce singleton pattern and load history upon creation.
@@ -21,11 +25,15 @@ class HistoryManager {
         loadHistory()
     }
     
+    // MARK: - iCloud Availability Check
+    private func isICloudAvailable() -> Bool {
+        return FileManager.default.ubiquityIdentityToken != nil
+    }
+    
     // MARK: - History Management Methods
     /// Adds a thread to the history if it doesn't already exist.
     /// - Parameter thread: The `ThreadData` object to be added.
     func addThreadToHistory(_ thread: ThreadData) {
-        // Avoid duplicates
         if !history.contains(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
             history.append(thread)
             saveHistory()
@@ -52,18 +60,41 @@ class HistoryManager {
     }
     
     // MARK: - Persistence Methods
-    /// Saves the current history to `UserDefaults`.
+    /// Saves the current history to iCloud or local storage.
     private func saveHistory() {
-        if let data = try? JSONEncoder().encode(history) {
-            UserDefaults.standard.set(data, forKey: historyKey)
+        if let encodedData = try? JSONEncoder().encode(history) {
+            if isICloudAvailable() {
+                print("Saving history to iCloud.")
+                iCloudStore.set(encodedData, forKey: historyKey)
+                iCloudStore.synchronize()
+            } else {
+                print("Saving history to local storage.")
+                UserDefaults.standard.set(encodedData, forKey: historyKey)
+                showICloudFallbackWarning()
+            }
+        } else {
+            print("Failed to encode history.")
         }
     }
     
-    /// Loads the history from `UserDefaults`.
+    /// Loads the history from iCloud or local storage.
     private func loadHistory() {
-        if let data = UserDefaults.standard.data(forKey: historyKey),
-           let savedHistory = try? JSONDecoder().decode([ThreadData].self, from: data) {
-            history = savedHistory
+        if isICloudAvailable() {
+            print("Loading history from iCloud.")
+            if let data = iCloudStore.data(forKey: historyKey),
+               let savedHistory = try? JSONDecoder().decode([ThreadData].self, from: data) {
+                history = savedHistory
+            } else {
+                print("No history found in iCloud.")
+            }
+        } else {
+            print("Loading history from local storage.")
+            if let data = UserDefaults.standard.data(forKey: historyKey),
+               let savedHistory = try? JSONDecoder().decode([ThreadData].self, from: data) {
+                history = savedHistory
+            } else {
+                print("No history found locally.")
+            }
         }
     }
     
@@ -95,6 +126,28 @@ class HistoryManager {
 
         dispatchGroup.notify(queue: .main) {
             completion(validHistory)
+        }
+    }
+    
+    // MARK: - iCloud Fallback Warning
+    /// Warns the user only once if iCloud is unavailable and the app falls back to local storage.
+    private func showICloudFallbackWarning() {
+        let hasShownWarning = UserDefaults.standard.bool(forKey: iCloudFallbackWarningKey)
+        if !hasShownWarning {
+            DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: "iCloud Sync Unavailable",
+                    message: "You're not signed into iCloud. History is being saved locally. Sign in to iCloud to enable syncing across devices.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                
+                if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                   let rootViewController = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+                    rootViewController.present(alert, animated: true, completion: nil)
+                }
+            }
+            UserDefaults.standard.set(true, forKey: iCloudFallbackWarningKey)
         }
     }
 }
