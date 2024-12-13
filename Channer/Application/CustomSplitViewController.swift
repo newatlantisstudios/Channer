@@ -17,7 +17,7 @@ class CustomSplitViewController: UISplitViewController {
         let screenSize = UIScreen.main.bounds.size
 
         // Log the screen size for debugging
-        print("Debug Info: Screen size: \(screenSize)")
+        //print("Debug Info: Screen size: \(screenSize)")
 
         /// Helper function to compare sizes with tolerance.
         ///
@@ -27,7 +27,7 @@ class CustomSplitViewController: UISplitViewController {
         /// - Returns: A Boolean value indicating whether the sizes are approximately equal.
         func isApproximatelyEqual(to size: CGSize, tolerance: CGFloat = 20.0) -> Bool {
             let result = abs(screenSize.width - size.width) <= tolerance && abs(screenSize.height - size.height) <= tolerance
-            print("Debug Info: Comparing \(screenSize) to \(size) with tolerance \(tolerance) -> \(result)")
+            //print("Debug Info: Comparing \(screenSize) to \(size) with tolerance \(tolerance) -> \(result)")
             return result
         }
 
@@ -59,8 +59,8 @@ class CustomSplitViewController: UISplitViewController {
         }
 
         // Log the final column width configuration
-        print("Debug Info: Final Preferred Primary Column Width Fraction = \(preferredPrimaryColumnWidthFraction)")
-        print("Debug Info: Final Maximum Primary Column Width = \(maximumPrimaryColumnWidth)")
+        //print("Debug Info: Final Preferred Primary Column Width Fraction = \(preferredPrimaryColumnWidthFraction)")
+        //print("Debug Info: Final Maximum Primary Column Width = \(maximumPrimaryColumnWidth)")
     }
 
 }

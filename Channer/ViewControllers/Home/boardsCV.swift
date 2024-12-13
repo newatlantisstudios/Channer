@@ -55,9 +55,11 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
         // Add navigation buttons
         let filesButton = UIBarButtonItem(image: UIImage(named: "files"), style: .plain, target: self, action: #selector(openFilesList))
+        let settingsButton = UIBarButtonItem(image: UIImage(named: "setting"), style: .plain, target: self, action: #selector(openSettings))
+        navigationItem.rightBarButtonItems = [settingsButton, filesButton]
+
         let historyButton = UIBarButtonItem(image: UIImage(named: "history"), style: .plain, target: self, action: #selector(openHistory))
         let favoritesButton = UIBarButtonItem(image: UIImage(named: "favorite"), style: .plain, target: self, action: #selector(showFavorites))
-        navigationItem.rightBarButtonItem = filesButton
         navigationItem.leftBarButtonItems = [historyButton, favoritesButton]
     }
     
@@ -86,6 +88,14 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         }
     }
     
+    /// Navigates to the settings view, where the user can configure app preferences such as the default board.
+    /// Navigates to the settings view, where the user can configure app preferences such as the default board.
+    @objc private func openSettings() {
+        let settingsVC = settings() // Instantiate settings view controller programmatically
+        settingsVC.title = "Settings" // Set the title for the navigation bar
+        navigationController?.pushViewController(settingsVC, animated: true)
+    }
+    
     /// Opens the history view after successful authentication.
     @objc func openHistory() {
         authenticateUser { [weak self] isAuthenticated in
@@ -106,7 +116,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
                 return
             }
 
-            let vc = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "boardTV") as! boardTV
+            let vc = boardTV()
             vc.isHistoryView = true
             vc.threadData = historyThreads
             self.splitViewController?.showDetailViewController(vc, sender: self)
@@ -133,10 +143,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
                     return
                 }
 
-                guard let vc = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "boardTV") as? boardTV else {
-                    print("Could not find boardTV in storyboard.")
-                    return
-                }
+                let vc = boardTV()
 
                 vc.title = "Favorites"
                 vc.threadData = updatedFavorites
@@ -187,15 +194,13 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         }
 
         // Instantiate boardTV
-        guard let vc = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "boardTV") as? boardTV else {
-            print("Could not instantiate view controller with identifier 'boardTV'")
-            return
-        }
+        let vc = boardTV()
 
         // Configure boardTV with selected category
         vc.boardName = boardNames[indexPath.row]
         vc.boardAbv = boardsAbv[indexPath.row]
         vc.title = "/" + boardsAbv[indexPath.row] + "/"
+        vc.boardPassed = true
 
         // Adapt behavior based on device type
         if UIDevice.current.userInterfaceIdiom == .pad {

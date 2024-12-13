@@ -4,14 +4,15 @@ import Kingfisher
 import SwiftyJSON
 
 // MARK: - Thread Replies Table View Controller
-class threadRepliesTV: UITableViewController, UITextViewDelegate {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate {
     
     // MARK: - Properties
     /// Outlets and general properties for the thread view
-    @IBOutlet var threadTV: UITableView!
+    let tableView = UITableView()
     var onViewReady: (() -> Void)?
     var boardAbv = ""
     var threadNumber = ""
+    let cellIdentifier = "threadRepliesCell"
     private var showSpoilers = false
     private var spoilerButton: UIBarButtonItem?
     private var favoriteButton: UIBarButtonItem?
@@ -55,6 +56,17 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     private var threadBoardReplyNumberOld = [String]()
     private var threadRepliesImagesOld = [String]()
     
+    // MARK: - Initializer
+    
+    init() {
+        super.init(nibName: nil, bundle: nil)
+        // Perform any custom setup here
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     // MARK: - View Lifecycle Methods
     /// Lifecycle methods to set up the view
     override func loadView() {
@@ -67,34 +79,42 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         ])
         loadingIndicator.startAnimating()
     }
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        setupNavigationItems()
-        
-        // Enable automatic dimension for row height
+        // Table view setup
+        view.addSubview(tableView)
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.separatorStyle = .none
+        tableView.allowsSelection = true
+        tableView.register(threadRepliesCell.self, forCellReuseIdentifier: cellIdentifier)
         tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 172 // Estimated height for smooth scrolling
+        tableView.estimatedRowHeight = 172
         
-        // Set up loading indicator
-        view.addSubview(loadingIndicator)
-        NSLayoutConstraint.activate([
-            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-        ])
-        loadingIndicator.startAnimating()
-        
-        // Load favorites and check if the current thread is favorited
+        setupLoadingIndicator()
+        setupNavigationItems()
         checkIfFavorited()
-        
-        // Load initial data
         loadInitialData()
+
+        
+        // Table constraints
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
+        ])
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-
+        
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        
         /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
@@ -102,9 +122,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
         }
     }
-
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
         navigationController?.navigationBar.isHidden = false
         
         // Ensure navigation bar is properly configured
@@ -114,10 +135,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         // Ensure view is visible
         view.isHidden = false
         tableView.isHidden = false
-    }
-    
-    override func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 172
+        
     }
     
     // MARK: - UI Setup Methods
@@ -134,11 +152,9 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         
         // Configure table view
         tableView.separatorStyle = .none
-        tableView.estimatedRowHeight = 0 // Disable estimated height
-        tableView.rowHeight = 170 // Fixed height for cells
         
         // Register cell if using programmatic cell
-        // tableView.register(threadRepliesCell.self, forCellReuseIdentifier: "threadReplyCell")
+        // tableView.register(threadRepliesCell.self, forCellReuseIdentifier: cellIdentifier)
         
         // Add loading indicator
         view.addSubview(loadingIndicator)
@@ -324,7 +340,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     
     @objc private func showGallery() {
         print("Gallery button tapped.")
-
+        
         // Map valid image URLs
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
@@ -334,13 +350,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             }
             return url
         }
-
+        
         print("Filtered image URLs: \(imageUrls)")
-
+        
         // Instantiate the gallery view controller
         let galleryVC = ImageGalleryVC(images: imageUrls)
         print("GalleryVC instantiated.")
-
+        
         // Navigate to the gallery
         if let navController = navigationController {
             print("Pushing galleryVC onto navigation stack.")
@@ -354,32 +370,36 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     
     // MARK: - Table View Data Source Methods
     /// Methods required to display data in the table view
-    override func numberOfSections(in tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
-        
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         //print("Number of rows: \(isLoading ? 0 : replyCount)")
         return isLoading ? 0 : threadReplies.count
     }
-
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         //print("Configuring cell at index: \(indexPath.row)")
-            //print("threadReplies count: \(threadReplies.count)")
-            
-            guard indexPath.row < threadReplies.count else {
-                print("Index out of bounds: \(indexPath.row)")
-                return UITableViewCell() // Placeholder to avoid crashing
-            }
+        //print("threadReplies count: \(threadReplies.count)")
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "threadReplyCell", for: indexPath) as! threadRepliesCell
-
+        guard indexPath.row < threadReplies.count else {
+            print("Index out of bounds: \(indexPath.row)")
+            return UITableViewCell() // Placeholder to avoid crashing
+        }
+        
+        let cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier, for: indexPath) as! threadRepliesCell
+        
+        // Set up the reply button's target-action
+        //cell.reply.tag = indexPath.row
+        //cell.reply.addTarget(self, action: #selector(replyButtonTapped(_:)), for: .touchUpInside)
+        
         // Set the text view delegate to self
         cell.replyTextDelegate = self
-
+        
         // Debug: Start of cell configuration
         //print("Debug: Configuring cell at row \(indexPath.row)")
-
+        
         if threadReplies.isEmpty {
             //print("Debug: No replies available, showing loading text")
             cell.configure(withImage: false,
@@ -390,15 +410,15 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
             let attributedText = threadReplies[indexPath.row]
             let boardNumber = threadBoardReplyNumber[indexPath.row]
-
+            
             // Debug: Content of the reply
             //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
-
+            
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
                            text: attributedText,
                            boardNumber: boardNumber)
-
+            
             // Set the attributed text based on whether the cell has an image
             if hasImage {
                 //print("Debug: Cell contains an image, setting replyText")
@@ -407,7 +427,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 //print("Debug: Cell does not contain an image, setting replyTextNoImage")
                 cell.replyTextNoImage.attributedText = attributedText
             }
-
+            
             // Set up image if present
             if hasImage {
                 //print("Debug: Configuring image with URL: \(imageUrl)")
@@ -415,7 +435,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 cell.threadImage.tag = indexPath.row
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
             }
-
+            
             // Configure reply button visibility
             if let replies = threadBoardReplies[boardNumber], !replies.isEmpty {
                 //print("Debug: Found \(replies.count) replies for boardNumber \(boardNumber), showing thread button")
@@ -427,18 +447,18 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 cell.thread.isHidden = true
             }
         }
-
+        
         // Force layout to calculate cell height
         cell.layoutIfNeeded()
         //print("Debug: Cell at index \(indexPath.row) height after layout: \(cell.frame.size.height)")
-
+        
         return cell
     }
-
+    
     // MARK: - Data Loading Methods
     /// Methods to handle data fetching and processing
     var shouldLoadFullThread: Bool = true
-
+    
     private func loadInitialData() {
         // If shouldLoadFullThread is false, do not reload data
         guard shouldLoadFullThread else {
@@ -448,21 +468,21 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             tableView.reloadData()
             return
         }
-
+        
         // Check if threadNumber is set
         guard !threadNumber.isEmpty else {
             isLoading = false
             onViewReady?()
             return
         }
-
+        
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         print("Loading data from: \(urlString)") // Debug print
-
+        
         // Perform network request
         AF.request(urlString).responseData { [weak self] response in
             guard let self = self else { return }
-
+            
             DispatchQueue.main.async {
                 switch response.result {
                 case .success(let data):
@@ -476,7 +496,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                         //print("Data loaded successfully. Thread count: \(self.threadReplies.count)") // Debug print
                         //print(self.threadReplies)
                         
-
+                        
                         // Reload table view and stop loading indicator
                         self.loadingIndicator.stopAnimating()
                         self.tableView.reloadData()
@@ -550,7 +570,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     private func processThreadData(_ json: JSON) {
         // Get reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
-
+        
         // Handle case with no replies
         if replyCount == 0 {
             processPost(json["posts"][0], index: 0)
@@ -558,12 +578,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             structureThreadReplies()
             return
         }
-
+        
         // Process all posts in the thread
-        for i in 0...replyCount {
-            processPost(json["posts"][i], index: i)
+        let posts = json["posts"].arrayValue
+        for post in posts {
+            processPost(post, index: posts.firstIndex(of: post) ?? 0)
         }
-
+        
         // Finalize thread structure
         structureThreadReplies()
     }
@@ -571,20 +592,20 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     private func processPost(_ post: JSON, index: Int) {
         // Extract the board reply number
         threadBoardReplyNumber.append(String(describing: post["no"]))
-
+        
         // Extract the image URL
         let imageTimestamp = post["tim"].stringValue
         let imageExtension = post["ext"].stringValue
         let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
         threadRepliesImages.append(imageURL)
-
+        
         // Extract and process the comment text
         let comment = post["com"].stringValue
-
+        
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
         //print("Raw comment: \(comment)")
-
+        
         // Format the comment text with spoiler visibility
         let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
         //print("Formatted comment: \(formattedComment)")
@@ -595,7 +616,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     /// Methods to manage thread favorites
     @objc private func toggleFavorite() {
         guard !threadNumber.isEmpty else { return }
-
+        
         if FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
             print("Removing favorite for thread: \(threadNumber)")
             FavoritesManager.shared.removeFavorite(threadNumber: threadNumber)
@@ -604,7 +625,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             let favorite = createThreadDataForFavorite()
             FavoritesManager.shared.addFavorite(favorite)
         }
-
+        
         updateFavoriteButton()
         print("Favorite button updated.")
     }
@@ -621,23 +642,23 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             createdAt: "" // Populate if necessary
         )
     }
-
+    
     private func updateFavoriteButton() {
         let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
         favoriteButton?.image = UIImage(named: isFavorited ? "favoriteFilled" : "favorite")
     }
-
+    
     private func addFavorite() {
         guard !threadNumber.isEmpty else {
             print("Cannot add favorite: threadNumber is empty")
             return
         }
-
+        
         // Use the transferred totalImagesInThread count
         let stats = "\(replyCount)/\(totalImagesInThread)"
         print(stats)
         print(totalImagesInThread)
-
+        
         let favorite = ThreadData(
             number: threadNumber,
             stats: stats,
@@ -648,9 +669,9 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             replies: replyCount,
             createdAt: "" // Provide the appropriate value if needed
         )
-
+        
         FavoritesManager.shared.addFavorite(favorite)
-
+        
         print("Added to favorites: \(favorite)")
     }
     
@@ -685,13 +706,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         showSpoilers.toggle()
         spoilerButton?.image = UIImage(named: showSpoilers ? "hide" : "show")
         print("Spoiler visibility toggled. Current state: \(showSpoilers)")
-
+        
         // Reprocess all replies with updated spoiler state
         for (index, originalText) in originalTexts.enumerated() {
             let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers)
             threadReplies[index] = updatedText
         }
-
+        
         // Reload the table view
         tableView.reloadData()
     }
@@ -701,7 +722,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         if preserveOriginal {
             originalTexts.append(comment)
         }
-
+        
         // Initial cleanup of HTML codes
         var text = comment
             .replacingOccurrences(of: "<br>", with: "\n")
@@ -710,7 +731,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "<wbr>", with: "")
             .replacingOccurrences(of: "&amp;", with: "&")
-
+        
         // Remove any remaining HTML tags
         let htmlPattern = "<[^>]+>"
         if let regex = try? NSRegularExpression(pattern: htmlPattern, options: []) {
@@ -718,10 +739,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                                                   range: NSRange(text.startIndex..., in: text),
                                                   withTemplate: "")
         }
-
+        
         let attributedString = NSMutableAttributedString()
         let lines = text.components(separatedBy: "\n")
-
+        
         for line in lines {
             if line.hasPrefix(">>") {
                 // Handle quoted reply references (blue color, clickable)
@@ -761,10 +782,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 attributedString.append(NSAttributedString(string: displayText, attributes: attributes))
             }
         }
-
+        
         return attributedString
     }
-
+    
     private func processSpoilerText(_ text: String) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let lines = text.components(separatedBy: "\n")
@@ -831,13 +852,13 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             }
             return false // Prevent default interaction
         }
-
+        
         // Handle any other types of URL as needed
         return true
     }
-
-    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        return false
+    
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        textView.returnKeyType = .default
     }
     
     // MARK: - Gesture Handling Methods
@@ -868,20 +889,20 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     /// Methods to handle image loading and interactions
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
         //print("Debug: Starting image configuration for URL: \(imageUrl)")
-
+        
         let finalUrl: String
         if imageUrl.contains(".webm") {
             finalUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
         } else {
             finalUrl = imageUrl
         }
-
+        
         guard let url = URL(string: finalUrl) else {
             print("Debug: Invalid URL: \(finalUrl)")
             cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
             return
         }
-
+        
         KingfisherManager.shared.retrieveImage(with: url) { result in
             switch result {
             case .success(let value):
@@ -891,7 +912,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 //print("Debug: Failed to load image for URL: \(url), error: \(error)")
                 cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
             }
-
+            
             // Recalculate layout after image loads
             DispatchQueue.main.async {
                 cell.setNeedsLayout()
@@ -905,19 +926,19 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     @objc func threadContentOpen(sender: UIButton) {
         let selectedImageURLString = threadRepliesImages[sender.tag]
         print("threadContentOpen: \(selectedImageURLString)")
-
+        
         // Validate URL
         guard let selectedImageURL = URL(string: selectedImageURLString) else {
             print("Invalid URL: \(selectedImageURLString)")
             return
         }
-
+        
         if selectedImageURL.pathExtension.lowercased() == "webm" {
             // Create WebMViewController for video
             let webmVC = WebMViewController()
             webmVC.videoURL = selectedImageURL.absoluteString
             print("Navigating to WebMViewController.")
-
+            
             // Handle navigation stack
             if let navController = navigationController {
                 navController.pushViewController(webmVC, animated: true)
@@ -934,7 +955,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
             urlWebVC.currentIndex = 0
             urlWebVC.enableSwipes = false
             print("Navigating to urlWeb for image display.")
-
+            
             // Handle navigation stack
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
@@ -953,7 +974,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         for (i, reply) in threadReplies.enumerated() {
             // Get the string content from NSAttributedString
             let replyString = reply.string
-
+            
             if replyString.contains(">>") {
                 for (a, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
                     if replyString.contains(">>" + boardReplyNumber) {
@@ -966,31 +987,31 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 }
             }
         }
-
-        threadTV.reloadData()
+        
+        tableView.reloadData()
     }
     @objc private func showThread(sender: UIButton) {
         print("🔴showThread")
         let tag = sender.tag
-
+        
         // Create thread data for the new view
         var threadRepliesNew: [NSAttributedString] = []
         var threadBoardReplyNumberNew: [String] = []
         var threadRepliesImagesNew: [String] = []
-
+        
         // Get the board number that was clicked
         let selectedBoardNumber = threadBoardReplyNumber[tag]
-
+        
         // Start with the original post
         if let index = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
             threadRepliesNew.append(threadReplies[index])
             threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
             threadRepliesImagesNew.append(threadRepliesImages[index])
         }
-
+        
         // Use a Set to deduplicate replies
         var uniqueReplies = Set<String>()
-
+        
         // Add only replies to this post (not the whole thread)
         if let replies = threadBoardReplies[selectedBoardNumber] {
             for replyNumber in replies {
@@ -1003,12 +1024,10 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
                 }
             }
         }
-
+        
         // Create and configure new threadRepliesTV instance
-        guard let newThreadVC = storyboard?.instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
-            return
-        }
-
+        let newThreadVC = threadRepliesTV()
+        
         // Set the data and prevent full thread load
         newThreadVC.threadReplies = threadRepliesNew
         newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
@@ -1017,14 +1036,14 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         newThreadVC.boardAbv = self.boardAbv
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
-
+        
         print("Selected post: \(selectedBoardNumber)")
         print("Filtered replies: \(Array(uniqueReplies))")
         print("New threadReplies count: \(threadRepliesNew.count)")
-
+        
         // Set the title to show which post is being viewed
         newThreadVC.title = "\(selectedBoardNumber)"
-
+        
         // Adapt behavior based on device type
         if let navController = navigationController {
             navController.pushViewController(newThreadVC, animated: true)
@@ -1052,7 +1071,7 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
         threadRepliesImagesOld.removeAll()
         
         replyCount = threadReplies.count
-        threadTV.reloadData()
+        tableView.reloadData()
     }
     
     // MARK: - Helper Methods
@@ -1068,9 +1087,9 @@ class threadRepliesTV: UITableViewController, UITextViewDelegate {
     }
     
     @objc private func down() {
-        let lastRow = threadTV.numberOfRows(inSection: 0) - 1
+        let lastRow = tableView.numberOfRows(inSection: 0) - 1
         let indexPath = IndexPath(row: lastRow, section: 0)
-        threadTV.scrollToRow(at: indexPath, at: .top, animated: false)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: false)
     }
     
     private func updateLoadingUI() {

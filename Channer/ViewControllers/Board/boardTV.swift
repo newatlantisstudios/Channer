@@ -71,6 +71,7 @@ class boardTV: UITableViewController {
     private var isSearching = false
     var isHistoryView: Bool = false
     var isFavoritesView: Bool = false
+    var boardPassed = false
 
     // Image cache configuration
     private let imageCache = NSCache<NSString, UIImage>()
@@ -126,7 +127,17 @@ class boardTV: UITableViewController {
                 }
             }
         } else {
-            // self.title = "/\(boardAbv)/"
+            
+            if boardPassed == false{
+                //Startup board
+                let userDefaultsKey = "defaultBoard"
+                if let savedBoardAbv = UserDefaults.standard.string(forKey: userDefaultsKey) {
+                    boardAbv = savedBoardAbv
+                } else {
+                    boardAbv = "a" // Replace with your app's default
+                }
+            }
+            
             loadThreads()
         }
     }
@@ -209,9 +220,12 @@ class boardTV: UITableViewController {
         // Configures the table view's appearance and behavior.
         tableView.backgroundColor = .systemBackground
         tableView.separatorStyle = .none
-        tableView.rowHeight = UITableView.automaticDimension
+        //tableView.rowHeight = 172
         tableView.estimatedRowHeight = 172
         tableView.prefetchDataSource = self
+        
+        // Register the custom cell
+        tableView.register(boardTVCell.self, forCellReuseIdentifier: "boardTVCell")
     }
     
     private func setupLoadingIndicator() {
@@ -475,46 +489,7 @@ class boardTV: UITableViewController {
         // print("boardTV - cellForRowAt")
         // print(thread)
         
-        // Configure stats under the topicImage
-        if isHistoryView {
-            cell.topicStats.isHidden = true // Hide topicStats if it is the history view
-        } else {
-            cell.topicStats.isHidden = false
-            cell.topicStats.text = thread.stats
-        }
-        
-        if isFavoritesView {
-            
-            print("currentReplies: \(thread.currentReplies)")
-            print("thread.replies: \(thread.replies)")
-            
-            if let currentReplies = thread.currentReplies,
-               currentReplies > thread.replies {
-                // Example: Change the background color or border
-                cell.customBackgroundView.layer.borderColor = UIColor.red.cgColor
-            } else {
-                // Keep `customBackgroundView` unchanged or reset it to default
-                cell.customBackgroundView.layer.borderColor = UIColor(red: 67/255, green: 160/255, blue: 71/255, alpha: 1.0).cgColor
-            }
-        }
-        
-        // Set up other cell components (text, image, etc.)
-        let formattedComment = formatText(thread.comment)
-        let formattedTitle = formatText(thread.title)
-        
-        if formattedTitle.string.isEmpty || formattedTitle.string == "null" {
-            cell.topicTextTitle.isHidden = true
-            cell.topicTextNoTitle.isHidden = false
-            cell.topicTitle.isHidden = true
-            cell.topicTextNoTitle.attributedText = formattedComment
-        } else {
-            cell.topicTextTitle.isHidden = false
-            cell.topicTextNoTitle.isHidden = true
-            cell.topicTitle.isHidden = false
-            cell.topicTextTitle.attributedText = formattedComment
-            cell.topicTitle.text = formattedTitle.string // Use plain text
-        }
-        
+        cell.configure(with: thread, isHistoryView: isHistoryView, isFavoritesView: isFavoritesView)
         configureImage(for: cell, with: thread.imageUrl)
         
         return cell
@@ -527,7 +502,7 @@ class boardTV: UITableViewController {
         let thread = filteredThreadData[indexPath.row]
         let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
     
-        print("Selected thread at index \(indexPath.row): \(thread)")
+        //print("Selected thread at index \(indexPath.row): \(thread)")
     
         // Add the selected thread to history (if not already in history or favorites view)
         if !isHistoryView && !isFavoritesView {
@@ -563,11 +538,7 @@ class boardTV: UITableViewController {
             }
     
             // Instantiate threadRepliesTV view controller
-            guard let vc = UIStoryboard(name: "Main", bundle: nil)
-                    .instantiateViewController(withIdentifier: "threadRepliesTV") as? threadRepliesTV else {
-                print("Failed to instantiate threadRepliesTV.")
-                return
-            }
+            let vc = threadRepliesTV()
     
             vc.boardAbv = thread.boardAbv
             vc.threadNumber = thread.number
@@ -692,128 +663,6 @@ class boardTV: UITableViewController {
         filteredThreadData.removeAll()
         tableView.reloadData()
         loadThreads() // Re-fetch threads
-    }
-    
-    private func formatText(_ text: String) -> NSAttributedString {
-        // Formats text by applying styles and processing HTML tags.
-        var formattedText = text
-        
-        // First handle all replacements except spoiler tags
-        let replacements = [
-            "<br>": "\n",
-            "&#039;": "'",
-            "&gt;": ">",
-            "&quot;": "\"",
-            "<wbr>": "",
-            "&amp;": "&",
-            "<a[^>]+>": "",
-            "</a>": "",
-            "<span[^>]+>": "",
-            "</span>": ""
-        ]
-        
-        for (key, value) in replacements {
-            if key.contains("[^>]+") {
-                if let regex = try? NSRegularExpression(pattern: key, options: []) {
-                    formattedText = regex.stringByReplacingMatches(
-                        in: formattedText,
-                        options: [],
-                        range: NSRange(location: 0, length: formattedText.count),
-                        withTemplate: value
-                    )
-                }
-            } else {
-                formattedText = formattedText.replacingOccurrences(of: key, with: value)
-            }
-        }
-        
-        let attributedString = NSMutableAttributedString(string: "")
-        
-        // Split by spoiler tags and process each part
-        let components = formattedText.components(separatedBy: "<s>")
-        
-        // Default text attributes with 14pt font
-        let defaultAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 14),
-            .foregroundColor: UIColor.black
-        ]
-        
-        // Greentext attributes with 14pt font
-        let greentextAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 14),
-            .foregroundColor: UIColor(red: 120/255, green: 153/255, blue: 34/255, alpha: 1.0)
-        ]
-        
-        // Spoiler attributes with 14pt font
-        let spoilerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 14),
-            .foregroundColor: UIColor.black,
-            .backgroundColor: UIColor.black
-        ]
-        
-        for (index, component) in components.enumerated() {
-            if index == 0 {
-                // First component is never a spoiler
-                let normalText = component.replacingOccurrences(of: "</s>", with: "")
-                // Process greentext for non-spoiler text
-                let lines = normalText.components(separatedBy: "\n")
-                for line in lines {
-                    if line.hasPrefix(">") {
-                        attributedString.append(NSAttributedString(string: line + "\n", attributes: greentextAttributes))
-                    } else {
-                        attributedString.append(NSAttributedString(string: line + "\n", attributes: defaultAttributes))
-                    }
-                }
-            } else {
-                // For subsequent components, split by closing spoiler tag
-                let spoilerParts = component.components(separatedBy: "</s>")
-                if spoilerParts.count > 0 {
-                    // Spoiler text
-                    if let spoilerText = spoilerParts.first {
-                        // Process greentext within spoiler
-                        let lines = spoilerText.components(separatedBy: "\n")
-                        for line in lines {
-                            attributedString.append(NSAttributedString(string: line + "\n", attributes: spoilerAttributes))
-                        }
-                    }
-                    
-                    // Non-spoiler text (after closing tag)
-                    if spoilerParts.count > 1 {
-                        let normalText = spoilerParts[1]
-                        // Process greentext for text after spoiler
-                        let lines = normalText.components(separatedBy: "\n")
-                        for line in lines {
-                            if line.hasPrefix(">") {
-                                attributedString.append(NSAttributedString(string: line + "\n", attributes: greentextAttributes))
-                            } else {
-                                attributedString.append(NSAttributedString(string: line + "\n", attributes: defaultAttributes))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Remove any extra newlines that might have been added
-        let finalString = attributedString.string.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalAttributedString = NSMutableAttributedString(string: finalString)
-        
-        // Copy attributes from the original string, ensuring font size is preserved
-        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length)) { (attrs, range, _) in
-            let intersectingRange = NSIntersectionRange(range, NSRange(location: 0, length: finalString.count))
-            if intersectingRange.length > 0 {
-                var newAttributes = attrs
-                // Ensure font size is 14pt
-                if attrs[.font] is UIFont {
-                    newAttributes[.font] = UIFont.systemFont(ofSize: 14)
-                }
-                for (key, value) in newAttributes {
-                    finalAttributedString.addAttribute(key, value: value, range: intersectingRange)
-                }
-            }
-        }
-        
-        return finalAttributedString
     }
     
     // MARK: - Sorting
