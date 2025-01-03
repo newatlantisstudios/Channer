@@ -45,6 +45,7 @@ class threadRepliesCell: UITableViewCell {
     let boardReplyCount: UILabel = {
         let label = UILabel()
         label.text = "#000000000000"
+        label.textColor = .black
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
