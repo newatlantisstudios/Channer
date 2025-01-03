@@ -1,3 +1,7 @@
+# Channer for iOS & iPadOS
+
+A native, performant iOS/iPadOS client for browsing image boards with a focus on user privacy, smooth media handling, and a clean interface.
+
 ## Features
 
 - **Seamless Browsing Experience**
