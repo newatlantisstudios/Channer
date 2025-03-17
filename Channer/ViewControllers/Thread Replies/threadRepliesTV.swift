@@ -345,8 +345,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
             if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
-            if imageUrlString.contains(".webm") {
-                return URL(string: imageUrlString.replacingOccurrences(of: ".webm", with: "s.jpg"))
+            if imageUrlString.hasSuffix(".webm") || imageUrlString.hasSuffix(".mp4") {
+                let components = imageUrlString.components(separatedBy: "/")
+                if let last = components.last {
+                    let fileExtension = imageUrlString.hasSuffix(".webm") ? ".webm" : ".mp4"
+                    let base = last.replacingOccurrences(of: fileExtension, with: "")
+                    return URL(string: imageUrlString.replacingOccurrences(of: last, with: "\(base)s.jpg"))
+                }
+                return nil
             }
             return url
         }
@@ -891,8 +897,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         //print("Debug: Starting image configuration for URL: \(imageUrl)")
         
         let finalUrl: String
-        if imageUrl.contains(".webm") {
-            finalUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
+        if imageUrl.hasSuffix(".webm") || imageUrl.hasSuffix(".mp4") {
+            let components = imageUrl.components(separatedBy: "/")
+            if let last = components.last {
+                let fileExtension = imageUrl.hasSuffix(".webm") ? ".webm" : ".mp4"
+                let base = last.replacingOccurrences(of: fileExtension, with: "")
+                finalUrl = imageUrl.replacingOccurrences(of: last, with: "\(base)s.jpg")
+            } else {
+                finalUrl = imageUrl
+            }
         } else {
             finalUrl = imageUrl
         }

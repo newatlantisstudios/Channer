@@ -583,10 +583,11 @@ class boardTV: UITableViewController {
         }
         
         let finalUrl: String
-        if urlString.hasSuffix(".webm") {
+        if urlString.hasSuffix(".webm") || urlString.hasSuffix(".mp4") {
             let components = urlString.components(separatedBy: "/")
             if let last = components.last {
-                let base = last.replacingOccurrences(of: ".webm", with: "")
+                let fileExtension = urlString.hasSuffix(".webm") ? ".webm" : ".mp4"
+                let base = last.replacingOccurrences(of: fileExtension, with: "")
                 finalUrl = urlString.replacingOccurrences(of: last, with: "\(base)s.jpg")
             } else {
                 finalUrl = urlString
@@ -696,10 +697,11 @@ extension boardTV: UITableViewDataSourcePrefetching {
         let urls = limitedPaths.compactMap { indexPath -> URL? in
             guard indexPath.row < threadData.count else { return nil }
             let imageUrl = threadData[indexPath.row].imageUrl
-            if imageUrl.hasSuffix(".webm") {
+            if imageUrl.hasSuffix(".webm") || imageUrl.hasSuffix(".mp4") {
                 let components = imageUrl.components(separatedBy: "/")
                 if let last = components.last {
-                    let base = last.replacingOccurrences(of: ".webm", with: "")
+                    let fileExtension = imageUrl.hasSuffix(".webm") ? ".webm" : ".mp4"
+                    let base = last.replacingOccurrences(of: fileExtension, with: "")
                     return URL(string: imageUrl.replacingOccurrences(of: last, with: "\(base)s.jpg"))
                 }
             }
