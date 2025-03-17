@@ -46,6 +46,7 @@ class threadRepliesCell: UITableViewCell {
         let label = UILabel()
         label.text = "#000000000000"
         label.textColor = .black
+        label.font = UIFont.systemFont(ofSize: 12, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -110,7 +111,7 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             customBackgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
             customBackgroundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
-            customBackgroundView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -8),
+            customBackgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
 
             threadImage.widthAnchor.constraint(equalToConstant: 120),
             threadImage.heightAnchor.constraint(equalToConstant: 120),
@@ -136,7 +137,7 @@ class threadRepliesCell: UITableViewCell {
         // Constraints for replyText with image
         replyTextWithImageConstraints = [
             replyText.leadingAnchor.constraint(equalTo: threadImage.trailingAnchor, constant: 8),
-            replyText.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 18),
+            replyText.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
             replyText.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -16),
             replyText.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -16)
         ]
@@ -144,7 +145,7 @@ class threadRepliesCell: UITableViewCell {
         // Constraints for replyText without image
         replyTextNoImageConstraints = [
             replyTextNoImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 12),
-            replyTextNoImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 18),
+            replyTextNoImage.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
             replyTextNoImage.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -16),
             replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -16)
         ]

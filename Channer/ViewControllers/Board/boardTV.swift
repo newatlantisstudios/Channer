@@ -220,7 +220,7 @@ class boardTV: UITableViewController {
         // Configures the table view's appearance and behavior.
         tableView.backgroundColor = .systemBackground
         tableView.separatorStyle = .none
-        //tableView.rowHeight = 172
+        tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172
         tableView.prefetchDataSource = self
         
