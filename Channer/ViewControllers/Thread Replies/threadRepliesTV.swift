@@ -323,6 +323,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             self.toggleSpoilers()
         }))
         
+        actionSheet.addAction(UIAlertAction(title: "Open in Browser", style: .default, handler: { _ in
+            self.openInBrowser()
+        }))
+        
         // Add a cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
@@ -1103,6 +1107,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let lastRow = tableView.numberOfRows(inSection: 0) - 1
         let indexPath = IndexPath(row: lastRow, section: 0)
         tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+    }
+    
+    @objc private func openInBrowser() {
+        guard !boardAbv.isEmpty && !threadNumber.isEmpty else { return }
+        
+        let urlString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
+        if let url = URL(string: urlString) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
     }
     
     private func updateLoadingUI() {
