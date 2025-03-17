@@ -42,8 +42,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Set system background color for automatic light/dark mode support
-        collectionView.backgroundColor = .systemBackground
+        // Set theme background color for automatic light/dark mode support
+        collectionView.backgroundColor = ThemeManager.shared.backgroundColor
 
         // Ensure the collection view is using a UICollectionViewFlowLayout
         if collectionView.collectionViewLayout as? UICollectionViewFlowLayout == nil {

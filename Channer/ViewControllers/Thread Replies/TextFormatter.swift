@@ -1,4 +1,5 @@
 import UIKit
+import Foundation
 
 // MARK: - TextFormatter Class
 /// A utility class for formatting text with special styling like spoilers and quotes.
@@ -26,8 +27,9 @@ class TextFormatter {
         var quotelinkPostNumber: String?
 
         // Define text attributes
+        // Define text attributes - use system colors instead of ThemeManager to avoid circular dependencies
         let normalAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.black,
+            .foregroundColor: UIColor.label,
             .font: UIFont.systemFont(ofSize: 14)
         ]
 

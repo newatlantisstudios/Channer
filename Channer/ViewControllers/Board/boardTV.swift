@@ -218,7 +218,7 @@ class boardTV: UITableViewController {
     
     private func setupTableView() {
         // Configures the table view's appearance and behavior.
-        tableView.backgroundColor = .systemBackground
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         tableView.separatorStyle = .none
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172

@@ -29,7 +29,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// UI components for displaying a loading indicator
     private lazy var loadingContainer: UIView = {
         let container = UIView()
-        container.backgroundColor = .systemBackground
+        container.backgroundColor = ThemeManager.shared.backgroundColor
         container.translatesAutoresizingMaskIntoConstraints = false
         return container
     }()
@@ -130,7 +130,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Ensure navigation bar is properly configured
         navigationController?.navigationBar.isTranslucent = true
-        navigationController?.navigationBar.backgroundColor = .systemBackground
+        navigationController?.navigationBar.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Ensure view is visible
         view.isHidden = false
@@ -142,8 +142,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Methods to set up the UI components and appearance
     private func setupTableView() {
         // Clear background
-        view.backgroundColor = .white
-        tableView.backgroundColor = .white
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Remove any automatic adjustments
         if #available(iOS 11.0, *) {
@@ -169,8 +169,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         tableView.translatesAutoresizingMaskIntoConstraints = false
         
         // Set background colors
-        view.backgroundColor = .systemBackground
-        tableView.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure table view properties
         tableView.separatorStyle = .none
@@ -180,8 +180,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func setupUI() {
         // Configure view and table view
-        view.backgroundColor = .systemBackground
-        tableView.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         tableView.separatorStyle = .none
         
         // Remove any extra spacing or insets
@@ -205,12 +205,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func configureView() {
         // Set background colors immediately
-        view.backgroundColor = .systemBackground
-        tableView.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure navigation bar
-        navigationController?.navigationBar.backgroundColor = .systemBackground
-        navigationController?.view.backgroundColor = .systemBackground
+        navigationController?.navigationBar.backgroundColor = ThemeManager.shared.backgroundColor
+        navigationController?.view.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure table view
         tableView.separatorStyle = .none
@@ -226,8 +226,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func configureViewAppearance() {
         // Clear background colors
-        view.backgroundColor = .systemBackground
-        tableView.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure table view
         tableView.separatorStyle = .none
@@ -243,8 +243,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func configureInitialUI() {
         // Set background colors
-        view.backgroundColor = .systemBackground
-        tableView.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure table view
         tableView.separatorStyle = .none
@@ -769,7 +769,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 } else {
                     // Fallback for when the URL creation fails
                     let normalAttributes: [NSAttributedString.Key: Any] = [
-                        .foregroundColor: UIColor.black,
+                        .foregroundColor: ThemeManager.shared.primaryTextColor,
                         .font: UIFont.systemFont(ofSize: 14) // Set font size to 14
                     ]
                     attributedString.append(NSAttributedString(string: displayText, attributes: normalAttributes))
@@ -785,7 +785,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             } else {
                 // Handle normal text
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .foregroundColor: UIColor.black,
+                    .foregroundColor: ThemeManager.shared.primaryTextColor,
                     .font: UIFont.systemFont(ofSize: 14) // Set font size to 14
                 ]
                 let displayText = line + "\n"
@@ -838,7 +838,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             } else {
                 // Normal text
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .foregroundColor: UIColor.black
+                    .foregroundColor: ThemeManager.shared.primaryTextColor
                 ]
                 result.append(NSAttributedString(string: line, attributes: attributes))
             }
@@ -1165,21 +1165,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 } else {
                     // Fallback if URL creation fails
                     let normalAttributes: [NSAttributedString.Key: Any] = [
-                        .foregroundColor: UIColor.black
+                    .foregroundColor: ThemeManager.shared.primaryTextColor
                     ]
                     result.append(NSAttributedString(string: displayText, attributes: normalAttributes))
                 }
             } else if trimmed.hasPrefix(">") && !trimmed.hasPrefix(">>") {
                 // Greentext (should have a green color)
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .foregroundColor: UIColor(red: 120/255, green: 153/255, blue: 34/255, alpha: 1.0)
+                    .foregroundColor: ThemeManager.shared.greentextColor
                 ]
                 let displayText = line + "\n" // Add newline explicitly
                 result.append(NSAttributedString(string: displayText, attributes: attributes))
             } else {
                 // Normal text
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .foregroundColor: UIColor.black
+                    .foregroundColor: ThemeManager.shared.primaryTextColor
                 ]
                 let displayText = line + "\n" // Add newline explicitly
                 result.append(NSAttributedString(string: displayText, attributes: attributes))

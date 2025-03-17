@@ -15,7 +15,7 @@ class settings: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource {
     }
 
     private func setupUI() {
-        view.backgroundColor = UIColor.systemBackground // Automatically adapts to light/dark mode
+        view.backgroundColor = ThemeManager.shared.backgroundColor // Using our theme manager for consistency
 
         // Create and configure label
         label = UILabel()

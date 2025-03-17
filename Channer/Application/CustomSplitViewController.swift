@@ -9,6 +9,20 @@ class CustomSplitViewController: UISplitViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         configureSplitView()
+        
+        // Set background color using ThemeManager
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+    }
+    
+    // MARK: - Trait Collection Changes
+    /// Called when the trait collection changes (e.g., dark mode toggle).
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            // Update colors when appearance changes
+            view.backgroundColor = ThemeManager.shared.backgroundColor
+        }
     }
 
     // MARK: - Split View Configuration
@@ -62,5 +76,4 @@ class CustomSplitViewController: UISplitViewController {
         //print("Debug Info: Final Preferred Primary Column Width Fraction = \(preferredPrimaryColumnWidthFraction)")
         //print("Debug Info: Final Maximum Primary Column Width = \(maximumPrimaryColumnWidth)")
     }
-
 }

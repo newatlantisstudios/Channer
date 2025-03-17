@@ -13,8 +13,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {       
+        setupAppearance()
         setupMainWindow()
         return true
+    }
+    
+    // MARK: - Appearance Setup
+    /// Sets up the global appearance for UI elements.
+    private func setupAppearance() {
+        // Configure navigation bar appearance for both light and dark modes
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = ThemeManager.shared.backgroundColor
+        
+        // Apply the appearance settings to all navigation bars
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
+        
+        if #available(iOS 15.0, *) {
+            UINavigationBar.appearance().compactScrollEdgeAppearance = appearance
+        }
     }
     
     // MARK: - Window Setup

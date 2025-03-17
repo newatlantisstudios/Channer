@@ -1,4 +1,5 @@
 import UIKit
+import Kingfisher
 
 class threadRepliesCell: UITableViewCell {
 
@@ -45,7 +46,7 @@ class threadRepliesCell: UITableViewCell {
     let boardReplyCount: UILabel = {
         let label = UILabel()
         label.text = "#000000000000"
-        label.textColor = .black
+        label.textColor = ThemeManager.shared.primaryTextColor
         label.font = UIFont.systemFont(ofSize: 12, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -60,10 +61,10 @@ class threadRepliesCell: UITableViewCell {
 
     let customBackgroundView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(red: 255/255, green: 236/255, blue: 219/255, alpha: 1.0)
+        view.backgroundColor = ThemeManager.shared.cellBackgroundColor
         view.layer.cornerRadius = 12
         view.layer.borderWidth = 6.0
-        view.layer.borderColor = UIColor(red: 67/255, green: 160/255, blue: 71/255, alpha: 1.0).cgColor
+        view.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOffset = CGSize(width: 0, height: 2)
         view.layer.shadowOpacity = 0.2
@@ -93,6 +94,56 @@ class threadRepliesCell: UITableViewCell {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    // Update UI when trait collection changes (light/dark mode)
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            // Update colors when appearance changes
+            customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+            boardReplyCount.textColor = ThemeManager.shared.primaryTextColor
+            
+            // When trait collection changes, we also need to update attributed text
+            if let attributedText = replyText.attributedText {
+                replyText.attributedText = updateAttributedTextColors(attributedText)
+            }
+            
+            if let attributedText = replyTextNoImage.attributedText {
+                replyTextNoImage.attributedText = updateAttributedTextColors(attributedText)
+            }
+        }
+    }
+    
+    private func updateAttributedTextColors(_ attributedText: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedText)
+        
+        mutableString.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: mutableString.length)) { (value, range, stop) in
+            if value != nil {
+                // If this is greentext (checking the color)
+                if let color = value as? UIColor, self.isColorGreenish(color) {
+                    mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.greentextColor, range: range)
+                } else {
+                    mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.primaryTextColor, range: range)
+                }
+            }
+        }
+        
+        return mutableString
+    }
+    
+    private func isColorGreenish(_ color: UIColor) -> Bool {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        // Check if green component is dominant
+        return green > red * 1.5 && green > blue * 1.5
     }
 
     // MARK: - Setup Methods
