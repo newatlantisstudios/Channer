@@ -90,8 +90,10 @@ class boardTV: UITableViewController {
         setupImageCache()
         setupLoadingIndicator()
         setupSortButton()
-        addHomeButton()
         setupSearchController()
+        
+        // Configure back button to only show arrow, no text
+        navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
         
         // let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         // tapGesture.cancelsTouchesInView = false
@@ -108,12 +110,6 @@ class boardTV: UITableViewController {
             
             // Add "Clear All" button
             let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
-            
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                // Add "Home" button for iPhones only, on the left side
-                let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(showMasterView))
-                navigationItem.leftBarButtonItem = homeButton
-            }
             
             // Add "Clear All" button to the right side
             navigationItem.rightBarButtonItem = clearAllButton
@@ -166,41 +162,13 @@ class boardTV: UITableViewController {
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         
-        coordinator.animate(alongsideTransition: { _ in
-            if self.splitViewController?.traitCollection.horizontalSizeClass == .compact {
-                self.addHomeButton()
-            }
-        })
+        // We maintain the same UI regardless of size class now
     }
     
     // MARK: - UI Setup Methods
     // Methods that set up the UI components.
 
-    private func addHomeButton() {
-        // Adds a home button to the navigation bar on iPhones.
-        guard UIDevice.current.userInterfaceIdiom == .phone else {
-            navigationItem.leftBarButtonItems = nil // Remove home button if not iPhone
-            return
-        }
-        
-        let homeImage = UIImage(named: "home")
-        let homeButton = UIBarButtonItem(
-            image: homeImage,
-            style: .plain,
-            target: self,
-            action: #selector(showMasterView)
-        )
-        
-        if var leftBarButtonItems = navigationItem.leftBarButtonItems {
-            // Check if the home button is already added
-            if !leftBarButtonItems.contains(where: { $0.target === homeButton.target && $0.action == homeButton.action }) {
-                leftBarButtonItems.insert(homeButton, at: 0)
-                navigationItem.leftBarButtonItems = leftBarButtonItems
-            }
-        } else {
-            navigationItem.leftBarButtonItems = [homeButton]
-        }
-    }
+    // Home button removed in favor of standard navigation back button
     
     private func setupSortButton() {
         // Adds a sort button to the navigation bar, unless in history view.
@@ -263,15 +231,7 @@ class boardTV: UITableViewController {
     // MARK: - Actions
     // Methods that respond to user interactions.
 
-    @objc private func showMasterView() {
-        // Navigates back to the master view controller.
-        guard let splitVC = splitViewController else { return }
-        if let masterNavVC = splitVC.viewControllers.first as? UINavigationController {
-            masterNavVC.popToRootViewController(animated: true)
-        } else {
-            print("Master view controller not found.")
-        }
-    }
+    // showMasterView() method removed as we now use the default back button
     
     @objc private func clearAllHistory() {
         // Clears all browsing history.
@@ -544,22 +504,9 @@ class boardTV: UITableViewController {
             vc.threadNumber = thread.number
             vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
     
-            // Handle navigation
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                // iPad behavior
-                if let splitVC = self.splitViewController,
-                   let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
-                    detailNavController.pushViewController(vc, animated: true)
-                    print("Pushed threadRepliesTV on iPad detail navigation stack.")
-                } else {
-                    self.navigationController?.pushViewController(vc, animated: true)
-                    print("Fallback: Pushed threadRepliesTV on main navigation stack (iPad).")
-                }
-            } else {
-                // iPhone behavior
-                self.navigationController?.pushViewController(vc, animated: true)
-                print("Pushed threadRepliesTV on iPhone navigation stack.")
-            }
+            // Handle navigation - same behavior on all devices
+            self.navigationController?.pushViewController(vc, animated: true)
+            print("Pushed threadRepliesTV on navigation stack.")
         }
     }
 

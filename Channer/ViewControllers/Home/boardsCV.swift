@@ -72,6 +72,9 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
         // Register cell
         collectionView.register(boardCVCell.self, forCellWithReuseIdentifier: reuseIdentifier)
+        
+        // Set backBarButtonItem to have just the arrow without text
+        navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
 
         // Add navigation buttons
         let filesButton = UIBarButtonItem(image: UIImage(named: "files"), style: .plain, target: self, action: #selector(openFilesList))
@@ -89,6 +92,21 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         configureCollectionViewLayout()
     }
     
+    /// Called when the view controller's trait collection changes.
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        // Check if orientation, size class, or device type changed
+        if previousTraitCollection?.horizontalSizeClass != traitCollection.horizontalSizeClass ||
+           previousTraitCollection?.verticalSizeClass != traitCollection.verticalSizeClass ||
+           previousTraitCollection?.userInterfaceIdiom != traitCollection.userInterfaceIdiom {
+            // Update layout for the new conditions
+            configureCollectionViewLayout()
+            // Force collection view to redraw with new layout
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
+    }
+    
     // MARK: - Navigation Actions
     /// Opens the files list after successful authentication.
     @objc func openFilesList() {
@@ -103,7 +121,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             
             // Proceed with opening files list
             let filesVC = FilesListVC()
-            self.splitViewController?.showDetailViewController(filesVC, sender: self)
+            self.navigationController?.pushViewController(filesVC, animated: true)
             
         }
     }
@@ -139,7 +157,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             let vc = boardTV()
             vc.isHistoryView = true
             vc.threadData = historyThreads
-            self.splitViewController?.showDetailViewController(vc, sender: self)
+            self.navigationController?.pushViewController(vc, animated: true)
         }
     }
 
@@ -174,7 +192,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
                     vc.tableView.reloadData()
                 }
 
-                self.splitViewController?.showDetailViewController(vc, sender: self)
+                self.navigationController?.pushViewController(vc, animated: true)
             }
         }
     }
@@ -221,26 +239,15 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         vc.boardAbv = boardsAbv[indexPath.row]
         vc.title = "/" + boardsAbv[indexPath.row] + "/"
         vc.boardPassed = true
-
-        // Adapt behavior based on device type
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // iPad behavior: update the detail view controller in the split view
-            if let splitVC = self.splitViewController,
-               let detailNavController = splitVC.viewController(for: .secondary) as? UINavigationController {
-                detailNavController.setViewControllers([vc], animated: false)
-            } else {
-                print("Detail navigation controller is not properly configured.")
-            }
+        
+        // Use the navigation controller on all devices
+        if let navController = navigationController {
+            navController.pushViewController(vc, animated: true)
         } else {
-            // Handle navigation stack
-            if let navController = navigationController {
-                navController.pushViewController(vc, animated: true)
-            } else {
-                // Fallback to modal presentation for iPhones
-                let navController = UINavigationController(rootViewController: vc)
-                navController.modalPresentationStyle = .fullScreen
-                present(navController, animated: true)
-            }
+            // Fallback to modal presentation if navigation controller is not available
+            let navController = UINavigationController(rootViewController: vc)
+            navController.modalPresentationStyle = .fullScreen
+            present(navController, animated: true)
         }
     }
     
@@ -251,7 +258,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         layout collectionViewLayout: UICollectionViewLayout,
         minimumInteritemSpacingForSectionAt section: Int
     ) -> CGFloat {
-        return 2 // Match the spacing in `configureCollectionViewLayout`
+        let isPad = traitCollection.userInterfaceIdiom == .pad
+        return isPad ? 8 : 10 // Match the spacing in `configureCollectionViewLayout`
     }
 
     /// Returns the minimum spacing between lines of items in the grid.
@@ -260,7 +268,51 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         layout collectionViewLayout: UICollectionViewLayout,
         minimumLineSpacingForSectionAt section: Int
     ) -> CGFloat {
-        return 2 // Match the spacing in `configureCollectionViewLayout`
+        let isPad = traitCollection.userInterfaceIdiom == .pad
+        return isPad ? 8 : 10 // Match the spacing in `configureCollectionViewLayout`
+    }
+    
+    /// Returns the size for the item at the specified index path.
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> CGSize {
+        guard let layout = collectionViewLayout as? UICollectionViewFlowLayout else {
+            return CGSize(width: 85, height: 85) // Default size
+        }
+        
+        // Use the same calculation logic as in configureCollectionViewLayout
+        let isPad = traitCollection.userInterfaceIdiom == .pad
+        
+        // Smaller spacing for iPad to fit more cells
+        let interItemSpacing: CGFloat = isPad ? 8 : 10
+        let sectionInset: CGFloat = isPad ? 8 : 10
+        let collectionViewWidth = collectionView.bounds.width
+        let numberOfColumns: CGFloat
+        
+        if isPad {
+            // Increased number of columns for iPad to fit more cells
+            if collectionViewWidth > 1000 {  // Larger iPads (Pro 12.9")
+                numberOfColumns = 8
+            } else if collectionViewWidth > 800 {  // Medium iPads (10.5", 11")
+                numberOfColumns = 7
+            } else {  // Smaller iPads (9.7", iPad mini)
+                numberOfColumns = 6
+            }
+        } else {
+            // iPhone layout
+            if collectionViewWidth > 400 {  // Larger iPhones in landscape
+                numberOfColumns = 4
+            } else {  // Standard iPhone layout
+                numberOfColumns = 3
+            }
+        }
+        
+        let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
+        let cellWidth = floor(availableWidth / numberOfColumns)
+        
+        return CGSize(width: cellWidth, height: cellWidth)
     }
     
     /// Configures the layout of the collection view.
@@ -269,53 +321,56 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             return
         }
 
-        // Define fixed cell size
-        let cellWidth: CGFloat = 85
-        let cellHeight: CGFloat = 85
-
-        // Define spacing
-        let interItemSpacing: CGFloat = 5  // Horizontal space between cells
-        let lineSpacing: CGFloat = 5       // Vertical space between rows
-
+        // Define spacing based on device type
+        let isPad = traitCollection.userInterfaceIdiom == .pad
+        
+        // Smaller spacing for iPad to fit more cells
+        let interItemSpacing: CGFloat = isPad ? 8 : 10  // Horizontal space between cells
+        let lineSpacing: CGFloat = isPad ? 8 : 10       // Vertical space between rows
+        
+        // Define section insets - smaller for iPad
+        let sectionInset: CGFloat = isPad ? 8 : 10
+        
         // Get the collection view's width
         let collectionViewWidth = collectionView.bounds.width
-
-        // Calculate the maximum number of columns that can fit
-        let totalAvailableWidth = collectionViewWidth - 10 // Subtract minimum sectionInsets of 5 on each side
-        let maxColumns = floor((totalAvailableWidth + interItemSpacing) / (cellWidth + interItemSpacing))
-        let columns = max(min(maxColumns, 4), 1) // Ensure at least 1 column and no more than 4
-
-        // Calculate total cell content width
-        let totalCellWidth = cellWidth * columns
-        let totalInterItemSpacing = interItemSpacing * (columns - 1)
-        let totalContentWidth = totalCellWidth + totalInterItemSpacing
-
-        // Determine section insets based on device
-        let isPad = traitCollection.userInterfaceIdiom == .pad
-
-        let leftInset: CGFloat
-        let rightInset: CGFloat
-
+        
+        // Determine number of columns based on device and screen width
+        let numberOfColumns: CGFloat
+        
         if isPad {
-            // Align to right on iPadOS
-            leftInset = max(collectionViewWidth - totalContentWidth - 5, 5) // Ensure at least 5px
-            rightInset = 5
+            // Increased number of columns for iPad to fit more cells
+            if collectionViewWidth > 1000 {  // Larger iPads (Pro 12.9")
+                numberOfColumns = 8
+            } else if collectionViewWidth > 800 {  // Medium iPads (10.5", 11")
+                numberOfColumns = 7
+            } else {  // Smaller iPads (9.7", iPad mini)
+                numberOfColumns = 6
+            }
         } else {
-            // Center on iOS
-            let horizontalInset = max((collectionViewWidth - totalContentWidth) / 2.0, 5)
-            leftInset = horizontalInset
-            rightInset = horizontalInset
+            // iPhone layout
+            if collectionViewWidth > 400 {  // Larger iPhones in landscape
+                numberOfColumns = 4
+            } else {  // Standard iPhone layout
+                numberOfColumns = 3
+            }
         }
-
+        
+        // Calculate cell width to fill the screen with the desired number of columns
+        let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
+        let cellWidth = floor(availableWidth / numberOfColumns)
+        
+        // Keep cell height equal to width for square cells
+        let cellHeight = cellWidth
+        
         // Configure layout
         layout.itemSize = CGSize(width: cellWidth, height: cellHeight)
         layout.minimumInteritemSpacing = interItemSpacing
         layout.minimumLineSpacing = lineSpacing
         layout.sectionInset = UIEdgeInsets(
-            top: 5,
-            left: leftInset,
-            bottom: 5,
-            right: rightInset
+            top: sectionInset,
+            left: sectionInset,
+            bottom: sectionInset,
+            right: sectionInset
         )
     }
 }

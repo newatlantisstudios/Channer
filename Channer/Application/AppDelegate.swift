@@ -40,30 +40,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Sets up the main application window and root view controller.
     private func setupMainWindow() {
         window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = createSplitViewController()
+        window?.rootViewController = createRootNavigationController()
         window?.makeKeyAndVisible()
     }
     
-    // MARK: - Split View Controller Setup
-    /// Creates and configures the main split view controller.
-    private func createSplitViewController() -> UISplitViewController {
-        let splitViewController = CustomSplitViewController(style: .doubleColumn)
-        splitViewController.setViewController(createMasterNavigationController(), for: .primary)
-        splitViewController.setViewController(createDetailNavigationController(), for: .secondary)
-        splitViewController.preferredDisplayMode = .oneOverSecondary
-        return splitViewController
-    }
-    
-    // MARK: - Navigation Controllers Creation
-    /// Creates the master navigation controller for the primary column.
-    private func createMasterNavigationController() -> UINavigationController {
-        let masterController = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
-        return UINavigationController(rootViewController: masterController)
-    }
-    
-    /// Creates the detail navigation controller for the secondary column.
-    private func createDetailNavigationController() -> UINavigationController {
-        let detailController = boardTV()
-        return UINavigationController(rootViewController: detailController)
+    // MARK: - Navigation Controller Setup
+    /// Creates the main navigation controller that will be used as the root view controller.
+    private func createRootNavigationController() -> UINavigationController {
+        let boardsController = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
+        boardsController.title = "Boards"
+        
+        // Create a UINavigationController with customized back button
+        let navigationController = UINavigationController(rootViewController: boardsController)
+        
+        // Set the default back button title to an empty string
+        // This removes the text but keeps the back arrow
+        navigationController.navigationBar.topItem?.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
+        
+        return navigationController
     }
 }

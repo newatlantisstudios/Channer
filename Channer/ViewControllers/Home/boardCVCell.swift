@@ -17,21 +17,35 @@ class boardCVCell: UICollectionViewCell {
     /// Label displaying the board's name.
     let boardName: UILabel = {
         let label = UILabel()
-        label.font = UIFont.boldSystemFont(ofSize: 12) // Slightly smaller font for narrow width
+        
+        // Get device type to set appropriate font size
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        
+        // Smaller font size for iPad to match smaller cells
+        label.font = UIFont.boldSystemFont(ofSize: isPad ? 12 : 14)
         label.textAlignment = .center // Center the text.
         label.textColor = UIColor.black
         label.numberOfLines = 2 // Allow up to 2 lines.
         label.lineBreakMode = .byTruncatingTail // Truncate with ellipsis if it exceeds the width.
+        label.adjustsFontSizeToFitWidth = true // Adjust font size if needed
+        label.minimumScaleFactor = 0.7 // Allow scaling down more for smaller cells
         return label
     }()
 
     /// Label displaying the board's abbreviation.
     let boardNameAbv: UILabel = {
         let label = UILabel()
-        label.font = UIFont.systemFont(ofSize: 10)
+        
+        // Get device type to set appropriate font size
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        
+        // Smaller font size for iPad to match smaller cells
+        label.font = UIFont.systemFont(ofSize: isPad ? 10 : 12)
         label.textAlignment = .center
         label.textColor = UIColor.black
         label.numberOfLines = 1
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7 // Allow scaling down more for smaller cells
         return label
     }()
 
