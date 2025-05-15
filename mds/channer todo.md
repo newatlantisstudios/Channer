@@ -15,10 +15,10 @@
     ## Phase 2: Content Management
 
     ### Offline Reading Mode
-    - [ ] Implement thread caching system
-    - [ ] Add option to save threads for offline reading
-    - [ ] Create offline reading queue management interface
-    - [ ] Include image/media pre-downloading options
+    - [x] Implement thread caching system
+    - [x] Add option to save threads for offline reading
+    - [x] Create offline reading queue management interface
+    - [x] Include image/media pre-downloading options
 
     ### Content Filtering
     - [ ] Add keyword and phrase filtering system
@@ -56,7 +56,11 @@
 
     ## Other TODO
 
-    - [ ] FaceID toogle in settings
+    - [x] FaceID toogle in settings
+    - [ ] Start up to Default Board
+    - [ ] More sorting 
+    - [ ] Look at 4Chan X
+    - [ ] Toolbox - Offline, History, Favorites, Files
 
     ## Technical Considerations
 

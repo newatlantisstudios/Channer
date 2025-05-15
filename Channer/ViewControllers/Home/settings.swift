@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import SwiftyJSON
 
 class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
 
@@ -23,6 +24,9 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let notificationsView = UIView()
     private let notificationsLabel = UILabel()
     private let notificationsToggle = UISwitch()
+    private let offlineReadingView = UIView()
+    private let offlineReadingLabel = UILabel()
+    private let offlineReadingToggle = UISwitch()
     private let themeSettingsView = UIView()
     private let themeSettingsLabel = UILabel()
     private let themeSettingsButton = UIButton(type: .system)
@@ -32,6 +36,7 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let userDefaultsKey = "defaultBoard"
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
     private let notificationsEnabledKey = "channer_notifications_enabled"
+    private let offlineReadingEnabledKey = "channer_offline_reading_enabled"
     private let sectionInset: CGFloat = 16
     private let interItemSpacing: CGFloat = 10
     private let lineSpacing: CGFloat = 10
@@ -51,9 +56,15 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Set default value for FaceID toggle if it doesn't exist yet
+        // Set default values for toggles if they don't exist yet
         if UserDefaults.standard.object(forKey: faceIDEnabledKey) == nil {
             UserDefaults.standard.set(true, forKey: faceIDEnabledKey)
+        }
+        
+        if UserDefaults.standard.object(forKey: offlineReadingEnabledKey) == nil {
+            UserDefaults.standard.set(false, forKey: offlineReadingEnabledKey)
+            // Initialize the ThreadCacheManager's setting as well
+            ThreadCacheManager.shared.setOfflineReadingEnabled(false)
         }
         
         sortBoardsAlphabetically()
@@ -158,6 +169,46 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         notificationsToggle.addTarget(self, action: #selector(notificationsToggleChanged), for: .valueChanged)
         notificationsView.addSubview(notificationsToggle)
         
+        // Offline Reading View
+        offlineReadingView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        offlineReadingView.layer.cornerRadius = 10
+        offlineReadingView.clipsToBounds = true
+        offlineReadingView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(offlineReadingView)
+        
+        // Offline Reading Label
+        offlineReadingLabel.text = "Enable Offline Reading Mode"
+        offlineReadingLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        offlineReadingLabel.textAlignment = .left
+        offlineReadingLabel.numberOfLines = 1
+        offlineReadingLabel.adjustsFontSizeToFitWidth = true
+        offlineReadingLabel.minimumScaleFactor = 0.8
+        offlineReadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        offlineReadingView.addSubview(offlineReadingLabel)
+        
+        // Offline Reading Toggle
+        let isOfflineReadingEnabled = UserDefaults.standard.bool(forKey: offlineReadingEnabledKey)
+        offlineReadingToggle.isOn = isOfflineReadingEnabled
+        print("Initializing Offline Reading toggle with value: \(isOfflineReadingEnabled)")
+        offlineReadingToggle.translatesAutoresizingMaskIntoConstraints = false
+        offlineReadingToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85) // Make toggle slightly smaller
+        offlineReadingToggle.addTarget(self, action: #selector(offlineReadingToggleChanged), for: .valueChanged)
+        offlineReadingView.addSubview(offlineReadingToggle)
+        
+        // Add 'Manage' button for offline threads
+        let manageButton = UIButton(type: .system)
+        manageButton.setTitle("Manage", for: .normal)
+        manageButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        manageButton.translatesAutoresizingMaskIntoConstraints = false
+        manageButton.addTarget(self, action: #selector(manageOfflineThreads), for: .touchUpInside)
+        offlineReadingView.addSubview(manageButton)
+        
+        // Set constraints for the manage button
+        NSLayoutConstraint.activate([
+            manageButton.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            manageButton.trailingAnchor.constraint(equalTo: offlineReadingToggle.leadingAnchor, constant: -15)
+        ])
+        
         // Theme Settings View
         themeSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
         themeSettingsView.layer.cornerRadius = 10
@@ -238,6 +289,53 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         generator.impactOccurred()
     }
     
+    @objc private func offlineReadingToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: offlineReadingEnabledKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        
+        // Update ThreadCacheManager's setting as well
+        ThreadCacheManager.shared.setOfflineReadingEnabled(sender.isOn)
+        
+        print("Offline Reading toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        
+        if sender.isOn {
+            // Show info alert about offline reading
+            let alert = UIAlertController(
+                title: "Offline Reading Enabled",
+                message: "You can now save threads for offline reading. Use the menu in any thread to save it for offline access.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
+        }
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func manageOfflineThreads() {
+        // Only proceed if offline reading is enabled
+        if !UserDefaults.standard.bool(forKey: offlineReadingEnabledKey) {
+            let alert = UIAlertController(
+                title: "Offline Reading Disabled",
+                message: "Please enable offline reading mode first.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        
+        // Navigate to offline threads manager
+        let offlineThreadsVC = OfflineThreadsVC()
+        navigationController?.pushViewController(offlineThreadsVC, animated: true)
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
     @objc private func themeSettingsButtonTapped() {
         // Create an alert controller with all available themes
         let alertController = UIAlertController(
@@ -252,18 +350,8 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         // Add an action for each theme
         for theme in themes {
             let action = UIAlertAction(title: theme.name, style: .default) { [weak self] _ in
+                // Apply theme immediately
                 ThemeManager.shared.setTheme(id: theme.id)
-                
-                // For OLED Black theme, ensure we update the UI Style immediately
-                if theme.id == "oled_black" {
-                    // Force dark mode for any windows when using OLED Black
-                    UIApplication.shared.windows.forEach { window in
-                        window.overrideUserInterfaceStyle = .dark
-                    }
-                    
-                    // Force background color update
-                    self?.view.backgroundColor = UIColor.black
-                }
                 
                 // Show a confirmation
                 let confirmToast = UIAlertController(
@@ -355,8 +443,24 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             notificationsToggle.centerYAnchor.constraint(equalTo: notificationsView.centerYAnchor),
             notificationsToggle.trailingAnchor.constraint(equalTo: notificationsView.trailingAnchor, constant: -30),
             
+            // Offline Reading View
+            offlineReadingView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
+            offlineReadingView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            offlineReadingView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            offlineReadingView.heightAnchor.constraint(equalToConstant: 44),
+            offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // Offline Reading Label
+            offlineReadingLabel.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            offlineReadingLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
+            offlineReadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
+            
+            // Offline Reading Toggle
+            offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            offlineReadingToggle.trailingAnchor.constraint(equalTo: offlineReadingView.trailingAnchor, constant: -30),
+            
             // Theme Settings View
-            themeSettingsView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
+            themeSettingsView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
             themeSettingsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: 44),
@@ -570,5 +674,175 @@ class BoardCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         setSelected(false)
+    }
+}
+
+// MARK: - Offline Threads View Controller
+class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    
+    // MARK: - Properties
+    private let tableView = UITableView()
+    private let emptyStateLabel = UILabel()
+    private var cachedThreads: [CachedThread] = []
+    private var threadInfo: [ThreadData] = []
+    
+    // MARK: - Lifecycle
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        title = "Offline Threads"
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        
+        setupTableView()
+        setupEmptyStateLabel()
+        
+        // Add Edit button to enable deletion mode
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Edit", style: .plain, target: self, action: #selector(toggleEditMode))
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadCachedThreads()
+    }
+    
+    // MARK: - UI Setup
+    private func setupTableView() {
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "OfflineThreadCell")
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(tableView)
+        
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupEmptyStateLabel() {
+        emptyStateLabel.text = "No threads saved for offline reading"
+        emptyStateLabel.textAlignment = .center
+        emptyStateLabel.textColor = .gray
+        emptyStateLabel.font = UIFont.systemFont(ofSize: 16)
+        emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateLabel.isHidden = true
+        
+        view.addSubview(emptyStateLabel)
+        
+        NSLayoutConstraint.activate([
+            emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            emptyStateLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            emptyStateLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+        ])
+    }
+    
+    // MARK: - Data Loading
+    private func loadCachedThreads() {
+        // Get cached threads from manager
+        cachedThreads = ThreadCacheManager.shared.getAllCachedThreads()
+        
+        // Extract ThreadData info for each cached thread
+        threadInfo = cachedThreads.compactMap { $0.getThreadInfo() }
+        
+        // Update UI based on whether we have cached threads
+        emptyStateLabel.isHidden = !cachedThreads.isEmpty
+        tableView.isHidden = cachedThreads.isEmpty
+        
+        // Reload table data
+        tableView.reloadData()
+    }
+    
+    // MARK: - Actions
+    @objc private func toggleEditMode() {
+        tableView.setEditing(!tableView.isEditing, animated: true)
+        navigationItem.rightBarButtonItem?.title = tableView.isEditing ? "Done" : "Edit"
+    }
+    
+    // MARK: - UITableViewDataSource
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return threadInfo.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "OfflineThreadCell", for: indexPath)
+        
+        if indexPath.row < threadInfo.count {
+            let thread = threadInfo[indexPath.row]
+            
+            // Configure cell
+            var content = cell.defaultContentConfiguration()
+            content.text = "/\(thread.boardAbv)/ - Thread #\(thread.number)"
+            
+            // Get the first line of the comment for a subtitle
+            var commentPlainText = thread.comment
+                .replacingOccurrences(of: "<br>", with: "\n")
+                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            
+            // Truncate to first line only
+            if let newlineIndex = commentPlainText.firstIndex(of: "\n") {
+                commentPlainText = String(commentPlainText[..<newlineIndex])
+            }
+            
+            // Truncate long comments
+            if commentPlainText.count > 100 {
+                commentPlainText = String(commentPlainText.prefix(100)) + "..."
+            }
+            
+            content.secondaryText = commentPlainText
+            content.secondaryTextProperties.color = .gray
+            content.secondaryTextProperties.font = UIFont.systemFont(ofSize: 14)
+            
+            cell.contentConfiguration = content
+        }
+        
+        return cell
+    }
+    
+    // MARK: - UITableViewDelegate
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        
+        if indexPath.row < threadInfo.count {
+            let thread = threadInfo[indexPath.row]
+            
+            // Create thread view controller
+            let threadVC = threadRepliesTV()
+            threadVC.boardAbv = thread.boardAbv
+            threadVC.threadNumber = thread.number
+            
+            // Navigate to thread
+            navigationController?.pushViewController(threadVC, animated: true)
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            // Get the thread to delete
+            let thread = threadInfo[indexPath.row]
+            
+            // Remove from cache via manager
+            ThreadCacheManager.shared.removeFromCache(boardAbv: thread.boardAbv, threadNumber: thread.number)
+            
+            // Remove from local arrays
+            threadInfo.remove(at: indexPath.row)
+            cachedThreads.remove(at: indexPath.row)
+            
+            // Update table
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            
+            // Show empty state if no more threads
+            if cachedThreads.isEmpty {
+                emptyStateLabel.isHidden = false
+                tableView.isHidden = true
+            }
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, titleForDeleteConfirmationButtonForRowAt indexPath: IndexPath) -> String? {
+        return "Remove"
     }
 }

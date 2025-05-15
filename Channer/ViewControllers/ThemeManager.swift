@@ -242,54 +242,6 @@ struct Theme: Codable, Equatable {
         )
     }
     
-    /// Creates a high contrast themed color scheme
-    static var highContrast: Theme {
-        return Theme(
-            id: "high_contrast",
-            name: "High Contrast",
-            isBuiltIn: true,
-            backgroundColor: ColorSet(
-                light: UIColor.white.hexString,
-                dark: UIColor.black.hexString
-            ),
-            secondaryBackgroundColor: ColorSet(
-                light: UIColor(red: 240/255, green: 240/255, blue: 240/255, alpha: 1.0).hexString,
-                dark: UIColor(red: 20/255, green: 20/255, blue: 20/255, alpha: 1.0).hexString
-            ),
-            cellBackgroundColor: ColorSet(
-                light: UIColor(red: 250/255, green: 250/255, blue: 250/255, alpha: 1.0).hexString,
-                dark: UIColor(red: 30/255, green: 30/255, blue: 30/255, alpha: 1.0).hexString
-            ),
-            cellBorderColor: ColorSet(
-                light: UIColor.black.hexString,
-                dark: UIColor.white.hexString
-            ),
-            primaryTextColor: ColorSet(
-                light: UIColor.black.hexString,
-                dark: UIColor.white.hexString
-            ),
-            secondaryTextColor: ColorSet(
-                light: UIColor(red: 30/255, green: 30/255, blue: 30/255, alpha: 1.0).hexString,
-                dark: UIColor(red: 220/255, green: 220/255, blue: 220/255, alpha: 1.0).hexString
-            ),
-            greentextColor: ColorSet(
-                light: UIColor(red: 0/255, green: 100/255, blue: 0/255, alpha: 1.0).hexString,
-                dark: UIColor(red: 50/255, green: 205/255, blue: 50/255, alpha: 1.0).hexString
-            ),
-            alertColor: ColorSet(
-                light: UIColor(red: 255/255, green: 0/255, blue: 0/255, alpha: 1.0).hexString,
-                dark: UIColor(red: 255/255, green: 0/255, blue: 0/255, alpha: 1.0).hexString
-            ),
-            spoilerTextColor: ColorSet(
-                light: UIColor.white.hexString,
-                dark: UIColor.black.hexString
-            ),
-            spoilerBackgroundColor: ColorSet(
-                light: UIColor.black.hexString,
-                dark: UIColor.white.hexString
-            )
-        )
-    }
     
     /// Creates a dark purple theme
     static var darkPurple: Theme {
@@ -438,48 +390,7 @@ struct Theme: Codable, Equatable {
         )
     }
     
-    /// Creates an OLED black theme optimized for OLED displays with true black backgrounds
-    static var oledBlack: Theme {
-        // Create a special ColorSet for pure black (for OLED screens)
-        let pureBlackBG = ColorSet(
-            light: "#FFFFFF",   // White for light mode
-            dark: "#000000"     // Pure black for dark mode - will be handled specially in the ColorSet class
-        )
-        
-        return Theme(
-            id: "oled_black",
-            name: "OLED Black",
-            isBuiltIn: true,
-            backgroundColor: pureBlackBG,            // Pure black in dark mode
-            secondaryBackgroundColor: pureBlackBG,   // Pure black in dark mode
-            cellBackgroundColor: pureBlackBG,        // Pure black in dark mode
-            cellBorderColor: ColorSet(
-                light: "#CCCCCC",  // Light gray border for light mode
-                dark: "#333333"    // Very dark gray for borders in dark mode
-            ),
-            primaryTextColor: ColorSet(
-                light: "#000000",  // Black text for light mode
-                dark: "#FFFFFF"    // White text for dark mode
-            ),
-            secondaryTextColor: ColorSet(
-                light: "#444444",  // Dark gray text for light mode
-                dark: "#DDDDDD"    // Light gray text for dark mode
-            ),
-            greentextColor: ColorSet(
-                light: "#008800",  // Green for light mode
-                dark: "#00FF00"    // Brighter green for dark mode
-            ),
-            alertColor: ColorSet(
-                light: "#FF0000",  // Red for light mode
-                dark: "#FF0000"    // Red for dark mode
-            ),
-            spoilerTextColor: ColorSet(
-                light: "#000000",  // Black text for light mode
-                dark: "#FFFFFF"    // White text for dark mode
-            ),
-            spoilerBackgroundColor: pureBlackBG     // Pure black in dark mode
-        )
-    }
+    // OLED Black theme has been removed
 }
 
 // MARK: - Theme Manager
@@ -562,11 +473,9 @@ class ThemeManager {
             Theme.default,
             Theme.nightBlue,
             Theme.sepia,
-            Theme.highContrast,
             Theme.darkPurple,
             Theme.sunsetOrange,
-            Theme.mintGreen,
-            Theme.oledBlack
+            Theme.mintGreen
         ]
         
         // Initialize availableThemes with just built-in themes first
@@ -593,69 +502,11 @@ class ThemeManager {
         currentTheme = theme
         UserDefaults.standard.set(id, forKey: themeKey)
         
-        // Special case for OLED Black - ensure we're forcing dark mode representation
-        let isOLEDTheme = id == "oled_black"
-        if isOLEDTheme {
-            // Force recreate all theme colors to ensure they use the new theme
-            refreshThemeColors()
-            
-            // Immediately enforce dark mode for OLED Black theme
-            enforceOLEDTheme()
-        } else {
-            // For other themes, restore normal user interface style
-            restoreNormalTheme()
-        }
+        // Force recreate all theme colors
+        refreshThemeColors()
         
         // Post notification for UI updates
         NotificationCenter.default.post(name: .themeDidChange, object: nil)
-    }
-    
-    /// Forces dark mode and ensures true black backgrounds for OLED theme
-    func enforceOLEDTheme() {
-        // Force dark mode on all windows
-        for window in UIApplication.shared.windows {
-            window.overrideUserInterfaceStyle = .dark
-            
-            // Force black background on root views
-            if let rootViewController = window.rootViewController {
-                rootViewController.view.backgroundColor = .black
-                
-                // Force update navigation controllers
-                if let navController = rootViewController as? UINavigationController {
-                    navController.view.backgroundColor = .black
-                    navController.navigationBar.backgroundColor = .black
-                    
-                    // Update appearance
-                    let appearance = UINavigationBarAppearance()
-                    appearance.configureWithOpaqueBackground()
-                    appearance.backgroundColor = .black
-                    navController.navigationBar.standardAppearance = appearance
-                    navController.navigationBar.scrollEdgeAppearance = appearance
-                    navController.navigationBar.compactAppearance = appearance
-                }
-                
-                // Force update presented view controllers
-                if let presented = rootViewController.presentedViewController {
-                    presented.view.backgroundColor = .black
-                }
-            }
-            
-            // Ensure the window itself has a black background
-            window.backgroundColor = .black
-            
-            // Force layout update
-            window.setNeedsLayout()
-            window.layoutIfNeeded()
-        }
-    }
-    
-    /// Restores normal theme behavior (non-OLED)
-    func restoreNormalTheme() {
-        for window in UIApplication.shared.windows {
-            window.overrideUserInterfaceStyle = .unspecified
-            window.setNeedsLayout()
-            window.layoutIfNeeded()
-        }
     }
     
     /// Refreshes all theme color objects to ensure they're using the current theme

@@ -2,6 +2,72 @@ import UIKit
 import Alamofire
 import Kingfisher
 import SwiftyJSON
+import SystemConfiguration
+
+// MARK: - Reachability (Network Connectivity)
+class Reachability {
+    class func isConnectedToNetwork() -> Bool {
+        var zeroAddress = sockaddr_in()
+        zeroAddress.sin_len = UInt8(MemoryLayout.size(ofValue: zeroAddress))
+        zeroAddress.sin_family = sa_family_t(AF_INET)
+        
+        let defaultRouteReachability = withUnsafePointer(to: &zeroAddress) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {zeroSockAddress in
+                SCNetworkReachabilityCreateWithAddress(nil, zeroSockAddress)
+            }
+        }
+        
+        var flags: SCNetworkReachabilityFlags = []
+        if !SCNetworkReachabilityGetFlags(defaultRouteReachability!, &flags) {
+            return false
+        }
+        
+        let isReachable = flags.contains(.reachable)
+        let needsConnection = flags.contains(.connectionRequired)
+        
+        return isReachable && !needsConnection
+    }
+}
+
+// MARK: - Cached Thread Data Model
+struct CachedThread: Codable {
+    let boardAbv: String
+    let threadNumber: String
+    let threadData: Data
+    var cachedImages: [String]
+    let cachedDate: Date
+    
+    // Helper to get basic thread info for UI
+    func getThreadInfo() -> ThreadData? {
+        do {
+            let json = try JSON(data: threadData)
+            if let posts = json["posts"].array, let firstPost = posts.first {
+                // Extract info from the first post
+                let number = String(describing: firstPost["no"])
+                let comment = firstPost["com"].stringValue
+                let imageTimestamp = firstPost["tim"].stringValue
+                let imageExt = firstPost["ext"].stringValue
+                let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExt)"
+                let replyCount = posts.count - 1
+                let imageCount = posts.filter { $0["tim"].exists() }.count
+                
+                return ThreadData(
+                    number: number,
+                    stats: "\(replyCount)/\(imageCount)",
+                    title: "",
+                    comment: comment,
+                    imageUrl: imageURL,
+                    boardAbv: boardAbv,
+                    replies: replyCount,
+                    createdAt: ""
+                )
+            }
+        } catch {
+            print("Error parsing cached thread data: \(error)")
+        }
+        return nil
+    }
+}
 
 // MARK: - Thread Replies Table View Controller
 class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate {
@@ -339,6 +405,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             self.openInBrowser()
         }))
         
+        // Add Save for Offline Reading option if we're online and the thread isn't already cached
+        if Reachability.isConnectedToNetwork() && !ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+            actionSheet.addAction(UIAlertAction(title: "Save for Offline Reading", style: .default, handler: { _ in
+                self.saveForOfflineReading()
+            }))
+        } 
+        // Add Remove from Offline Cache option if thread is cached
+        else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+            actionSheet.addAction(UIAlertAction(title: "Remove from Offline Cache", style: .destructive, handler: { _ in
+                self.removeFromOfflineCache()
+            }))
+        }
+        
         // Add a cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
@@ -501,6 +580,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         print("Loading data from: \(urlString)") // Debug print
         
+        // Check if thread is available in cache when offline
+        if ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork() {
+            print("Device is offline, checking cache")
+            if let cachedData = ThreadCacheManager.shared.getCachedThread(boardAbv: boardAbv, threadNumber: threadNumber) {
+                print("Loading thread from cache")
+                DispatchQueue.main.async {
+                    do {
+                        // Parse JSON response from cached data
+                        let json = try JSON(data: cachedData)
+                        self.processThreadData(json)
+                        self.structureThreadReplies()
+                        self.isLoading = false
+                        
+                        // Reload table view and stop loading indicator
+                        self.loadingIndicator.stopAnimating()
+                        self.tableView.reloadData()
+                        self.onViewReady?()
+                    } catch {
+                        print("Error parsing cached JSON: \(error)")
+                        self.handleLoadError()
+                        self.onViewReady?()
+                    }
+                }
+                return
+            } else {
+                // No cached version available
+                self.handleOfflineError()
+                return
+            }
+        }
+        
         // Perform network request
         AF.request(urlString).responseData { [weak self] response in
             guard let self = self else { return }
@@ -518,6 +628,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         //print("Data loaded successfully. Thread count: \(self.threadReplies.count)") // Debug print
                         //print(self.threadReplies)
                         
+                        // Cache thread if offline reading is enabled
+                        if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
+                           ThreadCacheManager.shared.isCached(boardAbv: self.boardAbv, threadNumber: self.threadNumber) {
+                            print("Thread was successfully loaded and is already cached")
+                        }
                         
                         // Reload table view and stop loading indicator
                         self.loadingIndicator.stopAnimating()
@@ -585,6 +700,22 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         })
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alert, animated: true)
+    }
+    
+    private func handleOfflineError() {
+        isLoading = false
+        
+        let alert = UIAlertController(
+            title: "Offline Mode",
+            message: "You are currently offline and this thread has not been saved for offline reading.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        })
         
         present(alert, animated: true)
     }
@@ -1113,6 +1244,70 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadBoardReplies.removeAll()
         replyCount = 0
         loadInitialData()
+    }
+    
+    @objc func saveForOfflineReading() {
+        guard !boardAbv.isEmpty && !threadNumber.isEmpty else { return }
+        
+        // Show loading indicator
+        let loadingAlert = UIAlertController(
+            title: "Saving Thread",
+            message: "Saving thread for offline reading...",
+            preferredStyle: .alert
+        )
+        
+        let loadingIndicator = UIActivityIndicatorView(frame: CGRect(x: 10, y: 5, width: 50, height: 50))
+        loadingIndicator.hidesWhenStopped = true
+        loadingIndicator.style = .medium
+        loadingIndicator.startAnimating()
+        
+        loadingAlert.view.addSubview(loadingIndicator)
+        present(loadingAlert, animated: true)
+        
+        // Cache thread
+        ThreadCacheManager.shared.cacheThread(boardAbv: boardAbv, threadNumber: threadNumber) { success in
+            DispatchQueue.main.async {
+                // Dismiss loading alert
+                self.dismiss(animated: true) {
+                    // Show result alert
+                    let resultAlert = UIAlertController(
+                        title: success ? "Thread Saved" : "Error",
+                        message: success ? "Thread has been saved for offline reading." : "Failed to save thread for offline reading.",
+                        preferredStyle: .alert
+                    )
+                    resultAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(resultAlert, animated: true)
+                }
+            }
+        }
+    }
+    
+    @objc func removeFromOfflineCache() {
+        guard !boardAbv.isEmpty && !threadNumber.isEmpty else { return }
+        
+        // Show confirmation alert
+        let confirmAlert = UIAlertController(
+            title: "Remove from Offline Cache",
+            message: "Are you sure you want to remove this thread from your offline cache?",
+            preferredStyle: .alert
+        )
+        
+        confirmAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        confirmAlert.addAction(UIAlertAction(title: "Remove", style: .destructive) { _ in
+            // Remove from cache
+            ThreadCacheManager.shared.removeFromCache(boardAbv: self.boardAbv, threadNumber: self.threadNumber)
+            
+            // Show confirmation
+            let resultAlert = UIAlertController(
+                title: "Thread Removed",
+                message: "Thread has been removed from your offline cache.",
+                preferredStyle: .alert
+            )
+            resultAlert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(resultAlert, animated: true)
+        })
+        
+        present(confirmAlert, animated: true)
     }
     
     @objc private func down() {
