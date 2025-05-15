@@ -15,6 +15,7 @@ struct ThreadData: Codable {
     var replies: Int // Stored replies count
     var currentReplies: Int? // Latest replies count
     let createdAt: String
+    var hasNewReplies: Bool = false // Flag to indicate new replies for badge display
 
     // Initializer from JSON
     init(from json: JSON, boardAbv: String) {
@@ -52,6 +53,20 @@ struct ThreadData: Codable {
         self.boardAbv = boardAbv
         self.replies = replies
         self.createdAt = createdAt
+    }
+    
+    // Extended initializer including all properties
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false) {
+        self.number = number
+        self.stats = stats
+        self.title = title
+        self.comment = comment
+        self.imageUrl = imageUrl
+        self.boardAbv = boardAbv
+        self.replies = replies
+        self.currentReplies = currentReplies
+        self.createdAt = createdAt
+        self.hasNewReplies = hasNewReplies
     }
 }
 

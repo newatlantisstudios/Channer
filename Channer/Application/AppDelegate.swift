@@ -1,4 +1,7 @@
 import UIKit
+import UserNotifications
+import Alamofire
+import SwiftyJSON
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -13,9 +16,177 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {       
+        // Set default value for FaceID setting if it doesn't exist
+        let faceIDKey = "channer_faceID_authentication_enabled"
+        if UserDefaults.standard.object(forKey: faceIDKey) == nil {
+            UserDefaults.standard.set(true, forKey: faceIDKey)
+            UserDefaults.standard.synchronize()
+        }
+        
+        // Set default value for notification preferences if it doesn't exist
+        let notificationsEnabledKey = "channer_notifications_enabled"
+        if UserDefaults.standard.object(forKey: notificationsEnabledKey) == nil {
+            UserDefaults.standard.set(true, forKey: notificationsEnabledKey)
+            UserDefaults.standard.synchronize()
+        }
+        
         setupAppearance()
         setupMainWindow()
+        setupNotifications(application)
+        setupBackgroundRefresh(application)
+        
         return true
+    }
+    
+    // MARK: - Background Refresh
+    private func setupBackgroundRefresh(_ application: UIApplication) {
+        // Set minimum background fetch interval
+        // Note: This is deprecated in iOS 13+ but we're using it for compatibility
+        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+    }
+    
+    // Background fetch handler
+    @available(iOS, deprecated: 13.0, message: "Use BGProcessingTask instead")
+    func application(_ application: UIApplication, 
+                     performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        print("Background fetch started")
+        
+        // Check if notifications are enabled
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        if !notificationsEnabled {
+            completionHandler(.noData)
+            return
+        }
+        
+        // Only refresh favorites if there are any
+        let favorites = FavoritesManager.shared.loadFavorites()
+        if favorites.isEmpty {
+            completionHandler(.noData)
+            return
+        }
+        
+        checkForThreadUpdates(favorites) { hasNewData in
+            completionHandler(hasNewData ? .newData : .noData)
+        }
+    }
+    
+    private func checkForThreadUpdates(_ favorites: [ThreadData], completion: @escaping (Bool) -> Void) {
+        let dispatchGroup = DispatchGroup()
+        var hasUpdates = false
+        
+        for favorite in favorites {
+            dispatchGroup.enter()
+            
+            let url = "https://a.4cdn.org/\(favorite.boardAbv)/thread/\(favorite.number).json"
+            
+            AF.request(url).responseData { response in
+                defer { dispatchGroup.leave() }
+                
+                switch response.result {
+                case .success(let data):
+                    if let json = try? JSON(data: data),
+                       let firstPost = json["posts"].array?.first {
+                        // Get the current reply count
+                        let currentReplies = firstPost["replies"].intValue
+                        
+                        // Check if there are new replies
+                        let storedReplies = favorite.replies
+                        if currentReplies > storedReplies {
+                            // We have new replies
+                            hasUpdates = true
+                            
+                            // Calculate number of new replies
+                            let newReplies = currentReplies - storedReplies
+                            
+                            // Update the thread in favorites with new reply count and set hasNewReplies flag
+                            var updatedThread = favorite
+                            updatedThread.currentReplies = currentReplies
+                            updatedThread.hasNewReplies = true
+                            FavoritesManager.shared.updateFavorite(thread: updatedThread)
+                            
+                            // Update the app badge count
+                            self.updateApplicationBadgeCount()
+                            
+                            // Send a notification if there are new replies
+                            self.sendThreadUpdateNotification(
+                                threadNumber: favorite.number,
+                                boardAbv: favorite.boardAbv,
+                                newReplies: newReplies
+                            )
+                        }
+                    }
+                case .failure:
+                    // Failed to check this thread, skip it
+                    break
+                }
+            }
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            completion(hasUpdates)
+        }
+    }
+    
+    // MARK: - Notifications Setup
+    private func setupNotifications(_ application: UIApplication) {
+        // Request authorization for notifications
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Notification permission granted")
+            } else if let error = error {
+                print("Notification permission denied: \(error.localizedDescription)")
+            }
+        }
+        
+        // Register for remote notifications
+        application.registerForRemoteNotifications()
+    }
+    
+    private func sendThreadUpdateNotification(threadNumber: String, boardAbv: String, newReplies: Int) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        if !notificationsEnabled {
+            return
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Thread Update"
+        content.body = "Thread /\(boardAbv)/\(threadNumber) has \(newReplies) new \(newReplies == 1 ? "reply" : "replies")"
+        content.sound = UNNotificationSound.default
+        
+        // Create a unique identifier for this notification
+        let identifier = "thread-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        
+        // Create the request
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        
+        // Add the request to the notification center
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending notification: \(error.localizedDescription)")
+            } else {
+                print("Notification scheduled for thread \(threadNumber)")
+            }
+        }
+    }
+    
+    // MARK: - Badge Management
+    private func updateApplicationBadgeCount() {
+        // Only update if notifications are enabled
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        if !notificationsEnabled {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+            return
+        }
+        
+        // Count the number of threads with new replies
+        let favorites = FavoritesManager.shared.loadFavorites()
+        let threadsWithNewReplies = favorites.filter { $0.hasNewReplies }
+        let badgeCount = threadsWithNewReplies.count
+        
+        // Update the application badge
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = badgeCount
+        }
     }
     
     // MARK: - Appearance Setup

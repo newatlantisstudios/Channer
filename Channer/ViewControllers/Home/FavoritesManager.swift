@@ -101,6 +101,26 @@ class FavoritesManager {
         }
     }
     
+    func markThreadHasNewReplies(threadNumber: String) {
+        var favorites = loadFavorites()
+        if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
+            var updatedThread = favorites[index]
+            updatedThread.hasNewReplies = true
+            favorites[index] = updatedThread
+            saveFavorites(favorites)
+        }
+    }
+    
+    func clearNewRepliesFlag(threadNumber: String) {
+        var favorites = loadFavorites()
+        if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
+            var updatedThread = favorites[index]
+            updatedThread.hasNewReplies = false
+            favorites[index] = updatedThread
+            saveFavorites(favorites)
+        }
+    }
+    
     // MARK: - Verification Methods
     func verifyAndRemoveInvalidFavorites(completion: @escaping ([ThreadData]) -> Void) {
         let favorites = loadFavorites()

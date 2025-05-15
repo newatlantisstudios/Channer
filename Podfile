@@ -14,7 +14,11 @@ target 'Channer' do
   pod 'Alamofire'
   pod 'Kingfisher'
   pod 'VLCKit', '4.0.0a6'
-  pod 'ffmpeg-kit-ios-full', '~> 6.0'
+  # Original pod is retired
+  # pod 'ffmpeg-kit-ios-full', '~> 6.0'
+  
+  # Using the system ffmpeg
+  # No FFmpeg pod - will use the system's ffmpeg
 
   target 'ChannerTests' do
     inherit! :search_paths

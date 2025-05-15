@@ -4,6 +4,7 @@ import SwiftyJSON
 import LocalAuthentication
 
 private let reuseIdentifier = "boardCell"
+private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
 
 class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
@@ -17,6 +18,30 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
     private func authenticateUser(completion: @escaping (Bool) -> Void) {
+        let defaults = UserDefaults.standard
+        
+        // Make sure we're reading the latest data
+        defaults.synchronize()
+        
+        // Get authentication setting
+        let isAuthenticationEnabled = defaults.bool(forKey: faceIDEnabledKey)
+        
+        // If authentication is disabled, bypass FaceID
+        if !isAuthenticationEnabled {
+            print("FaceID authentication bypassed - setting is OFF")
+            DispatchQueue.main.async {
+                completion(true)
+            }
+            return
+        }
+        
+        // Otherwise proceed with normal FaceID authentication
+        print("Proceeding with FaceID authentication - setting is ON")
+        performBiometricAuthentication(completion: completion)
+    }
+    
+    /// Performs the actual biometric authentication
+    private func performBiometricAuthentication(completion: @escaping (Bool) -> Void) {
         let context = LAContext()
         var error: NSError?
 
@@ -32,6 +57,18 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         } else {
             // Fallback if Face ID/Touch ID is not available
             DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: "Biometric Authentication Unavailable",
+                    message: "Face ID/Touch ID is not available on this device. You can disable the authentication requirement in Settings.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                
+                if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                   let rootViewController = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+                    rootViewController.present(alert, animated: true, completion: nil)
+                }
+                
                 completion(false)
             }
         }
@@ -84,6 +121,24 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         let historyButton = UIBarButtonItem(image: UIImage(named: "history"), style: .plain, target: self, action: #selector(openHistory))
         let favoritesButton = UIBarButtonItem(image: UIImage(named: "favorite"), style: .plain, target: self, action: #selector(showFavorites))
         navigationItem.leftBarButtonItems = [historyButton, favoritesButton]
+        
+        // Register for UserDefaults changes notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(userDefaultsDidChange),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func userDefaultsDidChange(_ notification: Notification) {
+        // Log when UserDefaults changes
+        let isFaceIDEnabled = UserDefaults.standard.bool(forKey: faceIDEnabledKey)
+        print("UserDefaults changed notification - FaceID enabled: \(isFaceIDEnabled)")
     }
     
     /// Called to notify the view controller that its view is about to layout its subviews.

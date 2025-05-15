@@ -120,6 +120,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
         if !threadNumber.isEmpty { // Use threadNumber instead of threadID
             FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
+            FavoritesManager.shared.clearNewRepliesFlag(threadNumber: threadNumber)
+            
+            // Update application badge count
+            DispatchQueue.main.async {
+                // Count threads with new replies
+                let favorites = FavoritesManager.shared.loadFavorites()
+                let threadsWithNewReplies = favorites.filter { $0.hasNewReplies }
+                let badgeCount = threadsWithNewReplies.count
+                
+                // Update badge
+                UIApplication.shared.applicationIconBadgeNumber = badgeCount
+            }
         }
     }
     

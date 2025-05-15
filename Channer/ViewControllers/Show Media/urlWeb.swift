@@ -1,6 +1,6 @@
 import UIKit
 import WebKit
-import VLCKit
+import AVKit
 
 class urlWeb: UIViewController {
 
@@ -35,12 +35,16 @@ class urlWeb: UIViewController {
         return view
     }()
 
-    // Media player for playing videos using VLCMediaPlayer
-    private lazy var mediaPlayer: VLCMediaPlayer = {
-        let player = VLCMediaPlayer()
-        player.delegate = self
-        player.drawable = videoView
+    // Media player for playing videos using AVPlayer
+    private lazy var avPlayer: AVPlayer = {
+        let player = AVPlayer()
         return player
+    }()
+    
+    private lazy var playerLayer: AVPlayerLayer = {
+        let layer = AVPlayerLayer(player: avPlayer)
+        layer.videoGravity = .resizeAspectFill
+        return layer
     }()
 
     // Activity indicator to show loading status
@@ -96,6 +100,24 @@ class urlWeb: UIViewController {
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
         navigationController?.navigationBar.tintColor = nil // Reset button color to default
+        
+        // Remove notification observer
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Update player layer frame when view layout changes
+        playerLayer.frame = videoView.bounds
+    }
+    
+    // Called when video playback finishes
+    @objc func playerItemDidReachEnd(notification: Notification) {
+        // Automatically move to the next content if video is finished playing
+        if currentIndex < images.count - 1 {
+            currentIndex += 1
+            loadContent()
+        }
     }
 
     // MARK: - UI Setup
@@ -163,16 +185,27 @@ class urlWeb: UIViewController {
             }
         }
 
-        if url.pathExtension.lowercased() == "webm" {
+        if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
             // Hide web view and show video view
             webView.isHidden = true
             videoView.isHidden = false
-
+            
+            // Setup player layer if needed
+            if playerLayer.superlayer == nil {
+                videoView.layer.addSublayer(playerLayer)
+                playerLayer.frame = videoView.bounds
+            }
+            
             // Setup and play video
-            let media = VLCMedia(url: url)
-            mediaPlayer.media = media
-            mediaPlayer.play()
-
+            let playerItem = AVPlayerItem(url: url)
+            avPlayer.replaceCurrentItem(with: playerItem)
+            avPlayer.play()
+            
+            // Add observer for when playback ends
+            NotificationCenter.default.addObserver(self, 
+                                                   selector: #selector(playerItemDidReachEnd), 
+                                                   name: .AVPlayerItemDidPlayToEndTime, 
+                                                   object: playerItem)
         } else {
             // Hide video view and show web view
             videoView.isHidden = true
@@ -295,32 +328,3 @@ extension urlWeb: WKNavigationDelegate {
     }
 }
 
-// MARK: - VLCMediaPlayerDelegate Methods
-extension urlWeb: VLCMediaPlayerDelegate {
-    /// Handles changes in the media player's state
-    func mediaPlayerStateChanged(_ aNotification: Notification) {
-        if let player = aNotification.object as? VLCMediaPlayer {
-            switch player.state {
-            case .stopped:
-                print("Stopped")
-                // Automatically move to the next content if video is finished playing
-                if currentIndex < images.count - 1 {
-                    currentIndex += 1
-                    loadContent()
-                }
-            case .playing:
-                print("Playing")
-            case .error:
-                print("Player error")
-            case .opening:
-                print("Opening")
-            case .buffering:
-                print("Buffering")
-            case .paused:
-                print("Paused")
-            @unknown default:
-                print("Unknown state")
-            }
-        }
-    }
-}

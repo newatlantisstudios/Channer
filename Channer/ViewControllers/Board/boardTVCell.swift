@@ -238,8 +238,12 @@ class boardTVCell: UITableViewCell {
             }
 
             // Configure background border for favorites
-            if isFavoritesView, let currentReplies = thread.currentReplies, currentReplies > thread.replies {
+            if isFavoritesView && thread.hasNewReplies {
+                // Use alert color for threads with new replies
                 customBackgroundView.layer.borderColor = ThemeManager.shared.alertColor.cgColor
+                
+                // Add notification badge to indicate unread content
+                topicStats.text = (thread.stats) + " 🔴"
             } else {
                 customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
             }

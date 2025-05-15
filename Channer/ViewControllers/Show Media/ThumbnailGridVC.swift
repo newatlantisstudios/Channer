@@ -1,5 +1,5 @@
 import UIKit
-import ffmpegkit
+import AVFoundation
 
 class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
@@ -149,19 +149,37 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
     // Provides utility functions for the view controller.
     
     private func generateThumbnail(for url: URL, completion: @escaping (UIImage?) -> Void) {
-        let thumbnailPath = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).jpg").path
-        let command = "-i \(url.path) -ss 00:00:01 -vframes 1 -q:v 2 -vf scale=150:150 \(thumbnailPath)"
+        // Since we can't use FFmpeg directly in iOS anymore, we'll use a different approach
+        // to generate a thumbnail from the video
         
-        FFmpegKit.executeAsync(command) { session in
-            let returnCode = session?.getReturnCode()
+        DispatchQueue.global(qos: .background).async {
+            // Use AVFoundation to generate a thumbnail from the first frame
+            let asset = AVAsset(url: url)
+            let imageGenerator = AVAssetImageGenerator(asset: asset)
+            imageGenerator.appliesPreferredTrackTransform = true
             
-            if ReturnCode.isSuccess(returnCode) {
-                let thumbnailImage = UIImage(contentsOfFile: thumbnailPath)
-                try? FileManager.default.removeItem(atPath: thumbnailPath)
-                completion(thumbnailImage)
-            } else {
-                print("FFmpeg thumbnail generation failed with return code \(String(describing: returnCode))")
-                completion(nil)
+            // Get a frame at 1 second
+            let time = CMTime(seconds: 1, preferredTimescale: 60)
+            
+            do {
+                let cgImage = try imageGenerator.copyCGImage(at: time, actualTime: nil)
+                let thumbnailImage = UIImage(cgImage: cgImage)
+                
+                // Scale the image to 150x150
+                let size = CGSize(width: 150, height: 150)
+                UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+                thumbnailImage.draw(in: CGRect(origin: .zero, size: size))
+                let scaledImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
+                
+                DispatchQueue.main.async {
+                    completion(scaledImage)
+                }
+            } catch {
+                print("Error generating thumbnail: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
             }
         }
     }

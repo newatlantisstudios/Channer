@@ -1,5 +1,5 @@
 import UIKit
-import VLCKit
+import AVKit
 import AVFoundation
 
 // MARK: - WebMViewController
@@ -22,12 +22,18 @@ class WebMViewController: UIViewController {
     }()
     
     /// The media player responsible for playing the video.
-    private lazy var mediaPlayer: VLCMediaPlayer = {
-        let player = VLCMediaPlayer()
-        player.delegate = self
-        player.drawable = videoView
+    private lazy var avPlayer: AVPlayer = {
+        let player = AVPlayer()
         return player
     }()
+    
+    private lazy var playerLayer: AVPlayerLayer = {
+        let layer = AVPlayerLayer(player: avPlayer)
+        layer.videoGravity = .resizeAspectFill
+        return layer
+    }()
+    
+    private var playerItemContext = 0
     
     /// A label that indicates the video is downloading.
     private lazy var downloadingLabel: UILabel = {
@@ -64,6 +70,18 @@ class WebMViewController: UIViewController {
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.isTranslucent = false
+        
+        // Add notification observer for when playback ends
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(playerItemDidReachEnd),
+                                               name: .AVPlayerItemDidPlayToEndTime,
+                                               object: nil)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Update player layer frame when view layout changes
+        playerLayer.frame = videoView.bounds
     }
 
     /// Called just before the view controller is dismissed, covered, or otherwise hidden.
@@ -77,6 +95,10 @@ class WebMViewController: UIViewController {
         navigationController?.navigationBar.scrollEdgeAppearance = defaultAppearance
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
+        
+        // Stop playback and remove observer
+        avPlayer.pause()
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
     }
     
     // MARK: - Setup Methods
@@ -102,9 +124,24 @@ class WebMViewController: UIViewController {
     /// Initializes the video player with the provided video URL.
     private func setupVideo() {
         guard let url = URL(string: videoURL) else { return }
-        let media = VLCMedia(url: url)
-        mediaPlayer.media = media
-        mediaPlayer.play()
+        
+        // Add player layer to video view if not already added
+        if playerLayer.superlayer == nil {
+            videoView.layer.addSublayer(playerLayer)
+            playerLayer.frame = videoView.bounds
+        }
+        
+        // Create a new player item and set it on the player
+        let playerItem = AVPlayerItem(url: url)
+        avPlayer.replaceCurrentItem(with: playerItem)
+        avPlayer.play()
+    }
+    
+    /// Called when the playback of a movie file has ended.
+    @objc func playerItemDidReachEnd(notification: Notification) {
+        // Loop the video by seeking back to start and playing again
+        avPlayer.seek(to: CMTime.zero)
+        avPlayer.play()
     }
     
     /// Adds the download button to the navigation bar if it's not hidden.
@@ -187,29 +224,3 @@ class WebMViewController: UIViewController {
     }
 }
 
-// MARK: - VLCMediaPlayerDelegate
-/// Extension to handle VLCMediaPlayer delegate methods.
-extension WebMViewController: VLCMediaPlayerDelegate {
-    
-    /// Handles state changes of the media player.
-    func mediaPlayerStateChanged(_ aNotification: Notification) {
-        if let player = aNotification.object as? VLCMediaPlayer {
-            switch player.state {
-            case .stopped:
-                print("Stopped")
-            case .playing:
-                print("Playing")
-            case .error:
-                print("Player error")
-            case .opening:
-                print("Opening")
-            case .buffering:
-                print("Buffering")
-            case .paused:
-                print("Paused")
-            @unknown default:
-                print("Unknown state")
-            }
-        }
-    }
-}
