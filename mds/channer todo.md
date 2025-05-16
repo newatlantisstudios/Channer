@@ -28,8 +28,7 @@
 
     ### Enhanced Thread Bookmarking
     - [x] Add categorization for saved/offline threads
-    - [ ] Create customizable organizational folders
-    - [ ] Include search within bookmarked content
+    - [x] Include search within bookmarked content
 
     ### Thread Search
     - [ ] Add full-text search within threads
@@ -60,6 +59,7 @@
     - [ ] Toolbox - Offline, History, Favorites, Files
     - [x] All favorites make offline
     - [ ] Picture aspect ratios
+    - [ ] Buttons icons too big
 
     ## Technical Considerations
 

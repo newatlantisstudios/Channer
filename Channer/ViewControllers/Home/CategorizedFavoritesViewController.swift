@@ -5,7 +5,7 @@ protocol CategoryManagerDelegate: AnyObject {
     func categoriesDidUpdate()
 }
 
-class CategorizedFavoritesViewController: UIViewController, CategoryManagerDelegate {
+class CategorizedFavoritesViewController: UIViewController, CategoryManagerDelegate, UISearchResultsUpdating {
     
     // MARK: - Properties
     private let segmentedControl = UISegmentedControl()
@@ -13,6 +13,10 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     private var currentViewController: UIViewController?
     private var categories: [BookmarkCategory] = []
     private let favoritesManager = FavoritesManager.shared
+    private var searchController: UISearchController!
+    private var isSearching = false
+    private var searchText = ""
+    private var allFavorites: [ThreadData] = []
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -25,6 +29,9 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         print("=== viewWillAppear called ===")
+        // Clear cache to load fresh data
+        allFavorites = []
+        
         // Reload categories in case they were updated
         loadCategories()
         
@@ -40,12 +47,18 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         view.backgroundColor = ThemeManager.shared.backgroundColor
         title = "Favorites"
         
-        // Add right navigation button for category management
-        let categoryButton = UIBarButtonItem(image: UIImage(systemName: "folder.badge.gear"), 
-                                           style: .plain, 
-                                           target: self, 
-                                           action: #selector(openCategoryManager))
-        navigationItem.rightBarButtonItem = categoryButton
+        // Setup search controller
+        searchController = UISearchController(searchResultsController: nil)
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search favorites..."
+        searchController.searchBar.barTintColor = ThemeManager.shared.backgroundColor
+        searchController.searchBar.tintColor = UIColor(hex: "#59a03b") ?? .systemGreen
+        
+        // Add search bar to navigation item
+        navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
+        definesPresentationContext = true
         
         // Setup segmented control
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
@@ -96,7 +109,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
             // Default to "All" tab
             segmentedControl.selectedSegmentIndex = 0
             print("Set default selection to index 0 (All)")
-            showAllFavorites()
+            updateFavoritesDisplay()
         }
     }
     
@@ -132,26 +145,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         print("Selected index: \(selectedIndex)")
         print("Available categories: \(categories.count)")
         
-        if selectedIndex == 0 {
-            // "All" segment selected (now at index 0)
-            print("All tab selected")
-            showAllFavorites()
-        } else if selectedIndex > 0 && selectedIndex - 1 < categories.count {
-            // Specific category selected (offset by 1 because "All" is at index 0)
-            let categoryIndex = selectedIndex - 1
-            print("Category tab selected: \(categories[categoryIndex].name)")
-            showFavorites(for: categories[categoryIndex])
-        } else {
-            print("Invalid selection index: \(selectedIndex)")
-        }
-    }
-    
-    @objc private func openCategoryManager() {
-        let categoryManagerVC = CategoryManagerViewController()
-        categoryManagerVC.delegate = self
-        let navController = UINavigationController(rootViewController: categoryManagerVC)
-        navController.modalPresentationStyle = .formSheet
-        present(navController, animated: true)
+        updateFavoritesDisplay()
     }
     
     // MARK: - CategoryManagerDelegate
@@ -160,22 +154,6 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     }
     
     // MARK: - Display Methods
-    private func showFavorites(for category: BookmarkCategory) {
-        print("Showing favorites for category: \(category.name) (ID: \(category.id))")
-        let favorites = favoritesManager.getFavorites(for: category.id)
-        print("Found \(favorites.count) favorites in category \(category.name)")
-        displayFavorites(favorites, title: category.name)
-    }
-    
-    private func showAllFavorites() {
-        print("=== showAllFavorites called ===")
-        let allFavorites = favoritesManager.loadFavorites()
-        print("All favorites count: \(allFavorites.count)")
-        for favorite in allFavorites {
-            print("Favorite thread \(favorite.number) - Board: \(favorite.boardAbv) - Category: \(favorite.categoryId ?? "nil")")
-        }
-        displayFavorites(allFavorites, title: "All Favorites")
-    }
     
     private func displayFavorites(_ favorites: [ThreadData], title: String) {
         print("=== displayFavorites called ===")
@@ -184,7 +162,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         
         // Remove current view controller if any
         if let current = currentViewController {
-            print("Removing current view controller")
+            print("Removing current view controller of type: \(type(of: current))")
             current.willMove(toParent: nil)
             current.view.removeFromSuperview()
             current.removeFromParent()
@@ -204,8 +182,10 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         boardVC.threadData = favorites
         boardVC.filteredThreadData = favorites
         boardVC.isFavoritesView = true
+        boardVC.isSearching = isSearching  // Pass our search state to the board view controller
         
-        print("Created boardVC with \(boardVC.threadData.count) threads")
+        print("Created boardVC with \(boardVC.threadData.count) threads and \(boardVC.filteredThreadData.count) filtered threads")
+        print("BoardVC isSearching: \(boardVC.isSearching)")
         
         // Add as child view controller
         addChild(boardVC)
@@ -222,8 +202,9 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         
         // Refresh table view
         DispatchQueue.main.async {
-            print("Reloading table view")
+            print("Reloading table view on main thread")
             boardVC.tableView.reloadData()
+            print("Table view reloaded - Number of rows: \(boardVC.tableView.numberOfRows(inSection: 0))")
         }
     }
     
@@ -245,7 +226,11 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         emptyView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         let label = UILabel()
-        label.text = "No favorites in \(title)"
+        if isSearching {
+            label.text = "No search results in \(title.replacingOccurrences(of: " - Search Results", with: ""))"
+        } else {
+            label.text = "No favorites in \(title)"
+        }
         label.textColor = ThemeManager.shared.secondaryTextColor
         label.font = .systemFont(ofSize: 18, weight: .medium)
         label.textAlignment = .center
@@ -269,5 +254,89 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         currentViewController = emptyVC
         
         print("Empty state shown for: \(title)")
+    }
+    
+    // MARK: - UISearchResultsUpdating
+    func updateSearchResults(for searchController: UISearchController) {
+        searchText = searchController.searchBar.text ?? ""
+        isSearching = !searchText.isEmpty
+        
+        print("=== updateSearchResults called ===")
+        print("Search text: '\(searchText)'")
+        print("Is searching: \(isSearching)")
+        print("Search controller active: \(searchController.isActive)")
+        
+        updateFavoritesDisplay()
+    }
+    
+    // MARK: - Search and Filter
+    private func updateFavoritesDisplay() {
+        print("=== updateFavoritesDisplay called ===")
+        
+        // Load all favorites if needed
+        if allFavorites.isEmpty {
+            print("Loading all favorites...")
+            allFavorites = favoritesManager.loadFavorites()
+            print("Loaded \(allFavorites.count) total favorites")
+            for (index, fav) in allFavorites.prefix(3).enumerated() {
+                print("Favorite \(index): Thread \(fav.number) - Title: '\(fav.title)' - Board: \(fav.boardAbv) - Comment: '\(fav.comment.prefix(50))...'")
+            }
+        }
+        
+        var favoritesToDisplay: [ThreadData] = []
+        let selectedIndex = segmentedControl.selectedSegmentIndex
+        print("Selected segment index: \(selectedIndex)")
+        
+        // Get favorites based on selected category
+        if selectedIndex == 0 {
+            // "All" category
+            favoritesToDisplay = allFavorites
+            print("Showing all favorites: \(favoritesToDisplay.count) items")
+        } else if selectedIndex > 0 && selectedIndex - 1 < categories.count {
+            // Specific category
+            let categoryId = categories[selectedIndex - 1].id
+            let categoryName = categories[selectedIndex - 1].name
+            favoritesToDisplay = allFavorites.filter { $0.categoryId == categoryId }
+            print("Showing category '\(categoryName)' (ID: \(categoryId)): \(favoritesToDisplay.count) items")
+        }
+        
+        // Apply search filter if needed
+        if isSearching {
+            print("Applying search filter for text: '\(searchText)'")
+            let beforeFilterCount = favoritesToDisplay.count
+            favoritesToDisplay = favoritesToDisplay.filter { thread in
+                let titleMatch = thread.title.localizedCaseInsensitiveContains(searchText)
+                let commentMatch = thread.comment.localizedCaseInsensitiveContains(searchText)
+                let boardMatch = thread.boardAbv.localizedCaseInsensitiveContains(searchText)
+                let numberMatch = thread.number.contains(searchText)
+                
+                let matches = titleMatch || commentMatch || boardMatch || numberMatch
+                
+                if matches {
+                    print("Match found - Thread \(thread.number): title=\(titleMatch), comment=\(commentMatch), board=\(boardMatch), number=\(numberMatch)")
+                }
+                
+                return matches
+            }
+            print("Filtered from \(beforeFilterCount) to \(favoritesToDisplay.count) items")
+        }
+        
+        print("Final count to display: \(favoritesToDisplay.count) favorites")
+        displayFavorites(favoritesToDisplay, title: getDisplayTitle())
+    }
+    
+    private func getDisplayTitle() -> String {
+        let selectedIndex = segmentedControl.selectedSegmentIndex
+        var title = "All Favorites"
+        
+        if selectedIndex > 0 && selectedIndex - 1 < categories.count {
+            title = categories[selectedIndex - 1].name
+        }
+        
+        if isSearching {
+            title += " - Search Results"
+        }
+        
+        return title
     }
 }

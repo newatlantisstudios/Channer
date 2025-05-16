@@ -92,7 +92,7 @@ class boardTV: UITableViewController {
     private let totalPages = 10
     private var loadedPages = 0
     private let loadingIndicator = UIActivityIndicatorView(style: .medium)
-    private var isSearching = false
+    var isSearching = false  // Changed from private to allow parent view controller to set this
     var isHistoryView: Bool = false
     var isFavoritesView: Bool = false
     var boardPassed = false
@@ -107,6 +107,12 @@ class boardTV: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        print("=== boardTV viewDidLoad ===")
+        print("Is favorites view: \(isFavoritesView)")
+        print("Is searching: \(isSearching)")
+        print("Thread data count: \(threadData.count)")
+        print("Filtered thread data count: \(filteredThreadData.count)")
+        
         // Remove the title
         // navigationItem.title = nil
         
@@ -114,7 +120,11 @@ class boardTV: UITableViewController {
         setupImageCache()
         setupLoadingIndicator()
         setupSortButton()
-        setupSearchController()
+        
+        // Only setup search controller if not in favorites view (favorites view has its own search)
+        if !isFavoritesView {
+            setupSearchController()
+        }
         
         // Configure back button to only show arrow, no text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
@@ -164,21 +174,36 @@ class boardTV: UITableViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        print("=== boardTV viewWillAppear ===")
+        print("Is favorites view: \(isFavoritesView)")
+        print("Thread data count before: \(threadData.count)")
+        print("Filtered thread data count before: \(filteredThreadData.count)")
 
         if isFavoritesView {
-            // Step 1: Verify and remove invalid favorites
-            FavoritesManager.shared.verifyAndRemoveInvalidFavorites { [weak self] updatedFavorites in
-                guard let self = self else { return }
-                
-                self.threadData = updatedFavorites
-                self.filteredThreadData = updatedFavorites
+            print("Updating favorites data in viewWillAppear - this might override our search results!")
+            print("Is searching: \(isSearching)")
+            
+            // Don't update data if we're actively searching - parent view will handle it
+            if !isSearching {
+                // Step 1: Verify and remove invalid favorites
+                FavoritesManager.shared.verifyAndRemoveInvalidFavorites { [weak self] updatedFavorites in
+                    guard let self = self else { return }
+                    
+                    print("Got updated favorites: \(updatedFavorites.count) items")
+                    self.threadData = updatedFavorites
+                    self.filteredThreadData = updatedFavorites
 
-                // Step 2: Update current replies after verification
-                FavoritesManager.shared.updateCurrentReplies {
-                    DispatchQueue.main.async {
-                        self.tableView.reloadData() // Reload table view once, after all updates
+                    // Step 2: Update current replies after verification
+                    FavoritesManager.shared.updateCurrentReplies {
+                        DispatchQueue.main.async {
+                            print("Reloading table view in viewWillAppear")
+                            self.tableView.reloadData() // Reload table view once, after all updates
+                        }
                     }
                 }
+            } else {
+                print("Skipping data update because search is active")
             }
         }
     }
@@ -501,7 +526,13 @@ class boardTV: UITableViewController {
     // UITableViewDataSource methods for populating the table view.
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return filteredThreadData.count
+        let count = filteredThreadData.count
+        print("=== boardTV numberOfRowsInSection called ===")
+        print("Thread data count: \(threadData.count)")
+        print("Filtered thread data count: \(count)")
+        print("Is searching: \(isSearching)")
+        print("Is favorites view: \(isFavoritesView)")
+        return count
     }
             
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
