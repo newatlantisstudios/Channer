@@ -27,7 +27,7 @@
     ## Phase 3: Organization Features
 
     ### Enhanced Thread Bookmarking
-    - [ ] Add categorization for saved/offline threads
+    - [x] Add categorization for saved/offline threads
     - [ ] Create customizable organizational folders
     - [ ] Include search within bookmarked content
 
@@ -54,10 +54,12 @@
     ## Other TODO
 
     - [x] FaceID toogle in settings
-    - [ ] Start up to Default Board
+    - [x] Start up to Default Board
     - [ ] More sorting 
     - [ ] Look at 4Chan X
     - [ ] Toolbox - Offline, History, Favorites, Files
+    - [x] All favorites make offline
+    - [ ] Picture aspect ratios
 
     ## Technical Considerations
 

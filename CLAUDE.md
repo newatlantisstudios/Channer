@@ -24,6 +24,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 
 ## Build and Run Commands
 
+### Using Xcode
 ```bash
 # Install dependencies
 pod install
@@ -33,6 +34,51 @@ open Channer.xcworkspace
 
 # Build the project from Xcode
 # Select a target device/simulator and use Cmd+B or Product > Build
+```
+
+### Using Build Scripts
+The project includes several build scripts for command-line building:
+
+1. **Simple Build** (`build.sh`)
+   ```bash
+   ./build.sh
+   ```
+   - Uses xcbeautify for clean, formatted output
+   - Builds in Debug configuration for iOS Simulator
+   - Shows only warnings and errors
+
+2. **Advanced Build** (`build-advanced.sh`)
+   ```bash
+   ./build-advanced.sh [options]
+   ```
+   Options:
+   - `-c, --clean`: Clean before building
+   - `-r, --release`: Build in Release configuration (default: Debug)
+   - `-d, --device`: Build for device instead of simulator
+   - `-v, --verbose`: Show verbose output
+   - `-h, --help`: Show help message
+
+   Examples:
+   ```bash
+   ./build-advanced.sh -c       # Clean and build
+   ./build-advanced.sh -r       # Release build
+   ./build-advanced.sh -c -r    # Clean and release build
+   ./build-advanced.sh -v       # Verbose output
+   ```
+
+3. **Quick Test Build** (`test-build.sh`)
+   ```bash
+   ./test-build.sh
+   ```
+   - Minimal output (only shows "BUILD SUCCEEDED" or "BUILD FAILED")
+   - Useful for CI/CD pipelines
+   - Returns exit code 0 for success, 1 for failure
+
+### Installing xcbeautify
+The build scripts use `xcbeautify` for better output formatting. If not installed, the scripts will attempt to install it via Homebrew:
+
+```bash
+brew install xcbeautify
 ```
 
 ## Architecture Overview

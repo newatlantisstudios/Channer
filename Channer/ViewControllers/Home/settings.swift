@@ -28,6 +28,9 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let offlineReadingView = UIView()
     private let offlineReadingLabel = UILabel()
     private let offlineReadingToggle = UISwitch()
+    private let launchWithStartupBoardView = UIView()
+    private let launchWithStartupBoardLabel = UILabel()
+    private let launchWithStartupBoardToggle = UISwitch()
     private let themeSettingsView = UIView()
     private let themeSettingsLabel = UILabel()
     private let themeSettingsButton = UIButton(type: .system)
@@ -41,6 +44,7 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
     private let notificationsEnabledKey = "channer_notifications_enabled"
     private let offlineReadingEnabledKey = "channer_offline_reading_enabled"
+    private let launchWithStartupBoardKey = "channer_launch_with_startup_board"
     private let sectionInset: CGFloat = 16
     private let interItemSpacing: CGFloat = 10
     private let lineSpacing: CGFloat = 10
@@ -213,6 +217,31 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             manageButton.trailingAnchor.constraint(equalTo: offlineReadingToggle.leadingAnchor, constant: -15)
         ])
         
+        // Launch With Startup Board View
+        launchWithStartupBoardView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        launchWithStartupBoardView.layer.cornerRadius = 10
+        launchWithStartupBoardView.clipsToBounds = true
+        launchWithStartupBoardView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(launchWithStartupBoardView)
+        
+        // Launch With Startup Board Label
+        launchWithStartupBoardLabel.text = "Launch With Startup Board"
+        launchWithStartupBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        launchWithStartupBoardLabel.textAlignment = .left
+        launchWithStartupBoardLabel.numberOfLines = 1
+        launchWithStartupBoardLabel.adjustsFontSizeToFitWidth = true
+        launchWithStartupBoardLabel.minimumScaleFactor = 0.8
+        launchWithStartupBoardLabel.translatesAutoresizingMaskIntoConstraints = false
+        launchWithStartupBoardView.addSubview(launchWithStartupBoardLabel)
+        
+        // Launch With Startup Board Toggle
+        let isLaunchWithStartupBoardEnabled = UserDefaults.standard.bool(forKey: launchWithStartupBoardKey)
+        launchWithStartupBoardToggle.isOn = isLaunchWithStartupBoardEnabled
+        launchWithStartupBoardToggle.translatesAutoresizingMaskIntoConstraints = false
+        launchWithStartupBoardToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85) // Make toggle slightly smaller
+        launchWithStartupBoardToggle.addTarget(self, action: #selector(launchWithStartupBoardToggleChanged), for: .valueChanged)
+        launchWithStartupBoardView.addSubview(launchWithStartupBoardToggle)
+        
         // Theme Settings View
         themeSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
         themeSettingsView.layer.cornerRadius = 10
@@ -327,15 +356,58 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         print("Offline Reading toggle changed to: \(sender.isOn), UserDefaults synchronized")
         
         if sender.isOn {
-            // Show info alert about offline reading
-            let alert = UIAlertController(
+            // Show loading alert
+            let loadingAlert = UIAlertController(
                 title: "Offline Reading Enabled",
-                message: "You can now save threads for offline reading. Use the menu in any thread to save it for offline access.",
+                message: "Caching all favorites for offline access...",
                 preferredStyle: .alert
             )
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            self.present(alert, animated: true)
+            
+            let activityIndicator = UIActivityIndicatorView(style: .medium)
+            activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+            activityIndicator.startAnimating()
+            
+            loadingAlert.view.addSubview(activityIndicator)
+            NSLayoutConstraint.activate([
+                activityIndicator.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+                activityIndicator.bottomAnchor.constraint(equalTo: loadingAlert.view.bottomAnchor, constant: -20)
+            ])
+            
+            self.present(loadingAlert, animated: true)
+            
+            // Cache all favorites
+            FavoritesManager.shared.cacheAllFavorites { successCount, failureCount in
+                DispatchQueue.main.async {
+                    loadingAlert.dismiss(animated: true) {
+                        // Show completion alert
+                        let message: String
+                        if failureCount == 0 {
+                            message = "All \(successCount) favorites have been cached for offline reading."
+                        } else {
+                            message = "\(successCount) favorites cached successfully. \(failureCount) failed to cache."
+                        }
+                        
+                        let completionAlert = UIAlertController(
+                            title: "Offline Reading Enabled",
+                            message: message,
+                            preferredStyle: .alert
+                        )
+                        completionAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                        self.present(completionAlert, animated: true)
+                    }
+                }
+            }
         }
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func launchWithStartupBoardToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: launchWithStartupBoardKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        print("Launch with startup board toggle changed to: \(sender.isOn), UserDefaults synchronized")
         
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -653,8 +725,24 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
             offlineReadingToggle.trailingAnchor.constraint(equalTo: offlineReadingView.trailingAnchor, constant: -30),
             
+            // Launch With Startup Board View
+            launchWithStartupBoardView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
+            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
+            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // Launch With Startup Board Label
+            launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardLabel.leadingAnchor.constraint(equalTo: launchWithStartupBoardView.leadingAnchor, constant: 20),
+            launchWithStartupBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: launchWithStartupBoardToggle.leadingAnchor, constant: -15),
+            
+            // Launch With Startup Board Toggle
+            launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
+            
             // Theme Settings View
-            themeSettingsView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
+            themeSettingsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
             themeSettingsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: 44),

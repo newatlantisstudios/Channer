@@ -17,6 +17,12 @@ struct ThreadData: Codable {
     var currentReplies: Int? // Latest replies count
     let createdAt: String
     var hasNewReplies: Bool = false // Flag to indicate new replies for badge display
+    var categoryId: String? // Category ID for organizing favorites
+    
+    // Custom coding keys to include all properties
+    enum CodingKeys: String, CodingKey {
+        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId
+    }
 
     // Initializer from JSON
     init(from json: JSON, boardAbv: String) {
@@ -45,7 +51,7 @@ struct ThreadData: Codable {
     }
 
     // Default initializer
-    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, createdAt: String) {
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, createdAt: String, categoryId: String? = nil) {
         self.number = number
         self.stats = stats
         self.title = title
@@ -54,10 +60,11 @@ struct ThreadData: Codable {
         self.boardAbv = boardAbv
         self.replies = replies
         self.createdAt = createdAt
+        self.categoryId = categoryId
     }
     
     // Extended initializer including all properties
-    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false) {
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil) {
         self.number = number
         self.stats = stats
         self.title = title
@@ -68,6 +75,7 @@ struct ThreadData: Codable {
         self.currentReplies = currentReplies
         self.createdAt = createdAt
         self.hasNewReplies = hasNewReplies
+        self.categoryId = categoryId
     }
 }
 

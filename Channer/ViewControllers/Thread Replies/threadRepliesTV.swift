@@ -769,18 +769,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         if FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
             print("Removing favorite for thread: \(threadNumber)")
             FavoritesManager.shared.removeFavorite(threadNumber: threadNumber)
+            updateFavoriteButton()
         } else {
-            print("Adding favorite for thread: \(threadNumber)")
-            let favorite = createThreadDataForFavorite()
-            FavoritesManager.shared.addFavorite(favorite)
+            // Show category selection
+            showCategorySelectionForFavorite()
         }
         
-        updateFavoriteButton()
         print("Favorite button updated.")
     }
     
     private func createThreadDataForFavorite() -> ThreadData {
-        return ThreadData(
+        let threadData = ThreadData(
             number: threadNumber,
             stats: "\(replyCount)/\(totalImagesInThread)",
             title: title ?? "",
@@ -790,6 +789,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             replies: replyCount,
             createdAt: "" // Populate if necessary
         )
+        print("=== createThreadDataForFavorite ===")
+        print("Created ThreadData with no category (will be set later)")
+        print("Thread number: \(threadData.number)")
+        print("Board: \(threadData.boardAbv)")
+        return threadData
     }
     
     private func updateFavoriteButton() {
@@ -847,6 +851,47 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         } else {
             print("Favorite button not found in rightBarButtonItems")
         }
+    }
+    
+    private func showCategorySelectionForFavorite() {
+        print("=== showCategorySelectionForFavorite called ===")
+        let categories = FavoritesManager.shared.getCategories()
+        print("Available categories: \(categories.count)")
+        
+        // Create an action sheet with category options
+        let alert = UIAlertController(title: "Select Category", message: "Choose a category for this bookmark", preferredStyle: .actionSheet)
+        
+        // Add an action for each category
+        for category in categories {
+            print("Adding action for category: \(category.name) (ID: \(category.id))")
+            let action = UIAlertAction(title: category.name, style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                print("=== Category selected: \(category.name) ===")
+                print("Category ID: \(category.id)")
+                print("Thread number: \(self.threadNumber)")
+                
+                let favorite = self.createThreadDataForFavorite()
+                print("Created ThreadData with category to be set: \(category.id)")
+                FavoritesManager.shared.addFavorite(favorite, to: category.id)
+                self.updateFavoriteButton()
+            }
+            
+            // Add category color as icon
+            let color = UIColor(hex: category.color) ?? UIColor.systemBlue
+            action.setValue(color, forKey: "titleTextColor")
+            
+            alert.addAction(action)
+        }
+        
+        // Add cancel action
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // For iPad, set the popover presentation controller
+        if let popover = alert.popoverPresentationController {
+            popover.barButtonItem = favoriteButton
+        }
+        
+        present(alert, animated: true)
     }
     
     // MARK: - Spoiler Handling Methods
@@ -1685,8 +1730,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         loadingAlert.view.addSubview(loadingIndicator)
         present(loadingAlert, animated: true)
         
-        // Cache thread
-        ThreadCacheManager.shared.cacheThread(boardAbv: boardAbv, threadNumber: threadNumber) { success in
+        // Get category if thread is favorited
+        var categoryId: String? = nil
+        if FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
+            let favorites = FavoritesManager.shared.loadFavorites()
+            if let favorite = favorites.first(where: { $0.number == threadNumber }) {
+                categoryId = favorite.categoryId
+            }
+        }
+        
+        // Cache thread with category
+        ThreadCacheManager.shared.cacheThread(boardAbv: boardAbv, threadNumber: threadNumber, categoryId: categoryId) { success in
             DispatchQueue.main.async {
                 // Dismiss loading alert
                 self.dismiss(animated: true) {
@@ -1828,3 +1882,30 @@ private extension UIButton {
         return self
     }
 }
+
+// MARK: - UIColor Extension
+extension UIColor {
+    convenience init(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            red: CGFloat(r) / 255,
+            green: CGFloat(g) / 255,
+            blue: CGFloat(b) / 255,
+            alpha: CGFloat(a) / 255
+        )
+    }
+}
+

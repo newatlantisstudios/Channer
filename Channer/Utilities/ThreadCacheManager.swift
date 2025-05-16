@@ -40,7 +40,7 @@ class ThreadCacheManager {
     }
     
     /// Saves a thread for offline reading
-    func cacheThread(boardAbv: String, threadNumber: String, completion: @escaping (Bool) -> Void) {
+    func cacheThread(boardAbv: String, threadNumber: String, categoryId: String? = nil, completion: @escaping (Bool) -> Void) {
         // Check if thread is already cached
         if isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
             print("Thread already cached")
@@ -64,13 +64,22 @@ class ThreadCacheManager {
                     let json = try JSON(data: data)
                     
                     // Create cached thread model with thread data
-                    let cachedThread = CachedThread(
+                    var cachedThread = CachedThread(
                         boardAbv: boardAbv,
                         threadNumber: threadNumber,
                         threadData: data,
                         cachedImages: [],
-                        cachedDate: Date()
+                        cachedDate: Date(),
+                        categoryId: categoryId
                     )
+                    
+                    // If no category specified but thread is favorited, get its category
+                    if categoryId == nil && FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
+                        let favorites = FavoritesManager.shared.loadFavorites()
+                        if let favorite = favorites.first(where: { $0.number == threadNumber }) {
+                            cachedThread.categoryId = favorite.categoryId
+                        }
+                    }
                     
                     // Add to memory cache
                     self.cachedThreads.append(cachedThread)
@@ -121,6 +130,22 @@ class ThreadCacheManager {
     /// Gets a list of all cached threads
     func getAllCachedThreads() -> [CachedThread] {
         return cachedThreads
+    }
+    
+    /// Gets cached threads by category
+    func getCachedThreads(for categoryId: String?) -> [CachedThread] {
+        if let categoryId = categoryId {
+            return cachedThreads.filter { $0.categoryId == categoryId }
+        }
+        return cachedThreads
+    }
+    
+    /// Updates the category of a cached thread
+    func updateCachedThreadCategory(boardAbv: String, threadNumber: String, categoryId: String?) {
+        if let index = cachedThreads.firstIndex(where: { $0.boardAbv == boardAbv && $0.threadNumber == threadNumber }) {
+            cachedThreads[index].categoryId = categoryId
+            saveCachedThreads()
+        }
     }
     
     /// Clears all cached threads
@@ -262,6 +287,7 @@ struct CachedThread: Codable {
     let threadData: Data
     var cachedImages: [String]
     let cachedDate: Date
+    var categoryId: String? // Category ID for organization
     
     // Helper to get basic thread info for UI
     func getThreadInfo() -> ThreadData? {
@@ -277,7 +303,7 @@ struct CachedThread: Codable {
                 let replyCount = posts.count - 1
                 let imageCount = posts.filter { $0["tim"].exists() }.count
                 
-                return ThreadData(
+                var threadData = ThreadData(
                     number: number,
                     stats: "\(replyCount)/\(imageCount)",
                     title: "",
@@ -287,6 +313,8 @@ struct CachedThread: Codable {
                     replies: replyCount,
                     createdAt: ""
                 )
+                threadData.categoryId = categoryId
+                return threadData
             }
         } catch {
             print("Error parsing cached thread data: \(error)")

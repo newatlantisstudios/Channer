@@ -9,6 +9,9 @@ private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
 class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
     // MARK: - Properties
+    /// Flag to track if we've already performed the initial startup navigation
+    private var hasPerformedStartupNavigation = false
+    
     /// An array containing the full names of the boards.
     var boardNames = ["Anime & Manga", "Anime/Cute", "Anime/Wallpapers", "Mecha", "Cosplay & EGL", "Cute/Male", "Flash", "Transportation", "Otaku Culture", "Video Games", "Video Game Generals", "Pokémon", "Retro Games", "Comics & Cartoons", "Technology", "Television & Film", "Weapons", "Auto", "Animals & Nature", "Traditional Games", "Sports", "Alternative Sports", "Science & Math", "History & Humanities", "International", "Outdoors", "Toys", "Oekaki", "Papercraft & Origami", "Photography", "Food & Cooking", "Artwork/Critique", "Wallpapers/General", "Literature", "Music", "Fashion", "3DCG", "Graphic Design", "Do-It-Yourself", "Worksafe GIF", "Quests", "Business & Finance", "Travel", "Fitness", "Paranormal", "Advice", "LGBT", "Pony", "Current News", "Worksafe Requests", "Very Important Posts", "Random", "ROBOT9001", "Politically Incorrect", "International/Random", "Cams & Meetups", "Shit 4chan Says", "Sexy Beautiful Women", "Hardcore", "Handsome Men", "Hentai", "Ecchi", "Yuri", "Hentai/Alternative", "Yaoi", "Torrents", "High Resolution", "Adult GIF", "Adult Cartoons", "Adult Requests"]
     
@@ -135,6 +138,33 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         NotificationCenter.default.removeObserver(self)
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // Check if we should navigate to the startup board
+        let shouldLaunchWithStartupBoard = UserDefaults.standard.bool(forKey: "channer_launch_with_startup_board")
+        
+        // Only perform startup navigation once and only if this is the root controller
+        if !hasPerformedStartupNavigation &&
+           shouldLaunchWithStartupBoard,
+           let defaultBoard = UserDefaults.standard.string(forKey: "defaultBoard"),
+           let index = boardsAbv.firstIndex(of: defaultBoard),
+           navigationController?.viewControllers.count == 1 {
+            
+            // Mark that we've performed the startup navigation
+            hasPerformedStartupNavigation = true
+            
+            // Navigate to the default board
+            let vc = boardTV()
+            vc.boardName = boardNames[index]
+            vc.boardAbv = boardsAbv[index]
+            vc.title = "/" + boardsAbv[index] + "/"
+            vc.boardPassed = true
+            
+            navigationController?.pushViewController(vc, animated: false)
+        }
+    }
+    
     @objc private func userDefaultsDidChange(_ notification: Notification) {
         // Log when UserDefaults changes
         let isFaceIDEnabled = UserDefaults.standard.bool(forKey: faceIDEnabledKey)
@@ -229,25 +259,9 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             // Proceed with opening favorites
             guard let self = self else { return }
             FavoritesManager.shared.verifyAndRemoveInvalidFavorites { updatedFavorites in
-                guard !updatedFavorites.isEmpty else {
-                    let alert = UIAlertController(title: "No Favorites", message: "There are no threads in your favorites.", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-                    self.present(alert, animated: true, completion: nil)
-                    return
-                }
-
-                let vc = boardTV()
-
-                vc.title = "Favorites"
-                vc.threadData = updatedFavorites
-                vc.filteredThreadData = updatedFavorites
-                vc.isFavoritesView = true
-
-                DispatchQueue.main.async {
-                    vc.tableView.reloadData()
-                }
-
-                self.navigationController?.pushViewController(vc, animated: true)
+                // Use the new categorized favorites view controller
+                let categorizedFavoritesVC = CategorizedFavoritesViewController()
+                self.navigationController?.pushViewController(categorizedFavoritesVC, animated: true)
             }
         }
     }

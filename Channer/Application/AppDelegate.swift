@@ -38,9 +38,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             UserDefaults.standard.synchronize()
         }
         
+        // Set default value for launch with startup board if it doesn't exist
+        let launchWithStartupBoardKey = "channer_launch_with_startup_board"
+        if UserDefaults.standard.object(forKey: launchWithStartupBoardKey) == nil {
+            UserDefaults.standard.set(false, forKey: launchWithStartupBoardKey)
+            UserDefaults.standard.synchronize()
+        }
+        
         // Initialize the offline reading mode setting in ThreadCacheManager
         let isOfflineReadingEnabled = UserDefaults.standard.bool(forKey: offlineReadingEnabledKey)
         ThreadCacheManager.shared.setOfflineReadingEnabled(isOfflineReadingEnabled)
+        
+        // Cache all existing favorites for offline reading if offline mode is enabled
+        if isOfflineReadingEnabled {
+            FavoritesManager.shared.cacheAllFavorites { successCount, failureCount in
+                print("Cached \(successCount) favorites for offline reading, \(failureCount) failed")
+            }
+        }
         
         // Check if user was using OLED Black theme (which has been removed)
         let themeKey = "channer_selected_theme_id"
