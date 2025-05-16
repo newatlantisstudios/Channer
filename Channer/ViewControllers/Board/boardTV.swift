@@ -2,6 +2,7 @@ import UIKit
 import Alamofire
 import SwiftyJSON
 import Kingfisher
+import Foundation
 
 // MARK: - Thread Model
 /// Represents the data structure for a thread, conforming to Codable for easy serialization.
@@ -428,7 +429,29 @@ class boardTV: UITableViewController {
             }
     
             self.threadData = newThreadData.sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
-            self.filteredThreadData = self.threadData
+            
+            // Apply content filtering if enabled
+            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+               let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
+               isFilteringEnabled {
+                
+                // Get keyword filters through KVC
+                if let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]),
+                   !getAllFilters.keywords.isEmpty {
+                    
+                    let keywordFilters = getAllFilters.keywords
+                    self.filteredThreadData = self.threadData.filter { thread in
+                        let threadContent = (thread.title + " " + thread.comment).lowercased()
+                        return !keywordFilters.contains { threadContent.contains($0.lowercased()) }
+                    }
+                } else {
+                    self.filteredThreadData = self.threadData
+                }
+            } else {
+                self.filteredThreadData = self.threadData
+            }
+            
             self.tableView.reloadData()
         }
     }
@@ -437,12 +460,28 @@ class boardTV: UITableViewController {
         // Loads favorite threads.
         print("boardTV - loadFavorites")
         threadData = FavoritesManager.shared.loadFavorites()
-        filteredThreadData = threadData
-    
-        print("threadData")
-        print(threadData)
-        print("filteredThreadData")
-        print(filteredThreadData)
+        
+        // Apply content filtering if enabled
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
+           isFilteringEnabled {
+            
+            // Get keyword filters through KVC
+            if let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]),
+               !getAllFilters.keywords.isEmpty {
+                
+                let keywordFilters = getAllFilters.keywords
+                filteredThreadData = threadData.filter { thread in
+                    let threadContent = (thread.title + " " + thread.comment).lowercased()
+                    return !keywordFilters.contains { threadContent.contains($0.lowercased()) }
+                }
+            } else {
+                filteredThreadData = threadData
+            }
+        } else {
+            filteredThreadData = threadData
+        }
     
         // Reload the table view after updating `threadData` and `filteredThreadData`
         DispatchQueue.main.async {
@@ -461,10 +500,21 @@ class boardTV: UITableViewController {
 
         let cell = tableView.dequeueReusableCell(withIdentifier: "boardTVCell", for: indexPath) as! boardTVCell
         let thread = filteredThreadData[indexPath.row]
-        // print("boardTV - cellForRowAt")
-        // print(thread)
         
-        cell.configure(with: thread, isHistoryView: isHistoryView, isFavoritesView: isFavoritesView)
+        // Check if content filtering is enabled
+        var isFiltered = false
+        
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
+           isFilteringEnabled,
+           let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]) {
+            
+            let threadContent = (thread.title + " " + thread.comment).lowercased()
+            isFiltered = getAllFilters.keywords.contains { threadContent.contains($0.lowercased()) }
+        }
+        
+        cell.configure(with: thread, isHistoryView: isHistoryView, isFavoritesView: isFavoritesView, isFiltered: isFiltered)
         configureImage(for: cell, with: thread.imageUrl)
         
         return cell

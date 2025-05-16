@@ -199,23 +199,22 @@ class ThreadCacheManager {
     }
     
     private func cacheImages(urls: [URL], for thread: CachedThread) {
-        let prefetcher = ImagePrefetcher(urls: urls) { skippedResources, failedResources, completedResources in
-            print("Cached \(completedResources.count) images for thread \(thread.threadNumber)")
-            
-            // Update cached thread with list of cached image URLs
-            var updatedThread = thread
-            updatedThread.cachedImages = completedResources.map { $0.url.absoluteString }
-            
-            // Update in memory cache
-            if let index = self.cachedThreads.firstIndex(where: { 
-                $0.boardAbv == thread.boardAbv && $0.threadNumber == thread.threadNumber 
-            }) {
-                self.cachedThreads[index] = updatedThread
-                self.saveCachedThreads()
-            }
-        }
+        let prefetcher = ImagePrefetcher(urls: urls)
         
+        // Just cache the URLs without using the completion handler
         prefetcher.start()
+        
+        // Update thread with the URLs we want to cache
+        var updatedThread = thread
+        updatedThread.cachedImages = urls.map { $0.absoluteString }
+        
+        // Update in memory cache
+        if let index = self.cachedThreads.firstIndex(where: { 
+            $0.boardAbv == thread.boardAbv && $0.threadNumber == thread.threadNumber 
+        }) {
+            self.cachedThreads[index] = updatedThread
+            self.saveCachedThreads()
+        }
     }
     
     private func deleteImageCache(boardAbv: String, threadNumber: String) {

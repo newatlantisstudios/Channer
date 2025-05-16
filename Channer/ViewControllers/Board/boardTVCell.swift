@@ -228,7 +228,21 @@ class boardTVCell: UITableViewCell {
                 ])
         }
     
-    func configure(with thread: ThreadData, isHistoryView: Bool, isFavoritesView: Bool) {
+    // Filter badge to indicate filtered content
+    private let filterBadge: UILabel = {
+        let label = UILabel()
+        label.text = "FILTERED"
+        label.font = UIFont.systemFont(ofSize: 12, weight: .bold)
+        label.textAlignment = .center
+        label.textColor = .white
+        label.backgroundColor = UIColor.systemRed
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.isHidden = true
+        return label
+    }()
+    
+    func configure(with thread: ThreadData, isHistoryView: Bool, isFavoritesView: Bool, isFiltered: Bool = false) {
             // Configure topicStats visibility and content
             if isHistoryView {
                 topicStats.isHidden = true
@@ -246,6 +260,33 @@ class boardTVCell: UITableViewCell {
                 topicStats.text = (thread.stats) + " 🔴"
             } else {
                 customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+            }
+
+            // Handle filtered content
+            if isFiltered {
+                // Add filter badge if not already added
+                if filterBadge.superview == nil {
+                    customBackgroundView.addSubview(filterBadge)
+                    filterBadge.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([
+                        filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
+                        filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -8),
+                        filterBadge.widthAnchor.constraint(equalToConstant: 80),
+                        filterBadge.heightAnchor.constraint(equalToConstant: 24)
+                    ])
+                }
+                
+                // Show filter badge
+                filterBadge.isHidden = false
+                
+                // Dim the content to indicate it's filtered
+                customBackgroundView.alpha = 0.7
+            } else {
+                // Hide filter badge
+                filterBadge.isHidden = true
+                
+                // Normal opacity
+                customBackgroundView.alpha = 1.0
             }
 
             // Configure text content

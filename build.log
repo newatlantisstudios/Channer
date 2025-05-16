@@ -1,0 +1,297 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -workspace Channer.xcworkspace -scheme Channer -destination "platform=iOS Simulator,id=44904F7F-6EDF-438E-8F7E-BB85376849C6" build
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (9 targets)
+    Target 'Channer' in project 'Channer'
+        ➜ Implicit dependency on target 'Pods-Channer' in project 'Pods' via file 'Pods_Channer.framework' in build phase 'Link Binary'
+        ➜ Implicit dependency on target 'Alamofire' in project 'Pods' via options '-framework Alamofire' in build setting 'OTHER_LDFLAGS'
+        ➜ Implicit dependency on target 'Kingfisher' in project 'Pods' via options '-framework Kingfisher' in build setting 'OTHER_LDFLAGS'
+        ➜ Implicit dependency on target 'SwiftyJSON' in project 'Pods' via options '-framework SwiftyJSON' in build setting 'OTHER_LDFLAGS'
+    Target 'Pods-Channer' in project 'Pods'
+        ➜ Explicit dependency on target 'Alamofire' in project 'Pods'
+        ➜ Explicit dependency on target 'Kingfisher' in project 'Pods'
+        ➜ Explicit dependency on target 'SwiftyJSON' in project 'Pods'
+        ➜ Explicit dependency on target 'VLCKit' in project 'Pods'
+    Target 'VLCKit' in project 'Pods' (no dependencies)
+    Target 'SwiftyJSON' in project 'Pods'
+        ➜ Explicit dependency on target 'SwiftyJSON-SwiftyJSON' in project 'Pods'
+    Target 'SwiftyJSON-SwiftyJSON' in project 'Pods' (no dependencies)
+    Target 'Kingfisher' in project 'Pods'
+        ➜ Explicit dependency on target 'Kingfisher-Kingfisher' in project 'Pods'
+    Target 'Kingfisher-Kingfisher' in project 'Pods' (no dependencies)
+    Target 'Alamofire' in project 'Pods'
+        ➜ Explicit dependency on target 'Alamofire-Alamofire' in project 'Pods'
+    Target 'Alamofire-Alamofire' in project 'Pods' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.4.sdk /Users/x/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.4-22E235-71825a6d136aa4733edcbe86ece5525b.sdkstatcache
+    cd /Users/x/Documents/GitHub/Channer
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.4.sdk -o /Users/x/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.4-22E235-71825a6d136aa4733edcbe86ece5525b.sdkstatcache
+
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Channer' from project 'Channer')
+SwiftDriver Channer normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Channer' from project 'Channer')
+    cd /Users/x/Documents/GitHub/Channer
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Channer -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer.SwiftFileList -D COCOAPODS -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.4.sdk -target arm64-apple-ios16.6-simulator -g -module-cache-path /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 4.2 -I /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON -F /Users/x/Documents/GitHub/Channer/Pods/VLCKit -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/XCFrameworkIntermediates/VLCKit -F /Users/x/Documents/GitHub/Channer/Pods/libvpx -c -num-threads 10 -Xcc -ivfsstatcache -Xcc /Users/x/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.4-22E235-71825a6d136aa4733edcbe86ece5525b.sdkstatcache -output-file-map /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer_const_extract_protocols.json -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-generated-files.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-own-target-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer-da7b2d2f2bc6842ba3eaf7676745b6b0-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-project-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/include -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire/Alamofire.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher/Kingfisher.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON/SwiftyJSON.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources-normal/arm64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/arm64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources -Xcc -DCOCOAPODS\=1 -emit-objc-header -emit-objc-header-path /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer-Swift.h -working-directory /Users/x/Documents/GitHub/Channer -no-emit-module-separately-wmo
+
+SwiftDriver Channer normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'Channer' from project 'Channer')
+    cd /Users/x/Documents/GitHub/Channer
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Channer -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/x86_64/Channer.SwiftFileList -D COCOAPODS -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.4.sdk -target x86_64-apple-ios16.6-simulator -g -module-cache-path /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 4.2 -I /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON -F /Users/x/Documents/GitHub/Channer/Pods/VLCKit -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/XCFrameworkIntermediates/VLCKit -F /Users/x/Documents/GitHub/Channer/Pods/libvpx -c -num-threads 10 -Xcc -ivfsstatcache -Xcc /Users/x/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.4-22E235-71825a6d136aa4733edcbe86ece5525b.sdkstatcache -output-file-map /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/x86_64/Channer-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/x86_64/Channer.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/x86_64/Channer_const_extract_protocols.json -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-generated-files.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-own-target-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer-da7b2d2f2bc6842ba3eaf7676745b6b0-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-project-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/include -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire/Alamofire.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher/Kingfisher.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON/SwiftyJSON.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources-normal/x86_64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/x86_64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources -Xcc -DCOCOAPODS\=1 -emit-objc-header -emit-objc-header-path /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/x86_64/Channer-Swift.h -working-directory /Users/x/Documents/GitHub/Channer -no-emit-module-separately-wmo
+
+SwiftCompile normal arm64 Compiling\ urlWeb.swift,\ HistoryManager.swift,\ threadRepliesTV.swift,\ threadRepliesCell.swift,\ WebMThumbnailCell.swift,\ WebMViewController.swift,\ FavoritesManager.swift,\ ThemeManager.swift,\ CustomSplitViewController.swift,\ FilesListVC.swift,\ ImageGalleryVC.swift,\ boardTVCell.swift,\ ThumbnailGridVC.swift,\ TextFormatter.swift,\ ImageViewController.swift,\ ThreadDataHelper.swift,\ ContentFilterManager.swift,\ ThreadCacheManager.swift,\ boardTV.swift,\ AppDelegate.swift,\ boardCVCell.swift,\ settings.swift,\ boardsCV.swift,\ GeneratedAssetSymbols.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/urlWeb.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/HistoryManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesTV.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMThumbnailCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FavoritesManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/ThemeManager.swift /Users/x/Documents/GitHub/Channer/Channer/Application/CustomSplitViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FilesListVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageGalleryVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ThumbnailGridVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/TextFormatter.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageViewController.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadDataHelper.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ContentFilterManager.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTV.swift /Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardCVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/settings.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardsCV.swift /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Channer' from project 'Channer')
+
+CompileSwift normal arm64 (in target 'Channer' from project 'Channer')
+    cd /Users/x/Documents/GitHub/Channer
+    
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: error: invalid redeclaration of 'CachedThread'
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: 'CachedThread' previously declared here
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: 'CachedThread' previously declared here
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:420:71: error: ambiguous use of 'shared'
+        if Reachability.isConnectedToNetwork() && !ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+                                                                      ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:426:36: error: ambiguous use of 'shared'
+        else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+                                   ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:598:31: error: ambiguous use of 'shared'
+        if ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork() {
+                              ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:600:52: error: ambiguous use of 'shared'
+            if let cachedData = ThreadCacheManager.shared.getCachedThread(boardAbv: boardAbv, threadNumber: threadNumber) {
+                                                   ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:651:39: error: ambiguous use of 'shared'
+                if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
+                                      ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1106:31: warning: immutable value 'error' was never used; consider replacing with '_' or removing it
+            case .failure(let error):
+                          ~~~~^~~~~
+                          _
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1105:34: warning: call to main actor-isolated instance method 'setBackgroundImage(_:for:)' in a synchronous nonisolated context; this is an error in the Swift 6 language mode
+                cell.threadImage.setBackgroundImage(value.image, for: .normal)
+                                 ^
+UIKit.UIButton.setBackgroundImage:2:22: note: calls to instance method 'setBackgroundImage(_:for:)' from outside of its actor context are implicitly asynchronous
+@MainActor open func setBackgroundImage(_ image: UIImage?, for state: UIControl.State)}
+                     ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1108:34: warning: call to main actor-isolated instance method 'setBackgroundImage(_:for:)' in a synchronous nonisolated context; this is an error in the Swift 6 language mode
+                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                                 ^
+UIKit.UIButton.setBackgroundImage:2:22: note: calls to instance method 'setBackgroundImage(_:for:)' from outside of its actor context are implicitly asynchronous
+@MainActor open func setBackgroundImage(_ image: UIImage?, for state: UIControl.State)}
+                     ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1174:22: warning: immutable value 'a' was never used; consider replacing with '_' or removing it
+                for (a, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
+                     ^
+                     _
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1728:28: error: ambiguous use of 'shared'
+        ThreadCacheManager.shared.cacheThread(boardAbv: boardAbv, threadNumber: threadNumber) { success in
+                           ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1758:32: error: ambiguous use of 'shared'
+            ThreadCacheManager.shared.removeFromCache(boardAbv: self.boardAbv, threadNumber: self.threadNumber)
+                               ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:10:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:11:16: note: found this candidate 
+    static let shared = ThreadCacheManager()
+               ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:1818:14: warning: immutable value 'i' was never used; consider replacing with '_' or removing it
+        for (i, line) in lines.enumerated() {
+             ^
+             _
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadDataHelper.swift:18:17: warning: initialization of immutable value 'json' was never used; consider replacing with assignment to '_' or removing it
+            let json = try JSON(data: threadData)
+            ~~~~^~~~
+            _
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:19:38: error: 'CachedThread' is ambiguous for type lookup in this context
+    private(set) var cachedThreads: [CachedThread] = []
+                                     ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:122:36: error: 'CachedThread' is ambiguous for type lookup in this context
+    func getAllCachedThreads() -> [CachedThread] {
+                                   ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:183:42: error: 'CachedThread' is ambiguous for type lookup in this context
+    private func cacheImages(for thread: CachedThread, json: JSON) {
+                                         ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:201:55: error: 'CachedThread' is ambiguous for type lookup in this context
+    private func cacheImages(urls: [URL], for thread: CachedThread) {
+                                                      ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:7:7: error: invalid redeclaration of 'ThreadCacheManager'
+class ThreadCacheManager {
+      ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:8:7: note: 'ThreadCacheManager' previously declared here
+class ThreadCacheManager {
+      ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:8:7: note: 'ThreadCacheManager' previously declared here
+class ThreadCacheManager {
+      ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:146:53: error: type of expression is ambiguous without a type annotation
+               let loadedCache = try? JSONDecoder().decode([CachedThread].self, from: data) {
+                                 ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:152:53: error: type of expression is ambiguous without a type annotation
+               let loadedCache = try? JSONDecoder().decode([CachedThread].self, from: data) {
+                                 ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:202:54: warning: backward matching of the unlabeled trailing closure is deprecated; label the argument with 'completionHandler' to suppress this warning
+        let prefetcher = ImagePrefetcher(urls: urls) { skippedResources, failedResources, completedResources in
+                                                   ~ ^
+                                                   , completionHandler: 
+/Users/x/Documents/GitHub/Channer/Pods/Kingfisher/Sources/Networking/ImagePrefetcher.swift:131:24: note: 'init(urls:options:progressBlock:completionHandler:)' declared here
+    public convenience init(
+                       ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:20:38: error: 'CachedThread' is ambiguous for type lookup in this context
+    private(set) var cachedThreads: [CachedThread] = []
+                                     ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:123:36: error: 'CachedThread' is ambiguous for type lookup in this context
+    func getAllCachedThreads() -> [CachedThread] {
+                                   ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:184:42: error: 'CachedThread' is ambiguous for type lookup in this context
+    private func cacheImages(for thread: CachedThread, json: JSON) {
+                                         ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:202:55: error: 'CachedThread' is ambiguous for type lookup in this context
+    private func cacheImages(urls: [URL], for thread: CachedThread) {
+                                                      ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:147:53: error: type of expression is ambiguous without a type annotation
+               let loadedCache = try? JSONDecoder().decode([CachedThread].self, from: data) {
+                                 ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:153:53: error: type of expression is ambiguous without a type annotation
+               let loadedCache = try? JSONDecoder().decode([CachedThread].self, from: data) {
+                                 ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:213:12: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+        if let index = self.cachedThreads.firstIndex(where: { 
+           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift:300:21: warning: 'setMinimumBackgroundFetchInterval' was deprecated in iOS 13.0: Use a BGAppRefreshTask in the BackgroundTasks framework instead
+        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+                    ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/settings.swift:897:33: error: 'CachedThread' is ambiguous for type lookup in this context
+    private var cachedThreads: [CachedThread] = []
+                                ^~~~~~~~~~~~
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread Replies/threadRepliesTV.swift:34:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift:260:8: note: found this candidate
+struct CachedThread: Codable {
+       ^
+/Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardsCV.swift:336:19: warning: value 'layout' was defined but never used; consider replacing with boolean test
+        guard let layout = collectionViewLayout as? UICollectionViewFlowLayout else {
+              ~~~~^~~~~~~~~                     ~~~
+                                                is
+
+Failed frontend command:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -c /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/urlWeb.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/HistoryManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesTV.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMThumbnailCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FavoritesManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/ThemeManager.swift /Users/x/Documents/GitHub/Channer/Channer/Application/CustomSplitViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FilesListVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageGalleryVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ThumbnailGridVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/TextFormatter.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageViewController.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadDataHelper.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ContentFilterManager.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTV.swift /Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardCVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/settings.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardsCV.swift /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/GeneratedAssetSymbols.swift -supplementary-output-file-map /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/supplementaryOutputs-2 -target arm64-apple-ios16.6-simulator -Xllvm -aarch64-use-tbi -enable-objc-interop -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.4.sdk -I /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON -F /Users/x/Documents/GitHub/Channer/Pods/VLCKit -F /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/XCFrameworkIntermediates/VLCKit -F /Users/x/Documents/GitHub/Channer/Pods/libvpx -no-color-diagnostics -g -debug-info-format\=dwarf -dwarf-version\=4 -module-cache-path /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -swift-version 4.2 -enforce-exclusivity\=checked -O -D COCOAPODS -serialize-debugging-options -const-gather-protocols-file /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/Channer_const_extract_protocols.json -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/x/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/x/Documents/GitHub/Channer -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift -file-compilation-dir /Users/x/Documents/GitHub/Channer -Xcc -ivfsstatcache -Xcc /Users/x/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.4-22E235-71825a6d136aa4733edcbe86ece5525b.sdkstatcache -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-generated-files.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-own-target-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer-da7b2d2f2bc6842ba3eaf7676745b6b0-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Channer-project-headers.hmap -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/include -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Alamofire/Alamofire.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/Kingfisher/Kingfisher.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Products/Release-iphonesimulator/SwiftyJSON/SwiftyJSON.framework/Headers -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources-normal/arm64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/arm64 -Xcc -I/Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources -Xcc -DCOCOAPODS\=1 -module-name Channer -frontend-parseable-output -disable-clang-spi -target-sdk-version 18.4 -target-sdk-name iphonesimulator18.4 -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/local/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -in-process-plugin-server-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/lib/swift/host/plugins -enable-default-cmo -num-threads 10 -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/urlWeb.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/HistoryManager.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/threadRepliesTV.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/threadRepliesCell.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/WebMThumbnailCell.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/WebMViewController.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/FavoritesManager.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThemeManager.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/CustomSplitViewController.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/FilesListVC.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ImageGalleryVC.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardTVCell.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThumbnailGridVC.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/TextFormatter.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ImageViewController.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThreadDataHelper.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ContentFilterManager.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThreadCacheManager.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardTV.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/AppDelegate.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardCVCell.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/settings.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardsCV.o -o /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/GeneratedAssetSymbols.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/urlWeb.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/HistoryManager.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/threadRepliesTV.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/threadRepliesCell.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/WebMThumbnailCell.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/WebMViewController.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/FavoritesManager.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThemeManager.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/CustomSplitViewController.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/FilesListVC.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ImageGalleryVC.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardTVCell.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThumbnailGridVC.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/TextFormatter.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ImageViewController.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThreadDataHelper.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ContentFilterManager.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/ThreadCacheManager.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardTV.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/AppDelegate.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardCVCell.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/settings.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/boardsCV.o -index-unit-output-path /Channer.build/Release-iphonesimulator/Channer.build/Objects-normal/arm64/GeneratedAssetSymbols.o
+SwiftCompile normal x86_64 Compiling\ urlWeb.swift,\ HistoryManager.swift,\ threadRepliesTV.swift,\ threadRepliesCell.swift,\ WebMThumbnailCell.swift,\ WebMViewController.swift,\ FavoritesManager.swift,\ ThemeManager.swift,\ CustomSplitViewController.swift,\ FilesListVC.swift,\ ImageGalleryVC.swift,\ boardTVCell.swift,\ ThumbnailGridVC.swift,\ TextFormatter.swift,\ ImageViewController.swift,\ ThreadDataHelper.swift,\ ContentFilterManager.swift,\ ThreadCacheManager.swift,\ boardTV.swift,\ AppDelegate.swift,\ boardCVCell.swift,\ settings.swift,\ boardsCV.swift,\ GeneratedAssetSymbols.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/urlWeb.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/HistoryManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesTV.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/threadRepliesCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMThumbnailCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/WebMViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FavoritesManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/ThemeManager.swift /Users/x/Documents/GitHub/Channer/Channer/Application/CustomSplitViewController.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/FilesListVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageGalleryVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ThumbnailGridVC.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Thread\ Replies/TextFormatter.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Show\ Media/ImageViewController.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadDataHelper.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ContentFilterManager.swift /Users/x/Documents/GitHub/Channer/Channer/Utilities/ThreadCacheManager.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Board/boardTV.swift /Users/x/Documents/GitHub/Channer/Channer/Application/AppDelegate.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardCVCell.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/settings.swift /Users/x/Documents/GitHub/Channer/Channer/ViewControllers/Home/boardsCV.swift /Users/x/Library/Developer/Xcode/DerivedData/Channer-fgtsgnuqkveakrbrnncgcbfrkztq/Build/Intermediates.noindex/Channer.build/Release-iphonesimulator/Channer.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Channer' from project 'Channer')
+CompileSwift normal x86_64 (in target 'Channer' from project 'Channer')
+    cd /Users/x/Documents/GitHub/Channer
+    
+
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Pods-Channer' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Kingfisher' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Alamofire-Alamofire' from project 'Pods')
+/Users/x/Documents/GitHub/Channer/Pods/Pods.xcodeproj: warning: The iOS Simulator deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 10.0, but the range of supported deployment target versions is 12.0 to 18.4.99. (in target 'Alamofire-Alamofire' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'SwiftyJSON-SwiftyJSON' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'SwiftyJSON' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Alamofire' from project 'Pods')
+/Users/x/Documents/GitHub/Channer/Pods/Pods.xcodeproj: warning: The iOS Simulator deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 10.0, but the range of supported deployment target versions is 12.0 to 18.4.99. (in target 'Alamofire' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'Kingfisher-Kingfisher' from project 'Pods')
+note: Disabling previews because SWIFT_VERSION is set and SWIFT_OPTIMIZATION_LEVEL=-O, expected -Onone (in target 'VLCKit' from project 'Pods')
+/Users/x/Documents/GitHub/Channer/Pods/Pods.xcodeproj: warning: The iOS Simulator deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 18.4.99. (in target 'VLCKit' from project 'Pods')

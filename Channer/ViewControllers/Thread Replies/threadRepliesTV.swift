@@ -3,6 +3,7 @@ import Alamofire
 import Kingfisher
 import SwiftyJSON
 import SystemConfiguration
+import Foundation
 
 // MARK: - Reachability (Network Connectivity)
 class Reachability {
@@ -29,45 +30,6 @@ class Reachability {
     }
 }
 
-// MARK: - Cached Thread Data Model
-struct CachedThread: Codable {
-    let boardAbv: String
-    let threadNumber: String
-    let threadData: Data
-    var cachedImages: [String]
-    let cachedDate: Date
-    
-    // Helper to get basic thread info for UI
-    func getThreadInfo() -> ThreadData? {
-        do {
-            let json = try JSON(data: threadData)
-            if let posts = json["posts"].array, let firstPost = posts.first {
-                // Extract info from the first post
-                let number = String(describing: firstPost["no"])
-                let comment = firstPost["com"].stringValue
-                let imageTimestamp = firstPost["tim"].stringValue
-                let imageExt = firstPost["ext"].stringValue
-                let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExt)"
-                let replyCount = posts.count - 1
-                let imageCount = posts.filter { $0["tim"].exists() }.count
-                
-                return ThreadData(
-                    number: number,
-                    stats: "\(replyCount)/\(imageCount)",
-                    title: "",
-                    comment: comment,
-                    imageUrl: imageURL,
-                    boardAbv: boardAbv,
-                    replies: replyCount,
-                    createdAt: ""
-                )
-            }
-        } catch {
-            print("Error parsing cached thread data: \(error)")
-        }
-        return nil
-    }
-}
 
 // MARK: - Thread Replies Table View Controller
 class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate {
@@ -115,6 +77,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var threadBoardReplyNumber = [String]()
     var threadBoardReplies = [String: [String]]()
     var threadRepliesImages = [String]()
+    var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
     
     // Storage for thread view
@@ -159,6 +122,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         tableView.register(threadRepliesCell.self, forCellReuseIdentifier: cellIdentifier)
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172
+        
+        // Add long press gesture recognizer for filtering
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        tableView.addGestureRecognizer(longPressGesture)
         
         setupLoadingIndicator()
         setupNavigationItems()
@@ -401,6 +368,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             self.toggleSpoilers()
         }))
         
+        // Add filter options
+        actionSheet.addAction(UIAlertAction(title: "Filter Content", style: .default, handler: { _ in
+            self.showFilterOptions()
+        }))
+        
         actionSheet.addAction(UIAlertAction(title: "Open in Browser", style: .default, handler: { _ in
             self.openInBrowser()
         }))
@@ -505,12 +477,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             //print("Debug: No replies available, showing loading text")
             cell.configure(withImage: false,
                            text: NSAttributedString(string: "Loading..."),
-                           boardNumber: "")
+                           boardNumber: "",
+                           isFiltered: false)
         } else {
             let imageUrl = threadRepliesImages[indexPath.row]
             let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
             let attributedText = threadReplies[indexPath.row]
             let boardNumber = threadBoardReplyNumber[indexPath.row]
+            let isFiltered = filteredReplyIndices.contains(indexPath.row)
             
             // Debug: Content of the reply
             //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
@@ -518,7 +492,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
                            text: attributedText,
-                           boardNumber: boardNumber)
+                           boardNumber: boardNumber,
+                           isFiltered: isFiltered)
             
             // Set the attributed text based on whether the cell has an image
             if hasImage {
@@ -612,43 +587,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         // Perform network request
-        AF.request(urlString).responseData { [weak self] response in
+        let request = AF.request(urlString)
+        request.responseData { [weak self] response in
             guard let self = self else { return }
             
+            // Process the response on main thread
             DispatchQueue.main.async {
-                switch response.result {
-                case .success(let data):
-                    do {
-                        // Parse JSON response
-                        let json = try JSON(data: data)
-                        //print(json)
-                        self.processThreadData(json)
-                        self.structureThreadReplies()
-                        self.isLoading = false
-                        //print("Data loaded successfully. Thread count: \(self.threadReplies.count)") // Debug print
-                        //print(self.threadReplies)
-                        
-                        // Cache thread if offline reading is enabled
-                        if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
-                           ThreadCacheManager.shared.isCached(boardAbv: self.boardAbv, threadNumber: self.threadNumber) {
-                            print("Thread was successfully loaded and is already cached")
-                        }
-                        
-                        // Reload table view and stop loading indicator
-                        self.loadingIndicator.stopAnimating()
-                        self.tableView.reloadData()
-                        self.onViewReady?()
-                    } catch {
-                        print("Error parsing JSON: \(error)")
-                        self.handleLoadError()
-                        self.onViewReady?()
-                    }
-                case .failure(let error):
-                    print("Network error: \(error)")
-                    self.handleLoadError()
-                    self.onViewReady?()
-                }
+                self.handleNetworkResponse(response)
             }
+        }
+    }
+    
+    private func handleNetworkResponse(_ response: AFDataResponse<Data>) {
+        switch response.result {
+        case .success(let data):
+            do {
+                // Parse JSON response
+                let json = try JSON(data: data)
+                self.processThreadData(json)
+                self.structureThreadReplies()
+                self.isLoading = false
+                
+                // Cache thread if offline reading is enabled
+                if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
+                   ThreadCacheManager.shared.isCached(boardAbv: self.boardAbv, threadNumber: self.threadNumber) {
+                    print("Thread was successfully loaded and is already cached")
+                }
+                
+                // Reload table view and stop loading indicator
+                self.loadingIndicator.stopAnimating()
+                self.tableView.reloadData()
+                self.onViewReady?()
+            } catch {
+                print("Error parsing JSON: \(error)")
+                self.handleLoadError()
+                self.onViewReady?()
+            }
+        case .failure(let error):
+            print("Network error: \(error)")
+            self.handleLoadError()
+            self.onViewReady?()
         }
     }
     
@@ -660,29 +638,32 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         
-        AF.request(urlString).responseData { [weak self] response in
+        let request = AF.request(urlString)
+        request.responseData { [weak self] response in
             guard let self = self else { return }
             
             DispatchQueue.main.async {
-                switch response.result {
-                case .success(let data):
-                    do {
-                        let json = try JSON(data: data)
-                        //print("threadRepliesTV - JSON")
-                        //print(json)
-                        self.processThreadData(json)
-                        self.structureThreadReplies()
-                        self.isLoading = false
-                        self.tableView.reloadData()
-                    } catch {
-                        print("JSON parsing error: \(error)")
-                        self.handleLoadError()
-                    }
-                case .failure(let error):
-                    print("Network error: \(error)")
-                    self.handleLoadError()
-                }
+                self.handleLoadDataResponse(response)
             }
+        }
+    }
+    
+    private func handleLoadDataResponse(_ response: AFDataResponse<Data>) {
+        switch response.result {
+        case .success(let data):
+            do {
+                let json = try JSON(data: data)
+                self.processThreadData(json)
+                self.structureThreadReplies()
+                self.isLoading = false
+                self.tableView.reloadData()
+            } catch {
+                print("JSON parsing error: \(error)")
+                self.handleLoadError()
+            }
+        case .failure(let error):
+            print("Network error: \(error)")
+            self.handleLoadError()
         }
     }
     
@@ -721,7 +702,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func processThreadData(_ json: JSON) {
-        // Get reply count
+        // Get original reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
         
         // Handle case with no replies
@@ -732,11 +713,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         
+        // Apply content filtering to JSON if enabled
+        var filteredJson: JSON = json
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
+           isEnabled {
+            // Use raw invocation to filter posts
+            if let returnValue = manager.perform(NSSelectorFromString("filterPosts:"), with: json) {
+                filteredJson = returnValue.takeUnretainedValue() as? JSON ?? json
+            }
+        }
+        
         // Process all posts in the thread
-        let posts = json["posts"].arrayValue
+        let posts = filteredJson["posts"].arrayValue
         for post in posts {
             processPost(post, index: posts.firstIndex(of: post) ?? 0)
         }
+        
+        // Apply additional content filtering
+        applyContentFiltering()
         
         // Finalize thread structure
         structureThreadReplies()
@@ -1197,6 +1193,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
         
+        // Transfer any filtered indices that are also in this view
+        let filteredIndicesInNew = Set(filteredReplyIndices.compactMap { originalIndex in
+            if let originalNumber = threadBoardReplyNumber.indices.contains(originalIndex) ? threadBoardReplyNumber[originalIndex] : nil,
+               let newIndex = threadBoardReplyNumberNew.firstIndex(of: originalNumber) {
+                return newIndex
+            }
+            return nil
+        })
+        newThreadVC.filteredReplyIndices = filteredIndicesInNew
+        
         print("Selected post: \(selectedBoardNumber)")
         print("Filtered replies: \(Array(uniqueReplies))")
         print("New threadReplies count: \(threadRepliesNew.count)")
@@ -1236,12 +1242,427 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // MARK: - Helper Methods
     /// General helper methods used throughout the class
+    
+    /// Handle long press on a table cell
+    @objc private func handleLongPress(gesture: UILongPressGestureRecognizer) {
+        if gesture.state == .began {
+            let point = gesture.location(in: tableView)
+            if let indexPath = tableView.indexPathForRow(at: point) {
+                showCellActionSheet(for: indexPath)
+            }
+        }
+    }
+    
+    /// Shows action sheet for a long-pressed cell
+    private func showCellActionSheet(for indexPath: IndexPath) {
+        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        
+        // Filter this reply option
+        actionSheet.addAction(UIAlertAction(title: "Filter This Reply", style: .default, handler: { _ in
+            self.toggleFilterForReply(at: indexPath.row)
+        }))
+        
+        // Filter similar replies option
+        actionSheet.addAction(UIAlertAction(title: "Filter Similar Content", style: .default, handler: { _ in
+            self.filterSimilarContent(to: indexPath.row)
+        }))
+        
+        // Add extract keywords option
+        actionSheet.addAction(UIAlertAction(title: "Extract Keywords to Filter", style: .default, handler: { _ in
+            self.extractKeywords(from: indexPath.row)
+        }))
+        
+        // Add cancel action
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // Configure popover for iPad
+        if let popover = actionSheet.popoverPresentationController {
+            if let cell = tableView.cellForRow(at: indexPath) {
+                popover.sourceView = cell
+                popover.sourceRect = cell.bounds
+            } else {
+                popover.sourceView = view
+                popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            }
+            popover.permittedArrowDirections = [.up, .down]
+        }
+        
+        present(actionSheet, animated: true)
+    }
+    
+    /// Shows filter options in an action sheet
+    @objc private func showFilterOptions() {
+        let filterAlert = UIAlertController(title: "Filter Options", message: "Select filter action", preferredStyle: .alert)
+        
+        // Option to open Content Filter settings
+        filterAlert.addAction(UIAlertAction(title: "Manage Global Filters", style: .default, handler: { _ in
+            self.showFilterManagementView()
+        }))
+        
+        // Option to filter the current thread by keyword
+        filterAlert.addAction(UIAlertAction(title: "Filter Current Thread by Keyword", style: .default, handler: { _ in
+            self.showFilterByKeywordAlert()
+        }))
+        
+        // Option to add a global filter
+        filterAlert.addAction(UIAlertAction(title: "Add New Filter", style: .default, handler: { _ in
+            self.showAddGlobalFilterAlert()
+        }))
+        
+        // Option to clear view filters
+        filterAlert.addAction(UIAlertAction(title: "Clear Thread Filters", style: .default, handler: { _ in
+            self.clearAllFilters()
+        }))
+        
+        // Add toggle for filtering globally
+        var isEnabled = false
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
+            isEnabled = isFilteringEnabled
+        }
+        
+        let toggleTitle = isEnabled ? "Disable All Filtering" : "Enable All Filtering"
+        
+        filterAlert.addAction(UIAlertAction(title: toggleTitle, style: .default, handler: { _ in
+            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
+                _ = manager.perform(NSSelectorFromString("setFilteringEnabled:"), with: !isEnabled)
+            }
+            self.applyContentFiltering() // Apply/unapply filters based on new setting
+            
+            // Show confirmation
+            let message = isEnabled ? "Content filtering disabled" : "Content filtering enabled"
+            let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            self.present(confirmToast, animated: true)
+            
+            // Dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                confirmToast.dismiss(animated: true)
+            }
+        }))
+        
+        filterAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(filterAlert, animated: true)
+    }
+    
+    /// Shows an alert to add a global filter
+    private func showAddGlobalFilterAlert() {
+        let alert = UIAlertController(title: "Add Global Filter", message: "Enter text to filter across all content", preferredStyle: .alert)
+        
+        // Add a segmented control to select filter type
+        let filterTypes = ["Keyword", "Poster ID", "Image Name"]
+        let segmentedControl = UISegmentedControl(items: filterTypes)
+        segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add the segmented control to the alert
+        alert.view.addSubview(segmentedControl)
+        
+        // Position segmented control below the message
+        NSLayoutConstraint.activate([
+            segmentedControl.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
+            segmentedControl.topAnchor.constraint(equalTo: alert.view.topAnchor, constant: 65),
+            segmentedControl.leadingAnchor.constraint(equalTo: alert.view.leadingAnchor, constant: 20),
+            segmentedControl.trailingAnchor.constraint(equalTo: alert.view.trailingAnchor, constant: -20),
+            segmentedControl.heightAnchor.constraint(equalToConstant: 30)
+        ])
+        
+        // Add space for the segmented control
+        let extraSpace = UIView()
+        extraSpace.translatesAutoresizingMaskIntoConstraints = false
+        alert.view.addSubview(extraSpace)
+        NSLayoutConstraint.activate([
+            extraSpace.heightAnchor.constraint(equalToConstant: 40),
+            extraSpace.leadingAnchor.constraint(equalTo: alert.view.leadingAnchor),
+            extraSpace.trailingAnchor.constraint(equalTo: alert.view.trailingAnchor),
+            extraSpace.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor)
+        ])
+        
+        // Add a text field for the filter text
+        alert.addTextField { textField in
+            textField.placeholder = "Enter filter text"
+            textField.clearButtonMode = .whileEditing
+            textField.autocapitalizationType = .none
+        }
+        
+        // Add action to add the filter
+        alert.addAction(UIAlertAction(title: "Add Filter", style: .default) { _ in
+            guard let filterText = alert.textFields?.first?.text, !filterText.isEmpty else { return }
+            
+            // Add filter based on selected type
+            let filterType = filterTypes[segmentedControl.selectedSegmentIndex]
+            
+            // Add to the appropriate filter collection
+            var added = false
+            
+            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
+                
+                switch filterType {
+                case "Keyword":
+                    added = manager.perform(NSSelectorFromString("addKeywordFilter:"), with: filterText) != nil
+                case "Poster ID":
+                    added = manager.perform(NSSelectorFromString("addPosterFilter:"), with: filterText) != nil
+                case "Image Name":
+                    added = manager.perform(NSSelectorFromString("addImageFilter:"), with: filterText) != nil
+                default:
+                    break
+                }
+            }
+            
+            if added {
+                // Apply filtering to current view
+                self.applyContentFiltering()
+                
+                // Show confirmation
+                let confirmToast = UIAlertController(
+                    title: nil,
+                    message: "\(filterType) filter added: \"\(filterText)\"",
+                    preferredStyle: .alert
+                )
+                self.present(confirmToast, animated: true)
+                
+                // Dismiss after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    confirmToast.dismiss(animated: true)
+                }
+            }
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alert, animated: true)
+    }
+    
+    /// Shows the filter management view
+    private func showFilterManagementView() {
+        // Create and navigate to the dedicated ContentFilterViewController
+        if let contentFilterViewControllerClass = NSClassFromString("Channer.ContentFilterViewController") as? UIViewController.Type {
+            let contentFilterVC = contentFilterViewControllerClass.init()
+            navigationController?.pushViewController(contentFilterVC, animated: true)
+        }
+    }
+    
+    /// Shows an alert to filter content by keyword
+    private func showFilterByKeywordAlert() {
+        let alert = UIAlertController(title: "Filter by Keyword", message: "Enter a keyword to filter replies", preferredStyle: .alert)
+        
+        alert.addTextField { textField in
+            textField.placeholder = "Keyword to filter"
+            textField.autocapitalizationType = .none
+        }
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        alert.addAction(UIAlertAction(title: "Filter", style: .default, handler: { _ in
+            guard let keyword = alert.textFields?.first?.text, !keyword.isEmpty else { return }
+            self.filterByKeyword(keyword)
+        }))
+        
+        present(alert, animated: true)
+    }
+    
+    /// Filters replies based on a keyword
+    private func filterByKeyword(_ keyword: String) {
+        let keywordLowercased = keyword.lowercased()
+        for (index, reply) in threadReplies.enumerated() {
+            if reply.string.lowercased().contains(keywordLowercased) {
+                filteredReplyIndices.insert(index)
+            }
+        }
+        
+        tableView.reloadData()
+    }
+    
+    /// Toggles filter status for a specific reply
+    private func toggleFilterForReply(at index: Int) {
+        if filteredReplyIndices.contains(index) {
+            filteredReplyIndices.remove(index)
+        } else {
+            filteredReplyIndices.insert(index)
+        }
+        tableView.reloadData()
+    }
+    
+    /// Filters replies similar to the selected one
+    private func filterSimilarContent(to index: Int) {
+        guard index < threadReplies.count else { return }
+        
+        let selectedText = threadReplies[index].string.lowercased()
+        
+        // Split content into words and find significant ones (longer than 3 chars)
+        let words = selectedText.components(separatedBy: .whitespacesAndNewlines)
+            .compactMap { word -> String? in
+                let cleaned = word.trimmingCharacters(in: .punctuationCharacters)
+                return cleaned.count > 3 ? cleaned.lowercased() : nil
+            }
+        
+        // Find most frequent words (basic implementation)
+        var wordCounts: [String: Int] = [:]
+        words.forEach { wordCounts[$0, default: 0] += 1 }
+        
+        // Get top 3 words for matching
+        let significantWords = wordCounts.sorted { $0.value > $1.value }.prefix(3).map { $0.key }
+        
+        // Filter replies containing those words
+        for (replyIndex, reply) in threadReplies.enumerated() {
+            let replyText = reply.string.lowercased()
+            for word in significantWords where replyText.contains(word) {
+                filteredReplyIndices.insert(replyIndex)
+                break
+            }
+        }
+        
+        tableView.reloadData()
+    }
+    
+    /// Extracts keywords from a reply and presents them for filtering
+    private func extractKeywords(from index: Int) {
+        guard index < threadReplies.count else { return }
+        
+        let text = threadReplies[index].string.lowercased()
+        
+        // Extract potential keywords (words longer than 3 characters)
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+            .compactMap { word -> String? in
+                let cleaned = word.trimmingCharacters(in: .punctuationCharacters)
+                return cleaned.count > 3 ? cleaned.lowercased() : nil
+            }
+        
+        // Count word frequencies
+        var wordCounts: [String: Int] = [:]
+        words.forEach { wordCounts[$0, default: 0] += 1 }
+        
+        // Get top words by frequency (max 5)
+        let topWords = wordCounts.sorted { $0.value > $1.value }.prefix(5).map { $0.key }
+        
+        if topWords.isEmpty {
+            let alert = UIAlertController(title: "No Keywords Found", message: "No significant keywords could be extracted from this reply.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        
+        // Show alert with checkboxes for each word
+        let alert = UIAlertController(title: "Select Keywords to Filter", message: "Choose which keywords to use for filtering:", preferredStyle: .alert)
+        
+        // We'll use a simple text field to display the keywords since UIAlertController doesn't support checkboxes
+        alert.addTextField { textField in 
+            textField.text = topWords.joined(separator: ", ")
+            textField.isEnabled = false
+        }
+        
+        // Add action to filter by all words
+        alert.addAction(UIAlertAction(title: "Filter All", style: .default, handler: { _ in
+            // Apply all keywords to filtering
+            for word in topWords {
+                self.filterByKeyword(word)
+            }
+        }))
+        
+        // Add actions for individual keywords
+        for word in topWords {
+            alert.addAction(UIAlertAction(title: "Filter: \(word)", style: .default, handler: { _ in
+                self.filterByKeyword(word)
+            }))
+        }
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alert, animated: true)
+    }
+    
+    /// Applies content filtering to the loaded posts
+    private func applyContentFiltering() {
+        // Clear existing filters before reapplying
+        filteredReplyIndices.removeAll()
+        
+        // Check if content filtering is enabled
+        var isFilteringEnabled = false
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
+            isFilteringEnabled = isEnabled
+        }
+        
+        if !isFilteringEnabled {
+            tableView.reloadData()
+            return
+        }
+        
+        // Get filters from ContentFilterManager
+        var keywordFilters: [String] = []
+        var posterFilters: [String] = []
+        var imageFilters: [String] = []
+        
+        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
+           let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]) {
+            keywordFilters = getAllFilters.keywords
+            posterFilters = getAllFilters.posters
+            imageFilters = getAllFilters.images
+        }
+        
+        // If no filters, skip filtering
+        if keywordFilters.isEmpty && posterFilters.isEmpty && imageFilters.isEmpty {
+            tableView.reloadData()
+            return
+        }
+        
+        // Apply filters to each reply
+        for (index, reply) in threadReplies.enumerated() {
+            let plainText = reply.string.lowercased()
+            let posterId = threadBoardReplyNumber[index]
+            let imageUrl = threadRepliesImages[index].lowercased()
+            
+            // Check keyword filters
+            for filter in keywordFilters {
+                if plainText.contains(filter.lowercased()) {
+                    filteredReplyIndices.insert(index)
+                    break
+                }
+            }
+            
+            // Check poster ID filters if not already filtered
+            if !filteredReplyIndices.contains(index) {
+                for filter in posterFilters {
+                    if posterId.contains(filter) {
+                        filteredReplyIndices.insert(index)
+                        break
+                    }
+                }
+            }
+            
+            // Check image filename filters if not already filtered
+            if !filteredReplyIndices.contains(index) && !imageUrl.isEmpty {
+                for filter in imageFilters {
+                    if imageUrl.contains(filter.lowercased()) {
+                        filteredReplyIndices.insert(index)
+                        break
+                    }
+                }
+            }
+        }
+        
+        // Reload table with filtered content
+        tableView.reloadData()
+    }
+    
+    /// Clears all applied filters in the current view
+    private func clearAllFilters() {
+        // Clear local view filters
+        filteredReplyIndices.removeAll()
+        tableView.reloadData()
+    }
     @objc func refresh() {
         print("Refresh triggered")
         threadReplies.removeAll()
         threadBoardReplyNumber.removeAll()
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
+        filteredReplyIndices.removeAll() // Clear filters on refresh
         replyCount = 0
         loadInitialData()
     }

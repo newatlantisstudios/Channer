@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170F90E622506E7C00F52BBD /* WebMViewController.swift */; };
+		171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */; };
+		171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */; };
+		171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
 		176EC6462245F145009F2A8D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 176EC6452245F145009F2A8D /* Assets.xcassets */; };
 		176EC6542245F145009F2A8D /* _chanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC6532245F145009F2A8D /* _chanTests.swift */; };
@@ -56,6 +59,9 @@
 /* Begin PBXFileReference section */
 		16700A75F5E12DAADDA25578 /* Pods_ChannerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_ChannerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		170F90E622506E7C00F52BBD /* WebMViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMViewController.swift; sourceTree = "<group>"; };
+		171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterManager.swift; sourceTree = "<group>"; };
+		171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCacheManager.swift; sourceTree = "<group>"; };
+		171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadDataHelper.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		176EC63E2245F144009F2A8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		176EC6452245F145009F2A8D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -126,6 +132,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		171A75E22DD6F9FF00D75B34 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
+				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
+				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
 		1731C6BF2CD15F4800764AED /* Application */ = {
 			isa = PBXGroup;
 			children = (
@@ -174,6 +190,7 @@
 				1797989B2CF7CBBF00486211 /* Channer.entitlements */,
 				1731C6BF2CD15F4800764AED /* Application */,
 				1731C6C12CD15FCD00764AED /* ViewControllers */,
+				171A75E22DD6F9FF00D75B34 /* Utilities */,
 			);
 			path = Channer;
 			sourceTree = "<group>";
@@ -473,9 +490,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -504,6 +525,9 @@
 				177BC7F32CDECC2E000FE370 /* ThumbnailGridVC.swift in Sources */,
 				17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */,
 				177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */,
+				171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */,
+				171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,
+				171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,
 				176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */,
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,

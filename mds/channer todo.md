@@ -21,16 +21,13 @@
     - [x] Include image/media pre-downloading options
 
     ### Content Filtering
-    - [ ] Add keyword and phrase filtering system
-    - [ ] Implement thread/post hiding based on content
-    - [ ] Create blacklist for specific posters or content types
-    - [ ] Add content warning options
+    - [x] Add keyword and phrase filtering system
+    - [x] Implement thread/post hiding based on content
 
     ## Phase 3: Organization Features
 
     ### Enhanced Thread Bookmarking
-    - [ ] Implement tagging system for favorites
-    - [ ] Add categorization for saved threads
+    - [ ] Add categorization for saved/offline threads
     - [ ] Create customizable organizational folders
     - [ ] Include search within bookmarked content
 

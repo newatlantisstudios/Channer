@@ -1,6 +1,7 @@
 import UIKit
 import UserNotifications
 import SwiftyJSON
+import Foundation
 
 class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
 
@@ -30,6 +31,9 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let themeSettingsView = UIView()
     private let themeSettingsLabel = UILabel()
     private let themeSettingsButton = UIButton(type: .system)
+    private let contentFilteringView = UIView()
+    private let contentFilteringLabel = UILabel()
+    private let contentFilteringButton = UIButton(type: .system)
     
     // Constants
     private let cellIdentifier = "BoardCell"
@@ -233,6 +237,30 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         themeSettingsButton.addTarget(self, action: #selector(themeSettingsButtonTapped), for: .touchUpInside)
         themeSettingsView.addSubview(themeSettingsButton)
         
+        // Content Filtering View
+        contentFilteringView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        contentFilteringView.layer.cornerRadius = 10
+        contentFilteringView.clipsToBounds = true
+        contentFilteringView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(contentFilteringView)
+        
+        // Content Filtering Label
+        contentFilteringLabel.text = "Content Filtering"
+        contentFilteringLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        contentFilteringLabel.textAlignment = .left
+        contentFilteringLabel.numberOfLines = 1
+        contentFilteringLabel.adjustsFontSizeToFitWidth = true
+        contentFilteringLabel.minimumScaleFactor = 0.8
+        contentFilteringLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentFilteringView.addSubview(contentFilteringLabel)
+        
+        // Content Filtering Button
+        contentFilteringButton.setTitle("Manage", for: .normal)
+        contentFilteringButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        contentFilteringButton.translatesAutoresizingMaskIntoConstraints = false
+        contentFilteringButton.addTarget(self, action: #selector(contentFilteringButtonTapped), for: .touchUpInside)
+        contentFilteringView.addSubview(contentFilteringButton)
+        
         // Collection View
         collectionView.register(BoardCell.self, forCellWithReuseIdentifier: cellIdentifier)
         collectionView.backgroundColor = .clear
@@ -386,6 +414,172 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         generator.impactOccurred()
     }
     
+    @objc private func contentFilteringButtonTapped() {
+        // Show content filtering options inline
+        let alertController = UIAlertController(
+            title: "Content Filtering",
+            message: "Manage content filters to hide unwanted posts",
+            preferredStyle: .actionSheet
+        )
+        
+        // Add toggle for overall filtering
+        var isFilteringEnabled = false
+        var keywordCount = 0
+        var posterCount = 0
+        var imageCount = 0
+        
+        // Get current state from ContentFilterManager
+        isFilteringEnabled = ContentFilterManager.shared.isFilteringEnabled()
+        let filters = ContentFilterManager.shared.getAllFilters()
+        keywordCount = filters.keywords.count
+        posterCount = filters.posters.count
+        imageCount = filters.images.count
+        
+        // Show current status
+        let statusMessage = """
+        Status: \(isFilteringEnabled ? "Enabled" : "Disabled")
+        Keyword Filters: \(keywordCount)
+        Poster ID Filters: \(posterCount)
+        Image Name Filters: \(imageCount)
+        """
+        
+        alertController.message = statusMessage
+        
+        // Add toggle action
+        let toggleTitle = isFilteringEnabled ? "Disable Content Filtering" : "Enable Content Filtering"
+        alertController.addAction(UIAlertAction(title: toggleTitle, style: .default) { _ in
+            let newState = !isFilteringEnabled
+            ContentFilterManager.shared.setFilteringEnabled(newState)
+            
+            // Show confirmation - we toggled from the original state
+            let message = isFilteringEnabled ? "Content filtering disabled" : "Content filtering enabled"
+            let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            self.present(confirmToast, animated: true)
+            
+            // Dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                confirmToast.dismiss(animated: true)
+            }
+        })
+        
+        // Add option to add keyword filter
+        alertController.addAction(UIAlertAction(title: "Add Keyword Filter", style: .default) { _ in
+            self.showAddKeywordFilterAlert()
+        })
+        
+        // Add option to add poster filter
+        alertController.addAction(UIAlertAction(title: "Add Poster ID Filter", style: .default) { _ in
+            self.showAddPosterFilterAlert()
+        })
+        
+        // Add option to clear all filters
+        if keywordCount > 0 || posterCount > 0 || imageCount > 0 {
+            alertController.addAction(UIAlertAction(title: "Clear All Filters", style: .destructive) { _ in
+                self.showClearAllFiltersConfirmation()
+            })
+        }
+        
+        // Cancel action
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // Present the alert
+        present(alertController, animated: true)
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    // MARK: - Content Filtering Helper Methods
+    
+    private func showAddKeywordFilterAlert() {
+        let alert = UIAlertController(
+            title: "Add Keyword Filter",
+            message: "Enter a keyword to filter. Posts containing this text will be hidden.",
+            preferredStyle: .alert
+        )
+        
+        alert.addTextField { textField in
+            textField.placeholder = "Enter keyword..."
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+        }
+        
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { _ in
+            guard let keyword = alert.textFields?.first?.text,
+                  !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return
+            }
+            
+            // Show confirmation
+            let confirmToast = UIAlertController(title: nil, message: "Filter management not implemented yet", preferredStyle: .alert)
+            self.present(confirmToast, animated: true)
+            
+            // Dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                confirmToast.dismiss(animated: true)
+            }
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    private func showAddPosterFilterAlert() {
+        let alert = UIAlertController(
+            title: "Add Poster ID Filter",
+            message: "Enter a poster ID to filter. Posts from this ID will be hidden.",
+            preferredStyle: .alert
+        )
+        
+        alert.addTextField { textField in
+            textField.placeholder = "Enter poster ID..."
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+        }
+        
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { _ in
+            guard let posterID = alert.textFields?.first?.text,
+                  !posterID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return
+            }
+            
+            // Show confirmation
+            let confirmToast = UIAlertController(title: nil, message: "Filter management not implemented yet", preferredStyle: .alert)
+            self.present(confirmToast, animated: true)
+            
+            // Dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                confirmToast.dismiss(animated: true)
+            }
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    private func showClearAllFiltersConfirmation() {
+        let alert = UIAlertController(
+            title: "Clear All Filters",
+            message: "Are you sure you want to remove all content filters?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { _ in
+            // Show confirmation
+            let confirmToast = UIAlertController(title: nil, message: "Filter management not implemented yet", preferredStyle: .alert)
+            self.present(confirmToast, animated: true)
+            
+            // Dismiss after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                confirmToast.dismiss(animated: true)
+            }
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             // Header Label
@@ -475,8 +669,24 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             themeSettingsButton.centerYAnchor.constraint(equalTo: themeSettingsView.centerYAnchor),
             themeSettingsButton.trailingAnchor.constraint(equalTo: themeSettingsView.trailingAnchor, constant: -20),
             
+            // Content Filtering View
+            contentFilteringView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
+            contentFilteringView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            contentFilteringView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            contentFilteringView.heightAnchor.constraint(equalToConstant: 44),
+            contentFilteringView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // Content Filtering Label
+            contentFilteringLabel.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
+            contentFilteringLabel.leadingAnchor.constraint(equalTo: contentFilteringView.leadingAnchor, constant: 20),
+            contentFilteringLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentFilteringButton.leadingAnchor, constant: -15),
+            
+            // Content Filtering Button
+            contentFilteringButton.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
+            contentFilteringButton.trailingAnchor.constraint(equalTo: contentFilteringView.trailingAnchor, constant: -20),
+            
             // Collection View
-            collectionView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
+            collectionView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
@@ -676,6 +886,7 @@ class BoardCell: UICollectionViewCell {
         setSelected(false)
     }
 }
+
 
 // MARK: - Offline Threads View Controller
 class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSource {

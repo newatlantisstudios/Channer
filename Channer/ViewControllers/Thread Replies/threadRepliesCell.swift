@@ -72,6 +72,21 @@ class threadRepliesCell: UITableViewCell {
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
+    
+    // Filter badge to indicate filtered content
+    let filterBadge: UILabel = {
+        let label = UILabel()
+        label.text = "FILTERED"
+        label.font = UIFont.systemFont(ofSize: 12, weight: .bold)
+        label.textAlignment = .center
+        label.textColor = .white
+        label.backgroundColor = UIColor.systemRed
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
 
     // MARK: - Properties
     weak var replyTextDelegate: UITextViewDelegate? {
@@ -154,6 +169,7 @@ class threadRepliesCell: UITableViewCell {
         contentView.addSubview(replyTextNoImage)
         contentView.addSubview(boardReplyCount)
         contentView.addSubview(thread)
+        contentView.addSubview(filterBadge)
     }
 
     private func setupConstraints() {
@@ -175,7 +191,13 @@ class threadRepliesCell: UITableViewCell {
             thread.widthAnchor.constraint(equalToConstant: 20),
             thread.heightAnchor.constraint(equalToConstant: 20),
             thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -8),
-            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -8)
+            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -8),
+            
+            // Filter badge constraints
+            filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
+            filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -8),
+            filterBadge.widthAnchor.constraint(equalToConstant: 80),
+            filterBadge.heightAnchor.constraint(equalToConstant: 24)
         ])
 
         // Minimum height constraint with lower priority
@@ -203,7 +225,7 @@ class threadRepliesCell: UITableViewCell {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String) {
+    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false) {
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
         replyTextNoImage.isHidden = withImage
@@ -220,6 +242,15 @@ class threadRepliesCell: UITableViewCell {
         }
 
         boardReplyCount.text = boardNumber
+        
+        // Handle filtered content
+        if isFiltered {
+            filterBadge.isHidden = false
+            customBackgroundView.alpha = 0.7 // Dim filtered content
+        } else {
+            filterBadge.isHidden = true
+            customBackgroundView.alpha = 1.0 // Normal opacity
+        }
 
         setNeedsLayout()
         layoutIfNeeded()
