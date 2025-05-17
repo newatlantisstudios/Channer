@@ -33,11 +33,8 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
         view.backgroundColor = .systemBackground
         self.navigationItem.title = "Files"
         
-        // Add the Home button only for iPhone
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            let homeButton = UIBarButtonItem(image: UIImage(named: "home"), style: .plain, target: self, action: #selector(goHome))
-            self.navigationItem.leftBarButtonItem = homeButton
-        }
+        // Remove custom back/home button to use navigation controller's default back button
+        // The navigation controller will automatically show a back button with an arrow
         
         // Set up the table view
         tableView.delegate = self
@@ -50,17 +47,6 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
         loadFiles()
     }
     
-    // MARK: - Navigation
-    /// Navigates back to the master view.
-    @objc func goHome() {
-        // Navigate back to the master view
-        guard let splitVC = splitViewController else { return }
-        if let masterNavVC = splitVC.viewControllers.first as? UINavigationController {
-            masterNavVC.popToRootViewController(animated: true)
-        } else {
-            print("Master view controller not found.")
-        }
-    }
     
     // MARK: - Data Loading
     /// Loads files from the current directory into the files array.

@@ -260,7 +260,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Creates the main navigation controller that will be used as the root view controller.
     private func createRootNavigationController() -> UINavigationController {
         let boardsController = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
-        boardsController.title = "Boards"
         
         // Create a UINavigationController with customized back button
         let navigationController = UINavigationController(rootViewController: boardsController)

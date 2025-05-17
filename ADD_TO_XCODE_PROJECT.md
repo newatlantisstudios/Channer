@@ -18,6 +18,10 @@ The following files need to be added to the Xcode project target:
    - Location: `/Channer/ViewControllers/Home/SearchViewController.swift`
    - This file implements the search interface for threads
 
+5. **UIImage+Extensions.swift**
+   - Location: `/Channer/Utilities/UIImage+Extensions.swift`
+   - This file contains extension for resizing images, needed for navigation bar button sizing
+
 ## How to Add Files to Xcode Project
 
 1. Open the Xcode project (`Channer.xcworkspace`)

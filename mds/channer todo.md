@@ -52,12 +52,12 @@
 
     - [x] FaceID toogle in settings
     - [x] Start up to Default Board
-    - [ ] More sorting 
+    - [x] More sorting 
     - [ ] Look at 4Chan X
-    - [ ] Toolbox - Offline, History, Favorites, Files
+    - [x] Toolbox - Offline, History, Favorites, Files
     - [x] All favorites make offline
-    - [ ] Picture aspect ratios
-    - [ ] Buttons icons too big
+    - [x] Picture aspect ratios
+    - [x] Buttons icons too big
 
     ## Technical Considerations
 

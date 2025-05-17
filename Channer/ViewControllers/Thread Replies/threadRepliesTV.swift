@@ -348,20 +348,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Navigation Item Setup Methods
     /// Methods to configure navigation bar items and actions
     private func setupNavigationItems() {
-        // Create the Favorites button
-        favoriteButton = UIBarButtonItem(image: UIImage(named: isThreadFavorited ? "favoriteFilled" : "favorite"),
+        // Create the Favorites button with resized image
+        let favoriteImage = (isThreadFavorited ? UIImage(named: "favoriteFilled") : UIImage(named: "favorite"))?.withRenderingMode(.alwaysTemplate)
+        let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
+        favoriteButton = UIBarButtonItem(image: resizedFavoriteImage,
                                          style: .plain,
                                          target: self,
                                          action: #selector(toggleFavorite))
         
-        // Create the Gallery button
-        let galleryButton = UIBarButtonItem(image: UIImage(named: "gallery"),
+        // Create the Gallery button with resized image
+        let galleryImage = UIImage(named: "gallery")?.withRenderingMode(.alwaysTemplate)
+        let resizedGalleryImage = galleryImage?.resized(to: CGSize(width: 22, height: 22))
+        let galleryButton = UIBarButtonItem(image: resizedGalleryImage,
                                             style: .plain,
                                             target: self,
                                             action: #selector(showGallery))
         
-        // Create the More button
-        let moreButton = UIBarButtonItem(image: UIImage(named: "more"),
+        // Create the More button with resized image
+        let moreImage = UIImage(named: "more")?.withRenderingMode(.alwaysTemplate)
+        let resizedMoreImage = moreImage?.resized(to: CGSize(width: 22, height: 22))
+        let moreButton = UIBarButtonItem(image: resizedMoreImage,
                                          style: .plain,
                                          target: self,
                                          action: #selector(showActionSheet))
@@ -902,7 +908,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func updateFavoriteButton() {
         let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
-        favoriteButton?.image = UIImage(named: isFavorited ? "favoriteFilled" : "favorite")
+        let favoriteImage = UIImage(named: isFavorited ? "favoriteFilled" : "favorite")?.withRenderingMode(.alwaysTemplate)
+        let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
+        favoriteButton?.image = resizedFavoriteImage
     }
     
     private func addFavorite() {
@@ -1208,24 +1216,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         
-        KingfisherManager.shared.retrieveImage(with: url) { result in
-            switch result {
-            case .success(let value):
-                //print("Debug: Successfully loaded image for URL: \(url), size: \(value.image.size)")
-                cell.threadImage.setBackgroundImage(value.image, for: .normal)
-            case .failure(let error):
-                //print("Debug: Failed to load image for URL: \(url), error: \(error)")
-                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+        // Load image with Kingfisher using the same style as catalog view
+        let processor = RoundCornerImageProcessor(cornerRadius: 8)
+        let options: KingfisherOptionsInfo = [
+            .processor(processor),
+            .scaleFactor(UIScreen.main.scale),
+            .transition(.fade(0.2)),
+            .cacheOriginalImage
+        ]
+        
+        cell.threadImage.kf.setBackgroundImage(
+            with: url,
+            for: .normal,
+            placeholder: UIImage(named: "loadingBoardImage"),
+            options: options,
+            completionHandler: { result in
+                switch result {
+                case .success(_):
+                    //print("Debug: Successfully loaded image for URL: \(url)")
+                    // Recalculate layout after image loads
+                    DispatchQueue.main.async {
+                        cell.setNeedsLayout()
+                        cell.layoutIfNeeded()
+                        self.tableView.beginUpdates()
+                        self.tableView.endUpdates()
+                    }
+                case .failure(let error):
+                    //print("Debug: Failed to load image for URL: \(url), error: \(error)")
+                    break
+                }
             }
-            
-            // Recalculate layout after image loads
-            DispatchQueue.main.async {
-                cell.setNeedsLayout()
-                cell.layoutIfNeeded()
-                self.tableView.beginUpdates()
-                self.tableView.endUpdates()
-            }
-        }
+        )
     }
     
     @objc func threadContentOpen(sender: UIButton) {

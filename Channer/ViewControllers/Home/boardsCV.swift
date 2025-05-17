@@ -116,15 +116,16 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Set backBarButtonItem to have just the arrow without text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
 
-        // Add navigation buttons
-        let filesButton = UIBarButtonItem(image: UIImage(named: "files"), style: .plain, target: self, action: #selector(openFilesList))
-        let settingsButton = UIBarButtonItem(image: UIImage(named: "setting"), style: .plain, target: self, action: #selector(openSettings))
-        let searchButton = UIBarButtonItem(image: UIImage(systemName: "magnifyingglass"), style: .plain, target: self, action: #selector(openSearch))
-        navigationItem.rightBarButtonItems = [settingsButton, filesButton, searchButton]
-
-        let historyButton = UIBarButtonItem(image: UIImage(named: "history"), style: .plain, target: self, action: #selector(openHistory))
-        let favoritesButton = UIBarButtonItem(image: UIImage(named: "favorite"), style: .plain, target: self, action: #selector(showFavorites))
-        navigationItem.leftBarButtonItems = [historyButton, favoritesButton]
+        // Add toolbox button that contains History, Favorites, Search, and Files
+        let toolboxButton = UIBarButtonItem(image: UIImage(systemName: "tray.2"), style: .plain, target: self, action: #selector(showToolboxMenu))
+        navigationItem.leftBarButtonItem = toolboxButton
+        
+        // Add settings button
+        let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
+        let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
+        let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
+        
+        navigationItem.rightBarButtonItem = settingsButton
         
         // Register for UserDefaults changes notification
         NotificationCenter.default.addObserver(
@@ -271,6 +272,60 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     @objc private func openSearch() {
         let searchVC = SearchViewController()
         navigationController?.pushViewController(searchVC, animated: true)
+    }
+    
+    /// Shows the toolbox menu with History, Favorites, Search, and Files options
+    @objc private func showToolboxMenu() {
+        let alertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        
+        // Standard size for menu icons to match system icons
+        let iconSize = CGSize(width: 22, height: 22)
+        
+        // History action
+        let historyAction = UIAlertAction(title: "History", style: .default) { [weak self] _ in
+            self?.openHistory()
+        }
+        let historyImage = UIImage(named: "history")?.withRenderingMode(.alwaysTemplate).resized(to: iconSize)
+        historyAction.setValue(historyImage, forKey: "image")
+        
+        // Favorites action
+        let favoritesAction = UIAlertAction(title: "Favorites", style: .default) { [weak self] _ in
+            self?.showFavorites()
+        }
+        let favoritesImage = UIImage(named: "favorite")?.withRenderingMode(.alwaysTemplate).resized(to: iconSize)
+        favoritesAction.setValue(favoritesImage, forKey: "image")
+        
+        // Search action
+        let searchAction = UIAlertAction(title: "Search", style: .default) { [weak self] _ in
+            self?.openSearch()
+        }
+        // System images are already the correct size
+        searchAction.setValue(UIImage(systemName: "magnifyingglass"), forKey: "image")
+        
+        // Files action
+        let filesAction = UIAlertAction(title: "Files", style: .default) { [weak self] _ in
+            self?.openFilesList()
+        }
+        let filesImage = UIImage(named: "files")?.withRenderingMode(.alwaysTemplate).resized(to: iconSize)
+        filesAction.setValue(filesImage, forKey: "image")
+        
+        // Cancel action
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        // Add actions to alert controller
+        alertController.addAction(historyAction)
+        alertController.addAction(favoritesAction)
+        alertController.addAction(searchAction)
+        alertController.addAction(filesAction)
+        alertController.addAction(cancelAction)
+        
+        // For iPad, set the popover presentation controller
+        if let popover = alertController.popoverPresentationController {
+            popover.barButtonItem = navigationItem.leftBarButtonItem
+        }
+        
+        // Present the alert controller
+        present(alertController, animated: true)
     }
     
     // MARK: - UICollectionView Data Source

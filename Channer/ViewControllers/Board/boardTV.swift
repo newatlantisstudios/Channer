@@ -18,10 +18,12 @@ struct ThreadData: Codable {
     let createdAt: String
     var hasNewReplies: Bool = false // Flag to indicate new replies for badge display
     var categoryId: String? // Category ID for organizing favorites
+    let lastReplyTime: Int? // Unix timestamp of last reply for sorting
+    var bumpIndex: Int? // Original board bump order (position from top)
     
     // Custom coding keys to include all properties
     enum CodingKeys: String, CodingKey {
-        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId
+        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId, lastReplyTime, bumpIndex
     }
 
     // Initializer from JSON
@@ -39,6 +41,13 @@ struct ThreadData: Codable {
             } else {
                 self.imageUrl = ""
             }
+            // Last reply time is the timestamp of the last post in the thread
+            if let lastPost = json["posts"].array?.last {
+                self.lastReplyTime = lastPost["time"].int
+            } else {
+                self.lastReplyTime = firstPost["time"].int
+            }
+            self.bumpIndex = nil // This will be set based on position in board
         } else {
             self.number = ""
             self.stats = "0/0"
@@ -47,6 +56,8 @@ struct ThreadData: Codable {
             self.imageUrl = ""
             self.replies = 0
             self.createdAt = ""
+            self.lastReplyTime = nil
+            self.bumpIndex = nil
         }
     }
 
@@ -61,10 +72,12 @@ struct ThreadData: Codable {
         self.replies = replies
         self.createdAt = createdAt
         self.categoryId = categoryId
+        self.lastReplyTime = nil
+        self.bumpIndex = nil
     }
     
     // Extended initializer including all properties
-    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil) {
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil, lastReplyTime: Int? = nil, bumpIndex: Int? = nil) {
         self.number = number
         self.stats = stats
         self.title = title
@@ -76,6 +89,8 @@ struct ThreadData: Codable {
         self.createdAt = createdAt
         self.hasNewReplies = hasNewReplies
         self.categoryId = categoryId
+        self.lastReplyTime = lastReplyTime
+        self.bumpIndex = bumpIndex
     }
 }
 
@@ -150,8 +165,10 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         } else if isHistoryView {
             self.title = "History"
             
-            // Add "Clear All" button
-            let clearAllButton = UIBarButtonItem(image: UIImage(named: "clearAll"), style: .plain, target: self, action: #selector(clearAllHistory))
+            // Add "Clear All" button with resized image
+            let clearAllImage = UIImage(named: "clearAll")?.withRenderingMode(.alwaysTemplate)
+            let resizedClearAllImage = clearAllImage?.resized(to: CGSize(width: 22, height: 22))
+            let clearAllButton = UIBarButtonItem(image: resizedClearAllImage, style: .plain, target: self, action: #selector(clearAllHistory))
             
             // Add "Clear All" button to the right side
             navigationItem.rightBarButtonItem = clearAllButton
@@ -244,7 +261,9 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         // Adds a sort button to the navigation bar, unless in history view.
         guard !isHistoryView else { return }
         
-        let sortButton = UIBarButtonItem(image: UIImage(named: "sort"), style: .plain, target: self, action: #selector(sortButtonTapped))
+        let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
+        let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
+        let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
         // Check if there are existing right bar button items
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
             rightBarButtonItems.append(sortButton)
@@ -456,6 +475,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
         
         // Add sorting actions
+        let bumpOrderAction = UIAlertAction(title: "Bump Order", style: .default) { _ in
+            self.sortThreads(by: .bumpOrder)
+        }
+        let lastReplyAction = UIAlertAction(title: "Last Reply", style: .default) { _ in
+            self.sortThreads(by: .lastReply)
+        }
         let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
             self.sortThreads(by: .replyCount)
         }
@@ -464,6 +489,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
         
+        alertController.addAction(bumpOrderAction)
+        alertController.addAction(lastReplyAction)
         alertController.addAction(replyCountAction)
         alertController.addAction(newestCreationAction)
         alertController.addAction(cancelAction)
@@ -542,8 +569,10 @@ class boardTV: UITableViewController, UISearchBarDelegate {
                     do {
                         let json = try JSON(data: data)
                         if let threads = json["threads"].array {
-                            let pageThreads = threads.compactMap { threadJson in
-                                let thread = ThreadData(from: threadJson, boardAbv: self.boardAbv)
+                            let pageThreads = threads.enumerated().compactMap { (index, threadJson) in
+                                var thread = ThreadData(from: threadJson, boardAbv: self.boardAbv)
+                                // Set bump index based on position in board (0 = top/newest bump)
+                                thread.bumpIndex = (page - 1) * threads.count + index
                                 return thread.number.isEmpty ? nil : thread
                             }
     
@@ -838,6 +867,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private enum SortOption {
         case replyCount
         case newestCreation
+        case bumpOrder
+        case lastReply
     }
     
     private func sortThreads(by option: SortOption) {
@@ -847,6 +878,26 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             filteredThreadData.sort { $0.replies > $1.replies }
         case .newestCreation:
             filteredThreadData.sort { $0.createdAt > $1.createdAt }
+        case .bumpOrder:
+            // Sort by thread board position (bump index), newer threads first
+            filteredThreadData.sort { 
+                // If bump index is available, use it; otherwise fall back to thread number
+                if let bump1 = $0.bumpIndex, let bump2 = $1.bumpIndex {
+                    return bump1 < bump2  // Lower index = higher on page
+                }
+                // Fall back to thread number if bump index not available
+                return Int($0.number) ?? 0 > Int($1.number) ?? 0 
+            }
+        case .lastReply:
+            // Sort by last reply time, most recent first
+            filteredThreadData.sort { 
+                // If lastReplyTime is available, use it
+                if let time1 = $0.lastReplyTime, let time2 = $1.lastReplyTime {
+                    return time1 > time2  // Most recent replies first
+                }
+                // Fall back to reply count if last reply time not available
+                return $0.replies > $1.replies
+            }
         }
         tableView.reloadData()
     }
