@@ -51,12 +51,17 @@
     - [x] FaceID toogle in settings
     - [x] Start up to Default Board
     - [x] More sorting 
-    - [ ] Look at 4Chan X
+    - [ ]  4Chan X features
+      - [ ] 
+
     - [x] Toolbox - Offline, History, Favorites, Files
     - [x] All favorites make offline
     - [x] Picture aspect ratios
     - [x] Buttons icons too big
-    - [ ] Picking the default board needs to be better
+    - [x] Picking the default board needs to be better
+    - [x] When I choose a notification for a new thread reply it needs to go to the thread
+    - [ ] Notifications system to see new replies that the user got notified with
+    - [ ] Check button icons and images
 
     ## Technical Considerations
 

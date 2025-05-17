@@ -18,6 +18,8 @@
 		171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */; };
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
+		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
+		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
 		176EC6462245F145009F2A8D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 176EC6452245F145009F2A8D /* Assets.xcassets */; };
@@ -77,6 +79,8 @@
 		171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
+		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		176EC63E2245F144009F2A8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -155,6 +159,7 @@
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
+				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
 				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
 			);
@@ -263,6 +268,7 @@
 				171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */,
 				171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */,
 				171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */,
+				9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */,
 				1781F6452CEEEC7B00CE243D /* boardCVCell.swift */,
 				1781F6462CEEEC7B00CE243D /* boardsCV.swift */,
 				178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */,
@@ -544,6 +550,8 @@
 				177BC7F12CDEC27C000FE370 /* WebMThumbnailCell.swift in Sources */,
 				171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */,
 				171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */,
+				9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */,
+				9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */,
 				170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */,
 				178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */,
 				17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */,
@@ -742,7 +750,7 @@
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/Channer/Application/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Channer;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -776,7 +784,7 @@
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/Channer/Application/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Channer;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

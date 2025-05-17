@@ -85,10 +85,11 @@ brew install xcbeautify
 
 The app follows a standard iOS MVC architecture with these key components:
 
-1. **ThemeManager**: A singleton that manages app-wide theming with light/dark mode support
-2. **ThreadCacheManager**: Manages offline reading capabilities and thread caching
-3. **FavoritesManager**: Handles saving and retrieving favorite threads
+1. **ThemeManager**: A singleton that manages app-wide theming with light/dark mode support and theme customization
+2. **ThreadCacheManager**: Manages offline reading capabilities and thread caching with iCloud sync
+3. **FavoritesManager**: Handles saving and retrieving favorite threads with categorization support
 4. **HistoryManager**: Tracks visited threads
+5. **ContentFilterManager**: Manages keyword, poster, and image filtering for content
 
 ## Key View Controllers
 
@@ -97,10 +98,25 @@ The app follows a standard iOS MVC architecture with these key components:
 3. **threadRepliesTV**: Displays replies in a thread
 4. **settings**: Contains app configuration options
 5. **ThemeEditorViewController**: Allows customization of app themes
+6. **CategorizedFavoritesViewController**: Manages categorized favorites
+7. **ContentFilterViewController**: Manages content filtering settings
 
 ## Authentication
 
 The app uses FaceID/TouchID for securing certain features like history, favorites, and downloads. This is implemented through the LocalAuthentication framework.
+
+## Testing
+
+The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files. Unit tests can be added to the `ChannerTests` directory and UI tests to the `ChannerUITests` directory.
+
+To run tests:
+```bash
+# Unit tests
+xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'platform=iOS Simulator,name=iPhone 15'
+
+# UI tests
+xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destination 'platform=iOS Simulator,name=iPhone 15'
+```
 
 ## Recent Updates
 

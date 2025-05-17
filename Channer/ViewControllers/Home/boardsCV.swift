@@ -120,12 +120,17 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         let toolboxButton = UIBarButtonItem(image: UIImage(systemName: "tray.2"), style: .plain, target: self, action: #selector(showToolboxMenu))
         navigationItem.leftBarButtonItem = toolboxButton
         
+        // Add notification bell button
+        let notificationButton = UIBarButtonItem(image: UIImage(systemName: "bell"), style: .plain, target: self, action: #selector(showNotifications))
+        notificationButton.tag = 100 // Tag for updating badge later
+        
         // Add settings button
         let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
         let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
         let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
         
-        navigationItem.rightBarButtonItem = settingsButton
+        // Set both buttons as right bar button items
+        navigationItem.rightBarButtonItems = [settingsButton, notificationButton]
         
         // Register for UserDefaults changes notification
         NotificationCenter.default.addObserver(
@@ -134,6 +139,35 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             name: UserDefaults.didChangeNotification,
             object: nil
         )
+        
+        // Register for notification updates
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateNotificationBadge),
+            name: .notificationAdded,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateNotificationBadge),
+            name: .notificationRead,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateNotificationBadge),
+            name: .notificationRemoved,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateNotificationBadge),
+            name: .notificationDataChanged,
+            object: nil
+        )
+        
+        // Update initial badge count
+        updateNotificationBadge()
     }
     
     deinit {
@@ -274,6 +308,47 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         navigationController?.pushViewController(searchVC, animated: true)
     }
     
+    /// Shows the notifications view controller
+    @objc private func showNotifications() {
+        let notificationsVC = NotificationsViewController()
+        let navController = UINavigationController(rootViewController: notificationsVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
+    }
+    
+    /// Updates the notification badge count
+    @objc private func updateNotificationBadge() {
+        let unreadCount = NotificationManager.shared.getUnreadCount()
+        
+        if let notificationButton = navigationItem.rightBarButtonItems?.first(where: { $0.tag == 100 }) {
+            if unreadCount > 0 {
+                // Create a custom badge with count
+                let configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+                
+                // Different approach based on iOS version
+                if #available(iOS 16.0, *) {
+                    // iOS 16+ can use system badge
+                    if unreadCount > 99 {
+                        notificationButton.image = UIImage(systemName: "bell.badge.fill", withConfiguration: configuration)
+                    } else {
+                        notificationButton.image = UIImage(systemName: "bell.badge", withConfiguration: configuration)
+                    }
+                } else {
+                    // Fallback for older iOS versions
+                    notificationButton.image = UIImage(systemName: "bell.badge.fill", withConfiguration: configuration)
+                }
+                
+                // Set tint color to indicate unread
+                notificationButton.tintColor = .systemRed
+            } else {
+                // Show normal bell icon
+                let configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+                notificationButton.image = UIImage(systemName: "bell", withConfiguration: configuration)
+                notificationButton.tintColor = nil // Use default tint color
+            }
+        }
+    }
+    
     /// Shows the toolbox menu with History, Favorites, Search, and Files options
     @objc private func showToolboxMenu() {
         let alertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -409,7 +484,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         layout collectionViewLayout: UICollectionViewLayout,
         sizeForItemAt indexPath: IndexPath
     ) -> CGSize {
-        guard let layout = collectionViewLayout as? UICollectionViewFlowLayout else {
+        guard collectionViewLayout is UICollectionViewFlowLayout else {
             return CGSize(width: 85, height: 85) // Default size
         }
         

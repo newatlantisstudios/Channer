@@ -5,7 +5,7 @@ import SwiftyJSON
 import Kingfisher
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     
     // MARK: - Properties
     /// The main application window.
@@ -170,6 +170,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     // MARK: - Notifications Setup
     private func setupNotifications(_ application: UIApplication) {
+        // Set the notification center delegate
+        UNUserNotificationCenter.current().delegate = self
+        
         // Request authorization for notifications
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if granted {
@@ -193,6 +196,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         content.title = "Thread Update"
         content.body = "Thread /\(boardAbv)/\(threadNumber) has \(newReplies) new \(newReplies == 1 ? "reply" : "replies")"
         content.sound = UNNotificationSound.default
+        
+        // Add thread information to the notification userInfo
+        content.userInfo = [
+            "threadNumber": threadNumber,
+            "boardAbv": boardAbv
+        ]
         
         // Create a unique identifier for this notification
         let identifier = "thread-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
@@ -295,6 +304,65 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // Mark as migrated
             UserDefaults.standard.set(true, forKey: migrationKey)
             UserDefaults.standard.synchronize()
+        }
+    }
+    
+    // MARK: - UNUserNotificationCenterDelegate
+    /// Called when a notification is delivered while the app is in the foreground
+    func userNotificationCenter(_ center: UNUserNotificationCenter, 
+                               willPresent notification: UNNotification, 
+                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Show notification even when app is in foreground
+        completionHandler([.alert, .sound, .badge])
+    }
+    
+    /// Called when user taps on a notification
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                               didReceive response: UNNotificationResponse,
+                               withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        
+        // Extract thread information from notification
+        if let threadNumber = userInfo["threadNumber"] as? String,
+           let boardAbv = userInfo["boardAbv"] as? String {
+            print("User tapped notification for thread /\(boardAbv)/\(threadNumber)")
+            navigateToThread(boardAbv: boardAbv, threadNumber: threadNumber)
+        }
+        
+        completionHandler()
+    }
+    
+    // MARK: - Navigation Helper
+    private func navigateToThread(boardAbv: String, threadNumber: String) {
+        // Get the current navigation controller
+        guard let window = window,
+              let navigationController = window.rootViewController as? UINavigationController else {
+            print("Could not find navigation controller")
+            return
+        }
+        
+        // Pop to root to ensure clean navigation state
+        navigationController.popToRootViewController(animated: false)
+        
+        // Create and push the thread view controller
+        let threadVC = threadRepliesTV()
+        threadVC.boardAbv = boardAbv
+        threadVC.threadNumber = threadNumber
+        
+        // Get thread info from favorites if available
+        let favorites = FavoritesManager.shared.loadFavorites()
+        if let favoriteThread = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
+            threadVC.totalImagesInThread = favoriteThread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+        }
+        
+        // Push the thread view controller
+        navigationController.pushViewController(threadVC, animated: true)
+        
+        // Clear the "hasNewReplies" flag for this thread
+        if var thread = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
+            thread.hasNewReplies = false
+            FavoritesManager.shared.updateFavorite(thread: thread)
+            updateApplicationBadgeCount()
         }
     }
 }
