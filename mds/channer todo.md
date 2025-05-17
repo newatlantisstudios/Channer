@@ -37,10 +37,8 @@
     ## Phase 4: User Experience & Sync
 
     ### Auto-refresh Settings
-    - [ ] Add configurable refresh intervals for threads and boards
-    - [ ] Implement smart refresh based on thread activity
-    - [ ] Create refresh indicators and status
-    - [ ] Add manual refresh override options
+    - [x] Add configurable refresh intervals for threads and boards
+    - [x] Create refresh indicators and status
 
     ### iCloud Sync
     - [ ] Implement iCloud sync for favorites and history

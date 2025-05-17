@@ -119,6 +119,18 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     // Image cache configuration
     private let imageCache = NSCache<NSString, UIImage>()
     private let prefetchQueue = OperationQueue()
+    
+    // Auto-refresh timer
+    private var refreshTimer: Timer?
+    private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
+    private var lastRefreshTime: Date?
+    private var nextRefreshTime: Date?
+    
+    // Refresh status indicator
+    private let refreshStatusView = UIView()
+    private let refreshStatusLabel = UILabel()
+    private let refreshProgressView = UIProgressView(progressViewStyle: .default)
+    private var refreshStatusHeight: NSLayoutConstraint?
 
     // MARK: - Lifecycle Methods
     // Methods related to the view controller's lifecycle.
@@ -138,6 +150,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         setupTableView()
         setupImageCache()
         setupLoadingIndicator()
+        setupRefreshStatusIndicator()
         setupSortButton()
         
         // Only setup search bar if not in favorites view (favorites view has its own search)
@@ -194,6 +207,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             }
             
             loadThreads()
+            setupAutoRefreshTimer()
         }
     }
     
@@ -236,6 +250,16 @@ class boardTV: UITableViewController, UISearchBarDelegate {
                 print("Skipping data update because search is active")
             }
         }
+        
+        // Restart auto-refresh timer when view appears
+        setupAutoRefreshTimer()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        // Stop auto-refresh timer when view disappears
+        stopAutoRefreshTimer()
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -271,6 +295,46 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         } else {
             navigationItem.rightBarButtonItems = [sortButton]
         }
+    }
+    
+    private func setupRefreshStatusIndicator() {
+        // Sets up the refresh status indicator
+        refreshStatusView.backgroundColor = ThemeManager.shared.secondaryBackgroundColor
+        refreshStatusView.layer.borderWidth = 1
+        refreshStatusView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        refreshStatusView.translatesAutoresizingMaskIntoConstraints = false
+        refreshStatusView.isHidden = true
+        
+        refreshStatusLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+        refreshStatusLabel.textColor = ThemeManager.shared.secondaryTextColor
+        refreshStatusLabel.textAlignment = .center
+        refreshStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        refreshProgressView.progressTintColor = ThemeManager.shared.primaryTextColor
+        refreshProgressView.trackTintColor = ThemeManager.shared.secondaryBackgroundColor
+        refreshProgressView.translatesAutoresizingMaskIntoConstraints = false
+        
+        refreshStatusView.addSubview(refreshStatusLabel)
+        refreshStatusView.addSubview(refreshProgressView)
+        view.addSubview(refreshStatusView)
+        
+        refreshStatusHeight = refreshStatusView.heightAnchor.constraint(equalToConstant: 44)
+        NSLayoutConstraint.activate([
+            refreshStatusView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            refreshStatusView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            refreshStatusView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            refreshStatusHeight!,
+            
+            refreshStatusLabel.topAnchor.constraint(equalTo: refreshStatusView.topAnchor, constant: 4),
+            refreshStatusLabel.leadingAnchor.constraint(equalTo: refreshStatusView.leadingAnchor, constant: 8),
+            refreshStatusLabel.trailingAnchor.constraint(equalTo: refreshStatusView.trailingAnchor, constant: -8),
+            
+            refreshProgressView.topAnchor.constraint(equalTo: refreshStatusLabel.bottomAnchor, constant: 4),
+            refreshProgressView.leadingAnchor.constraint(equalTo: refreshStatusView.leadingAnchor, constant: 8),
+            refreshProgressView.trailingAnchor.constraint(equalTo: refreshStatusView.trailingAnchor, constant: -8),
+            refreshProgressView.bottomAnchor.constraint(equalTo: refreshStatusView.bottomAnchor, constant: -4),
+            refreshProgressView.heightAnchor.constraint(equalToConstant: 2)
+        ])
     }
     
     private func setupTableView() {
@@ -859,6 +923,144 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         filteredThreadData.removeAll()
         tableView.reloadData()
         loadThreads() // Re-fetch threads
+    }
+    
+    // MARK: - Auto-refresh
+    // Methods for handling automatic refresh of board content
+    
+    private func setupAutoRefreshTimer() {
+        // Stop any existing timer
+        stopAutoRefreshTimer()
+        
+        // Only set up timer for board views, not favorites or history
+        guard !isFavoritesView && !isHistoryView else { 
+            hideRefreshStatus()
+            return 
+        }
+        
+        // Get the refresh interval from settings
+        let interval = UserDefaults.standard.integer(forKey: boardsAutoRefreshIntervalKey)
+        
+        // Only create timer if interval is greater than 0
+        guard interval > 0 else { 
+            hideRefreshStatus()
+            return 
+        }
+        
+        // Show refresh status
+        showRefreshStatus(interval: interval)
+        
+        // Set next refresh time
+        nextRefreshTime = Date().addingTimeInterval(TimeInterval(interval))
+        updateRefreshStatus()
+        
+        // Create and schedule the timer
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: true) { [weak self] _ in
+            self?.refreshBoardContent()
+        }
+        
+        // Also create a timer to update the progress view
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateRefreshProgress()
+        }
+    }
+    
+    private func stopAutoRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        hideRefreshStatus()
+    }
+    
+    @objc private func refreshBoardContent() {
+        // Only refresh if not currently loading and not searching
+        guard !isLoading && !isSearching else { return }
+        
+        // Save current scroll position
+        let currentOffset = tableView.contentOffset
+        
+        // Check if user is actively scrolling
+        guard !tableView.isDragging && !tableView.isDecelerating else { return }
+        
+        // Update refresh status
+        lastRefreshTime = Date()
+        nextRefreshTime = Date().addingTimeInterval(TimeInterval(UserDefaults.standard.integer(forKey: boardsAutoRefreshIntervalKey)))
+        updateRefreshStatus()
+        
+        // Reload the threads
+        loadThreads()
+        
+        // Restore scroll position after reload
+        DispatchQueue.main.async { [weak self] in
+            self?.tableView.setContentOffset(currentOffset, animated: false)
+        }
+    }
+    
+    // MARK: - Refresh Status Management
+    
+    private func showRefreshStatus(interval: Int) {
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusView.isHidden = false
+            self?.updateRefreshStatus()
+            
+            // Update table view insets to account for status bar
+            if let self = self {
+                var contentInset = self.tableView.contentInset
+                contentInset.top = 44
+                self.tableView.contentInset = contentInset
+                self.tableView.scrollIndicatorInsets = contentInset
+            }
+        }
+    }
+    
+    private func hideRefreshStatus() {
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusView.isHidden = true
+            
+            // Reset table view insets
+            if let self = self {
+                var contentInset = self.tableView.contentInset
+                contentInset.top = 0
+                self.tableView.contentInset = contentInset
+                self.tableView.scrollIndicatorInsets = contentInset
+            }
+        }
+    }
+    
+    private func updateRefreshStatus() {
+        guard !refreshStatusView.isHidden else { return }
+        
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        
+        var statusText = ""
+        if let lastRefresh = lastRefreshTime {
+            statusText = "Last refresh: \(formatter.string(from: lastRefresh))"
+        }
+        
+        if let nextRefresh = nextRefreshTime {
+            if !statusText.isEmpty { statusText += " | " }
+            statusText += "Next: \(formatter.string(from: nextRefresh))"
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusLabel.text = statusText
+        }
+    }
+    
+    private func updateRefreshProgress() {
+        guard !refreshStatusView.isHidden,
+              let nextRefresh = nextRefreshTime else { return }
+        
+        let interval = UserDefaults.standard.integer(forKey: boardsAutoRefreshIntervalKey)
+        guard interval > 0 else { return }
+        
+        let now = Date()
+        let timeUntilRefresh = nextRefresh.timeIntervalSince(now)
+        let progress = max(0, min(1, 1 - (timeUntilRefresh / TimeInterval(interval))))
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshProgressView.setProgress(Float(progress), animated: true)
+        }
     }
     
     // MARK: - Sorting

@@ -91,6 +91,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var threadBoardReplyNumberOld = [String]()
     private var threadRepliesImagesOld = [String]()
     
+    // Auto-refresh timer
+    private var refreshTimer: Timer?
+    private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
+    private var lastRefreshTime: Date?
+    private var nextRefreshTime: Date?
+    
+    // Refresh status indicator
+    private let refreshStatusView = UIView()
+    private let refreshStatusLabel = UILabel()
+    private let refreshProgressView = UIProgressView(progressViewStyle: .default)
+    private var refreshStatusHeight: NSLayoutConstraint?
+    
     // MARK: - Initializer
     
     init() {
@@ -137,9 +149,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         tableView.addGestureRecognizer(longPressGesture)
         
         setupLoadingIndicator()
+        setupRefreshStatusIndicator()
         setupNavigationItems()
         checkIfFavorited()
         loadInitialData()
+        setupAutoRefreshTimer()
 
         
         // Table constraints
@@ -156,6 +170,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        
+        // Stop auto-refresh timer when view disappears
+        stopAutoRefreshTimer()
         
         /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
@@ -192,6 +209,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Update search bar appearance
         updateSearchBarAppearance()
+        
+        // Restart auto-refresh timer when view appears
+        setupAutoRefreshTimer()
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -343,6 +363,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         ])
         
         loadingIndicator.startAnimating()
+    }
+    
+    private func setupRefreshStatusIndicator() {
+        // Sets up the refresh status indicator
+        refreshStatusView.backgroundColor = ThemeManager.shared.secondaryBackgroundColor
+        refreshStatusView.layer.borderWidth = 1
+        refreshStatusView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        refreshStatusView.translatesAutoresizingMaskIntoConstraints = false
+        refreshStatusView.isHidden = true
+        
+        refreshStatusLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+        refreshStatusLabel.textColor = ThemeManager.shared.secondaryTextColor
+        refreshStatusLabel.textAlignment = .center
+        refreshStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        refreshProgressView.progressTintColor = ThemeManager.shared.primaryTextColor
+        refreshProgressView.trackTintColor = ThemeManager.shared.secondaryBackgroundColor
+        refreshProgressView.translatesAutoresizingMaskIntoConstraints = false
+        
+        refreshStatusView.addSubview(refreshStatusLabel)
+        refreshStatusView.addSubview(refreshProgressView)
+        view.addSubview(refreshStatusView)
+        
+        refreshStatusHeight = refreshStatusView.heightAnchor.constraint(equalToConstant: 44)
+        NSLayoutConstraint.activate([
+            refreshStatusView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            refreshStatusView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            refreshStatusView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            refreshStatusHeight!,
+            
+            refreshStatusLabel.topAnchor.constraint(equalTo: refreshStatusView.topAnchor, constant: 4),
+            refreshStatusLabel.leadingAnchor.constraint(equalTo: refreshStatusView.leadingAnchor, constant: 8),
+            refreshStatusLabel.trailingAnchor.constraint(equalTo: refreshStatusView.trailingAnchor, constant: -8),
+            
+            refreshProgressView.topAnchor.constraint(equalTo: refreshStatusLabel.bottomAnchor, constant: 4),
+            refreshProgressView.leadingAnchor.constraint(equalTo: refreshStatusView.leadingAnchor, constant: 8),
+            refreshProgressView.trailingAnchor.constraint(equalTo: refreshStatusView.trailingAnchor, constant: -8),
+            refreshProgressView.bottomAnchor.constraint(equalTo: refreshStatusView.bottomAnchor, constant: -4),
+            refreshProgressView.heightAnchor.constraint(equalToConstant: 2)
+        ])
     }
     
     // MARK: - Navigation Item Setup Methods
@@ -812,6 +872,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func processThreadData(_ json: JSON) {
+        // Clear existing data before processing
+        threadReplies.removeAll()
+        threadBoardReplyNumber.removeAll()
+        threadRepliesImages.removeAll()
+        threadBoardReplies.removeAll()
+        originalTexts.removeAll()
+        
         // Get original reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
         
@@ -1654,6 +1721,169 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             filteredReplyIndices.insert(index)
         }
         tableView.reloadData()
+    }
+    
+    // MARK: - Refresh Status Management
+    
+    private func showRefreshStatus(interval: Int) {
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusView.isHidden = false
+            self?.updateRefreshStatus()
+            
+            // Update table view insets to account for status bar
+            if let self = self {
+                var contentInset = self.tableView.contentInset
+                contentInset.top = 44
+                self.tableView.contentInset = contentInset
+                self.tableView.scrollIndicatorInsets = contentInset
+            }
+        }
+    }
+    
+    private func hideRefreshStatus() {
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusView.isHidden = true
+            
+            // Reset table view insets
+            if let self = self {
+                var contentInset = self.tableView.contentInset
+                contentInset.top = 0
+                self.tableView.contentInset = contentInset
+                self.tableView.scrollIndicatorInsets = contentInset
+            }
+        }
+    }
+    
+    private func updateRefreshStatus() {
+        guard !refreshStatusView.isHidden else { return }
+        
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        
+        var statusText = ""
+        if let lastRefresh = lastRefreshTime {
+            statusText = "Last refresh: \(formatter.string(from: lastRefresh))"
+        }
+        
+        if let nextRefresh = nextRefreshTime {
+            if !statusText.isEmpty { statusText += " | " }
+            statusText += "Next: \(formatter.string(from: nextRefresh))"
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusLabel.text = statusText
+        }
+    }
+    
+    private func updateRefreshProgress() {
+        guard !refreshStatusView.isHidden,
+              let nextRefresh = nextRefreshTime else { return }
+        
+        let interval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
+        guard interval > 0 else { return }
+        
+        let now = Date()
+        let timeUntilRefresh = nextRefresh.timeIntervalSince(now)
+        let progress = max(0, min(1, 1 - (timeUntilRefresh / TimeInterval(interval))))
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshProgressView.setProgress(Float(progress), animated: true)
+        }
+    }
+    
+    // MARK: - Auto-refresh
+    // Methods for handling automatic refresh of thread content
+    
+    private func setupAutoRefreshTimer() {
+        // Stop any existing timer
+        stopAutoRefreshTimer()
+        
+        // Get the refresh interval from settings
+        let interval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
+        
+        // Only create timer if interval is greater than 0
+        guard interval > 0 else { 
+            hideRefreshStatus()
+            return 
+        }
+        
+        // Show refresh status
+        showRefreshStatus(interval: interval)
+        
+        // Set next refresh time
+        nextRefreshTime = Date().addingTimeInterval(TimeInterval(interval))
+        updateRefreshStatus()
+        
+        // Create and schedule the timer
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: true) { [weak self] _ in
+            self?.refreshThreadContent()
+        }
+        
+        // Also create a timer to update the progress view
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateRefreshProgress()
+        }
+    }
+    
+    private func stopAutoRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        hideRefreshStatus()
+    }
+    
+    @objc private func refreshThreadContent() {
+        // Only refresh if not currently loading and not searching
+        guard !isLoading && !isSearchActive else { return }
+        
+        // Check if user is actively interacting with the table
+        guard !tableView.isDragging && !tableView.isDecelerating else { return }
+        
+        // Update refresh status
+        lastRefreshTime = Date()
+        nextRefreshTime = Date().addingTimeInterval(TimeInterval(UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)))
+        updateRefreshStatus()
+        
+        // Save current scroll position before reloading
+        let savedOffset = tableView.contentOffset
+        
+        // Re-fetch thread data
+        loadDataWithScrollPreservation(scrollOffset: savedOffset)
+    }
+    
+    private func loadDataWithScrollPreservation(scrollOffset: CGPoint) {
+        guard !threadNumber.isEmpty else {
+            isLoading = false
+            return
+        }
+        
+        let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
+        
+        let request = AF.request(urlString)
+        request.responseData { [weak self] response in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                switch response.result {
+                case .success(let data):
+                    do {
+                        let json = try JSON(data: data)
+                        self.processThreadData(json)
+                        self.structureThreadReplies()
+                        self.isLoading = false
+                        self.tableView.reloadData()
+                        
+                        // Restore scroll position after reload
+                        self.tableView.setContentOffset(scrollOffset, animated: false)
+                    } catch {
+                        print("JSON parsing error: \(error)")
+                        self.handleLoadError()
+                    }
+                case .failure(let error):
+                    print("Network error: \(error)")
+                    self.handleLoadError()
+                }
+            }
+        }
     }
     
     /// Filters replies similar to the selected one

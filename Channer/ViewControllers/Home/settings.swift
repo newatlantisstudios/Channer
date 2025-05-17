@@ -37,6 +37,9 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
+    private let autoRefreshView = UIView()
+    private let autoRefreshLabel = UILabel()
+    private let autoRefreshButton = UIButton(type: .system)
     
     // Constants
     private let cellIdentifier = "BoardCell"
@@ -45,6 +48,8 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let notificationsEnabledKey = "channer_notifications_enabled"
     private let offlineReadingEnabledKey = "channer_offline_reading_enabled"
     private let launchWithStartupBoardKey = "channer_launch_with_startup_board"
+    private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
+    private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
     private let sectionInset: CGFloat = 16
     private let interItemSpacing: CGFloat = 10
     private let lineSpacing: CGFloat = 10
@@ -289,6 +294,30 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         contentFilteringButton.translatesAutoresizingMaskIntoConstraints = false
         contentFilteringButton.addTarget(self, action: #selector(contentFilteringButtonTapped), for: .touchUpInside)
         contentFilteringView.addSubview(contentFilteringButton)
+        
+        // Auto-refresh View
+        autoRefreshView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        autoRefreshView.layer.cornerRadius = 10
+        autoRefreshView.clipsToBounds = true
+        autoRefreshView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(autoRefreshView)
+        
+        // Auto-refresh Label
+        autoRefreshLabel.text = "Auto-refresh Settings"
+        autoRefreshLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        autoRefreshLabel.textAlignment = .left
+        autoRefreshLabel.numberOfLines = 1
+        autoRefreshLabel.adjustsFontSizeToFitWidth = true
+        autoRefreshLabel.minimumScaleFactor = 0.8
+        autoRefreshLabel.translatesAutoresizingMaskIntoConstraints = false
+        autoRefreshView.addSubview(autoRefreshLabel)
+        
+        // Auto-refresh Button
+        autoRefreshButton.setTitle("Configure", for: .normal)
+        autoRefreshButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        autoRefreshButton.translatesAutoresizingMaskIntoConstraints = false
+        autoRefreshButton.addTarget(self, action: #selector(autoRefreshButtonTapped), for: .touchUpInside)
+        autoRefreshView.addSubview(autoRefreshButton)
         
         // Collection View
         collectionView.register(BoardCell.self, forCellWithReuseIdentifier: cellIdentifier)
@@ -652,6 +681,120 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         present(alert, animated: true)
     }
     
+    @objc private func autoRefreshButtonTapped() {
+        let alertController = UIAlertController(
+            title: "Auto-refresh Settings",
+            message: "Configure refresh intervals for boards and threads",
+            preferredStyle: .actionSheet
+        )
+        
+        // Get current refresh intervals
+        let boardsInterval = UserDefaults.standard.integer(forKey: boardsAutoRefreshIntervalKey)
+        let threadsInterval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
+        
+        // Add info about current settings
+        let currentSettings = """
+        Boards: \(boardsInterval == 0 ? "Disabled" : "\(boardsInterval) seconds")
+        Threads: \(threadsInterval == 0 ? "Disabled" : "\(threadsInterval) seconds")
+        """
+        alertController.message = currentSettings
+        
+        // Configure boards refresh
+        alertController.addAction(UIAlertAction(title: "Configure Boards Refresh", style: .default) { [weak self] _ in
+            self?.showRefreshIntervalPicker(for: "Boards", currentValue: boardsInterval) { interval in
+                UserDefaults.standard.set(interval, forKey: self?.boardsAutoRefreshIntervalKey ?? "")
+                
+                // Show confirmation
+                let message = interval == 0 ? "Boards auto-refresh disabled" : "Boards will refresh every \(interval) seconds"
+                let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                self?.present(confirmToast, animated: true)
+                
+                // Dismiss after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    confirmToast.dismiss(animated: true)
+                }
+            }
+        })
+        
+        // Configure threads refresh
+        alertController.addAction(UIAlertAction(title: "Configure Threads Refresh", style: .default) { [weak self] _ in
+            self?.showRefreshIntervalPicker(for: "Threads", currentValue: threadsInterval) { interval in
+                UserDefaults.standard.set(interval, forKey: self?.threadsAutoRefreshIntervalKey ?? "")
+                
+                // Show confirmation
+                let message = interval == 0 ? "Threads auto-refresh disabled" : "Threads will refresh every \(interval) seconds"
+                let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                self?.present(confirmToast, animated: true)
+                
+                // Dismiss after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    confirmToast.dismiss(animated: true)
+                }
+            }
+        })
+        
+        // Cancel action
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // iPad-specific popover configuration
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.sourceView = autoRefreshButton
+            popoverController.sourceRect = autoRefreshButton.bounds
+            popoverController.permittedArrowDirections = .up
+        }
+        
+        // Present the alert
+        present(alertController, animated: true)
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
+        let alertController = UIAlertController(
+            title: "\(type) Refresh Interval",
+            message: "Select refresh interval for \(type.lowercased())",
+            preferredStyle: .actionSheet
+        )
+        
+        // Refresh interval options
+        let intervals = [
+            (0, "Disabled"),
+            (30, "30 seconds"),
+            (60, "1 minute"),
+            (120, "2 minutes"),
+            (300, "5 minutes"),
+            (600, "10 minutes")
+        ]
+        
+        for (value, title) in intervals {
+            let action = UIAlertAction(title: title, style: .default) { _ in
+                completion(value)
+            }
+            
+            // Add checkmark to current selection
+            if value == currentValue {
+                action.setValue(true, forKey: "checked")
+            }
+            
+            alertController.addAction(action)
+        }
+        
+        // Cancel action
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // iPad-specific popover configuration
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.sourceView = autoRefreshButton
+            popoverController.sourceRect = autoRefreshButton.bounds
+            popoverController.permittedArrowDirections = .up
+        }
+        
+        // Present the alert
+        present(alertController, animated: true)
+    }
+    
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             // Header Label
@@ -773,8 +916,24 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             contentFilteringButton.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
             contentFilteringButton.trailingAnchor.constraint(equalTo: contentFilteringView.trailingAnchor, constant: -20),
             
+            // Auto-refresh View
+            autoRefreshView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
+            autoRefreshView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            autoRefreshView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            autoRefreshView.heightAnchor.constraint(equalToConstant: 44),
+            autoRefreshView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // Auto-refresh Label
+            autoRefreshLabel.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
+            autoRefreshLabel.leadingAnchor.constraint(equalTo: autoRefreshView.leadingAnchor, constant: 20),
+            autoRefreshLabel.trailingAnchor.constraint(lessThanOrEqualTo: autoRefreshButton.leadingAnchor, constant: -15),
+            
+            // Auto-refresh Button
+            autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
+            autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
+            
             // Collection View
-            collectionView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
+            collectionView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
