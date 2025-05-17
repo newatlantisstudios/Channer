@@ -119,7 +119,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Add navigation buttons
         let filesButton = UIBarButtonItem(image: UIImage(named: "files"), style: .plain, target: self, action: #selector(openFilesList))
         let settingsButton = UIBarButtonItem(image: UIImage(named: "setting"), style: .plain, target: self, action: #selector(openSettings))
-        navigationItem.rightBarButtonItems = [settingsButton, filesButton]
+        let searchButton = UIBarButtonItem(image: UIImage(systemName: "magnifyingglass"), style: .plain, target: self, action: #selector(openSearch))
+        navigationItem.rightBarButtonItems = [settingsButton, filesButton, searchButton]
 
         let historyButton = UIBarButtonItem(image: UIImage(named: "history"), style: .plain, target: self, action: #selector(openHistory))
         let favoritesButton = UIBarButtonItem(image: UIImage(named: "favorite"), style: .plain, target: self, action: #selector(showFavorites))
@@ -264,6 +265,12 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
                 self.navigationController?.pushViewController(categorizedFavoritesVC, animated: true)
             }
         }
+    }
+    
+    /// Opens the search view controller.
+    @objc private func openSearch() {
+        let searchVC = SearchViewController()
+        navigationController?.pushViewController(searchVC, animated: true)
     }
     
     // MARK: - UICollectionView Data Source

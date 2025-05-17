@@ -79,7 +79,7 @@ struct ThreadData: Codable {
     }
 }
 
-class boardTV: UITableViewController {
+class boardTV: UITableViewController, UISearchBarDelegate {
     // MARK: - Properties
     // This section contains properties and variables used throughout the class,
     // including data arrays, UI components, and flags.
@@ -96,6 +96,10 @@ class boardTV: UITableViewController {
     var isHistoryView: Bool = false
     var isFavoritesView: Bool = false
     var boardPassed = false
+    
+    // Search bar property
+    private let searchBar = UISearchBar()
+    private var searchText: String = ""
 
     // Image cache configuration
     private let imageCache = NSCache<NSString, UIImage>()
@@ -121,9 +125,13 @@ class boardTV: UITableViewController {
         setupLoadingIndicator()
         setupSortButton()
         
-        // Only setup search controller if not in favorites view (favorites view has its own search)
+        // Only setup search bar if not in favorites view (favorites view has its own search)
         if !isFavoritesView {
-            setupSearchController()
+            setupSearchBar()
+            // Force table to reload to show search bar
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
         }
         
         // Configure back button to only show arrow, no text
@@ -179,6 +187,11 @@ class boardTV: UITableViewController {
         print("Is favorites view: \(isFavoritesView)")
         print("Thread data count before: \(threadData.count)")
         print("Filtered thread data count before: \(filteredThreadData.count)")
+        
+        // Update search bar appearance when view appears
+        if !isFavoritesView {
+            updateSearchBarAppearance()
+        }
 
         if isFavoritesView {
             print("Updating favorites data in viewWillAppear - this might override our search results!")
@@ -212,6 +225,14 @@ class boardTV: UITableViewController {
         super.viewWillTransition(to: size, with: coordinator)
         
         // We maintain the same UI regardless of size class now
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateSearchBarAppearance()
+        }
     }
     
     // MARK: - UI Setup Methods
@@ -263,18 +284,112 @@ class boardTV: UITableViewController {
         prefetchQueue.maxConcurrentOperationCount = 2
     }
     
-    private func setupSearchController() {
-        // Sets up the search controller for searching threads.
-        let searchController = UISearchController(searchResultsController: nil)
-        searchController.searchResultsUpdater = self
-        searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.placeholder = "Title or Comment"
-        navigationItem.searchController = searchController
+    private func setupSearchBar() {
+        // Sets up the search bar for searching threads.
+        print("Setting up search bar for boardTV")
         
-        // Ensure the search bar stays visible when scrolling
-        navigationItem.hidesSearchBarWhenScrolling = true
+        // Configure search bar first
+        searchBar.delegate = self
+        searchBar.placeholder = "Title or Comment"
+        searchBar.searchBarStyle = .default  // Changed from .minimal to .default for better visibility
+        searchBar.showsCancelButton = false
         
-        definesPresentationContext = true
+        // Style the search text field directly
+        searchBar.searchTextField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
+        searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
+        searchBar.searchTextField.layer.cornerRadius = 8
+        searchBar.searchTextField.layer.borderWidth = 1
+        searchBar.searchTextField.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
+            string: "Title or Comment",
+            attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
+        )
+        
+        // Style the search bar
+        searchBar.tintColor = ThemeManager.shared.primaryTextColor
+        searchBar.barTintColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
+        
+        // Remove borders and background images
+        searchBar.backgroundImage = UIImage()
+        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
+        searchBar.layer.borderWidth = 0
+        searchBar.layer.borderColor = UIColor.clear.cgColor
+        
+        // Style the search field
+        if let searchField = searchBar.value(forKey: "searchField") as? UITextField {
+            searchField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            searchField.textColor = ThemeManager.shared.primaryTextColor
+            searchField.tintColor = ThemeManager.shared.primaryTextColor
+            searchField.layer.cornerRadius = 8
+            searchField.clipsToBounds = true
+            searchField.font = UIFont.systemFont(ofSize: 16)
+            
+            // Style the placeholder
+            if let placeholderLabel = searchField.value(forKey: "placeholderLabel") as? UILabel {
+                placeholderLabel.textColor = ThemeManager.shared.secondaryTextColor
+                placeholderLabel.font = UIFont.systemFont(ofSize: 16)
+            }
+        }
+        
+        // Set search bar directly as table header
+        searchBar.frame = CGRect(x: 0, y: 0, width: tableView.frame.width, height: 56)
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create container view with proper sizing
+        let searchBarContainer = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: 56))
+        searchBarContainer.backgroundColor = ThemeManager.shared.backgroundColor
+        searchBarContainer.addSubview(searchBar)
+        
+        // Use auto layout for search bar within container
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: searchBarContainer.topAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: searchBarContainer.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: searchBarContainer.trailingAnchor),
+            searchBar.bottomAnchor.constraint(equalTo: searchBarContainer.bottomAnchor)
+        ])
+        
+        // Set container as table header
+        tableView.tableHeaderView = searchBarContainer
+        searchBar.sizeToFit()
+        
+        // Update appearance
+        updateSearchBarAppearance()
+    }
+    
+    private func updateSearchBarAppearance() {
+        // Update container background
+        if let container = tableView.tableHeaderView {
+            container.backgroundColor = ThemeManager.shared.backgroundColor
+        }
+        
+        // Update search bar colors
+        searchBar.tintColor = ThemeManager.shared.primaryTextColor
+        searchBar.barTintColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundImage = UIImage()
+        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
+        
+        // Remove borders
+        searchBar.layer.borderWidth = 0
+        searchBar.layer.borderColor = UIColor.clear.cgColor
+        
+        // Update search text field directly
+        searchBar.searchTextField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
+        searchBar.searchTextField.tintColor = ThemeManager.shared.primaryTextColor
+        searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
+        searchBar.searchTextField.layer.cornerRadius = 8
+        searchBar.searchTextField.layer.borderWidth = 1
+        searchBar.searchTextField.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        searchBar.searchTextField.clipsToBounds = true
+        
+        // Update placeholder
+        searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
+            string: searchBar.placeholder ?? "Title or Comment",
+            attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
+        )
     }
     
     // MARK: - Actions
@@ -768,19 +883,46 @@ extension boardTV: UITableViewDataSourcePrefetching {
     }
 }
 
-// MARK: - UISearchResultsUpdating
-// Extension updating the search results as the user types in the search bar.
+// MARK: - UISearchBarDelegate
+// Extension implementing search bar delegate methods.
 
-extension boardTV: UISearchResultsUpdating {
-    func updateSearchResults(for searchController: UISearchController) {
-        // Updates the search results based on the search text.
-        guard let searchText = searchController.searchBar.text, !searchText.isEmpty else {
+extension boardTV {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        self.searchText = searchText
+        searchBar.showsCancelButton = !searchText.isEmpty
+        performSearch()
+    }
+    
+    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+        searchBar.showsCancelButton = true
+    }
+    
+    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+        if searchBar.text?.isEmpty ?? true {
+            searchBar.showsCancelButton = false
+        }
+    }
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.text = ""
+        searchBar.resignFirstResponder()
+        isSearching = false
+        filteredThreadData = threadData
+        tableView.reloadData()
+    }
+    
+    private func performSearch() {
+        guard !searchText.isEmpty else {
             isSearching = false
             filteredThreadData = threadData
             tableView.reloadData()
             return
         }
-    
+        
         isSearching = true
         filteredThreadData = threadData.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||

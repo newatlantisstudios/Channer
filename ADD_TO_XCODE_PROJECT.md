@@ -10,6 +10,14 @@ The following files need to be added to the Xcode project target:
    - Location: `/Channer/ViewControllers/Home/CategoryManagerViewController.swift`
    - This file manages the bookmark categories
 
+3. **SearchManager.swift**
+   - Location: `/Channer/ViewControllers/Home/SearchManager.swift`
+   - This file manages thread search history and saved searches
+
+4. **SearchViewController.swift**
+   - Location: `/Channer/ViewControllers/Home/SearchViewController.swift`
+   - This file implements the search interface for threads
+
 ## How to Add Files to Xcode Project
 
 1. Open the Xcode project (`Channer.xcworkspace`)

@@ -32,7 +32,7 @@ class Reachability {
 
 
 // MARK: - Thread Replies Table View Controller
-class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate, UISearchBarDelegate {
     
     // MARK: - Properties
     /// Outlets and general properties for the thread view
@@ -52,6 +52,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     private var isThreadFavorited = false
     private var favorites: [String: [String: Any]] = [:] // Store favorites as [threadNumber: threadData]
+    
+    // MARK: - Search Properties
+    private let searchBar = UISearchBar()
+    private var searchText: String = ""
+    private var searchFilteredIndices = Set<Int>() // Indices of replies filtered by search
+    private var isSearchActive = false
     
     // MARK: - Loading Indicator
     /// UI components for displaying a loading indicator
@@ -112,6 +118,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        // Search bar setup
+        setupSearchBar()
+        
         // Table view setup
         view.addSubview(tableView)
         tableView.delegate = self
@@ -135,7 +144,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Table constraints
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
@@ -181,6 +190,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         view.isHidden = false
         tableView.isHidden = false
         
+        // Update search bar appearance
+        updateSearchBarAppearance()
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateSearchBarAppearance()
+        }
     }
     
     // MARK: - UI Setup Methods
@@ -351,6 +370,67 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!]
     }
     
+    // MARK: - Search Bar Setup
+    private func setupSearchBar() {
+        view.addSubview(searchBar)
+        searchBar.delegate = self
+        searchBar.placeholder = "Search in thread..."
+        searchBar.searchBarStyle = .minimal
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Remove all backgrounds and borders
+        searchBar.backgroundImage = UIImage()
+        searchBar.barTintColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
+        searchBar.isTranslucent = false
+        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
+        
+        // Remove the search bar border
+        searchBar.layer.borderWidth = 0
+        searchBar.layer.borderColor = UIColor.clear.cgColor
+        
+        // Make the search field background match the theme
+        if let searchField = searchBar.value(forKey: "searchField") as? UITextField {
+            searchField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            searchField.textColor = ThemeManager.shared.primaryTextColor
+            searchField.layer.cornerRadius = 10
+            searchField.clipsToBounds = true
+        }
+        
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            searchBar.heightAnchor.constraint(equalToConstant: 56)
+        ])
+    }
+    
+    private func updateSearchBarAppearance() {
+        // Update search bar colors
+        searchBar.barTintColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundImage = UIImage()
+        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
+        
+        // Remove borders
+        searchBar.layer.borderWidth = 0
+        searchBar.layer.borderColor = UIColor.clear.cgColor
+        
+        // Update search field appearance
+        if let searchField = searchBar.value(forKey: "searchField") as? UITextField {
+            searchField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            searchField.textColor = ThemeManager.shared.primaryTextColor
+            searchField.layer.cornerRadius = 10
+            searchField.clipsToBounds = true
+        }
+        
+        // Update the placeholder text color
+        if let searchField = searchBar.value(forKey: "searchField") as? UITextField,
+           let placeholderLabel = searchField.value(forKey: "placeholderLabel") as? UILabel {
+            placeholderLabel.textColor = ThemeManager.shared.secondaryTextColor
+        }
+    }
+    
     @objc private func showActionSheet() {
         // Create an action sheet
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -449,22 +529,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         //print("Number of rows: \(isLoading ? 0 : replyCount)")
-        return isLoading ? 0 : threadReplies.count
+        if isLoading {
+            return 0
+        }
+        
+        // If search is active, only count unfiltered rows
+        if isSearchActive && !searchText.isEmpty {
+            return threadReplies.count - searchFilteredIndices.count
+        }
+        
+        return threadReplies.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         //print("Configuring cell at index: \(indexPath.row)")
         //print("threadReplies count: \(threadReplies.count)")
         
-        guard indexPath.row < threadReplies.count else {
-            print("Index out of bounds: \(indexPath.row)")
+        // If search is active, we need to map the visible row index to the actual data index
+        var actualIndex = indexPath.row
+        if isSearchActive && !searchText.isEmpty {
+            var visibleIndex = 0
+            for dataIndex in 0..<threadReplies.count {
+                if !searchFilteredIndices.contains(dataIndex) {
+                    if visibleIndex == indexPath.row {
+                        actualIndex = dataIndex
+                        break
+                    }
+                    visibleIndex += 1
+                }
+            }
+        }
+        
+        guard actualIndex < threadReplies.count else {
+            print("Index out of bounds: \(actualIndex)")
             return UITableViewCell() // Placeholder to avoid crashing
         }
         
         let cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier, for: indexPath) as! threadRepliesCell
         
         // Set up the reply button's target-action
-        //cell.reply.tag = indexPath.row
+        //cell.reply.tag = actualIndex
         //cell.reply.addTarget(self, action: #selector(replyButtonTapped(_:)), for: .touchUpInside)
         
         // Set the text view delegate to self
@@ -480,11 +584,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                            boardNumber: "",
                            isFiltered: false)
         } else {
-            let imageUrl = threadRepliesImages[indexPath.row]
+            let imageUrl = threadRepliesImages[actualIndex]
             let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
-            let attributedText = threadReplies[indexPath.row]
-            let boardNumber = threadBoardReplyNumber[indexPath.row]
-            let isFiltered = filteredReplyIndices.contains(indexPath.row)
+            let attributedText = threadReplies[actualIndex]
+            let boardNumber = threadBoardReplyNumber[actualIndex]
+            let isFiltered = filteredReplyIndices.contains(actualIndex)
             
             // Debug: Content of the reply
             //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
@@ -508,7 +612,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if hasImage {
                 //print("Debug: Configuring image with URL: \(imageUrl)")
                 configureImage(for: cell, with: imageUrl)
-                cell.threadImage.tag = indexPath.row
+                cell.threadImage.tag = actualIndex
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
             }
             
@@ -516,7 +620,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if let replies = threadBoardReplies[boardNumber], !replies.isEmpty {
                 //print("Debug: Found \(replies.count) replies for boardNumber \(boardNumber), showing thread button")
                 cell.thread.isHidden = false
-                cell.thread.tag = indexPath.row
+                cell.thread.tag = actualIndex
                 cell.thread.addTarget(self, action: #selector(showThread), for: .touchUpInside)
             } else {
                 //print("Debug: No replies for boardNumber \(boardNumber), hiding thread button")
@@ -1869,6 +1973,60 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         return result
+    }
+    
+    // MARK: - UISearchBarDelegate Methods
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        self.searchText = searchText
+        searchBar.showsCancelButton = !searchText.isEmpty
+        performSearch()
+    }
+    
+    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+        searchBar.showsCancelButton = true
+    }
+    
+    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+        if searchBar.text?.isEmpty ?? true {
+            searchBar.showsCancelButton = false
+        }
+    }
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.text = ""
+        searchBar.resignFirstResponder()
+        isSearchActive = false
+        searchFilteredIndices.removeAll()
+        tableView.reloadData()
+    }
+    
+    // MARK: - Search Methods
+    private func performSearch() {
+        searchFilteredIndices.removeAll()
+        
+        // If search text is empty, show all replies
+        guard !searchText.isEmpty else {
+            isSearchActive = false
+            tableView.reloadData()
+            return
+        }
+        
+        isSearchActive = true
+        let searchTextLowercased = searchText.lowercased()
+        
+        // Search through all replies
+        for (index, reply) in threadReplies.enumerated() {
+            let replyText = reply.string.lowercased()
+            if !replyText.contains(searchTextLowercased) {
+                searchFilteredIndices.insert(index)
+            }
+        }
+        
+        tableView.reloadData()
     }
     
 }

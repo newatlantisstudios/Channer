@@ -31,10 +31,8 @@
     - [x] Include search within bookmarked content
 
     ### Thread Search
-    - [ ] Add full-text search within threads
-    - [ ] Implement advanced search options (by post type, media, date)
-    - [ ] Create search history and saved searches
-    - [ ] Add highlight matches in search results
+    - [x] Add full-text search within threads
+    - [x] Search for a thread from all boards or selected boards
 
     ## Phase 4: User Experience & Sync
 
