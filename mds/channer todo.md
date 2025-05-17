@@ -41,10 +41,10 @@
     - [x] Create refresh indicators and status
 
     ### iCloud Sync
-    - [ ] Implement iCloud sync for favorites and history
-    - [ ] Add sync for app settings and themes
-    - [ ] Create conflict resolution system
-    - [ ] Include sync status and management options
+    - [x] Implement iCloud sync for favorites and history
+    - [x] Add sync for app settings and themes
+    - [x] iCloud toggle in settings
+    - [x] Create conflict resolution system
 
     ## Other TODO
 
@@ -56,6 +56,7 @@
     - [x] All favorites make offline
     - [x] Picture aspect ratios
     - [x] Buttons icons too big
+    - [ ] Picking the default board needs to be better
 
     ## Technical Considerations
 

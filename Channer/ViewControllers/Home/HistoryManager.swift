@@ -1,6 +1,7 @@
 import Foundation
 import Alamofire
 import SwiftyJSON
+import UIKit
 
 class HistoryManager {
     
@@ -9,26 +10,38 @@ class HistoryManager {
     static let shared = HistoryManager()
     
     // MARK: - Properties
-    /// Key used for saving and retrieving history from `NSUbiquitousKeyValueStore` or `UserDefaults`.
+    /// Key used for saving and retrieving history from storage.
     private let historyKey = "threadHistory"
     private let iCloudFallbackWarningKey = "iCloudFallbackWarningShown"
     
     /// Array to store the history of threads.
     private(set) var history: [ThreadData] = []
     
-    /// iCloud Key-Value Store
-    private let iCloudStore = NSUbiquitousKeyValueStore.default
-    
     // MARK: - Initialization
     /// Private initializer to enforce singleton pattern and load history upon creation.
     private init() {
         loadHistory()
+        setupiCloudObserver()
+        // Migrate local data to iCloud if needed
+        ICloudSyncManager.shared.migrateLocalDataToiCloud()
     }
     
-    // MARK: - iCloud Availability Check
-    private func isICloudAvailable() -> Bool {
-        return FileManager.default.ubiquityIdentityToken != nil
+    // MARK: - iCloud Observer
+    private func setupiCloudObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudDataChanged),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
     }
+    
+    @objc private func iCloudDataChanged() {
+        // Reload data when iCloud sync completes
+        loadHistory()
+        NotificationCenter.default.post(name: Notification.Name("HistoryUpdated"), object: nil)
+    }
+    
     
     // MARK: - History Management Methods
     /// Adds a thread to the history if it doesn't already exist.
@@ -62,40 +75,23 @@ class HistoryManager {
     // MARK: - Persistence Methods
     /// Saves the current history to iCloud or local storage.
     private func saveHistory() {
-        if let encodedData = try? JSONEncoder().encode(history) {
-            if isICloudAvailable() {
-                print("Saving history to iCloud.")
-                iCloudStore.set(encodedData, forKey: historyKey)
-                iCloudStore.synchronize()
-            } else {
-                print("Saving history to local storage.")
-                UserDefaults.standard.set(encodedData, forKey: historyKey)
-                showICloudFallbackWarning()
-            }
+        let success = ICloudSyncManager.shared.save(history, forKey: historyKey)
+        
+        if success {
+            print("History successfully saved.")
         } else {
-            print("Failed to encode history.")
+            print("Failed to save history.")
+            showICloudFallbackWarning()
         }
     }
     
     /// Loads the history from iCloud or local storage.
     private func loadHistory() {
-        if isICloudAvailable() {
-            print("Loading history from iCloud.")
-            if let data = iCloudStore.data(forKey: historyKey),
-               let savedHistory = try? JSONDecoder().decode([ThreadData].self, from: data) {
-                history = savedHistory
-            } else {
-                print("No history found in iCloud.")
-            }
-        } else {
-            print("Loading history from local storage.")
-            if let data = UserDefaults.standard.data(forKey: historyKey),
-               let savedHistory = try? JSONDecoder().decode([ThreadData].self, from: data) {
-                history = savedHistory
-            } else {
-                print("No history found locally.")
-            }
-        }
+        // Load from iCloud/local storage using the sync manager
+        let loadedHistory = ICloudSyncManager.shared.load([ThreadData].self, forKey: historyKey) ?? []
+        history = loadedHistory
+        
+        print("Loaded \(history.count) history items")
     }
     
     // MARK: - Validation Methods
@@ -148,6 +144,30 @@ class HistoryManager {
                 }
             }
             UserDefaults.standard.set(true, forKey: iCloudFallbackWarningKey)
+        }
+    }
+    
+    // MARK: - iCloud Sync Support
+    func getAllHistoryForSync() -> [(boardAbv: String, threadNumber: String, visitDate: Date)] {
+        return history.map { (boardAbv: $0.boardAbv, threadNumber: $0.number, visitDate: Date()) }
+    }
+    
+    func syncHistoryFromICloud(boardAbv: String, threadNumber: String, visitDate: Date) {
+        // Check if history item already exists locally
+        if !history.contains(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
+            // Create a basic ThreadData object for the synced history item
+            let thread = ThreadData(
+                number: threadNumber,
+                stats: "0/0",
+                title: "",
+                comment: "",
+                imageUrl: "",
+                boardAbv: boardAbv,
+                replies: 0,
+                createdAt: ""
+            )
+            history.append(thread)
+            saveHistory()
         }
     }
 }

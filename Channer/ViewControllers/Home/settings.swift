@@ -28,6 +28,11 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let offlineReadingView = UIView()
     private let offlineReadingLabel = UILabel()
     private let offlineReadingToggle = UISwitch()
+    private let iCloudSyncView = UIView()
+    private let iCloudSyncLabel = UILabel()
+    private let iCloudSyncToggle = UISwitch()
+    private let iCloudSyncStatusLabel = UILabel()
+    private let iCloudForceSync = UIButton(type: .system)
     private let launchWithStartupBoardView = UIView()
     private let launchWithStartupBoardLabel = UILabel()
     private let launchWithStartupBoardToggle = UISwitch()
@@ -47,6 +52,7 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
     private let notificationsEnabledKey = "channer_notifications_enabled"
     private let offlineReadingEnabledKey = "channer_offline_reading_enabled"
+    private let iCloudSyncEnabledKey = "channer_icloud_sync_enabled"
     private let launchWithStartupBoardKey = "channer_launch_with_startup_board"
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
@@ -78,6 +84,10 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             UserDefaults.standard.set(false, forKey: offlineReadingEnabledKey)
             // Initialize the ThreadCacheManager's setting as well
             ThreadCacheManager.shared.setOfflineReadingEnabled(false)
+        }
+        
+        if UserDefaults.standard.object(forKey: iCloudSyncEnabledKey) == nil {
+            UserDefaults.standard.set(true, forKey: iCloudSyncEnabledKey)
         }
         
         sortBoardsAlphabetically()
@@ -221,6 +231,64 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             manageButton.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
             manageButton.trailingAnchor.constraint(equalTo: offlineReadingToggle.leadingAnchor, constant: -15)
         ])
+        
+        // iCloud Sync View
+        iCloudSyncView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        iCloudSyncView.layer.cornerRadius = 10
+        iCloudSyncView.clipsToBounds = true
+        iCloudSyncView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(iCloudSyncView)
+        
+        // iCloud Sync Label
+        iCloudSyncLabel.text = "Enable iCloud Sync"
+        iCloudSyncLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        iCloudSyncLabel.textAlignment = .left
+        iCloudSyncLabel.numberOfLines = 1
+        iCloudSyncLabel.adjustsFontSizeToFitWidth = true
+        iCloudSyncLabel.minimumScaleFactor = 0.8
+        iCloudSyncLabel.translatesAutoresizingMaskIntoConstraints = false
+        iCloudSyncView.addSubview(iCloudSyncLabel)
+        
+        // iCloud Sync Toggle
+        let isICloudSyncEnabled = UserDefaults.standard.bool(forKey: iCloudSyncEnabledKey)
+        iCloudSyncToggle.isOn = isICloudSyncEnabled
+        print("Initializing iCloud Sync toggle with value: \(isICloudSyncEnabled)")
+        iCloudSyncToggle.translatesAutoresizingMaskIntoConstraints = false
+        iCloudSyncToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        iCloudSyncToggle.addTarget(self, action: #selector(iCloudSyncToggleChanged), for: .valueChanged)
+        iCloudSyncView.addSubview(iCloudSyncToggle)
+        
+        // iCloud Sync Status Label
+        updateiCloudStatusLabel()
+        iCloudSyncStatusLabel.font = UIFont.systemFont(ofSize: 13, weight: .regular)
+        iCloudSyncStatusLabel.textColor = .secondaryLabel
+        iCloudSyncStatusLabel.textAlignment = .left
+        iCloudSyncStatusLabel.numberOfLines = 1
+        iCloudSyncStatusLabel.adjustsFontSizeToFitWidth = true
+        iCloudSyncStatusLabel.minimumScaleFactor = 0.8
+        iCloudSyncStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        iCloudSyncView.addSubview(iCloudSyncStatusLabel)
+        
+        // Force Sync Button
+        iCloudForceSync.setTitle("Sync Now", for: .normal)
+        iCloudForceSync.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        iCloudForceSync.translatesAutoresizingMaskIntoConstraints = false
+        iCloudForceSync.addTarget(self, action: #selector(forceiCloudSync), for: .touchUpInside)
+        iCloudSyncView.addSubview(iCloudForceSync)
+        
+        // Setup iCloud sync observers
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudSyncStatusChanged),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudSyncStatusChanged),
+            name: ICloudSyncManager.iCloudSyncStatusChangedNotification,
+            object: nil
+        )
         
         // Launch With Startup Board View
         launchWithStartupBoardView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -437,6 +505,37 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
         UserDefaults.standard.set(sender.isOn, forKey: launchWithStartupBoardKey)
         UserDefaults.standard.synchronize() // Force save immediately
         print("Launch with startup board toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func iCloudSyncToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: iCloudSyncEnabledKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        print("iCloud Sync toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        
+        // Update iCloud sync status immediately
+        updateiCloudStatusLabel()
+        iCloudForceSync.isEnabled = sender.isOn && ICloudSyncManager.shared.isICloudAvailable
+        
+        // If disabling, show a warning
+        if !sender.isOn {
+            let alert = UIAlertController(
+                title: "Disable iCloud Sync?",
+                message: "Your data will no longer sync across devices. Existing local data will remain.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                sender.isOn = true
+                UserDefaults.standard.set(true, forKey: self.iCloudSyncEnabledKey)
+            })
+            alert.addAction(UIAlertAction(title: "Disable", style: .destructive) { _ in
+                // Sync disabled, no action needed
+            })
+            present(alert, animated: true)
+        }
         
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -868,8 +967,33 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
             offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
             offlineReadingToggle.trailingAnchor.constraint(equalTo: offlineReadingView.trailingAnchor, constant: -30),
             
+            // iCloud Sync View
+            iCloudSyncView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
+            iCloudSyncView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            iCloudSyncView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            iCloudSyncView.heightAnchor.constraint(equalToConstant: 64),
+            iCloudSyncView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // iCloud Sync Label
+            iCloudSyncLabel.topAnchor.constraint(equalTo: iCloudSyncView.topAnchor, constant: 10),
+            iCloudSyncLabel.leadingAnchor.constraint(equalTo: iCloudSyncView.leadingAnchor, constant: 20),
+            iCloudSyncLabel.trailingAnchor.constraint(lessThanOrEqualTo: iCloudSyncToggle.leadingAnchor, constant: -15),
+            
+            // iCloud Sync Toggle
+            iCloudSyncToggle.centerYAnchor.constraint(equalTo: iCloudSyncLabel.centerYAnchor),
+            iCloudSyncToggle.trailingAnchor.constraint(equalTo: iCloudSyncView.trailingAnchor, constant: -30),
+            
+            // iCloud Sync Status Label
+            iCloudSyncStatusLabel.topAnchor.constraint(equalTo: iCloudSyncLabel.bottomAnchor, constant: 4),
+            iCloudSyncStatusLabel.leadingAnchor.constraint(equalTo: iCloudSyncView.leadingAnchor, constant: 20),
+            iCloudSyncStatusLabel.trailingAnchor.constraint(lessThanOrEqualTo: iCloudForceSync.leadingAnchor, constant: -10),
+            
+            // Force Sync Button
+            iCloudForceSync.centerYAnchor.constraint(equalTo: iCloudSyncStatusLabel.centerYAnchor),
+            iCloudForceSync.trailingAnchor.constraint(equalTo: iCloudSyncView.trailingAnchor, constant: -30),
+            
             // Launch With Startup Board View
-            launchWithStartupBoardView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
+            launchWithStartupBoardView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
             launchWithStartupBoardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             launchWithStartupBoardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
@@ -1051,6 +1175,62 @@ class settings: UIViewController, UISearchBarDelegate, UICollectionViewDataSourc
     
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         searchBar.resignFirstResponder()
+    }
+    
+    // MARK: - iCloud Sync Methods
+    @objc private func forceiCloudSync() {
+        guard UserDefaults.standard.bool(forKey: iCloudSyncEnabledKey) else {
+            let alert = UIAlertController(
+                title: "iCloud Sync Disabled",
+                message: "Please enable iCloud sync before attempting to sync.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        
+        // Show loading indicator
+        iCloudForceSync.isEnabled = false
+        iCloudSyncStatusLabel.text = "Syncing..."
+        iCloudSyncStatusLabel.textColor = .secondaryLabel
+        
+        // Trigger sync
+        ICloudSyncManager.shared.forceSync()
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func iCloudSyncStatusChanged() {
+        updateiCloudStatusLabel()
+        let isEnabled = UserDefaults.standard.bool(forKey: iCloudSyncEnabledKey)
+        iCloudForceSync.isEnabled = isEnabled && ICloudSyncManager.shared.isICloudAvailable
+    }
+    
+    private func updateiCloudStatusLabel() {
+        let isEnabled = UserDefaults.standard.bool(forKey: iCloudSyncEnabledKey)
+        
+        if !isEnabled {
+            iCloudSyncStatusLabel.text = "Disabled"
+            iCloudSyncStatusLabel.textColor = .systemGray
+            iCloudForceSync.isEnabled = false
+        } else if ICloudSyncManager.shared.isICloudAvailable {
+            let syncStatus = ICloudSyncManager.shared.syncStatus
+            iCloudSyncStatusLabel.text = syncStatus
+            
+            if syncStatus.contains("synced") {
+                iCloudSyncStatusLabel.textColor = .systemGreen
+            } else {
+                iCloudSyncStatusLabel.textColor = .secondaryLabel
+            }
+            iCloudForceSync.isEnabled = true
+        } else {
+            iCloudSyncStatusLabel.text = "Not Available"
+            iCloudSyncStatusLabel.textColor = .systemRed
+            iCloudForceSync.isEnabled = false
+        }
     }
 }
 

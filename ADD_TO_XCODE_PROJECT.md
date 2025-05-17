@@ -22,6 +22,18 @@ The following files need to be added to the Xcode project target:
    - Location: `/Channer/Utilities/UIImage+Extensions.swift`
    - This file contains extension for resizing images, needed for navigation bar button sizing
 
+6. **ICloudSyncManager.swift**
+   - Location: `/Channer/Networking/ICloudSyncManager.swift`
+   - This file manages iCloud synchronization for favorites and history data
+
+7. **ConflictResolutionManager.swift**
+   - Location: `/Channer/Utilities/ConflictResolutionManager.swift`
+   - This file manages conflict resolution for iCloud sync operations
+
+8. **ConflictResolutionViewController.swift**
+   - Location: `/Channer/ViewControllers/Home/ConflictResolutionViewController.swift`
+   - This file provides UI for manual conflict resolution during sync
+
 ## How to Add Files to Xcode Project
 
 1. Open the Xcode project (`Channer.xcworkspace`)

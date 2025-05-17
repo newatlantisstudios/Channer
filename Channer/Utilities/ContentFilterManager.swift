@@ -39,4 +39,21 @@ class ContentFilterManager {
         let images = UserDefaults.standard.stringArray(forKey: imageFiltersKey) ?? []
         return (keywords, posters, images)
     }
+    
+    // MARK: - iCloud Sync Support
+    
+    func syncKeywordsFromICloud(_ keywords: [String]) {
+        UserDefaults.standard.set(keywords, forKey: keywordFiltersKey)
+        UserDefaults.standard.synchronize()
+    }
+    
+    func syncPostersFromICloud(_ posters: [String]) {
+        UserDefaults.standard.set(posters, forKey: posterFiltersKey)
+        UserDefaults.standard.synchronize()
+    }
+    
+    func syncImagesFromICloud(_ images: [String]) {
+        UserDefaults.standard.set(images, forKey: imageFiltersKey)
+        UserDefaults.standard.synchronize()
+    }
 }

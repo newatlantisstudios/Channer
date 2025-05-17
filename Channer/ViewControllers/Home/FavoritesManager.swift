@@ -1,6 +1,7 @@
 import Foundation
 import Alamofire
 import SwiftyJSON
+import UIKit
 
 // Inline BookmarkCategory definition until files are added to project
 struct BookmarkCategory: Codable {
@@ -25,7 +26,6 @@ class FavoritesManager {
     
     // MARK: - Singleton Instance
     static let shared = FavoritesManager()
-    let iCloudStore = NSUbiquitousKeyValueStore.default
     private let favoritesKey = "favorites"
     private let categoriesKey = "bookmarkCategories"
     
@@ -34,38 +34,42 @@ class FavoritesManager {
     
     init() {
         loadCategories()
+        setupiCloudObserver()
+        // Migrate local data to iCloud if needed and sync is enabled
+        if UserDefaults.standard.bool(forKey: "channer_icloud_sync_enabled") {
+            ICloudSyncManager.shared.migrateLocalDataToiCloud()
+        }
+    }
+    
+    // MARK: - iCloud Observer
+    private func setupiCloudObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudDataChanged),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func iCloudDataChanged() {
+        // Reload data when iCloud sync completes
+        loadCategories()
+        NotificationCenter.default.post(name: Notification.Name("FavoritesUpdated"), object: nil)
     }
     
     // MARK: - Persistence Methods
     func loadFavorites() -> [ThreadData] {
         print("=== loadFavorites called ===")
-        // Check if iCloud is available
-        if isICloudAvailable() {
-            print("Loading favorites from iCloud.")
-            printICloudStoreContents()
-            guard let data = iCloudStore.data(forKey: favoritesKey),
-                  let favorites = try? JSONDecoder().decode([ThreadData].self, from: data) else {
-                print("No favorites found in iCloud.")
-                return []
-            }
-            print("Loaded \(favorites.count) favorites from iCloud")
-            for (index, favorite) in favorites.enumerated() {
-                print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
-            }
-            return favorites
-        } else {
-            print("Loading favorites from local storage.")
-            guard let data = UserDefaults.standard.data(forKey: favoritesKey),
-                  let favorites = try? JSONDecoder().decode([ThreadData].self, from: data) else {
-                print("No favorites found locally.")
-                return []
-            }
-            print("Loaded \(favorites.count) favorites from local storage")
-            for (index, favorite) in favorites.enumerated() {
-                print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
-            }
-            return favorites
+        
+        // Load from iCloud/local storage using the sync manager
+        let cloudFavorites = ICloudSyncManager.shared.load([ThreadData].self, forKey: favoritesKey) ?? []
+        
+        print("Loaded \(cloudFavorites.count) favorites")
+        for (index, favorite) in cloudFavorites.enumerated() {
+            print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
         }
+        
+        return cloudFavorites
     }
 
     func saveFavorites(_ favorites: [ThreadData]) {
@@ -76,27 +80,17 @@ class FavoritesManager {
             print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
         }
         
-        if let encoded = try? JSONEncoder().encode(favorites) {
-            if isICloudAvailable() {
-                print("Saving favorites to iCloud.")
-                printICloudStoreContents()
-                iCloudStore.set(encoded, forKey: favoritesKey)
-                iCloudStore.synchronize()
-            } else {
-                print("Saving favorites to local storage.")
-                UserDefaults.standard.set(encoded, forKey: favoritesKey)
-                showICloudFallbackWarning() // Warn the user once
-            }
+        // Save using the sync manager
+        let success = ICloudSyncManager.shared.save(favorites, forKey: favoritesKey)
+        
+        if success {
             print("Favorites successfully saved.")
         } else {
-            print("Failed to encode favorites.")
+            print("Failed to save favorites.")
+            showICloudFallbackWarning()
         }
     }
 
-    // MARK: - iCloud Availability Check
-    private func isICloudAvailable() -> Bool {
-        return FileManager.default.ubiquityIdentityToken != nil
-    }
 
     // MARK: - Warn User About iCloud Fallback
     private func showICloudFallbackWarning() {
@@ -253,44 +247,38 @@ class FavoritesManager {
         }
     }
     
-    func printICloudStoreContents() {
-        print("NSUbiquitousKeyValueStore contents:")
-
-        // Print all key-value pairs in the iCloud store
-        for (key, value) in iCloudStore.dictionaryRepresentation {
-            print("\(key): \(value)")
-        }
-
-        // Attempt to decode favorites if the key exists
-        if let data = iCloudStore.data(forKey: favoritesKey) {
-            do {
-                let favorites = try JSONDecoder().decode([ThreadData].self, from: data)
-                print("Favorites in iCloud:")
-                for favorite in favorites {
-                    print("Board: \(favorite.boardAbv), Thread Number: \(favorite.number), Replies: \(favorite.currentReplies ?? 0)")
-                }
-            } catch {
-                print("Failed to decode favorites from iCloud: \(error)")
-            }
-        } else {
-            print("No favorites found in iCloud.")
+    // MARK: - iCloud Sync Support
+    func getAllFavoritesForSync() -> [(boardAbv: String, threadNumber: String, dateAdded: Date)] {
+        let favorites = loadFavorites()
+        return favorites.map { (boardAbv: $0.boardAbv, threadNumber: $0.number, dateAdded: Date()) }
+    }
+    
+    func syncFavoriteFromICloud(boardAbv: String, threadNumber: String) {
+        // Check if favorite already exists locally
+        if !isFavorited(threadNumber: threadNumber) {
+            // Create a basic ThreadData object for the synced favorite
+            let thread = ThreadData(
+                number: threadNumber,
+                stats: "0/0",
+                title: "",
+                comment: "",
+                imageUrl: "",
+                boardAbv: boardAbv,
+                replies: 0,
+                createdAt: "",
+                categoryId: categories.first?.id
+            )
+            addFavorite(thread)
         }
     }
     
+    
     // MARK: - Category Management
     func loadCategories() {
-        if isICloudAvailable() {
-            print("Loading categories from iCloud.")
-            if let data = iCloudStore.data(forKey: categoriesKey),
-               let loadedCategories = try? JSONDecoder().decode([BookmarkCategory].self, from: data) {
-                categories = loadedCategories
-            }
-        } else {
-            print("Loading categories from local storage.")
-            if let data = UserDefaults.standard.data(forKey: categoriesKey),
-               let loadedCategories = try? JSONDecoder().decode([BookmarkCategory].self, from: data) {
-                categories = loadedCategories
-            }
+        // Load categories using the sync manager
+        if let loadedCategories = ICloudSyncManager.shared.load([BookmarkCategory].self, forKey: categoriesKey) {
+            categories = loadedCategories
+            print("Loaded \(categories.count) categories")
         }
         
         // Ensure at least one default category exists
@@ -303,15 +291,11 @@ class FavoritesManager {
     }
     
     func saveCategories() {
-        if let encoded = try? JSONEncoder().encode(categories) {
-            if isICloudAvailable() {
-                print("Saving categories to iCloud.")
-                iCloudStore.set(encoded, forKey: categoriesKey)
-                iCloudStore.synchronize()
-            } else {
-                print("Saving categories to local storage.")
-                UserDefaults.standard.set(encoded, forKey: categoriesKey)
-            }
+        let success = ICloudSyncManager.shared.save(categories, forKey: categoriesKey)
+        if success {
+            print("Categories successfully saved.")
+        } else {
+            print("Failed to save categories.")
         }
     }
     
