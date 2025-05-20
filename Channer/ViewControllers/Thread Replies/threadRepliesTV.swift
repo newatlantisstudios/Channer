@@ -5,6 +5,8 @@ import SwiftyJSON
 import SystemConfiguration
 import Foundation
 
+// No need to import KeyboardShortcutManager as it's in the same project
+
 // MARK: - Reachability (Network Connectivity)
 class Reachability {
     class func isConnectedToNetwork() -> Bool {
@@ -33,6 +35,102 @@ class Reachability {
 
 // MARK: - Thread Replies Table View Controller
 class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate, UISearchBarDelegate {
+    
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        // Only provide shortcuts on iPad
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let nextReplyCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow, 
+                                                modifierFlags: [], 
+                                                action: #selector(nextReply),
+                                                discoverabilityTitle: "Next Reply")
+            
+            let previousReplyCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow, 
+                                                    modifierFlags: [], 
+                                                    action: #selector(previousReply),
+                                                    discoverabilityTitle: "Previous Reply")
+            
+            let toggleFavoriteCommand = UIKeyCommand(input: "d", 
+                                                    modifierFlags: .command, 
+                                                    action: #selector(toggleFavoriteShortcut),
+                                                    discoverabilityTitle: "Toggle Favorite")
+            
+            let openGalleryCommand = UIKeyCommand(input: "g", 
+                                                modifierFlags: .command, 
+                                                action: #selector(openGallery),
+                                                discoverabilityTitle: "Open Gallery")
+            
+            let backToBoardCommand = UIKeyCommand(input: UIKeyCommand.inputEscape, 
+                                                 modifierFlags: [], 
+                                                 action: #selector(backToBoard),
+                                                 discoverabilityTitle: "Back to Board")
+            
+            return [nextReplyCommand, previousReplyCommand, toggleFavoriteCommand, 
+                    openGalleryCommand, backToBoardCommand]
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Keyboard Shortcut Methods
+    
+    /// Navigate to the next reply
+    @objc func nextReply() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        // Calculate the next row
+        let nextRow = selectedIndexPath.row + 1
+        if nextRow < tableView.numberOfRows(inSection: 0) {
+            let nextIndexPath = IndexPath(row: nextRow, section: 0)
+            tableView.selectRow(at: nextIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    /// Navigate to the previous reply
+    @objc func previousReply() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        // Calculate the previous row
+        let prevRow = selectedIndexPath.row - 1
+        if prevRow >= 0 {
+            let prevIndexPath = IndexPath(row: prevRow, section: 0)
+            tableView.selectRow(at: prevIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    /// Toggle favorite status
+    @objc func toggleFavoriteShortcut() {
+        toggleFavorite()
+    }
+    
+    /// Open gallery view
+    @objc func openGallery() {
+        // Implementation depends on how your gallery view is shown
+        if totalImagesInThread > 0 {
+            showGallery()
+        }
+    }
+    
+    /// Go back to board
+    @objc func backToBoard() {
+        navigationController?.popViewController(animated: true)
+    }
+    
+    /// Called when keyboard shortcuts are toggled in settings
+    @objc func keyboardShortcutsToggled(_ notification: Notification) {
+        // This will trigger recreation of the keyCommands array
+        self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+    }
     
     // MARK: - Properties
     /// Outlets and general properties for the thread view
@@ -129,6 +227,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Register for keyboard shortcuts notifications
+        NotificationCenter.default.addObserver(self, 
+                                             selector: #selector(keyboardShortcutsToggled(_:)), 
+                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
+                                             object: nil)
         
         // Search bar setup
         setupSearchBar()
@@ -2291,6 +2395,9 @@ private extension UIButton {
         return self
     }
 }
+
+// MARK: - Keyboard Shortcuts Extension
+// Keyboard shortcut methods have been moved earlier in the class
 
 // MARK: - UIColor Extension
 extension UIColor {

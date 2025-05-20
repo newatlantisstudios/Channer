@@ -49,19 +49,39 @@
     ## Other TODO
 
     - [x] FaceID toogle in settings
+
     - [x] Start up to Default Board
+
     - [x] More sorting 
+
     - [ ]  4Chan X features
-      - [ ] 
+
+      - [ ] iPad Apple Pencil feature - In the threads view the user needs to be able to use the pencil and hover over the content and see the thread picture. The thread picture will hovered over the UI. Once the user stop hovering 
+      - [ ] iPad Apple Pencil feature - quote link show reply
+      - [ ] Thread view - auto play videos without touching them 
+      - [ ] Thread view - max quality images without touching them
 
     - [x] Toolbox - Offline, History, Favorites, Files
+
     - [x] All favorites make offline
+
     - [x] Picture aspect ratios
+
     - [x] Buttons icons too big
+
     - [x] Picking the default board needs to be better
+
     - [x] When I choose a notification for a new thread reply it needs to go to the thread
-    - [ ] Notifications system to see new replies that the user got notified with
+
+    - [x] Notifications system to see new replies that the user got notified with
+
     - [ ] Check button icons and images
+
+    - [x] iPad Keyboard shortcuts
+
+    - [ ] Boards - list or collection view
+
+      
 
     ## Technical Considerations
 

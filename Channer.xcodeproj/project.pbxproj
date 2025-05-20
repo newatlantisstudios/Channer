@@ -18,9 +18,9 @@
 		171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */; };
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
-		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
-		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
+		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83482DDD36CC00D75B34 /* boardsTVCell.swift */; };
+		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83472DDD36CC00D75B34 /* boardsTV.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
 		176EC6462245F145009F2A8D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 176EC6452245F145009F2A8D /* Assets.xcassets */; };
 		176EC6542245F145009F2A8D /* _chanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC6532245F145009F2A8D /* _chanTests.swift */; };
@@ -45,6 +45,8 @@
 		17DD68422249B84100641BCA /* urlWeb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DD68412249B84100641BCA /* urlWeb.swift */; };
 		17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */; };
 		498B1D7575685881D53430E9 /* Pods_ChannerUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD52DA720CF1B59D59DB027C /* Pods_ChannerUITests.framework */; };
+		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
+		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		B7C50959EA75BAFA53ED9B6F /* Pods_Channer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */; };
 		F78E2662AB7CC0EB66CCB5D8 /* Pods_ChannerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 16700A75F5E12DAADDA25578 /* Pods_ChannerTests.framework */; };
 /* End PBXBuildFile section */
@@ -79,9 +81,9 @@
 		171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
-		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
+		171A83472DDD36CC00D75B34 /* boardsTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTV.swift; sourceTree = "<group>"; };
+		171A83482DDD36CC00D75B34 /* boardsTVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTVCell.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		176EC63E2245F144009F2A8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		176EC6452245F145009F2A8D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -115,6 +117,8 @@
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Channer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3DB358D3D4C27D3A430359CF /* Pods-ChannerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerTests.release.xcconfig"; path = "Target Support Files/Pods-ChannerTests/Pods-ChannerTests.release.xcconfig"; sourceTree = "<group>"; };
+		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
 		A8DBD749B7892382950F4F7F /* Pods-Channer.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Channer.release.xcconfig"; path = "Target Support Files/Pods-Channer/Pods-Channer.release.xcconfig"; sourceTree = "<group>"; };
 		B88D1F926C05E266AE482B34 /* Pods-ChannerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerTests.debug.xcconfig"; path = "Target Support Files/Pods-ChannerTests/Pods-ChannerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		CCBEB940F06207D41EE775E8 /* Pods-ChannerUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerUITests.debug.xcconfig"; path = "Target Support Files/Pods-ChannerUITests/Pods-ChannerUITests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -262,6 +266,8 @@
 		1781F6442CEEEBA800CE243D /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				171A83472DDD36CC00D75B34 /* boardsTV.swift */,
+				171A83482DDD36CC00D75B34 /* boardsTVCell.swift */,
 				178E88F72CFA6EE000810132 /* settings.swift */,
 				171A76172DD83C6F00D75B34 /* SearchManager.swift */,
 				171A76182DD83C6F00D75B34 /* SearchViewController.swift */,
@@ -566,6 +572,8 @@
 				171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */,
 				171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,
 				171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */,
+				171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
+				171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,
 				176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */,
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,

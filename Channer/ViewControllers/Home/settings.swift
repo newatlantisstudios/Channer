@@ -45,6 +45,10 @@ class settings: UIViewController {
     private let keyboardShortcutsToggle = UISwitch()
     private let keyboardShortcutsButton = UIButton(type: .system)
     
+    private var boardsDisplayModeView: UIView!
+    private var boardsDisplayModeLabel: UILabel!
+    private var boardsDisplayModeSegment: UISegmentedControl!
+    
     // Constants
     private let userDefaultsKey = "defaultBoard"
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
@@ -410,6 +414,9 @@ class settings: UIViewController {
         keyboardShortcutsButton.translatesAutoresizingMaskIntoConstraints = false
         keyboardShortcutsButton.addTarget(self, action: #selector(keyboardShortcutsButtonTapped), for: .touchUpInside)
         keyboardShortcutsView.addSubview(keyboardShortcutsButton)
+        
+        // Setup the Boards Display Mode view
+        setupBoardsDisplayModeView()
         
         setupConstraints()
     }
@@ -866,7 +873,8 @@ class settings: UIViewController {
     @objc private func keyboardShortcutsToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: keyboardShortcutsEnabledKey)
         UserDefaults.standard.synchronize() // Force save immediately
-        KeyboardShortcutManager.shared.setEnabled(sender.isOn)
+        // Toggle notification for keyboard shortcuts across the app
+        NotificationCenter.default.post(name: NSNotification.Name("KeyboardShortcutsToggled"), object: nil, userInfo: ["enabled": sender.isOn])
         
         // Show confirmation alert
         let title = sender.isOn ? "Keyboard Shortcuts Enabled" : "Keyboard Shortcuts Disabled"
@@ -885,7 +893,7 @@ class settings: UIViewController {
         // Navigate to keyboard shortcuts documentation
         if let url = URL(string: "file://" + NSString(string: NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]).appendingPathComponent("KEYBOARD_SHORTCUTS.md")) {
             let webVC = urlWeb()
-            webVC.url = url
+            webVC.images = [url]
             navigationController?.pushViewController(webVC, animated: true)
         } else {
             // Show an alert with shortcut information
@@ -946,6 +954,118 @@ class settings: UIViewController {
         
         // Present the alert
         present(alertController, animated: true)
+    }
+    
+    private func setupBoardsDisplayModeView() {
+        // Create the boards display mode view
+        self.boardsDisplayModeView = {
+            let view = UIView()
+            view.backgroundColor = UIColor.secondarySystemGroupedBackground
+            view.layer.cornerRadius = 10
+            view.clipsToBounds = true
+            view.translatesAutoresizingMaskIntoConstraints = false
+            return view
+        }()
+        
+        // Create the boards display mode label
+        self.boardsDisplayModeLabel = {
+            let label = UILabel()
+            label.text = "Boards Display Mode"
+            label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+            label.textAlignment = .left
+            label.numberOfLines = 1
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.8
+            label.translatesAutoresizingMaskIntoConstraints = false
+            return label
+        }()
+        
+        // Create the boards display mode segment control
+        self.boardsDisplayModeSegment = {
+            let segment = UISegmentedControl(items: ["Grid", "List"])
+            // Set default value if not already set
+            if UserDefaults.standard.object(forKey: "channer_boards_display_mode") == nil {
+                UserDefaults.standard.set(0, forKey: "channer_boards_display_mode")
+            }
+            let displayMode = UserDefaults.standard.integer(forKey: "channer_boards_display_mode")
+            segment.selectedSegmentIndex = displayMode
+            segment.translatesAutoresizingMaskIntoConstraints = false
+            segment.addTarget(self, action: #selector(boardsDisplayModeChanged), for: .valueChanged)
+            return segment
+        }()
+        
+        // Add views to view hierarchy
+        view.addSubview(boardsDisplayModeView)
+        boardsDisplayModeView.addSubview(boardsDisplayModeLabel)
+        boardsDisplayModeView.addSubview(boardsDisplayModeSegment)
+        
+        // Add constraints for the views
+        NSLayoutConstraint.activate([
+            // Boards Display Mode View
+            boardsDisplayModeView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            boardsDisplayModeView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            boardsDisplayModeView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Update the keyboardShortcutsView to be below this view
+            keyboardShortcutsView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            
+            // Boards Display Mode Label
+            boardsDisplayModeLabel.centerYAnchor.constraint(equalTo: boardsDisplayModeView.centerYAnchor),
+            boardsDisplayModeLabel.leadingAnchor.constraint(equalTo: boardsDisplayModeView.leadingAnchor, constant: 20),
+            boardsDisplayModeLabel.trailingAnchor.constraint(lessThanOrEqualTo: boardsDisplayModeSegment.leadingAnchor, constant: -15),
+            
+            // Boards Display Mode Segment
+            boardsDisplayModeSegment.centerYAnchor.constraint(equalTo: boardsDisplayModeView.centerYAnchor),
+            boardsDisplayModeSegment.trailingAnchor.constraint(equalTo: boardsDisplayModeView.trailingAnchor, constant: -20),
+            boardsDisplayModeSegment.widthAnchor.constraint(equalToConstant: 120)
+        ])
+    }
+    
+    @objc private func boardsDisplayModeChanged(_ sender: UISegmentedControl) {
+        // Store the user's preference
+        let boardsDisplayModeKey = "channer_boards_display_mode"
+        UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: boardsDisplayModeKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        
+        // Debug logging
+        print("DEBUG: Boards display mode changed to: \(sender.selectedSegmentIndex)")
+        print("DEBUG: UserDefaults value after change: \(UserDefaults.standard.object(forKey: boardsDisplayModeKey) ?? "nil")")
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        // Show message about applying changes
+        let alert = UIAlertController(
+            title: "Display Mode Changed",
+            message: "Would you like to apply the new display mode now?",
+            preferredStyle: .alert
+        )
+        
+        // Add action to return to home screen
+        alert.addAction(UIAlertAction(title: "Yes", style: .default) { [weak self] _ in
+            // Debug one more time before navigation
+            print("DEBUG: Before navigation - UserDefaults value: \(UserDefaults.standard.object(forKey: boardsDisplayModeKey) ?? "nil")")
+            
+            // Navigate all the way back to the root view controller to apply the change
+            if let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+               let window = appDelegate.window {
+                // Force recreate the window's root view controller to reflect the display mode change
+                let oldRootVC = window.rootViewController
+                window.rootViewController = nil
+                window.rootViewController = appDelegate.createRootNavigationController()
+                print("DEBUG: Forced recreation of root view controller")
+            } else {
+                // Fall back to standard navigation
+                self?.navigationController?.popToRootViewController(animated: true)
+            }
+        })
+        
+        // Add cancel action
+        alert.addAction(UIAlertAction(title: "Later", style: .cancel))
+        
+        present(alert, animated: true)
     }
     
     private func setupConstraints() {
@@ -1109,8 +1229,7 @@ class settings: UIViewController {
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
             
-            // Keyboard Shortcuts View
-            keyboardShortcutsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            // Keyboard Shortcuts View top constraint is set in setupBoardsDisplayModeView to ensure proper ordering
             keyboardShortcutsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             keyboardShortcutsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),

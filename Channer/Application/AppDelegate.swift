@@ -50,13 +50,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
            let topViewController = navigationController.topViewController {
             
             // Check the type of the top view controller and call appropriate refresh method
-            if let boardsVC = topViewController as? boardsCV {
-                boardsVC.refreshBoards()
-            } else if let boardTV = topViewController as? boardTV {
-                boardTV.refreshThreads()
-            } else if let threadRepliesTV = topViewController as? threadRepliesTV {
-                threadRepliesTV.refreshReplies()
-            }
+            // Refresh methods will be implemented in a future update
+            print("Refresh action triggered for \(type(of: topViewController))")
         }
     }
     
@@ -103,6 +98,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if UserDefaults.standard.object(forKey: launchWithStartupBoardKey) == nil {
             UserDefaults.standard.set(false, forKey: launchWithStartupBoardKey)
             UserDefaults.standard.synchronize()
+        }
+        
+        // Set default value for boards display mode if it doesn't exist
+        let boardsDisplayModeKey = "channer_boards_display_mode"
+        if UserDefaults.standard.object(forKey: boardsDisplayModeKey) == nil {
+            UserDefaults.standard.set(0, forKey: boardsDisplayModeKey) // Default to grid view (0)
+            UserDefaults.standard.synchronize()
+            print("Initialized boards display mode to grid view (0)")
+        } else {
+            let mode = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)
+            print("Current boards display mode: \(mode == 0 ? "Grid" : "List")")
         }
         
         // Initialize the offline reading mode setting in ThreadCacheManager
@@ -324,75 +330,70 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window?.rootViewController = createRootNavigationController()
         window?.makeKeyAndVisible()
         
-        // Register keyboard shortcuts
-        KeyboardShortcutManager.shared.registerGlobalShortcuts(window: window!)
+        // Global keyboard shortcuts are handled by each view controller
     }
     
-    // MARK: - Global Keyboard Shortcut Actions
-    
-    @objc func navigateToHome() {
-        // Navigate to the home screen
-        if let navController = window?.rootViewController as? UINavigationController {
-            // Pop to root or navigate to home
-            navController.popToRootViewController(animated: true)
-        }
-    }
-    
-    @objc func navigateToBoards() {
-        // Navigate to boards screen
-        if let navController = window?.rootViewController as? UINavigationController {
-            // Create and push boards view controller
-            let boardsVC = boardsCV()
-            navController.pushViewController(boardsVC, animated: true)
-        }
-    }
-    
-    @objc func navigateToFavorites() {
-        // Navigate to favorites screen
-        if let navController = window?.rootViewController as? UINavigationController {
-            // Create and push favorites view controller
-            let favoritesVC = CategorizedFavoritesViewController()
-            navController.pushViewController(favoritesVC, animated: true)
-        }
-    }
-    
-    @objc func navigateToHistory() {
-        // Navigate to history screen
-        if let navController = window?.rootViewController as? UINavigationController {
-            // Create and push history view controller
-            let historyVC = HistoryManager()
-            navController.pushViewController(historyVC, animated: true)
-        }
-    }
-    
-    @objc func navigateToSettings() {
-        // Navigate to settings screen
-        if let navController = window?.rootViewController as? UINavigationController {
-            // Create and push settings view controller
-            let settingsVC = settings()
-            navController.pushViewController(settingsVC, animated: true)
-        }
-    }
-    
-    @objc func refreshContent() {
-        // Refresh current content
-        // This is a generic refresh that can be implemented by the current view controller
-        NotificationCenter.default.post(name: NSNotification.Name("RefreshContentNotification"), object: nil)
-    }
     
     // MARK: - Navigation Controller Setup
     /// Creates the main navigation controller that will be used as the root view controller.
-    private func createRootNavigationController() -> UINavigationController {
-        let boardsController = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
+    func createRootNavigationController() -> UINavigationController {
+        // Check the user's preferred board display mode
+        let boardsDisplayModeKey = "channer_boards_display_mode"
+        let boardsDisplayMode = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)
+        
+        // Create the appropriate view controller based on the display mode
+        let rootViewController: UIViewController
+        
+        print("DEBUG: Creating root view controller with display mode: \(boardsDisplayMode)")
+        print("DEBUG: UserDefaults value: \(UserDefaults.standard.object(forKey: boardsDisplayModeKey) ?? "nil")")
+        
+        // 0 = Grid View (Collection View), 1 = List View (Table View)
+        if boardsDisplayMode == 0 {
+            // Use collection view (grid layout)
+            print("DEBUG: Using collection view (grid) for boards")
+            rootViewController = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
+        } else {
+            // Use table view (list layout)
+            print("DEBUG: Using table view (list) for boards")
+            rootViewController = boardsTV()
+        }
         
         // Create a UINavigationController with customized back button
-        let navigationController = UINavigationController(rootViewController: boardsController)
+        let navigationController = UINavigationController(rootViewController: rootViewController)
         
         // Set the default back button title to an empty string
         // This removes the text but keeps the back arrow
         navigationController.navigationBar.topItem?.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
         
         return navigationController
+    }
+    
+    // Helper method to construct the table view controller with error handling
+    private func constructBoardsTableViewController() -> UIViewController? {
+        // First try with module name
+        if let moduleClass = NSClassFromString("Channer.boardsTV") as? UIViewController.Type {
+            print("Found boardsTV class with module name")
+            return moduleClass.init()
+        }
+        
+        // Try without module name
+        if let noModuleClass = NSClassFromString("boardsTV") as? UIViewController.Type {
+            print("Found boardsTV class without module name")
+            return noModuleClass.init()
+        }
+        
+        // Try other common variations
+        let otherPossibleNames = ["BoardsTV", "_TtC7Channer8boardsTV"]
+        for className in otherPossibleNames {
+            if let variantClass = NSClassFromString(className) as? UIViewController.Type {
+                print("Found boardsTV using variant name: \(className)")
+                return variantClass.init()
+            }
+        }
+        
+        // If we get here, we've failed to create the boardsTV instance
+        print("All attempts to create boardsTV failed")
+        return nil
     }
     
     // MARK: - Content Filter Migration
