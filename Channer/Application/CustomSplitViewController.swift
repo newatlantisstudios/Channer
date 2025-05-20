@@ -76,4 +76,36 @@ class CustomSplitViewController: UISplitViewController {
         //print("Debug Info: Final Preferred Primary Column Width Fraction = \(preferredPrimaryColumnWidthFraction)")
         //print("Debug Info: Final Maximum Primary Column Width = \(maximumPrimaryColumnWidth)")
     }
+    
+    // MARK: - Keyboard Shortcut Methods
+    
+    /// Focus on the master view (left side of the split view)
+    @objc func focusMasterView() {
+        // Check if we have a view controller at index 0 (master view)
+        if viewControllers.count > 0 {
+            // Enable user interaction and set it as the first responder
+            viewControllers[0].view.isUserInteractionEnabled = true
+            viewControllers[0].view.becomeFirstResponder()
+        }
+    }
+    
+    /// Focus on the detail view (right side of the split view)
+    @objc func focusDetailView() {
+        // Check if we have a view controller at index 1 (detail view)
+        if viewControllers.count > 1 {
+            // Enable user interaction and set it as the first responder
+            viewControllers[1].view.isUserInteractionEnabled = true
+            viewControllers[1].view.becomeFirstResponder()
+        }
+    }
+    
+    /// Toggle the split view display mode between regular and compact
+    @objc func toggleSplitView() {
+        // Toggle between showing and hiding the primary view controller
+        if preferredDisplayMode == .oneBesideSecondary {
+            preferredDisplayMode = .oneOverSecondary
+        } else {
+            preferredDisplayMode = .oneBesideSecondary
+        }
+    }
 }

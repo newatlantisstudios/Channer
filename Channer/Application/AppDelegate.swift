@@ -3,9 +3,62 @@ import UserNotifications
 import Alamofire
 import SwiftyJSON
 import Kingfisher
+import Combine
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    
+    // MARK: - Keyboard Shortcut Actions
+    @objc func navigateToHome() {
+        // Navigate to home tab
+        if let tabBarController = window?.rootViewController as? UITabBarController {
+            tabBarController.selectedIndex = 0 // Assuming home is the first tab
+        }
+    }
+    
+    @objc func navigateToBoards() {
+        // Navigate to boards tab
+        if let tabBarController = window?.rootViewController as? UITabBarController {
+            tabBarController.selectedIndex = 1 // Assuming boards is the second tab
+        }
+    }
+    
+    @objc func navigateToFavorites() {
+        // Navigate to favorites tab
+        if let tabBarController = window?.rootViewController as? UITabBarController {
+            tabBarController.selectedIndex = 2 // Assuming favorites is the third tab
+        }
+    }
+    
+    @objc func navigateToHistory() {
+        // Navigate to history tab
+        if let tabBarController = window?.rootViewController as? UITabBarController {
+            tabBarController.selectedIndex = 3 // Assuming history is the fourth tab
+        }
+    }
+    
+    @objc func navigateToSettings() {
+        // Navigate to settings tab
+        if let tabBarController = window?.rootViewController as? UITabBarController {
+            tabBarController.selectedIndex = 4 // Assuming settings is the fifth tab
+        }
+    }
+    
+    @objc func refreshContent() {
+        // Refresh current content
+        if let navigationController = window?.rootViewController as? UINavigationController,
+           let topViewController = navigationController.topViewController {
+            
+            // Check the type of the top view controller and call appropriate refresh method
+            if let boardsVC = topViewController as? boardsCV {
+                boardsVC.refreshBoards()
+            } else if let boardTV = topViewController as? boardTV {
+                boardTV.refreshThreads()
+            } else if let threadRepliesTV = topViewController as? threadRepliesTV {
+                threadRepliesTV.refreshReplies()
+            }
+        }
+    }
     
     // MARK: - Properties
     /// The main application window.
@@ -21,6 +74,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let faceIDKey = "channer_faceID_authentication_enabled"
         if UserDefaults.standard.object(forKey: faceIDKey) == nil {
             UserDefaults.standard.set(true, forKey: faceIDKey)
+            UserDefaults.standard.synchronize()
+        }
+        
+        // Set default value for keyboard shortcuts if it doesn't exist
+        let keyboardShortcutsKey = "keyboardShortcutsEnabled"
+        if UserDefaults.standard.object(forKey: keyboardShortcutsKey) == nil {
+            UserDefaults.standard.set(true, forKey: keyboardShortcutsKey)
             UserDefaults.standard.synchronize()
         }
         
@@ -263,6 +323,61 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = createRootNavigationController()
         window?.makeKeyAndVisible()
+        
+        // Register keyboard shortcuts
+        KeyboardShortcutManager.shared.registerGlobalShortcuts(window: window!)
+    }
+    
+    // MARK: - Global Keyboard Shortcut Actions
+    
+    @objc func navigateToHome() {
+        // Navigate to the home screen
+        if let navController = window?.rootViewController as? UINavigationController {
+            // Pop to root or navigate to home
+            navController.popToRootViewController(animated: true)
+        }
+    }
+    
+    @objc func navigateToBoards() {
+        // Navigate to boards screen
+        if let navController = window?.rootViewController as? UINavigationController {
+            // Create and push boards view controller
+            let boardsVC = boardsCV()
+            navController.pushViewController(boardsVC, animated: true)
+        }
+    }
+    
+    @objc func navigateToFavorites() {
+        // Navigate to favorites screen
+        if let navController = window?.rootViewController as? UINavigationController {
+            // Create and push favorites view controller
+            let favoritesVC = CategorizedFavoritesViewController()
+            navController.pushViewController(favoritesVC, animated: true)
+        }
+    }
+    
+    @objc func navigateToHistory() {
+        // Navigate to history screen
+        if let navController = window?.rootViewController as? UINavigationController {
+            // Create and push history view controller
+            let historyVC = HistoryManager()
+            navController.pushViewController(historyVC, animated: true)
+        }
+    }
+    
+    @objc func navigateToSettings() {
+        // Navigate to settings screen
+        if let navController = window?.rootViewController as? UINavigationController {
+            // Create and push settings view controller
+            let settingsVC = settings()
+            navController.pushViewController(settingsVC, animated: true)
+        }
+    }
+    
+    @objc func refreshContent() {
+        // Refresh current content
+        // This is a generic refresh that can be implemented by the current view controller
+        NotificationCenter.default.post(name: NSNotification.Name("RefreshContentNotification"), object: nil)
     }
     
     // MARK: - Navigation Controller Setup

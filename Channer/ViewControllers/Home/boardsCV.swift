@@ -2,6 +2,7 @@ import UIKit
 import Alamofire
 import SwiftyJSON
 import LocalAuthentication
+import Combine
 
 private let reuseIdentifier = "boardCell"
 private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
@@ -457,6 +458,54 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         }
     }
     
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        return KeyboardShortcutManager.shared.getBoardsViewShortcuts(target: self)
+    }
+    
+    @objc func nextBoard() {
+        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
+            // If nothing is selected, select the first item
+            let firstIndexPath = IndexPath(item: 0, section: 0)
+            collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredVertically)
+            return
+        }
+        
+        let nextItem = selectedIndexPath.item + 1
+        if nextItem < collectionView.numberOfItems(inSection: selectedIndexPath.section) {
+            let nextIndexPath = IndexPath(item: nextItem, section: selectedIndexPath.section)
+            collectionView.selectItem(at: nextIndexPath, animated: true, scrollPosition: .centeredVertically)
+        }
+    }
+    
+    @objc func previousBoard() {
+        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
+            // If nothing is selected, select the first item
+            let firstIndexPath = IndexPath(item: 0, section: 0)
+            collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredVertically)
+            return
+        }
+        
+        let prevItem = selectedIndexPath.item - 1
+        if prevItem >= 0 {
+            let prevIndexPath = IndexPath(item: prevItem, section: selectedIndexPath.section)
+            collectionView.selectItem(at: prevIndexPath, animated: true, scrollPosition: .centeredVertically)
+        }
+    }
+    
+    @objc func openSelectedBoard() {
+        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
+            return
+        }
+        
+        collectionView(collectionView, didSelectItemAt: selectedIndexPath)
+    }
+    
+    @objc func refreshBoards() {
+        // Reload the collection view data
+        collectionView.reloadData()
+    }
+    
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Returns the minimum spacing between items in the same row.
     func collectionView(
@@ -578,5 +627,64 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             bottom: sectionInset,
             right: sectionInset
         )
+    }
+    
+    // MARK: - Keyboard Shortcuts
+    
+    /// Gets the key commands for this view controller
+    override var keyCommands: [UIKeyCommand]? {
+        return KeyboardShortcutManager.shared.getBoardsViewShortcuts(target: self)
+    }
+    
+    /// Navigate to the next board
+    @objc func nextBoard() {
+        // Get the currently visible cell index paths
+        guard let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }) else {
+            return
+        }
+        
+        if let currentIndexPath = visibleIndexPaths.last, currentIndexPath.row < boardNames.count - 1 {
+            // Calculate the next index path
+            let nextIndexPath = IndexPath(row: currentIndexPath.row + 1, section: currentIndexPath.section)
+            
+            // Scroll to the next cell
+            collectionView.scrollToItem(at: nextIndexPath, at: .bottom, animated: true)
+            
+            // Select the next cell
+            collectionView.selectItem(at: nextIndexPath, animated: true, scrollPosition: .bottom)
+        }
+    }
+    
+    /// Navigate to the previous board
+    @objc func previousBoard() {
+        // Get the currently visible cell index paths
+        guard let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }) else {
+            return
+        }
+        
+        if let currentIndexPath = visibleIndexPaths.first, currentIndexPath.row > 0 {
+            // Calculate the previous index path
+            let prevIndexPath = IndexPath(row: currentIndexPath.row - 1, section: currentIndexPath.section)
+            
+            // Scroll to the previous cell
+            collectionView.scrollToItem(at: prevIndexPath, at: .top, animated: true)
+            
+            // Select the previous cell
+            collectionView.selectItem(at: prevIndexPath, animated: true, scrollPosition: .top)
+        }
+    }
+    
+    /// Open the currently selected board
+    @objc func openSelectedBoard() {
+        // Get the selected index path
+        if let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first {
+            // Open the selected board by calling the collection view delegate method
+            collectionView(collectionView, didSelectItemAt: selectedIndexPath)
+        } else if let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }), 
+                  let firstVisible = visibleIndexPaths.first {
+            // If no cell is selected, select and open the first visible one
+            collectionView.selectItem(at: firstVisible, animated: true, scrollPosition: .centeredVertically)
+            collectionView(collectionView, didSelectItemAt: firstVisible)
+        }
     }
 }

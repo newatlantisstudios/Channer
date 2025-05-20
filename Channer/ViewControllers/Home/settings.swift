@@ -40,6 +40,10 @@ class settings: UIViewController {
     private let autoRefreshView = UIView()
     private let autoRefreshLabel = UILabel()
     private let autoRefreshButton = UIButton(type: .system)
+    private let keyboardShortcutsView = UIView()
+    private let keyboardShortcutsLabel = UILabel()
+    private let keyboardShortcutsToggle = UISwitch()
+    private let keyboardShortcutsButton = UIButton(type: .system)
     
     // Constants
     private let userDefaultsKey = "defaultBoard"
@@ -48,6 +52,7 @@ class settings: UIViewController {
     private let offlineReadingEnabledKey = "channer_offline_reading_enabled"
     private let iCloudSyncEnabledKey = "channer_icloud_sync_enabled"
     private let launchWithStartupBoardKey = "channer_launch_with_startup_board"
+    private let keyboardShortcutsEnabledKey = "keyboardShortcutsEnabled"
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
     
@@ -373,6 +378,38 @@ class settings: UIViewController {
         autoRefreshButton.translatesAutoresizingMaskIntoConstraints = false
         autoRefreshButton.addTarget(self, action: #selector(autoRefreshButtonTapped), for: .touchUpInside)
         autoRefreshView.addSubview(autoRefreshButton)
+        
+        // Keyboard Shortcuts View
+        keyboardShortcutsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        keyboardShortcutsView.layer.cornerRadius = 10
+        keyboardShortcutsView.clipsToBounds = true
+        keyboardShortcutsView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(keyboardShortcutsView)
+        
+        // Keyboard Shortcuts Label
+        keyboardShortcutsLabel.text = "iPad Keyboard Shortcuts"
+        keyboardShortcutsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        keyboardShortcutsLabel.textAlignment = .left
+        keyboardShortcutsLabel.numberOfLines = 1
+        keyboardShortcutsLabel.adjustsFontSizeToFitWidth = true
+        keyboardShortcutsLabel.minimumScaleFactor = 0.8
+        keyboardShortcutsLabel.translatesAutoresizingMaskIntoConstraints = false
+        keyboardShortcutsView.addSubview(keyboardShortcutsLabel)
+        
+        // Keyboard Shortcuts Toggle
+        let isKeyboardShortcutsEnabled = UserDefaults.standard.bool(forKey: keyboardShortcutsEnabledKey)
+        keyboardShortcutsToggle.isOn = isKeyboardShortcutsEnabled
+        keyboardShortcutsToggle.translatesAutoresizingMaskIntoConstraints = false
+        keyboardShortcutsToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        keyboardShortcutsToggle.addTarget(self, action: #selector(keyboardShortcutsToggleChanged), for: .valueChanged)
+        keyboardShortcutsView.addSubview(keyboardShortcutsToggle)
+        
+        // Keyboard Shortcuts Button
+        keyboardShortcutsButton.setTitle("View", for: .normal)
+        keyboardShortcutsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        keyboardShortcutsButton.translatesAutoresizingMaskIntoConstraints = false
+        keyboardShortcutsButton.addTarget(self, action: #selector(keyboardShortcutsButtonTapped), for: .touchUpInside)
+        keyboardShortcutsView.addSubview(keyboardShortcutsButton)
         
         setupConstraints()
     }
@@ -826,6 +863,47 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
     
+    @objc private func keyboardShortcutsToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: keyboardShortcutsEnabledKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        KeyboardShortcutManager.shared.setEnabled(sender.isOn)
+        
+        // Show confirmation alert
+        let title = sender.isOn ? "Keyboard Shortcuts Enabled" : "Keyboard Shortcuts Disabled"
+        let message = sender.isOn ? "Keyboard shortcuts are now available on iPad." : "Keyboard shortcuts have been disabled."
+        
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func keyboardShortcutsButtonTapped() {
+        // Navigate to keyboard shortcuts documentation
+        if let url = URL(string: "file://" + NSString(string: NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]).appendingPathComponent("KEYBOARD_SHORTCUTS.md")) {
+            let webVC = urlWeb()
+            webVC.url = url
+            navigationController?.pushViewController(webVC, animated: true)
+        } else {
+            // Show an alert with shortcut information
+            let alert = UIAlertController(
+                title: "Keyboard Shortcuts",
+                message: "iPad keyboard shortcuts provide quick access to various app features. Enable them to use with an external keyboard.",
+                preferredStyle: .alert
+            )
+            
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
     private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
         let alertController = UIAlertController(
             title: "\(type) Refresh Interval",
@@ -1029,7 +1107,27 @@ class settings: UIViewController {
             
             // Auto-refresh Button
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
-            autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20)
+            autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
+            
+            // Keyboard Shortcuts View
+            keyboardShortcutsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            keyboardShortcutsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            keyboardShortcutsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
+            keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+            
+            // Keyboard Shortcuts Label
+            keyboardShortcutsLabel.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
+            keyboardShortcutsLabel.leadingAnchor.constraint(equalTo: keyboardShortcutsView.leadingAnchor, constant: 20),
+            keyboardShortcutsLabel.trailingAnchor.constraint(lessThanOrEqualTo: keyboardShortcutsButton.leadingAnchor, constant: -15),
+            
+            // Keyboard Shortcuts Toggle
+            keyboardShortcutsToggle.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
+            keyboardShortcutsToggle.trailingAnchor.constraint(equalTo: keyboardShortcutsView.trailingAnchor, constant: -20),
+            
+            // Keyboard Shortcuts Button
+            keyboardShortcutsButton.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
+            keyboardShortcutsButton.trailingAnchor.constraint(equalTo: keyboardShortcutsToggle.leadingAnchor, constant: -15)
         ])
     }
     

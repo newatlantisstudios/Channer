@@ -3,6 +3,7 @@ import Alamofire
 import SwiftyJSON
 import Kingfisher
 import Foundation
+import Combine
 
 // MARK: - Thread Model
 /// Represents the data structure for a thread, conforming to Codable for easy serialization.
@@ -1063,6 +1064,72 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
     }
     
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        return KeyboardShortcutManager.shared.getBoardThreadsShortcuts(target: self)
+    }
+    
+    @objc func nextThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let nextRow = selectedIndexPath.row + 1
+        if nextRow < tableView.numberOfRows(inSection: selectedIndexPath.section) {
+            let nextIndexPath = IndexPath(row: nextRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: nextIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func previousThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let prevRow = selectedIndexPath.row - 1
+        if prevRow >= 0 {
+            let prevIndexPath = IndexPath(row: prevRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: prevIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func openSelectedThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            return
+        }
+        
+        tableView(tableView, didSelectRowAt: selectedIndexPath)
+    }
+    
+    @objc func refreshThreads() {
+        refreshTable()
+    }
+    
+    @objc func refreshTable() {
+        // Refresh all threads
+        if !isLoading {
+            // Save current scroll position
+            let currentOffset = tableView.contentOffset
+            
+            // Reload the threads
+            threadData.removeAll()
+            filteredThreadData.removeAll()
+            tableView.reloadData()
+            loadThreads()
+            
+            // Restore scroll position after reload
+            DispatchQueue.main.async { [weak self] in
+                self?.tableView.setContentOffset(currentOffset, animated: false)
+            }
+        }
+    }
+    
     // MARK: - Sorting
     // Methods and types related to sorting threads.
 
@@ -1182,5 +1249,58 @@ extension boardTV {
             $0.comment.localizedCaseInsensitiveContains(searchText)
         }
         tableView.reloadData()
+    }
+    
+    // MARK: - Keyboard Shortcuts
+    
+    override var keyCommands: [UIKeyCommand]? {
+        return KeyboardShortcutManager.shared.getBoardThreadsShortcuts(target: self)
+    }
+    
+    @objc func nextThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let nextRow = selectedIndexPath.row + 1
+        if nextRow < tableView.numberOfRows(inSection: selectedIndexPath.section) {
+            let nextIndexPath = IndexPath(row: nextRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: nextIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func previousThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let prevRow = selectedIndexPath.row - 1
+        if prevRow >= 0 {
+            let prevIndexPath = IndexPath(row: prevRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: prevIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func openSelectedThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select and open the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            tableView(tableView, didSelectRowAt: firstIndexPath)
+            return
+        }
+        
+        // Navigate to the selected thread
+        tableView(tableView, didSelectRowAt: selectedIndexPath)
+    }
+    
+    @objc func refreshThreads() {
+        refreshTable()
     }
 }
