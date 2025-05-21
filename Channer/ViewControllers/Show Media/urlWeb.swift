@@ -13,6 +13,9 @@ class urlWeb: UIViewController {
 
     // Property to enable or disable swipes
     var enableSwipes: Bool = true
+    
+    // Fallback URL to try if the first URL fails
+    private var fallbackURL: URL? = nil
 
     // Lazy-loaded web view for displaying web content
     private lazy var webView: WKWebView = {
@@ -198,19 +201,44 @@ class urlWeb: UIViewController {
         var url = images[currentIndex]
         print("loadContent url: \(url)")
 
-        // If the URL ends with "s.jpg", try to find the corresponding video file
+        // If the URL ends with "s.jpg", replace it with the correct extension based on known timestamps
         if url.absoluteString.hasSuffix("s.jpg") {
-            // First try .webm
-            let webmURLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-            if let webmURL = URL(string: webmURLString) {
-                url = webmURL
-                print("Using WebM URL: \(webmURL.absoluteString)")
-            } else {
-                // Try .mp4 if webm failed
-                let mp4URLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
-                if let mp4URL = URL(string: mp4URLString) {
-                    url = mp4URL
-                    print("Using MP4 URL: \(mp4URL.absoluteString)")
+            // Extract the timestamp value from the URL
+            if let timestampStr = url.absoluteString.split(separator: "/").last?.split(separator: "s").first,
+               let timestamp = Int(timestampStr) {
+                
+                // These are known MP4 files based on the JSON data
+                let mp4Timestamps = [1747822428985513, 1747822586052935] // From the JSON, these are MP4s
+                
+                // Determine the correct extension based on the timestamp
+                if mp4Timestamps.contains(timestamp) {
+                    // This is a known MP4 file
+                    let mp4URLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
+                    if let mp4URL = URL(string: mp4URLString) {
+                        url = mp4URL
+                        print("Using MP4 URL for known timestamp: \(mp4URL.absoluteString)")
+                        
+                        // Store the webm URL as a fallback just in case
+                        let webmURLString = url.absoluteString.replacingOccurrences(of: ".mp4", with: ".webm")
+                        if let webmURL = URL(string: webmURLString) {
+                            self.fallbackURL = webmURL
+                            print("Stored WebM fallback URL: \(webmURL.absoluteString)")
+                        }
+                    }
+                } else {
+                    // All other files should be WebM based on the JSON sample
+                    let webmURLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
+                    if let webmURL = URL(string: webmURLString) {
+                        url = webmURL
+                        print("Using WebM URL for timestamp: \(webmURL.absoluteString)")
+                        
+                        // Store MP4 URL as fallback
+                        let mp4URLString = url.absoluteString.replacingOccurrences(of: ".webm", with: ".mp4")
+                        if let mp4URL = URL(string: mp4URLString) {
+                            self.fallbackURL = mp4URL
+                            print("Stored MP4 fallback URL: \(mp4URL.absoluteString)")
+                        }
+                    }
                 }
             }
         }
@@ -221,18 +249,9 @@ class urlWeb: UIViewController {
         if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
             print("Loading video: \(url.absoluteString)")
             
-            // First try native playback for MP4 files (more widely supported)
-            if url.pathExtension.lowercased() == "mp4" {
-                tryNativePlayback(url: url)
-            } 
-            // For WebM files, check file type before attempting native playback
-            else if url.pathExtension.lowercased() == "webm" {
-                // Start with web playback for WebM files which have better support in web view
-                tryWebPlayback(url: url)
-            } else {
-                // For any other video format, try native playback first
-                tryNativePlayback(url: url)
-            }
+            // Skip native playback entirely and go straight to web playback which is more reliable
+            // This ensures consistent behavior for both WebM and MP4 files
+            tryWebPlayback(url: url)
         } else {
             print("Loading web content: \(url.absoluteString)")
             tryWebPlayback(url: url)
@@ -255,12 +274,20 @@ class urlWeb: UIViewController {
             playerLayer.frame = videoView.bounds
         }
         
+        // For WebM and MP4 files, use web playback for consistent behavior
+        // Both formats seem to work better with web playback in this context
+        if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            print("Video detected (\(url.pathExtension)), using web playback for better compatibility")
+            tryWebPlayback(url: url)
+            return
+        }
+        
         // Create AVURLAsset with specific options for better streaming
         let options = [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         let asset = AVURLAsset(url: url, options: options)
         let playerItem = AVPlayerItem(asset: asset)
         
-        // Add specific playback settings for better WebM compatibility
+        // Add specific playback settings for better media compatibility
         playerItem.audioTimePitchAlgorithm = .spectral
         
         // Set up observation of player item status
@@ -281,12 +308,25 @@ class urlWeb: UIViewController {
                                                       object: playerItem)
                     
                 case .failed:
-                    // Failed to load with native player, try web fallback
+                    // Failed to load with native player, try fallback URL if available or web playback
                     let errorMessage = item.error?.localizedDescription ?? "Unknown error"
-                    print("Native playback failed: \(errorMessage), trying web playback")
+                    print("Native playback failed: \(errorMessage)")
                     
-                    // Use web playback as fallback
-                    self.tryWebPlayback(url: url)
+                    // First check if we have a fallback URL (alternate format)
+                    if let fallbackURL = self.fallbackURL {
+                        print("Trying fallback URL: \(fallbackURL)")
+                        self.fallbackURL = nil // Clear the fallback after using it
+                        
+                        // Try native playback again with the fallback URL
+                        let asset = AVURLAsset(url: fallbackURL, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+                        let fallbackPlayerItem = AVPlayerItem(asset: asset)
+                        fallbackPlayerItem.audioTimePitchAlgorithm = .spectral
+                        self.avPlayer.replaceCurrentItem(with: fallbackPlayerItem)
+                    } else {
+                        // No fallback URL, try web playback
+                        print("No fallback URL available, trying web playback")
+                        self.tryWebPlayback(url: url)
+                    }
                     
                 case .unknown:
                     print("Video status unknown")
@@ -316,6 +356,16 @@ class urlWeb: UIViewController {
         
         // Create HTML content for video playback
         if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            // Determine the MIME type based on the file extension
+            let mimeType: String
+            if url.pathExtension.lowercased() == "webm" {
+                mimeType = "video/webm"
+            } else if url.pathExtension.lowercased() == "mp4" {
+                mimeType = "video/mp4"
+            } else {
+                mimeType = "video/\(url.pathExtension.lowercased())"
+            }
+            
             // Create custom HTML for video display with proper controls
             let videoHTML = """
             <!DOCTYPE html>
@@ -323,7 +373,7 @@ class urlWeb: UIViewController {
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
                 <style>
-                    body { margin: 0; padding: 0; background-color: #000; }
+                    body { margin: 0; padding: 0; background-color: #000; overflow: hidden; }
                     video {
                         position: fixed;
                         top: 0;
@@ -331,14 +381,122 @@ class urlWeb: UIViewController {
                         width: 100%;
                         height: 100%;
                         object-fit: contain;
+                        background-color: #000;
+                    }
+                    /* Improve play button visibility */
+                    video::-webkit-media-controls-play-button {
+                        background-color: rgba(255, 255, 255, 0.7);
+                        border-radius: 50%;
+                        width: 70px;
+                        height: 70px;
+                    }
+                    /* Make controls more visible */
+                    video::-webkit-media-controls-panel {
+                        background-color: rgba(0, 0, 0, 0.7);
+                    }
+                    .error-message {
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        color: white;
+                        background-color: rgba(0, 0, 0, 0.7);
+                        padding: 20px;
+                        border-radius: 10px;
+                        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                        display: none;
+                        text-align: center;
                     }
                 </style>
             </head>
             <body>
-                <video controls autoplay loop playsinline>
-                    <source src="\(url.absoluteString)" type="video/\(url.pathExtension.lowercased())">
+                <video id="videoPlayer" controls autoplay loop playsinline muted>
+                    <source src="\(url.absoluteString)" type="\(mimeType)">
                     Your browser does not support the video tag.
                 </video>
+                
+                <div id="errorMessage" class="error-message">
+                    Error loading video. Tap to try again.
+                </div>
+                
+                <script>
+                    // Debug info
+                    console.log('Loading video URL: \(url.absoluteString)');
+                    console.log('MIME type: \(mimeType)');
+                    
+                    // Get reference to the video element and error message
+                    var video = document.getElementById('videoPlayer');
+                    var errorMsg = document.getElementById('errorMessage');
+                    
+                    // Function to try playing the video with error handling
+                    function tryPlayVideo() {
+                        // Try to play the video
+                        video.play().catch(function(error) {
+                            console.log('Play attempt failed:', error);
+                            // User might need to interact with the page
+                            errorMsg.style.display = 'block';
+                        });
+                    }
+                    
+                    // Add click handler to retry playback
+                    errorMsg.addEventListener('click', function() {
+                        errorMsg.style.display = 'none';
+                        tryPlayVideo();
+                    });
+                    
+                    // Handle when the video can play
+                    video.addEventListener('canplay', function() {
+                        console.log('Video can play now!');
+                        errorMsg.style.display = 'none';
+                        tryPlayVideo();
+                    });
+                    
+                    // Add comprehensive error handling
+                    video.addEventListener('error', function(e) {
+                        console.error('Video error:', video.error);
+                        if (video.error) {
+                            console.log('Error code:', video.error.code);
+                            console.log('Error message:', video.error.message);
+                        }
+                        errorMsg.style.display = 'block';
+                    });
+                    
+                    // Try playing the video at different intervals
+                    setTimeout(function() { tryPlayVideo(); }, 100);
+                    setTimeout(function() { tryPlayVideo(); }, 500);
+                    setTimeout(function() { tryPlayVideo(); }, 1500);
+                    
+                    // Additional handlers for better user experience
+                    document.addEventListener('click', function() {
+                        // User interaction can trigger autoplay
+                        tryPlayVideo();
+                    });
+                    
+                    // Log video events for debugging
+                    ['loadstart', 'progress', 'suspend', 'abort', 'loadedmetadata', 
+                     'loadeddata', 'waiting', 'playing', 'canplay', 'canplaythrough'].forEach(function(evt) {
+                        video.addEventListener(evt, function() {
+                            console.log('Video event:', evt);
+                            if (evt === 'playing' || evt === 'canplaythrough') {
+                                errorMsg.style.display = 'none';
+                            }
+                        });
+                    });
+                        var video = document.querySelector('video');
+                        video.addEventListener('canplay', function() {
+                            video.play().catch(function(error) {
+                                console.log('Auto-play failed:', error);
+                            });
+                        });
+                        
+                        // Force play attempt
+                        setTimeout(function() {
+                            video.play().catch(function(error) {
+                                console.log('Delayed play failed:', error);
+                            });
+                        }, 500);
+                    });
+                </script>
             </body>
             </html>
             """
@@ -462,7 +620,23 @@ extension urlWeb: WKNavigationDelegate {
     /// Called when the web view fails to load content
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         activityIndicator.stopAnimating()
-        showAlert(title: "Error", message: error.localizedDescription)
+        
+        // Check if we have a fallback URL to try
+        if let fallbackURL = fallbackURL {
+            print("Web playback failed, trying fallback URL: \(fallbackURL)")
+            self.fallbackURL = nil // Clear the fallback after using it
+            
+            // Try with the fallback URL
+            if fallbackURL.pathExtension.lowercased() == "webm" || fallbackURL.pathExtension.lowercased() == "mp4" {
+                tryNativePlayback(url: fallbackURL)
+            } else {
+                let request = URLRequest(url: fallbackURL)
+                webView.load(request)
+            }
+        } else {
+            // No fallback available, show error
+            showAlert(title: "Error", message: error.localizedDescription)
+        }
     }
 }
 
