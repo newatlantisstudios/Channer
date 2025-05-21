@@ -60,6 +60,18 @@ class threadRepliesCell: UITableViewCell {
         let button = UIButton()
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(UIImage(named: "thread"), for: .normal)
+        
+        // Make button more visually appealing
+        button.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+        button.layer.cornerRadius = 15
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        button.tintColor = .systemBlue // Make the icon blue
+        
+        // Add shadow for depth
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowOpacity = 0.2
+        button.layer.shadowRadius = 3
         return button
     }()
 
@@ -132,6 +144,10 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
             boardReplyCount.textColor = ThemeManager.shared.primaryTextColor
             
+            // Update thread button appearance for dark/light mode
+            thread.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+            thread.tintColor = .systemBlue
+            
             // When trait collection changes, we also need to update attributed text
             if let attributedText = replyText.attributedText {
                 replyText.attributedText = updateAttributedTextColors(attributedText)
@@ -199,10 +215,10 @@ class threadRepliesCell: UITableViewCell {
             boardReplyCount.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 16),
             boardReplyCount.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
 
-            thread.widthAnchor.constraint(equalToConstant: 20),
-            thread.heightAnchor.constraint(equalToConstant: 20),
-            thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -8),
-            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -8),
+            thread.widthAnchor.constraint(equalToConstant: 40),
+            thread.heightAnchor.constraint(equalToConstant: 40),
+            thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -12),
+            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -12),
             
             // Filter badge constraints
             filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
@@ -240,7 +256,10 @@ class threadRepliesCell: UITableViewCell {
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
         replyTextNoImage.isHidden = withImage
-
+        
+        // Add visual feedback for the thread reply button
+        thread.showsTouchWhenHighlighted = true
+        
         NSLayoutConstraint.deactivate(replyTextWithImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageConstraints)
 

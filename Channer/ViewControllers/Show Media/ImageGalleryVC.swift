@@ -18,8 +18,8 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     init(images: [URL]) {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 10
-        layout.minimumInteritemSpacing = 10
+        layout.minimumLineSpacing = 5
+        layout.minimumInteritemSpacing = 5
         self.collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         self.images = images
         super.init(nibName: nil, bundle: nil)
@@ -108,9 +108,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Returns the size for the item at the given index path.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let padding: CGFloat = 10
-        let availableWidth = collectionView.frame.width - padding * 3
-        let widthPerItem = availableWidth / 2
+        let padding: CGFloat = 5
+        let availableWidth = collectionView.frame.width - padding * 5 // Adjusted for 4 items with 5 paddings
+        let widthPerItem = availableWidth / 4 // Changed from 2 to 4 columns
         return CGSize(width: widthPerItem, height: widthPerItem)
     }
 }

@@ -44,6 +44,19 @@ class NotificationManager {
     
     /// Gets all notifications
     func getNotifications() -> [ReplyNotification] {
+        // Ensure we're on the main thread when accessing UserDefaults
+        if !Thread.isMainThread {
+            var result: [ReplyNotification] = []
+            DispatchQueue.main.sync {
+                result = self.fetchNotificationsFromDefaults()
+            }
+            return result
+        }
+        return fetchNotificationsFromDefaults()
+    }
+    
+    /// Helper method to fetch notifications from UserDefaults
+    private func fetchNotificationsFromDefaults() -> [ReplyNotification] {
         let defaults = UserDefaults.standard
         defaults.synchronize()
         
@@ -115,6 +128,14 @@ class NotificationManager {
     
     /// Gets unread notification count
     func getUnreadCount() -> Int {
+        // Ensure we're on the main thread when accessing UserDefaults
+        if !Thread.isMainThread {
+            var count = 0
+            DispatchQueue.main.sync {
+                count = getNotifications().filter { !$0.isRead }.count
+            }
+            return count
+        }
         return getNotifications().filter { !$0.isRead }.count
     }
     
@@ -129,12 +150,31 @@ class NotificationManager {
     }
     
     private func updateUnreadCount() {
+        // Ensure we're on the main thread when updating UserDefaults
+        if !Thread.isMainThread {
+            DispatchQueue.main.async {
+                self.updateUnreadCountOnMainThread()
+            }
+            return
+        }
+        updateUnreadCountOnMainThread()
+    }
+    
+    private func updateUnreadCountOnMainThread() {
         let count = getUnreadCount()
         UserDefaults.standard.set(count, forKey: unreadCountKey)
         UserDefaults.standard.synchronize()
     }
     
     @objc private func userDefaultsDidChange(_ notification: Notification) {
+        // Ensure we're on the main thread when posting notifications
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                self?.userDefaultsDidChange(notification)
+            }
+            return
+        }
+        
         // Notify UI that data might have changed
         NotificationCenter.default.post(name: .notificationDataChanged, object: nil)
     }

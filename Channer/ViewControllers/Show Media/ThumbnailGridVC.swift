@@ -39,8 +39,8 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
     
     private func setupCollectionView() {
         let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 10
-        layout.minimumLineSpacing = 10
+        layout.minimumInteritemSpacing = 5
+        layout.minimumLineSpacing = 5
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -138,10 +138,10 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
     // Defines the layout of the collection view cells.
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        // Calculate the width for three items across, with 10 points of spacing between them
-        let padding: CGFloat = 10
-        let availableWidth = collectionView.frame.width - (padding * 2) // Space for 3 items and 2 paddings between them
-        let widthPerItem = availableWidth / 3
+        // Calculate the width for four items across, with 5 points of spacing between them
+        let padding: CGFloat = 5
+        let availableWidth = collectionView.frame.width - (padding * 3) // Space for 4 items and 3 paddings between them
+        let widthPerItem = availableWidth / 4
         return CGSize(width: widthPerItem, height: widthPerItem)
     }
     

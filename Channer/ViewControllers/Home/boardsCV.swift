@@ -149,11 +149,16 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
 
         // Add toolbox button that contains History, Favorites, Search, and Files
-        let toolboxButton = UIBarButtonItem(image: UIImage(systemName: "tray.2"), style: .plain, target: self, action: #selector(showToolboxMenu))
+        let toolboxImage = UIImage(named: "toolbox")?.withRenderingMode(.alwaysTemplate).resized(to: CGSize(width: 22, height: 22))
+        let toolboxButton = UIBarButtonItem(image: toolboxImage, style: .plain, target: self, action: #selector(showToolboxMenu))
         navigationItem.leftBarButtonItem = toolboxButton
         
         // Add notification bell button
-        let notificationButton = UIBarButtonItem(image: UIImage(systemName: "bell"), style: .plain, target: self, action: #selector(showNotifications))
+        // Create bell icon with fixed size to match other nav bar buttons
+        let bellImage = UIImage(systemName: "bell")?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 22, weight: .regular))
+        // Scale to exact size to ensure consistency
+        let resizedBellImage = bellImage?.resized(to: CGSize(width: 22, height: 22))
+        let notificationButton = UIBarButtonItem(image: resizedBellImage, style: .plain, target: self, action: #selector(showNotifications))
         notificationButton.tag = 100 // Tag for updating badge later
         
         // Add settings button
@@ -350,34 +355,42 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     
     /// Updates the notification badge count
     @objc private func updateNotificationBadge() {
+        // Ensure this runs on the main thread
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                self?.updateNotificationBadge()
+            }
+            return
+        }
+        
         let unreadCount = NotificationManager.shared.getUnreadCount()
         
         if let notificationButton = navigationItem.rightBarButtonItems?.first(where: { $0.tag == 100 }) {
+            // Create a properly sized icon
+            let iconName: String
+            
             if unreadCount > 0 {
-                // Create a custom badge with count
-                let configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-                
                 // Different approach based on iOS version
                 if #available(iOS 16.0, *) {
                     // iOS 16+ can use system badge
-                    if unreadCount > 99 {
-                        notificationButton.image = UIImage(systemName: "bell.badge.fill", withConfiguration: configuration)
-                    } else {
-                        notificationButton.image = UIImage(systemName: "bell.badge", withConfiguration: configuration)
-                    }
+                    iconName = unreadCount > 99 ? "bell.badge.fill" : "bell.badge"
                 } else {
                     // Fallback for older iOS versions
-                    notificationButton.image = UIImage(systemName: "bell.badge.fill", withConfiguration: configuration)
+                    iconName = "bell.badge.fill"
                 }
                 
                 // Set tint color to indicate unread
                 notificationButton.tintColor = .systemRed
             } else {
-                // Show normal bell icon
-                let configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-                notificationButton.image = UIImage(systemName: "bell", withConfiguration: configuration)
+                iconName = "bell"
                 notificationButton.tintColor = nil // Use default tint color
             }
+            
+            // Create and resize the icon consistently with other nav buttons
+            let symbolConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+            let baseImage = UIImage(systemName: iconName)?.withConfiguration(symbolConfig)
+            let resizedImage = baseImage?.resized(to: CGSize(width: 22, height: 22))
+            notificationButton.image = resizedImage
         }
     }
     

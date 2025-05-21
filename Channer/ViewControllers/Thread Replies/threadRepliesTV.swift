@@ -1171,7 +1171,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Update the favorite button's image
         let favoriteImageName = isFavorited ? "favoriteFilled" : "favorite"
         if let favoriteButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(toggleFavorite) }) {
-            favoriteButton.image = UIImage(named: favoriteImageName)
+            let favoriteImage = UIImage(named: favoriteImageName)?.withRenderingMode(.alwaysTemplate)
+            let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
+            favoriteButton.image = resizedFavoriteImage
         } else {
             print("Favorite button not found in rightBarButtonItems")
         }

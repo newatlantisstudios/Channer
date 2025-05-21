@@ -26,6 +26,23 @@ class threadReplyCell: UICollectionViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         setupPointerInteraction()
+        
+        // Make thread button larger and more noticeable
+        if let threadButton = thread {
+            threadButton.showsTouchWhenHighlighted = true
+            threadButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+            threadButton.layer.cornerRadius = 15
+            threadButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+            threadButton.tintColor = .systemBlue
+            
+            threadButton.layer.shadowColor = UIColor.black.cgColor
+            threadButton.layer.shadowOffset = CGSize(width: 0, height: 2)
+            threadButton.layer.shadowOpacity = 0.2
+            threadButton.layer.shadowRadius = 3
+            
+            // Increase size (will need to adjust constraints in storyboard)
+            threadButton.transform = CGAffineTransform(scaleX: 1.5, y: 1.5)
+        }
     }
     
     // Prepare for reuse to clean up resources
