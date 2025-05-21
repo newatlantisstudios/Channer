@@ -9,6 +9,31 @@ private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
 
 class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        // Only provide shortcuts on iPad
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let nextBoardCommand = UIKeyCommand(input: UIKeyCommand.inputRightArrow, 
+                                               modifierFlags: [], 
+                                               action: #selector(nextBoard),
+                                               discoverabilityTitle: "Next Board")
+            
+            let previousBoardCommand = UIKeyCommand(input: UIKeyCommand.inputLeftArrow, 
+                                                  modifierFlags: [], 
+                                                  action: #selector(previousBoard),
+                                                  discoverabilityTitle: "Previous Board")
+            
+            let openSelectedBoardCommand = UIKeyCommand(input: "\r", 
+                                                      modifierFlags: [], 
+                                                      action: #selector(openSelectedBoard),
+                                                      discoverabilityTitle: "Open Selected Board")
+            
+            return [nextBoardCommand, previousBoardCommand, openSelectedBoardCommand]
+        }
+        
+        return nil
+    }
+
     // MARK: - Properties
     /// Flag to track if we've already performed the initial startup navigation
     private var hasPerformedStartupNavigation = false
@@ -99,6 +124,12 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Register for keyboard shortcuts notifications
+        NotificationCenter.default.addObserver(self, 
+                                             selector: #selector(keyboardShortcutsToggled(_:)), 
+                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
+                                             object: nil)
         
         // Sort boards alphabetically
         sortBoardsAlphabetically()
@@ -424,7 +455,6 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Configure the cell
         cell.boardName.text = boardNames[indexPath.row] // Ensure this array has valid strings
         cell.boardNameAbv.text = "/" + boardsAbv[indexPath.row] + "/" // Ensure this array matches `boardNames`
-        cell.boardImage.image = UIImage(named: "boardSquare") // Replace with your actual image logic
 
         return cell
     }
@@ -458,53 +488,6 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         }
     }
     
-    // MARK: - Keyboard Shortcuts
-    override var keyCommands: [UIKeyCommand]? {
-        return KeyboardShortcutManager.shared.getBoardsViewShortcuts(target: self)
-    }
-    
-    @objc func nextBoard() {
-        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
-            // If nothing is selected, select the first item
-            let firstIndexPath = IndexPath(item: 0, section: 0)
-            collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredVertically)
-            return
-        }
-        
-        let nextItem = selectedIndexPath.item + 1
-        if nextItem < collectionView.numberOfItems(inSection: selectedIndexPath.section) {
-            let nextIndexPath = IndexPath(item: nextItem, section: selectedIndexPath.section)
-            collectionView.selectItem(at: nextIndexPath, animated: true, scrollPosition: .centeredVertically)
-        }
-    }
-    
-    @objc func previousBoard() {
-        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
-            // If nothing is selected, select the first item
-            let firstIndexPath = IndexPath(item: 0, section: 0)
-            collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredVertically)
-            return
-        }
-        
-        let prevItem = selectedIndexPath.item - 1
-        if prevItem >= 0 {
-            let prevIndexPath = IndexPath(item: prevItem, section: selectedIndexPath.section)
-            collectionView.selectItem(at: prevIndexPath, animated: true, scrollPosition: .centeredVertically)
-        }
-    }
-    
-    @objc func openSelectedBoard() {
-        guard let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first else {
-            return
-        }
-        
-        collectionView(collectionView, didSelectItemAt: selectedIndexPath)
-    }
-    
-    @objc func refreshBoards() {
-        // Reload the collection view data
-        collectionView.reloadData()
-    }
     
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Returns the minimum spacing between items in the same row.
@@ -567,7 +550,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
         let cellWidth = floor(availableWidth / numberOfColumns)
         
-        return CGSize(width: cellWidth, height: cellWidth)
+        // Make the cell height slightly higher to accommodate the text better
+        let cellHeight = cellWidth * 1.2
+        
+        return CGSize(width: cellWidth, height: cellHeight)
     }
     
     /// Configures the layout of the collection view.
@@ -581,7 +567,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         
         // Smaller spacing for iPad to fit more cells
         let interItemSpacing: CGFloat = isPad ? 8 : 10  // Horizontal space between cells
-        let lineSpacing: CGFloat = isPad ? 8 : 10       // Vertical space between rows
+        let lineSpacing: CGFloat = isPad ? 12 : 16      // Vertical space between rows - increased for better readability
         
         // Define section insets - smaller for iPad
         let sectionInset: CGFloat = isPad ? 8 : 10
@@ -614,8 +600,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
         let cellWidth = floor(availableWidth / numberOfColumns)
         
-        // Keep cell height equal to width for square cells
-        let cellHeight = cellWidth
+        // Make cells slightly taller to better fit text
+        let cellHeight = cellWidth * 1.2
         
         // Configure layout
         layout.itemSize = CGSize(width: cellWidth, height: cellHeight)
@@ -631,46 +617,61 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     
     // MARK: - Keyboard Shortcuts
     
-    /// Gets the key commands for this view controller
-    override var keyCommands: [UIKeyCommand]? {
-        return KeyboardShortcutManager.shared.getBoardsViewShortcuts(target: self)
-    }
-    
     /// Navigate to the next board
     @objc func nextBoard() {
         // Get the currently visible cell index paths
-        guard let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }) else {
+        let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row })
+        if visibleIndexPaths.isEmpty {
+            // If no cells are visible, select the first one
+            if boardNames.count > 0 {
+                let firstIndexPath = IndexPath(row: 0, section: 0)
+                collectionView.scrollToItem(at: firstIndexPath, at: .centeredHorizontally, animated: true)
+                collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredHorizontally)
+            }
             return
         }
         
-        if let currentIndexPath = visibleIndexPaths.last, currentIndexPath.row < boardNames.count - 1 {
+        // Get the selected index path, or use the last visible one
+        let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first ?? visibleIndexPaths.last
+        
+        if let currentIndexPath = selectedIndexPath, currentIndexPath.row < boardNames.count - 1 {
             // Calculate the next index path
             let nextIndexPath = IndexPath(row: currentIndexPath.row + 1, section: currentIndexPath.section)
             
             // Scroll to the next cell
-            collectionView.scrollToItem(at: nextIndexPath, at: .bottom, animated: true)
+            collectionView.scrollToItem(at: nextIndexPath, at: .centeredHorizontally, animated: true)
             
             // Select the next cell
-            collectionView.selectItem(at: nextIndexPath, animated: true, scrollPosition: .bottom)
+            collectionView.selectItem(at: nextIndexPath, animated: true, scrollPosition: .centeredHorizontally)
         }
     }
     
     /// Navigate to the previous board
     @objc func previousBoard() {
         // Get the currently visible cell index paths
-        guard let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }) else {
+        let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row })
+        if visibleIndexPaths.isEmpty {
+            // If no cells are visible, select the first one
+            if boardNames.count > 0 {
+                let firstIndexPath = IndexPath(row: 0, section: 0)
+                collectionView.scrollToItem(at: firstIndexPath, at: .centeredHorizontally, animated: true)
+                collectionView.selectItem(at: firstIndexPath, animated: true, scrollPosition: .centeredHorizontally)
+            }
             return
         }
         
-        if let currentIndexPath = visibleIndexPaths.first, currentIndexPath.row > 0 {
+        // Get the selected index path, or use the first visible one
+        let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first ?? visibleIndexPaths.first
+        
+        if let currentIndexPath = selectedIndexPath, currentIndexPath.row > 0 {
             // Calculate the previous index path
             let prevIndexPath = IndexPath(row: currentIndexPath.row - 1, section: currentIndexPath.section)
             
             // Scroll to the previous cell
-            collectionView.scrollToItem(at: prevIndexPath, at: .top, animated: true)
+            collectionView.scrollToItem(at: prevIndexPath, at: .centeredHorizontally, animated: true)
             
             // Select the previous cell
-            collectionView.selectItem(at: prevIndexPath, animated: true, scrollPosition: .top)
+            collectionView.selectItem(at: prevIndexPath, animated: true, scrollPosition: .centeredHorizontally)
         }
     }
     
@@ -680,11 +681,19 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         if let selectedIndexPath = collectionView.indexPathsForSelectedItems?.first {
             // Open the selected board by calling the collection view delegate method
             collectionView(collectionView, didSelectItemAt: selectedIndexPath)
-        } else if let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row }), 
-                  let firstVisible = visibleIndexPaths.first {
-            // If no cell is selected, select and open the first visible one
-            collectionView.selectItem(at: firstVisible, animated: true, scrollPosition: .centeredVertically)
-            collectionView(collectionView, didSelectItemAt: firstVisible)
+        } else {
+            let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted(by: { $0.row < $1.row })
+            if let firstVisible = visibleIndexPaths.first {
+                // If no cell is selected, select and open the first visible one
+                collectionView.selectItem(at: firstVisible, animated: true, scrollPosition: .centeredVertically)
+                collectionView(collectionView, didSelectItemAt: firstVisible)
+            }
         }
+    }
+    
+    /// Called when keyboard shortcuts are toggled in settings
+    @objc func keyboardShortcutsToggled(_ notification: Notification) {
+        // This will trigger recreation of the keyCommands array
+        self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 }

@@ -56,11 +56,9 @@
 
     - [ ]  4Chan X features
 
-      - [ ] iPad Apple Pencil feature - In the threads view the user needs to be able to use the pencil and hover over the content and see the thread picture. The thread picture will hovered over the UI. Once the user stop hovering 
-      - [ ] iPad Apple Pencil feature - quote link show reply
       - [ ] Thread view - auto play videos without touching them 
       - [ ] Thread view - max quality images without touching them
-
+      
     - [x] Toolbox - Offline, History, Favorites, Files
 
     - [x] All favorites make offline
@@ -79,7 +77,7 @@
 
     - [x] iPad Keyboard shortcuts
 
-    - [ ] Boards - list or collection view
+    - [x] Boards - list or collection view
 
       
 

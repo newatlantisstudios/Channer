@@ -96,100 +96,6 @@ struct ThreadData: Codable {
 }
 
 class boardTV: UITableViewController, UISearchBarDelegate {
-    
-    // MARK: - Keyboard Shortcuts
-    override var keyCommands: [UIKeyCommand]? {
-        // Only provide shortcuts on iPad
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            let nextThreadCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow, 
-                                                modifierFlags: [], 
-                                                action: #selector(nextThread),
-                                                discoverabilityTitle: "Next Thread")
-            
-            let previousThreadCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow, 
-                                                    modifierFlags: [], 
-                                                    action: #selector(previousThread),
-                                                    discoverabilityTitle: "Previous Thread")
-            
-            let openSelectedThreadCommand = UIKeyCommand(input: "\r", 
-                                                       modifierFlags: [], 
-                                                       action: #selector(openSelectedThread),
-                                                       discoverabilityTitle: "Open Selected Thread")
-            
-            let refreshThreadsCommand = UIKeyCommand(input: "r", 
-                                                   modifierFlags: .command, 
-                                                   action: #selector(refreshThreads),
-                                                   discoverabilityTitle: "Refresh Threads")
-            
-            return [nextThreadCommand, previousThreadCommand, openSelectedThreadCommand, refreshThreadsCommand]
-        }
-        
-        return nil
-    }
-    
-    // MARK: - Keyboard Shortcut Methods
-    
-    /// Navigate to the next thread
-    @objc func nextThread() {
-        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
-            // If nothing is selected, select the first row
-            let firstIndexPath = IndexPath(row: 0, section: 0)
-            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
-            return
-        }
-        
-        // Calculate the next row
-        let nextRow = selectedIndexPath.row + 1
-        if nextRow < tableView.numberOfRows(inSection: 0) {
-            let nextIndexPath = IndexPath(row: nextRow, section: 0)
-            tableView.selectRow(at: nextIndexPath, animated: true, scrollPosition: .middle)
-        }
-    }
-    
-    /// Navigate to the previous thread
-    @objc func previousThread() {
-        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
-            // If nothing is selected, select the first row
-            let firstIndexPath = IndexPath(row: 0, section: 0)
-            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
-            return
-        }
-        
-        // Calculate the previous row
-        let prevRow = selectedIndexPath.row - 1
-        if prevRow >= 0 {
-            let prevIndexPath = IndexPath(row: prevRow, section: 0)
-            tableView.selectRow(at: prevIndexPath, animated: true, scrollPosition: .middle)
-        }
-    }
-    
-    /// Open the selected thread
-    @objc func openSelectedThread() {
-        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
-            // If nothing is selected, select the first row and open it
-            let firstIndexPath = IndexPath(row: 0, section: 0)
-            tableView.selectRow(at: firstIndexPath, animated: false, scrollPosition: .none)
-            tableView(tableView, didSelectRowAt: firstIndexPath)
-            return
-        }
-        
-        // Open the selected thread
-        tableView(tableView, didSelectRowAt: selectedIndexPath)
-    }
-    
-    /// Refresh threads
-    @objc func refreshThreads() {
-        // Trigger a refresh of the threads from the board
-        refreshControl?.beginRefreshing()
-        loadThreads() // Assuming loadThreads is the method that fetches threads
-    }
-    
-    /// Called when keyboard shortcuts are toggled in settings
-    @objc func keyboardShortcutsToggled(_ notification: Notification) {
-        // This will trigger recreation of the keyCommands array
-        self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-    }
-    
     // MARK: - Properties
     // This section contains properties and variables used throughout the class,
     // including data arrays, UI components, and flags.
@@ -232,12 +138,6 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Register for keyboard shortcuts notifications
-        NotificationCenter.default.addObserver(self, 
-                                             selector: #selector(keyboardShortcutsToggled(_:)), 
-                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
-                                             object: nil)
         
         print("=== boardTV viewDidLoad ===")
         print("Is favorites view: \(isFavoritesView)")
@@ -1164,7 +1064,52 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
     }
     
-    // Keyboard shortcut methods have been moved earlier in the class
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        return KeyboardShortcutManager.shared.getBoardThreadsShortcuts(target: self)
+    }
+    
+    @objc func nextThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let nextRow = selectedIndexPath.row + 1
+        if nextRow < tableView.numberOfRows(inSection: selectedIndexPath.section) {
+            let nextIndexPath = IndexPath(row: nextRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: nextIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func previousThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            // If nothing is selected, select the first row
+            let firstIndexPath = IndexPath(row: 0, section: 0)
+            tableView.selectRow(at: firstIndexPath, animated: true, scrollPosition: .middle)
+            return
+        }
+        
+        let prevRow = selectedIndexPath.row - 1
+        if prevRow >= 0 {
+            let prevIndexPath = IndexPath(row: prevRow, section: selectedIndexPath.section)
+            tableView.selectRow(at: prevIndexPath, animated: true, scrollPosition: .middle)
+        }
+    }
+    
+    @objc func openSelectedThread() {
+        guard let selectedIndexPath = tableView.indexPathForSelectedRow else {
+            return
+        }
+        
+        tableView(tableView, didSelectRowAt: selectedIndexPath)
+    }
+    
+    @objc func refreshThreads() {
+        refreshTable()
+    }
     
     @objc func refreshTable() {
         // Refresh all threads
@@ -1305,4 +1250,4 @@ extension boardTV {
         }
         tableView.reloadData()
     }
-}
+    

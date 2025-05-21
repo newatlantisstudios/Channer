@@ -1,18 +1,11 @@
 import UIKit
 
-/// A custom `UICollectionViewCell` subclass representing a board cell with an image and labels.
+/// A custom `UICollectionViewCell` subclass representing a board cell with labels.
 class boardCVCell: UICollectionViewCell {
 
     // MARK: - UI Components
-    // Define UI elements for the cell's content.
-
-    /// Image view displaying the board's image.
-    let boardImage: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFill // Set the image to scale aspect fill.
-        imageView.clipsToBounds = true // Ensure the image doesn't overflow its bounds.
-        return imageView
-    }()
+    // Background container for content
+    private let containerView = UIView()
 
     /// Label displaying the board's name.
     let boardName: UILabel = {
@@ -21,14 +14,14 @@ class boardCVCell: UICollectionViewCell {
         // Get device type to set appropriate font size
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         
-        // Smaller font size for iPad to match smaller cells
-        label.font = UIFont.boldSystemFont(ofSize: isPad ? 12 : 14)
-        label.textAlignment = .center // Center the text.
-        label.textColor = UIColor.black
-        label.numberOfLines = 2 // Allow up to 2 lines.
-        label.lineBreakMode = .byTruncatingTail // Truncate with ellipsis if it exceeds the width.
-        label.adjustsFontSizeToFitWidth = true // Adjust font size if needed
-        label.minimumScaleFactor = 0.7 // Allow scaling down more for smaller cells
+        // Adjusted font sizes
+        label.font = UIFont.systemFont(ofSize: isPad ? 13 : 15, weight: .medium)
+        label.textAlignment = .center
+        label.textColor = .label // Use system label color for automatic light/dark support
+        label.numberOfLines = 2 // Allow up to 2 lines
+        label.lineBreakMode = .byTruncatingTail
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
         return label
     }()
 
@@ -39,19 +32,17 @@ class boardCVCell: UICollectionViewCell {
         // Get device type to set appropriate font size
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         
-        // Smaller font size for iPad to match smaller cells
-        label.font = UIFont.systemFont(ofSize: isPad ? 10 : 12)
+        // Adjusted font sizes
+        label.font = UIFont.systemFont(ofSize: isPad ? 11 : 13)
         label.textAlignment = .center
-        label.textColor = UIColor.black
+        label.textColor = .secondaryLabel // Use system secondary label color for automatic light/dark support
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.7 // Allow scaling down more for smaller cells
+        label.minimumScaleFactor = 0.7
         return label
     }()
 
     // MARK: - Initializers
-    // Initialize the cell and set up its views and constraints.
-
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupViews()
@@ -63,39 +54,88 @@ class boardCVCell: UICollectionViewCell {
     }
 
     // MARK: - Setup Methods
-    // Private methods to set up views and constraints.
-
     /// Sets up the views by adding subviews and configuring their properties.
     private func setupViews() {
-        contentView.addSubview(boardImage)
-        boardImage.addSubview(boardName)
-        boardImage.addSubview(boardNameAbv)
-        contentView.layer.cornerRadius = 8
-        contentView.layer.masksToBounds = true
+        // Configure container view
+        containerView.backgroundColor = .secondarySystemBackground
+        containerView.layer.cornerRadius = 12
+        containerView.clipsToBounds = true
+        
+        // Add shadow to the cell
+        contentView.layer.shadowColor = UIColor.black.cgColor
+        contentView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        contentView.layer.shadowRadius = 4
+        contentView.layer.shadowOpacity = 0.1
+        contentView.layer.masksToBounds = false
+        
+        // Add subviews
+        contentView.addSubview(containerView)
+        containerView.addSubview(boardName)
+        containerView.addSubview(boardNameAbv)
     }
 
     /// Sets up the Auto Layout constraints for the subviews.
     private func setupConstraints() {
-        boardImage.translatesAutoresizingMaskIntoConstraints = false
+        containerView.translatesAutoresizingMaskIntoConstraints = false
         boardName.translatesAutoresizingMaskIntoConstraints = false
         boardNameAbv.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            // boardImage constraints: fill the entire contentView
-            boardImage.topAnchor.constraint(equalTo: contentView.topAnchor),
-            boardImage.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            boardImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            boardImage.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            // Container view constraints - smaller than contentView to allow for shadow
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 2),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 2),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -2),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -2),
 
-            // boardName constraints
-            boardName.centerXAnchor.constraint(equalTo: boardImage.centerXAnchor),
-            boardName.centerYAnchor.constraint(equalTo: boardImage.centerYAnchor, constant: -8),
-            boardName.leadingAnchor.constraint(greaterThanOrEqualTo: boardImage.leadingAnchor, constant: 4),
-            boardName.trailingAnchor.constraint(lessThanOrEqualTo: boardImage.trailingAnchor, constant: -4),
-
-            // boardNameAbv constraints
-            boardNameAbv.centerXAnchor.constraint(equalTo: boardImage.centerXAnchor),
-            boardNameAbv.topAnchor.constraint(equalTo: boardName.bottomAnchor, constant: 4)
+            // Board name constraints - top portion of cell
+            boardName.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
+            boardName.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
+            boardName.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -4),
+            boardName.centerYAnchor.constraint(equalTo: containerView.centerYAnchor, constant: -10),
+            
+            // Board abbreviation constraints - bottom portion of cell
+            boardNameAbv.topAnchor.constraint(equalTo: boardName.bottomAnchor, constant: 4),
+            boardNameAbv.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
+            boardNameAbv.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -4),
+            boardNameAbv.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -12)
         ])
+    }
+    
+    // MARK: - Theme Updates
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        // Update colors for theme changes (light/dark mode)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            containerView.backgroundColor = .secondarySystemBackground
+            boardName.textColor = .label
+            boardNameAbv.textColor = .secondaryLabel
+        }
+    }
+    
+    // MARK: - Cell Selection
+    override var isSelected: Bool {
+        didSet {
+            // Add visual feedback when cell is selected
+            UIView.animate(withDuration: 0.2) {
+                self.containerView.backgroundColor = self.isSelected ? 
+                    .systemGray4 : 
+                    .secondarySystemBackground
+                
+                // Scale the cell slightly when selected
+                self.transform = self.isSelected ? 
+                    CGAffineTransform(scaleX: 0.95, y: 0.95) : 
+                    CGAffineTransform.identity
+            }
+        }
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        // Reset any properties that might have been changed
+        transform = CGAffineTransform.identity
+        containerView.backgroundColor = .secondarySystemBackground
     }
 }

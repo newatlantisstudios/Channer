@@ -233,6 +233,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                              selector: #selector(keyboardShortcutsToggled(_:)), 
                                              name: NSNotification.Name("KeyboardShortcutsToggled"), 
                                              object: nil)
+                                             
+        // Enable hover interactions for Apple Pencil
+        #if canImport(UIHoverGestureRecognizer)
+        if #available(iOS 13.4, *) {
+            print("threadRepliesTV: Setting up hover gesture support")
+            // Enable hover interactions for the entire view
+            self.view.isUserInteractionEnabled = true
+            // Configure hover interactions for existing cells
+            for cell in tableView.visibleCells {
+                if let replyCell = cell as? threadRepliesCell {
+                    replyCell.setupHoverGestureRecognizer()
+                }
+            }
+        }
+        #endif
         
         // Search bar setup
         setupSearchBar()
@@ -258,7 +273,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         checkIfFavorited()
         loadInitialData()
         setupAutoRefreshTimer()
-
+        
+        // Hover gesture support now handled by cells directly
         
         // Table constraints
         NSLayoutConstraint.activate([
@@ -274,6 +290,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        
+        // Clean up hover interactions when view disappears
         
         // Stop auto-refresh timer when view disappears
         stopAutoRefreshTimer()
@@ -744,6 +762,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Set the text view delegate to self
         cell.replyTextDelegate = self
         
+        // Add visual indicator for hover functionality
+        if #available(iOS 13.4, *) {
+            if actualIndex < threadRepliesImages.count {
+                let hasValidImage = threadRepliesImages[actualIndex] != "https://i.4cdn.org/\(boardAbv)/"
+                
+                if hasValidImage {
+                    // Visual indicator for hover capability
+                    cell.threadImage.layer.borderWidth = 1.0
+                    cell.threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+                }
+            }
+        }
+        
         // Debug: Start of cell configuration
         //print("Debug: Configuring cell at row \(indexPath.row)")
         
@@ -782,6 +813,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if hasImage {
                 //print("Debug: Configuring image with URL: \(imageUrl)")
                 configureImage(for: cell, with: imageUrl)
+                
+                // Prepare cell for hover interaction
+                if #available(iOS 13.4, *) {
+                    // Add visual indicator for hover capability
+                    cell.threadImage.layer.borderWidth = 1.0
+                    cell.threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+                    
+                    // Store the image URL for hover preview
+                    cell.setImageURL(imageUrl) 
+                }
                 cell.threadImage.tag = actualIndex
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
             }

@@ -2,6 +2,10 @@ import UIKit
 import Kingfisher
 
 class threadRepliesCell: UITableViewCell {
+    // Variables for hover functionality
+    private var imageURL: String?
+    private var hoveredImageView: UIImageView?
+    private var pointerInteraction: UIPointerInteraction?
 
     // MARK: - UI Components
     let threadImage: UIButton = {
@@ -105,10 +109,17 @@ class threadRepliesCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupSubviews()
         setupConstraints()
+        setupPointerInteraction()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    // Prepare for reuse to clean up resources
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        removeHoverPreview()
     }
     
     // Update UI when trait collection changes (light/dark mode)
@@ -252,6 +263,9 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.alpha = 1.0 // Normal opacity
         }
 
+        // Update hover interaction
+        updatePointerInteractionIfNeeded()
+        
         setNeedsLayout()
         layoutIfNeeded()
     }
@@ -259,5 +273,205 @@ class threadRepliesCell: UITableViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         contentView.layoutIfNeeded()
+    }
+    
+    // MARK: - Pointer Interaction for Apple Pencil Hover
+    
+    private func setupPointerInteraction() {
+        // Remove any existing interaction
+        if let existingInteraction = pointerInteraction {
+            threadImage.removeInteraction(existingInteraction)
+        }
+        
+        // Create new interaction
+        pointerInteraction = UIPointerInteraction(delegate: self)
+        if let interaction = pointerInteraction {
+            threadImage.addInteraction(interaction)
+            
+            // Add blue border to indicate hover capability
+            threadImage.layer.borderWidth = 2.0
+            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+        }
+    }
+    
+    private func updatePointerInteractionIfNeeded() {
+        // Make sure we only set up interaction for visible images
+        if !threadImage.isHidden {
+            setupPointerInteraction()
+        }
+    }
+    
+    // Show preview for Apple Pencil hover
+    private func showHoverPreview(at location: CGPoint) {
+        // Remove any existing preview
+        removeHoverPreview()
+        
+        guard let image = threadImage.imageView?.image else { return }
+        
+        // Create overlay view for the entire screen
+        let overlayView = UIView()
+        
+        // Create preview image view with larger size
+        let previewSize: CGFloat = 550
+        let imageView = UIImageView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
+        imageView.contentMode = .scaleAspectFit
+        imageView.layer.cornerRadius = 15
+        imageView.clipsToBounds = true
+        imageView.backgroundColor = UIColor.systemBackground
+        imageView.layer.borderColor = UIColor.label.cgColor
+        imageView.layer.borderWidth = 1.0
+        imageView.layer.shadowColor = UIColor.black.cgColor
+        imageView.layer.shadowOffset = CGSize(width: 0, height: 5)
+        imageView.layer.shadowOpacity = 0.5
+        imageView.layer.shadowRadius = 12
+        imageView.image = image
+        
+        // Position the image in the center of the screen
+        // Add to window safely
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            
+            // Configure overlay to cover the entire screen with a semi-transparent background
+            overlayView.frame = window.bounds
+            overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+            
+            // Add tap gesture to dismiss the preview
+            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handlePreviewTap(_:)))
+            overlayView.addGestureRecognizer(tapGesture)
+            overlayView.isUserInteractionEnabled = true
+            
+            // Center the preview in the window
+            let centerX = window.bounds.width / 2
+            let centerY = window.bounds.height / 2
+            
+            // Position relative to center
+            imageView.frame.origin = CGPoint(
+                x: centerX - (previewSize / 2),
+                y: centerY - (previewSize / 2)
+            )
+            
+            // Add the overlay first, then the image on top
+            window.addSubview(overlayView)
+            window.addSubview(imageView)
+            
+            // Store references to both views
+            overlayView.tag = 9998
+            imageView.tag = 9999
+            hoveredImageView = imageView
+            
+            // Add appear animation - faster for better responsiveness
+            imageView.alpha = 0
+            imageView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            
+            UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseOut) {
+                imageView.alpha = 1
+                imageView.transform = .identity
+            }
+        }
+    }
+    
+    // Update position of hover preview
+    private func updateHoverPreviewPosition(to location: CGPoint) {
+        guard let imageView = hoveredImageView else { return }
+        
+        let previewSize = imageView.frame.size.width
+        let positionY = location.y - previewSize - 20
+        let positionX = location.x - (previewSize / 2)
+        
+        // Use window bounds to keep preview on screen
+        if let window = imageView.window {
+            let minX: CGFloat = 20
+            let maxX = window.bounds.width - previewSize - 20
+            let finalX = max(minX, min(positionX, maxX))
+            
+            imageView.frame.origin = CGPoint(x: finalX, y: positionY)
+        } else {
+            imageView.frame.origin = CGPoint(x: positionX, y: positionY)
+        }
+    }
+    
+    // Remove hover preview
+    private func removeHoverPreview() {
+        guard let imageView = hoveredImageView else { return }
+        
+        // Find the overlay view using tag
+        let overlayView = imageView.superview?.viewWithTag(9998)
+        
+        // Animate out
+        UIView.animate(withDuration: 0.15, animations: {
+            imageView.alpha = 0
+            imageView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            overlayView?.alpha = 0
+        }, completion: { _ in
+            // Make sure views are still in hierarchy before removing
+            if imageView.superview != nil {
+                imageView.removeFromSuperview()
+            }
+            
+            if overlayView?.superview != nil {
+                overlayView?.removeFromSuperview()
+            }
+            
+            // Clear reference
+            if self.hoveredImageView === imageView {
+                self.hoveredImageView = nil
+            }
+        })
+    }
+    
+    deinit {
+        // Ensure we clean up any previews when cell is deallocated
+        if let imageView = hoveredImageView {
+            if imageView.superview != nil {
+                imageView.removeFromSuperview()
+            }
+            
+            // Also remove the overlay
+            if let overlayView = imageView.superview?.viewWithTag(9998), overlayView.superview != nil {
+                overlayView.removeFromSuperview()
+            }
+        }
+    }
+    
+    func setImageURL(_ url: String?) {
+        self.imageURL = url
+        // Mark image as hoverble with blue border
+        if !threadImage.isHidden {
+            threadImage.layer.borderWidth = 2.0
+            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+        }
+    }
+    
+    // Handle tap on the preview overlay to dismiss it
+    @objc private func handlePreviewTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        removeHoverPreview()
+    }
+}
+
+// MARK: - UIPointerInteractionDelegate
+extension threadRepliesCell: UIPointerInteractionDelegate {
+    func pointerInteraction(_ interaction: UIPointerInteraction, styleFor region: UIPointerRegion) -> UIPointerStyle? {
+        // Create a hover preview with the image shape
+        let targetRect = threadImage.bounds
+        let previewParams = UIPreviewParameters()
+        previewParams.visiblePath = UIBezierPath(roundedRect: targetRect, cornerRadius: 8)
+        
+        let preview = UITargetedPreview(view: threadImage, parameters: previewParams)
+        
+        return UIPointerStyle(effect: .highlight(preview), shape: nil)
+    }
+    
+    func pointerInteraction(_ interaction: UIPointerInteraction, willEnter region: UIPointerRegion, animator: UIPointerInteractionAnimating) {
+        guard !threadImage.isHidden, let window = window else { return }
+        
+        // Get the center of the threadImage in window coordinates
+        let imageCenter = threadImage.convert(CGPoint(x: threadImage.bounds.midX, y: threadImage.bounds.midY), to: window)
+        
+        // Show hover preview at this location
+        showHoverPreview(at: imageCenter)
+    }
+    
+    func pointerInteraction(_ interaction: UIPointerInteraction, willExit region: UIPointerRegion, animator: UIPointerInteractionAnimating) {
+        removeHoverPreview()
     }
 }

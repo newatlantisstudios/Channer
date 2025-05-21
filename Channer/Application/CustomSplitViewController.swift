@@ -10,6 +10,12 @@ class CustomSplitViewController: UISplitViewController {
         super.viewDidLoad()
         configureSplitView()
         
+        // Register for keyboard shortcuts notifications
+        NotificationCenter.default.addObserver(self, 
+                                             selector: #selector(keyboardShortcutsToggled(_:)), 
+                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
+                                             object: nil)
+        
         // Set background color using ThemeManager
         view.backgroundColor = ThemeManager.shared.backgroundColor
     }
@@ -77,6 +83,31 @@ class CustomSplitViewController: UISplitViewController {
         //print("Debug Info: Final Maximum Primary Column Width = \(maximumPrimaryColumnWidth)")
     }
     
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        // Only provide shortcuts on iPad
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let focusMasterCommand = UIKeyCommand(input: "[", 
+                                                 modifierFlags: .command, 
+                                                 action: #selector(focusMasterView),
+                                                 discoverabilityTitle: "Focus Master View")
+            
+            let focusDetailCommand = UIKeyCommand(input: "]", 
+                                                modifierFlags: .command, 
+                                                action: #selector(focusDetailView),
+                                                discoverabilityTitle: "Focus Detail View")
+            
+            let toggleSplitViewCommand = UIKeyCommand(input: "\\", 
+                                                    modifierFlags: .command, 
+                                                    action: #selector(toggleSplitView),
+                                                    discoverabilityTitle: "Toggle Split View")
+            
+            return [focusMasterCommand, focusDetailCommand, toggleSplitViewCommand]
+        }
+        
+        return nil
+    }
+    
     // MARK: - Keyboard Shortcut Methods
     
     /// Focus on the master view (left side of the split view)
@@ -107,5 +138,11 @@ class CustomSplitViewController: UISplitViewController {
         } else {
             preferredDisplayMode = .oneBesideSecondary
         }
+    }
+    
+    /// Called when keyboard shortcuts are toggled in settings
+    @objc func keyboardShortcutsToggled(_ notification: Notification) {
+        // This will trigger recreation of the keyCommands array
+        self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 }
