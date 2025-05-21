@@ -17,13 +17,30 @@ class urlWeb: UIViewController {
     // Lazy-loaded web view for displaying web content
     private lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
+        
+        // Configure for optimal video playback
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-
+        config.allowsPictureInPictureMediaPlayback = true
+        
+        // Enable all available media playback types
+        if #available(iOS 14.0, *) {
+            config.limitsNavigationsToAppBoundDomains = false
+        }
+        
+        // Add video-specific preferences
+        let preferences = WKPreferences()
+        preferences.javaScriptEnabled = true
+        preferences.javaScriptCanOpenWindowsAutomatically = true
+        config.preferences = preferences
+        
+        // Create the web view with the enhanced configuration
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.backgroundColor = .black
+        
         return webView
     }()
 
@@ -38,12 +55,16 @@ class urlWeb: UIViewController {
     // Media player for playing videos using AVPlayer
     private lazy var avPlayer: AVPlayer = {
         let player = AVPlayer()
+        // Configure AVPlayer for better streaming performance
+        player.automaticallyWaitsToMinimizeStalling = true
+        player.allowsExternalPlayback = true
         return player
     }()
     
     private lazy var playerLayer: AVPlayerLayer = {
         let layer = AVPlayerLayer(player: avPlayer)
-        layer.videoGravity = .resizeAspectFill
+        // Use resizeAspect instead of resizeAspectFill to avoid cropping
+        layer.videoGravity = .resizeAspect
         return layer
     }()
 
@@ -177,43 +198,160 @@ class urlWeb: UIViewController {
         var url = images[currentIndex]
         print("loadContent url: \(url)")
 
-        // If the URL ends with "s.jpg", replace it with ".webm"
+        // If the URL ends with "s.jpg", try to find the corresponding video file
         if url.absoluteString.hasSuffix("s.jpg") {
-            let modifiedURLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-            if let modifiedURL = URL(string: modifiedURLString) {
-                url = modifiedURL
+            // First try .webm
+            let webmURLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
+            if let webmURL = URL(string: webmURLString) {
+                url = webmURL
+                print("Using WebM URL: \(webmURL.absoluteString)")
+            } else {
+                // Try .mp4 if webm failed
+                let mp4URLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
+                if let mp4URL = URL(string: mp4URLString) {
+                    url = mp4URL
+                    print("Using MP4 URL: \(mp4URL.absoluteString)")
+                }
             }
         }
 
+        // Show activity indicator while content is loading
+        activityIndicator.startAnimating()
+        
         if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
-            // Hide web view and show video view
-            webView.isHidden = true
-            videoView.isHidden = false
+            print("Loading video: \(url.absoluteString)")
             
-            // Setup player layer if needed
-            if playerLayer.superlayer == nil {
-                videoView.layer.addSublayer(playerLayer)
-                playerLayer.frame = videoView.bounds
+            // First try native playback for MP4 files (more widely supported)
+            if url.pathExtension.lowercased() == "mp4" {
+                tryNativePlayback(url: url)
+            } 
+            // For WebM files, check file type before attempting native playback
+            else if url.pathExtension.lowercased() == "webm" {
+                // Start with web playback for WebM files which have better support in web view
+                tryWebPlayback(url: url)
+            } else {
+                // For any other video format, try native playback first
+                tryNativePlayback(url: url)
             }
-            
-            // Setup and play video
-            let playerItem = AVPlayerItem(url: url)
-            avPlayer.replaceCurrentItem(with: playerItem)
-            avPlayer.play()
-            
-            // Add observer for when playback ends
-            NotificationCenter.default.addObserver(self, 
-                                                   selector: #selector(playerItemDidReachEnd), 
-                                                   name: .AVPlayerItemDidPlayToEndTime, 
-                                                   object: playerItem)
         } else {
-            // Hide video view and show web view
-            videoView.isHidden = true
-            webView.isHidden = false
-
+            print("Loading web content: \(url.absoluteString)")
+            tryWebPlayback(url: url)
+        }
+    }
+    
+    // MARK: - Playback Helper Methods
+    
+    /// Attempts to play a video using native AVPlayer
+    private func tryNativePlayback(url: URL) {
+        print("Attempting native playback for: \(url.absoluteString)")
+        
+        // Hide web view and show video view
+        webView.isHidden = true
+        videoView.isHidden = false
+        
+        // Setup player layer if needed
+        if playerLayer.superlayer == nil {
+            videoView.layer.addSublayer(playerLayer)
+            playerLayer.frame = videoView.bounds
+        }
+        
+        // Create AVURLAsset with specific options for better streaming
+        let options = [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        let asset = AVURLAsset(url: url, options: options)
+        let playerItem = AVPlayerItem(asset: asset)
+        
+        // Add specific playback settings for better WebM compatibility
+        playerItem.audioTimePitchAlgorithm = .spectral
+        
+        // Set up observation of player item status
+        let observation = playerItem.observe(\.status, options: [.new]) { [weak self] (item, _) in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                switch item.status {
+                case .readyToPlay:
+                    // Successfully loaded, can play now
+                    print("Video ready to play: \(url.absoluteString)")
+                    self.avPlayer.play()
+                    
+                    // Add observer for when playback ends
+                    NotificationCenter.default.addObserver(self, 
+                                                      selector: #selector(self.playerItemDidReachEnd), 
+                                                      name: .AVPlayerItemDidPlayToEndTime, 
+                                                      object: playerItem)
+                    
+                case .failed:
+                    // Failed to load with native player, try web fallback
+                    let errorMessage = item.error?.localizedDescription ?? "Unknown error"
+                    print("Native playback failed: \(errorMessage), trying web playback")
+                    
+                    // Use web playback as fallback
+                    self.tryWebPlayback(url: url)
+                    
+                case .unknown:
+                    print("Video status unknown")
+                    
+                @unknown default:
+                    print("Unknown player status")
+                }
+                
+                self.activityIndicator.stopAnimating()
+            }
+        }
+        
+        // Store the observation to keep it alive
+        playerItem.accessibilityElements = [observation]
+        
+        // Set the player's item
+        self.avPlayer.replaceCurrentItem(with: playerItem)
+    }
+    
+    /// Attempts to play a video using WKWebView
+    private func tryWebPlayback(url: URL) {
+        print("Using web playback for: \(url.absoluteString)")
+        
+        // Hide video view and show web view
+        videoView.isHidden = true
+        webView.isHidden = false
+        
+        // Create HTML content for video playback
+        if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            // Create custom HTML for video display with proper controls
+            let videoHTML = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+                <style>
+                    body { margin: 0; padding: 0; background-color: #000; }
+                    video {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        object-fit: contain;
+                    }
+                </style>
+            </head>
+            <body>
+                <video controls autoplay loop playsinline>
+                    <source src="\(url.absoluteString)" type="video/\(url.pathExtension.lowercased())">
+                    Your browser does not support the video tag.
+                </video>
+            </body>
+            </html>
+            """
+            
+            webView.loadHTMLString(videoHTML, baseURL: nil)
+        } else {
+            // For non-video content, just load the URL directly
             let request = URLRequest(url: url)
             webView.load(request)
         }
+        
+        // Stop activity indicator
+        activityIndicator.stopAnimating()
     }
 
     // MARK: - Swipe Handling

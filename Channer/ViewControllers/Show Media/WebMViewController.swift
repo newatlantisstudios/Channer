@@ -131,10 +131,47 @@ class WebMViewController: UIViewController {
             playerLayer.frame = videoView.bounds
         }
         
+        // Show loading indicator
+        downloadingLabel.text = "Loading..."
+        downloadingLabel.isHidden = false
+        
         // Create a new player item and set it on the player
         let playerItem = AVPlayerItem(url: url)
+        
+        // Set up observation of player item status
+        let observation = playerItem.observe(\.status, options: [.new]) { [weak self] (item, _) in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                // Hide loading indicator
+                self.downloadingLabel.isHidden = true
+                
+                switch item.status {
+                case .readyToPlay:
+                    // Successfully loaded, can play now
+                    print("Video ready to play: \(url)")
+                    self.avPlayer.play()
+                    
+                case .failed:
+                    // Failed to load
+                    let errorMessage = item.error?.localizedDescription ?? "Unknown error"
+                    print("Failed to load video: \(errorMessage)")
+                    self.showAlert(message: "Failed to play video: \(errorMessage)")
+                    
+                case .unknown:
+                    print("Video status unknown")
+                    
+                @unknown default:
+                    print("Unknown player status")
+                }
+            }
+        }
+        
+        // Store the observation to keep it alive
+        playerItem.accessibilityElements = [observation]
+        
+        // Set the player's item
         avPlayer.replaceCurrentItem(with: playerItem)
-        avPlayer.play()
     }
     
     /// Called when the playback of a movie file has ended.

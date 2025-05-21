@@ -79,24 +79,38 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         var selectedURL = images[indexPath.row]
         print("ImageGalleryVC - selectedURL - " + selectedURL.absoluteString)
-
-        // Check if the URL contains "s.jpg" and replace it with ".webm" if so
+        
+        // Create a copy of the original images array
+        var correctedURLs = images
+        
+        // Check if the URL contains "s.jpg" and replace it with ".webm" or ".mp4" as appropriate
         if selectedURL.absoluteString.contains("s.jpg") {
-            let modifiedURLString = selectedURL.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-            if let modifiedURL = URL(string: modifiedURLString) {
-                selectedURL = modifiedURL
+            // First try to convert to .webm
+            let webmURLString = selectedURL.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
+            
+            // Also prepare a .mp4 URL as fallback
+            let mp4URLString = selectedURL.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
+            
+            if let webmURL = URL(string: webmURLString) {
+                correctedURLs[indexPath.row] = webmURL
+                selectedURL = webmURL
+                print("Converting thumbnail to WebM: \(webmURL.absoluteString)")
+            } else if let mp4URL = URL(string: mp4URLString) {
+                correctedURLs[indexPath.row] = mp4URL
+                selectedURL = mp4URL
+                print("Converting thumbnail to MP4: \(mp4URL.absoluteString)")
             }
         }
-
-        // Open urlWeb and pass the entire images/videos list and the current index
+        
+        // Create the urlWeb view controller
         let urlWebVC = urlWeb()
-        urlWebVC.images = images // Pass the entire list of images/videos
+        urlWebVC.images = correctedURLs // Pass the list of images/videos with corrected URL
         urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
         urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
-
-        // Navigate to the gallery
+        
+        // Navigate to the viewer
         if let navController = navigationController {
-            print("Pushing galleryVC onto navigation stack.")
+            print("Pushing urlWebVC onto navigation stack.")
             navController.pushViewController(urlWebVC, animated: true)
         } else {
             print("Navigation controller is nil. Attempting modal presentation.")
