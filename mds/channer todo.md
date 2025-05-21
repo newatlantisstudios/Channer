@@ -54,37 +54,34 @@
 
     - [x] More sorting 
 
-    - [ ]  4Chan X features
+    - [x]  Thread view - max quality images without touching them
 
-      - [ ] Thread view - auto play videos without touching them 
-      - [ ] Thread view - max quality images without touching them
-      
     - [x] Toolbox - Offline, History, Favorites, Files
-
+    
     - [x] All favorites make offline
-
-    - [x] Picture aspect ratios
-
-    - [x] Buttons icons too big
-
-    - [x] Picking the default board needs to be better
-
-    - [x] When I choose a notification for a new thread reply it needs to go to the thread
-
-    - [x] Notifications system to see new replies that the user got notified with
-
-    - [ ] Check button icons and images
-
-    - [x] iPad Keyboard shortcuts
-
-    - [x] Boards - list or collection view
-
-      
-
-    ## Technical Considerations
-
-    - [ ] Maintain iOS/iPadOS compatibility
+    
+- [x] Picture aspect ratios
+    
+- [x] Buttons icons too big
+    
+- [x] Picking the default board needs to be better
+    
+- [x] When I choose a notification for a new thread reply it needs to go to the thread
+    
+- [x] Notifications system to see new replies that the user got notified with
+    
+- [ ] Check button icons and images
+    
+- [x] iPad Keyboard shortcuts
+    
+- [x] Boards - list or collection view
+    
+  
+    
+## Technical Considerations
+    
+- [ ] Maintain iOS/iPadOS compatibility
     - [ ] Ensure backward compatibility with older iOS versions where possible
-    - [ ] Optimize for performance and battery usage
+- [ ] Optimize for performance and battery usage
     - [ ] Follow Apple's privacy guidelines
-    - [ ] Update UI for latest iOS design patterns
+- [ ] Update UI for latest iOS design patterns

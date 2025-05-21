@@ -45,6 +45,10 @@ class settings: UIViewController {
     private let keyboardShortcutsToggle = UISwitch()
     private let keyboardShortcutsButton = UIButton(type: .system)
     
+    private let highQualityThumbnailsView = UIView()
+    private let highQualityThumbnailsLabel = UILabel()
+    private let highQualityThumbnailsToggle = UISwitch()
+    
     private var boardsDisplayModeView: UIView!
     private var boardsDisplayModeLabel: UILabel!
     private var boardsDisplayModeSegment: UISegmentedControl!
@@ -59,6 +63,7 @@ class settings: UIViewController {
     private let keyboardShortcutsEnabledKey = "keyboardShortcutsEnabled"
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
+    private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     
     // MARK: - Initialization
     required init?(coder: NSCoder) {
@@ -86,6 +91,10 @@ class settings: UIViewController {
         
         if UserDefaults.standard.object(forKey: iCloudSyncEnabledKey) == nil {
             UserDefaults.standard.set(true, forKey: iCloudSyncEnabledKey)
+        }
+        
+        if UserDefaults.standard.object(forKey: highQualityThumbnailsKey) == nil {
+            UserDefaults.standard.set(false, forKey: highQualityThumbnailsKey)
         }
         
         sortBoardsAlphabetically()
@@ -417,6 +426,9 @@ class settings: UIViewController {
         
         // Setup the Boards Display Mode view
         setupBoardsDisplayModeView()
+        
+        // Setup High Quality Thumbnails view
+        setupHighQualityThumbnailsView()
         
         setupConstraints()
     }
@@ -889,6 +901,23 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
     
+    @objc private func highQualityThumbnailsToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: highQualityThumbnailsKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        
+        // Show confirmation alert
+        let title = sender.isOn ? "High-Quality Thumbnails Enabled" : "High-Quality Thumbnails Disabled"
+        let message = sender.isOn ? "Thread thumbnails will now display in high quality. This may use more bandwidth." : "Thread thumbnails will now display in standard quality."
+        
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+        
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
     @objc private func keyboardShortcutsButtonTapped() {
         // Navigate to keyboard shortcuts documentation
         if let url = URL(string: "file://" + NSString(string: NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]).appendingPathComponent("KEYBOARD_SHORTCUTS.md")) {
@@ -956,6 +985,56 @@ class settings: UIViewController {
         present(alertController, animated: true)
     }
     
+    private func setupHighQualityThumbnailsView() {
+        // Set up the high quality thumbnails view
+        highQualityThumbnailsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        highQualityThumbnailsView.layer.cornerRadius = 10
+        highQualityThumbnailsView.clipsToBounds = true
+        highQualityThumbnailsView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set up the high quality thumbnails label
+        highQualityThumbnailsLabel.text = "High-Quality Thread Thumbnails"
+        highQualityThumbnailsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        highQualityThumbnailsLabel.textAlignment = .left
+        highQualityThumbnailsLabel.numberOfLines = 1
+        highQualityThumbnailsLabel.adjustsFontSizeToFitWidth = true
+        highQualityThumbnailsLabel.minimumScaleFactor = 0.8
+        highQualityThumbnailsLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set up the high quality thumbnails toggle
+        let isHighQualityThumbnailsEnabled = UserDefaults.standard.bool(forKey: highQualityThumbnailsKey)
+        highQualityThumbnailsToggle.isOn = isHighQualityThumbnailsEnabled
+        highQualityThumbnailsToggle.translatesAutoresizingMaskIntoConstraints = false
+        highQualityThumbnailsToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        highQualityThumbnailsToggle.addTarget(self, action: #selector(highQualityThumbnailsToggleChanged), for: .valueChanged)
+        
+        // Add views to view hierarchy
+        view.addSubview(highQualityThumbnailsView)
+        highQualityThumbnailsView.addSubview(highQualityThumbnailsLabel)
+        highQualityThumbnailsView.addSubview(highQualityThumbnailsToggle)
+        
+        // Add constraints for the views
+        NSLayoutConstraint.activate([
+            // High Quality Thumbnails View
+            highQualityThumbnailsView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            highQualityThumbnailsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            highQualityThumbnailsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            highQualityThumbnailsView.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Update the keyboardShortcutsView to be below this view
+            keyboardShortcutsView.topAnchor.constraint(equalTo: highQualityThumbnailsView.bottomAnchor, constant: 16),
+            
+            // High Quality Thumbnails Label
+            highQualityThumbnailsLabel.centerYAnchor.constraint(equalTo: highQualityThumbnailsView.centerYAnchor),
+            highQualityThumbnailsLabel.leadingAnchor.constraint(equalTo: highQualityThumbnailsView.leadingAnchor, constant: 20),
+            highQualityThumbnailsLabel.trailingAnchor.constraint(lessThanOrEqualTo: highQualityThumbnailsToggle.leadingAnchor, constant: -15),
+            
+            // High Quality Thumbnails Toggle
+            highQualityThumbnailsToggle.centerYAnchor.constraint(equalTo: highQualityThumbnailsView.centerYAnchor),
+            highQualityThumbnailsToggle.trailingAnchor.constraint(equalTo: highQualityThumbnailsView.trailingAnchor, constant: -30),
+        ])
+    }
+    
     private func setupBoardsDisplayModeView() {
         // Create the boards display mode view
         self.boardsDisplayModeView = {
@@ -1006,9 +1085,6 @@ class settings: UIViewController {
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Update the keyboardShortcutsView to be below this view
-            keyboardShortcutsView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
             
             // Boards Display Mode Label
             boardsDisplayModeLabel.centerYAnchor.constraint(equalTo: boardsDisplayModeView.centerYAnchor),

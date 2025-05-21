@@ -1408,18 +1408,38 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
         //print("Debug: Starting image configuration for URL: \(imageUrl)")
         
+        // Check if high-quality thumbnails are enabled
+        let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        
         let finalUrl: String
         if imageUrl.hasSuffix(".webm") || imageUrl.hasSuffix(".mp4") {
             let components = imageUrl.components(separatedBy: "/")
             if let last = components.last {
                 let fileExtension = imageUrl.hasSuffix(".webm") ? ".webm" : ".mp4"
                 let base = last.replacingOccurrences(of: fileExtension, with: "")
+                
+                // For videos, always use thumbnail ("s.jpg" suffix)
                 finalUrl = imageUrl.replacingOccurrences(of: last, with: "\(base)s.jpg")
             } else {
                 finalUrl = imageUrl
             }
         } else {
-            finalUrl = imageUrl
+            // For images, use full image URL or thumbnail URL based on user preference
+            if useHighQualityThumbnails {
+                // Use the original full-quality image URL
+                finalUrl = imageUrl
+            } else {
+                // Use the thumbnail URL by adding "s" before the extension
+                let components = imageUrl.components(separatedBy: "/")
+                if let last = components.last, let range = last.range(of: ".") {
+                    let filename = String(last[..<range.lowerBound])
+                    let ext = String(last[range.lowerBound...])
+                    let thumbnailFilename = filename + "s" + ext
+                    finalUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+                } else {
+                    finalUrl = imageUrl
+                }
+            }
         }
         
         guard let url = URL(string: finalUrl) else {
@@ -1427,6 +1447,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
             return
         }
+        
+        // Store the high-quality URL for when the image is tapped
+        cell.setImageURL(imageUrl)
         
         // Load image with Kingfisher using the same style as catalog view
         let processor = RoundCornerImageProcessor(cornerRadius: 8)
