@@ -60,28 +60,40 @@
     
     - [x] All favorites make offline
     
-- [x] Picture aspect ratios
+    - [x] Picture aspect ratios
     
-- [x] Buttons icons too big
+    - [x] Buttons icons too big
     
-- [x] Picking the default board needs to be better
+    - [x] Picking the default board needs to be better
     
-- [x] When I choose a notification for a new thread reply it needs to go to the thread
+    - [x] When I choose a notification for a new thread reply it needs to go to the thread
     
-- [x] Notifications system to see new replies that the user got notified with
+    - [x] Notifications system to see new replies that the user got notified with
     
-- [ ] Check button icons and images
+    - [x] Check button icons and images
     
-- [x] iPad Keyboard shortcuts
+    - [x] iPad Keyboard shortcuts
     
-- [x] Boards - list or collection view
+    - [x] Boards - list or collection view
     
-  
+    - [x] iPad settings can't show on iOS
     
-## Technical Considerations
+    - [x] Gallery
     
-- [ ] Maintain iOS/iPadOS compatibility
+      - [x] Preload - Auto play mp4 and webM within gallery
+      - [x] Play webm
+      - [x] Play mp4
+      - [x] Preload - HQ Images
+      - [x] Preload toggle in settings
+      - [x] Open images
+      
+      
+      
+    
+    ## Technical Considerations
+    
+    - [ ] Maintain iOS/iPadOS compatibility
     - [ ] Ensure backward compatibility with older iOS versions where possible
-- [ ] Optimize for performance and battery usage
+    - [ ] Optimize for performance and battery usage
     - [ ] Follow Apple's privacy guidelines
-- [ ] Update UI for latest iOS design patterns
+    - [ ] Update UI for latest iOS design patterns

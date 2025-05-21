@@ -1065,13 +1065,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func processPost(_ post: JSON, index: Int) {
         // Extract the board reply number
-        threadBoardReplyNumber.append(String(describing: post["no"]))
+        let replyNumber = String(describing: post["no"])
+        threadBoardReplyNumber.append(replyNumber)
         
         // Extract the image URL
         let imageTimestamp = post["tim"].stringValue
         let imageExtension = post["ext"].stringValue
         let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
         threadRepliesImages.append(imageURL)
+        
+        // Debug logging for PNG images
+        if imageExtension == ".png" {
+            print("PNG Image found in post #\(replyNumber): \(imageURL)")
+        }
         
         // Extract and process the comment text
         let comment = post["com"].stringValue
@@ -1411,20 +1417,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Image Handling Methods
     /// Methods to handle image loading and interactions
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
-        //print("Debug: Starting image configuration for URL: \(imageUrl)")
+        print("Debug: Starting image configuration for URL: \(imageUrl)")
         
         // Check if high-quality thumbnails are enabled
         let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
         
+        // Extract file extension from URL
+        let fileExtension: String
+        if imageUrl.hasSuffix(".jpg") {
+            fileExtension = ".jpg"
+        } else if imageUrl.hasSuffix(".png") {
+            fileExtension = ".png"
+            print("Debug: PNG image detected in configureImage: \(imageUrl)")
+        } else if imageUrl.hasSuffix(".webm") {
+            fileExtension = ".webm"
+        } else if imageUrl.hasSuffix(".mp4") {
+            fileExtension = ".mp4"
+        } else {
+            // Default to JPG if extension can't be determined
+            fileExtension = ".jpg"
+            print("Debug: Unknown extension, defaulting to JPG for: \(imageUrl)")
+        }
+        
         let finalUrl: String
-        if imageUrl.hasSuffix(".webm") || imageUrl.hasSuffix(".mp4") {
+        if fileExtension == ".webm" || fileExtension == ".mp4" {
             let components = imageUrl.components(separatedBy: "/")
             if let last = components.last {
-                let fileExtension = imageUrl.hasSuffix(".webm") ? ".webm" : ".mp4"
                 let base = last.replacingOccurrences(of: fileExtension, with: "")
                 
                 // For videos, always use thumbnail ("s.jpg" suffix)
                 finalUrl = imageUrl.replacingOccurrences(of: last, with: "\(base)s.jpg")
+                print("Debug: Video thumbnail URL: \(finalUrl)")
             } else {
                 finalUrl = imageUrl
             }
@@ -1433,16 +1456,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if useHighQualityThumbnails {
                 // Use the original full-quality image URL
                 finalUrl = imageUrl
+                print("Debug: Using high-quality image: \(finalUrl)")
             } else {
                 // Use the thumbnail URL by adding "s" before the extension
                 let components = imageUrl.components(separatedBy: "/")
                 if let last = components.last, let range = last.range(of: ".") {
                     let filename = String(last[..<range.lowerBound])
-                    let ext = String(last[range.lowerBound...])
-                    let thumbnailFilename = filename + "s" + ext
+                    
+                    // 4chan always uses JPG for thumbnails regardless of the original file type
+                    let thumbnailFilename = filename + "s.jpg"
                     finalUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+                    
+                    if fileExtension == ".png" {
+                        print("Debug: Using JPG thumbnail for PNG image: \(finalUrl)")
+                    } else {
+                        print("Debug: Generated thumbnail URL: \(finalUrl) for image type: \(fileExtension)")
+                    }
                 } else {
                     finalUrl = imageUrl
+                    print("Debug: Could not parse URL components, using original: \(finalUrl)")
                 }
             }
         }
@@ -1452,18 +1484,27 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
             return
         }
+        print("Debug: Generated valid URL: \(url.absoluteString)")
         
         // Store the high-quality URL for when the image is tapped
         cell.setImageURL(imageUrl)
+        print("Debug: Set full image URL for tap action: \(imageUrl)")
         
         // Load image with Kingfisher using the same style as catalog view
         let processor = RoundCornerImageProcessor(cornerRadius: 8)
+        
+        // Enhanced options for better image loading
         let options: KingfisherOptionsInfo = [
             .processor(processor),
             .scaleFactor(UIScreen.main.scale),
             .transition(.fade(0.2)),
-            .cacheOriginalImage
+            .cacheOriginalImage,
+            .backgroundDecode,   // Decode in background to prevent UI stutter
+            .retryStrategy(DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(1))), // Retry failed loads
+            .callbackQueue(.mainAsync) // Ensure callbacks are on main thread
         ]
+        
+        print("Debug: Loading image with URL: \(url)")
         
         cell.threadImage.kf.setBackgroundImage(
             with: url,
@@ -1472,8 +1513,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             options: options,
             completionHandler: { result in
                 switch result {
-                case .success(_):
-                    //print("Debug: Successfully loaded image for URL: \(url)")
+                case .success(let value):
+                    print("Debug: Successfully loaded image for URL: \(url)")
+                    if let cgImage = value.image.cgImage {
+                        print("Debug: Image size: \(value.image.size), hasAlpha: \(cgImage.alphaInfo != CGImageAlphaInfo.none)")
+                    } else {
+                        print("Debug: Image size: \(value.image.size)")
+                    }
+                    
                     // Recalculate layout after image loads
                     DispatchQueue.main.async {
                         cell.setNeedsLayout()
@@ -1482,8 +1529,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         self.tableView.endUpdates()
                     }
                 case .failure(let error):
-                    //print("Debug: Failed to load image for URL: \(url), error: \(error)")
-                    break
+                    print("Debug: Failed to load image: \(error.localizedDescription)")
+                    
+                    // We shouldn't need fallbacks anymore since we're always using JPG thumbnails,
+                    // but let's keep this just in case for robustness
+                    if finalUrl.hasSuffix(".png") {
+                        let jpgUrl = finalUrl.replacingOccurrences(of: ".png", with: ".jpg")
+                        print("Debug: Thumbnail loading failed. Trying explicit JPG fallback: \(jpgUrl)")
+                        
+                        if let fallbackUrl = URL(string: jpgUrl) {
+                            // Use main thread for UI updates to avoid actor isolation errors
+                            DispatchQueue.main.async {
+                                cell.threadImage.kf.setBackgroundImage(
+                                    with: fallbackUrl,
+                                    for: .normal,
+                                    placeholder: UIImage(named: "loadingBoardImage"),
+                                    options: options)
+                            }
+                        }
+                    }
                 }
             }
         )
@@ -1499,28 +1563,59 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         
-        if selectedImageURL.pathExtension.lowercased() == "webm" {
-            // Create WebMViewController for video
-            let webmVC = WebMViewController()
-            webmVC.videoURL = selectedImageURL.absoluteString
-            print("Navigating to WebMViewController.")
-            
-            // Handle navigation stack
-            if let navController = navigationController {
-                navController.pushViewController(webmVC, animated: true)
-            } else {
-                // Fallback to modal presentation for iPhones
-                let navController = UINavigationController(rootViewController: webmVC)
-                navController.modalPresentationStyle = .fullScreen
-                present(navController, animated: true)
-            }
-        } else {
-            // Create urlWeb for images
+        // Check the file extension to determine how to handle the content
+        var fileExtension = selectedImageURL.pathExtension.lowercased()
+        
+        // Debug log for PNG image detection
+        if fileExtension == "png" {
+            print("Debug: PNG image detected for full-size viewing: \(selectedImageURLString)")
+        }
+        
+        // Special handling for thumbnail URLs that may not have the correct extension
+        if selectedImageURLString.contains("s.jpg") && selectedImageURLString.contains(".png") {
+            print("Debug: Detected PNG image with JPG thumbnail, correcting extension")
+            fileExtension = "png"
+        }
+        
+        if fileExtension == "webm" || fileExtension == "mp4" {
+            // Create urlWeb for all media types (both WebM and MP4)
+            // This uses our improved web playback that handles both formats
             let urlWebVC = urlWeb()
             urlWebVC.images = [selectedImageURL]
             urlWebVC.currentIndex = 0
             urlWebVC.enableSwipes = false
-            print("Navigating to urlWeb for image display.")
+            print("Debug: Navigating to urlWeb for media playback.")
+            
+            // Handle navigation stack
+            if let navController = navigationController {
+                navController.pushViewController(urlWebVC, animated: true)
+            } else {
+                // Fallback to modal presentation for iPhones
+                let navController = UINavigationController(rootViewController: urlWebVC)
+                navController.modalPresentationStyle = .fullScreen
+                present(navController, animated: true)
+            }
+        } else {
+            // Create urlWeb for images and other content types (jpg, png, etc.)
+            let urlWebVC = urlWeb()
+            
+            // For PNG images, ensure we're using the correct URL with .png extension
+            if fileExtension == "png" || selectedImageURLString.contains(".png") {
+                // Make sure the URL has .png extension and not .jpg
+                let correctedURLString = selectedImageURLString.replacingOccurrences(of: "s.jpg", with: ".png")
+                if let correctedURL = URL(string: correctedURLString) {
+                    urlWebVC.images = [correctedURL]
+                    print("Debug: Using corrected PNG URL: \(correctedURLString)")
+                } else {
+                    urlWebVC.images = [selectedImageURL]
+                }
+            } else {
+                urlWebVC.images = [selectedImageURL]
+            }
+            
+            urlWebVC.currentIndex = 0
+            urlWebVC.enableSwipes = false
+            print("Debug: Navigating to urlWeb for image display with extension: \(fileExtension)")
             
             // Handle navigation stack
             if let navController = navigationController {

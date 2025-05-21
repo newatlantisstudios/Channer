@@ -14,10 +14,18 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     var selectedImageURL: URL?
     /// Dictionary to cache corrected URLs (tracking actual media types)
     private var correctedURLs: [Int: URL] = [:]
-    /// Property to track if videos should preload
-    var preloadVideos: Bool = false
+    /// Dictionary to cache alternate format URLs (for switching between formats)
+    private var alternateURLs: [Int: URL] = [:]
+    /// Property to track if videos should preload - reads from UserDefaults
+    var preloadVideos: Bool {
+        return UserDefaults.standard.bool(forKey: "channer_preload_videos_enabled")
+    }
     /// Reuse identifier for the cell
     private let cellIdentifier = "mediaCellIdentifier"
+    /// Maximum number of playing videos to limit memory usage
+    private let maxPlayingVideos = 12
+    /// Set to track currently playing video cells by their index paths
+    private var playingVideoCells = Set<Int>()
     
     // MARK: - Cell Classes
     
@@ -28,12 +36,33 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         var activityIndicator: UIActivityIndicatorView?
         var isVideoCell: Bool = false
         
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            
+            // Make sure the cell can be tapped by setting these properties
+            isUserInteractionEnabled = true
+            contentView.isUserInteractionEnabled = true
+        }
+        
+        required init?(coder: NSCoder) {
+            super.init(coder: coder)
+            
+            isUserInteractionEnabled = true
+            contentView.isUserInteractionEnabled = true
+        }
+        
         override func prepareForReuse() {
             super.prepareForReuse()
+            
+            // Clean up existing content
             imageView?.image = nil
             webView?.stopLoading()
             webView?.loadHTMLString("", baseURL: nil)
             activityIndicator?.stopAnimating()
+            
+            // Reset any styling
+            contentView.layer.borderWidth = 0
+            contentView.layer.borderColor = nil
         }
         
         func setupForImage() {
@@ -48,6 +77,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 imageView?.contentMode = .scaleAspectFill
                 imageView?.clipsToBounds = true
                 imageView?.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                imageView?.isUserInteractionEnabled = false // Don't let image view intercept touches
                 if let imageView = imageView {
                     contentView.addSubview(imageView)
                 }
@@ -70,6 +100,10 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 webView?.backgroundColor = .black
                 webView?.scrollView.isScrollEnabled = false
                 webView?.isOpaque = false
+                
+                // Critical for ensuring taps reach the collection view cell
+                webView?.isUserInteractionEnabled = false
+                
                 if let webView = webView {
                     contentView.addSubview(webView)
                 }
@@ -125,13 +159,6 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         collectionView.backgroundColor = .systemBackground
         collectionView.frame = view.bounds
         view.addSubview(collectionView)
-
-        // Add a toggle button for preloading videos
-        let preloadButton = UIBarButtonItem(title: preloadVideos ? "Preload: On" : "Preload: Off", 
-                                         style: .plain, 
-                                         target: self, 
-                                         action: #selector(togglePreload))
-        navigationItem.rightBarButtonItem = preloadButton
         
         // Scroll to the initially selected image if set
         if let selectedURL = selectedImageURL, let index = images.firstIndex(of: selectedURL) {
@@ -142,75 +169,219 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         // Process URLs to determine media types
         processMediaURLs()
         
-        collectionView.reloadData()
+        // Apply preload setting from UserDefaults
+        if preloadVideos {
+            applyPreloadSetting()
+        } else {
+            collectionView.reloadData()
+        }
     }
     
     // MARK: - URL Processing
     /// Processes media URLs to determine the correct file types
     private func processMediaURLs() {
+        print("🔍 Processing \(images.count) media URLs to identify videos")
+        
+        // IMPORTANT: When preload is enabled, we'll convert ALL image URLs to potential video URLs
+        // This ensures thumbnail images are tried as videos, which is what users expect
+        let aggressiveConversion = true
+        
         for (index, url) in images.enumerated() {
-            // Check if this URL represents a thumbnail that needs to be converted to video
+            print("🔍 URL \(index): \(url.absoluteString)")
+            
+            // Case 1: Direct video URL - use it directly
+            if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+                correctedURLs[index] = url
+                print("✅ Found direct video URL: \(url.absoluteString)")
+                continue
+            }
+            
+            // Case 2: Thumbnail with "s.jpg" pattern (common in imageboard APIs)
             if url.absoluteString.contains("s.jpg") {
-                // Extract the tim value from the URL to find the correct extension in the JSON post data
-                if let timString = url.absoluteString.split(separator: "/").last?.split(separator: ".").first,
-                   let _ = Int(timString) {
-                    // Specifically check for known MP4 files based on timestamps from the JSON
-                    let mp4Timestamps = [1747822428985513, 1747822586052935] // From the JSON, these are MP4s
+                // Extract ID from URL
+                if let fileName = url.absoluteString.split(separator: "/").last {
+                    // Create both WebM and MP4 URLs to try - store both to try either format
+                    let webmString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
+                    let mp4String = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
                     
-                    // Check if the current thumbnail represents one of our known MP4 files
-                    if let timValue = Int(timString), mp4Timestamps.contains(timValue) {
-                        // This is a known MP4 file based on timestamp
-                        let mp4URLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
-                        if let mp4URL = URL(string: mp4URLString) {
-                            correctedURLs[index] = mp4URL
-                            print("Pre-processed URL as MP4: \(mp4URL.absoluteString)")
-                        }
-                    } else {
-                        // Default to WebM for all other files (most common in the JSON sample)
-                        let webmURLString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-                        if let webmURL = URL(string: webmURLString) {
+                    var hasMP4 = false
+                    var hasWebM = false
+                    
+                    // Store MP4 URL if valid
+                    if let mp4URL = URL(string: mp4String) {
+                        // We're testing both formats and storing both - MP4 as primary if possible
+                        correctedURLs[index] = mp4URL
+                        hasMP4 = true
+                        print("✅ Storing MP4 URL: \(mp4URL.lastPathComponent)")
+                    }
+                    
+                    // Store WebM URL
+                    if let webmURL = URL(string: webmString) {
+                        // If we already have MP4, store WebM as alternate
+                        if hasMP4 {
+                            alternateURLs[index] = webmURL
+                            print("✅ Storing alternate WebM URL: \(webmURL.lastPathComponent)")
+                        } else {
+                            // Otherwise use WebM as primary
                             correctedURLs[index] = webmURL
-                            print("Pre-processed URL as WebM: \(webmURL.absoluteString)")
+                            hasWebM = true
+                            print("✅ Storing WebM URL: \(webmURL.lastPathComponent)")
+                        }
+                    }
+                    
+                    // If we found either format, continue to next URL
+                    if hasMP4 || hasWebM {
+                        continue
+                    }
+                }
+            }
+            
+            // Case 3: Aggressive conversion of ANY image URL to a potential video URL
+            if aggressiveConversion && (
+                url.pathExtension.lowercased() == "jpg" || 
+                url.pathExtension.lowercased() == "jpeg" || 
+                url.pathExtension.lowercased() == "png" ||
+                url.pathExtension.lowercased() == "gif") {
+                
+                // Generate both WebM and MP4 URLs to try
+                let mp4String = url.absoluteString.replacingOccurrences(
+                    of: ".\(url.pathExtension.lowercased())", 
+                    with: ".mp4")
+                
+                let webmString = url.absoluteString.replacingOccurrences(
+                    of: ".\(url.pathExtension.lowercased())", 
+                    with: ".webm")
+                
+                var hasMP4 = false
+                var hasWebM = false
+                
+                // Store MP4 URL if valid
+                if let mp4URL = URL(string: mp4String) {
+                    correctedURLs[index] = mp4URL
+                    hasMP4 = true
+                    print("🔄 Aggressive conversion to primary MP4: \(mp4URL.absoluteString)")
+                }
+                
+                // Store WebM format
+                if let webmURL = URL(string: webmString) {
+                    if hasMP4 {
+                        // Store as alternate if we already have MP4
+                        alternateURLs[index] = webmURL
+                        print("🔄 Aggressive conversion to alternate WebM: \(webmURL.absoluteString)")
+                    } else {
+                        // Otherwise use as primary
+                        correctedURLs[index] = webmURL
+                        hasWebM = true
+                        print("🔄 Aggressive conversion to primary WebM: \(webmURL.absoluteString)")
+                    }
+                }
+                
+                // If we found either format, continue to next URL
+                if hasMP4 || hasWebM {
+                    continue
+                }
+            }
+        }
+        
+        // Summary of processed URLs
+        print("📊 Processed URLs: Found \(correctedURLs.count) video URLs out of \(images.count) total URLs")
+        
+        // If we still don't have any video URLs, use a desperate approach
+        if correctedURLs.isEmpty && !images.isEmpty {
+            print("⚠️ No video URLs found - using desperate fallback approach")
+            
+            // Force ALL images to be treated as potential video files (both MP4 and WebM)
+            for (index, url) in images.enumerated() {
+                if let lastPathComponent = url.absoluteString.split(separator: "/").last {
+                    var hasMP4 = false
+                    var hasWebM = false
+                    
+                    // Try MP4
+                    let mp4String = url.absoluteString.replacingOccurrences(
+                        of: String(lastPathComponent),
+                        with: "\(lastPathComponent).mp4")
+                    
+                    if let mp4URL = URL(string: mp4String) {
+                        correctedURLs[index] = mp4URL
+                        hasMP4 = true
+                        print("⚠️ Desperate primary MP4 conversion: \(mp4URL.absoluteString)")
+                    }
+                    
+                    // Also try WebM
+                    let webmString = url.absoluteString.replacingOccurrences(
+                        of: String(lastPathComponent),
+                        with: "\(lastPathComponent).webm")
+                    
+                    if let webmURL = URL(string: webmString) {
+                        if hasMP4 {
+                            // Store as alternate if we already have MP4
+                            alternateURLs[index] = webmURL
+                            print("⚠️ Desperate alternate WebM conversion: \(webmURL.absoluteString)")
+                        } else {
+                            // Otherwise use as primary
+                            correctedURLs[index] = webmURL
+                            hasWebM = true
+                            print("⚠️ Desperate primary WebM conversion: \(webmURL.absoluteString)")
                         }
                     }
                 }
-            } else if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
-                // Already a video URL, store directly
-                correctedURLs[index] = url
             }
+            
+            // After fallback, print summary again
+            print("📊 After desperate fallback: Found \(correctedURLs.count) primary videos and \(alternateURLs.count) alternate videos out of \(images.count) total URLs")
         }
     }
     
-    @objc private func togglePreload() {
-        preloadVideos = !preloadVideos
-        navigationItem.rightBarButtonItem?.title = preloadVideos ? "Preload: On" : "Preload: Off"
-        collectionView.reloadData()
+    // This method is no longer needed as preloadVideos is now a computed property
+    // that reads from UserDefaults. The setting is now controlled in the settings screen.
+    // We're keeping the implementation as a helper method with a different name
+    // in case it needs to be called when UserDefaults change
+    private func applyPreloadSetting() {
+        print("🔄 Preload setting applied: \(preloadVideos ? "ON" : "OFF")")
         
-        // If preload is turned on, start playing all visible video cells
+        // Process images to ensure we have video URLs
+        if preloadVideos && correctedURLs.isEmpty {
+            // Force detection of video URLs before reloading cells
+            processMediaURLs()
+        }
+        
+        // Clear tracking
+        playingVideoCells.removeAll()
+        
+        // Always reload all cells to change their type
+        UIView.performWithoutAnimation {
+            collectionView.reloadData()
+        }
+        
+        // Ensure we start playing videos if needed
         if preloadVideos {
-            startPlayingAllVisibleVideos()
+            print("▶️ Starting playback of visible videos")
+            
+            // Add a delay to ensure cells are properly loaded
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Start playing videos
+                for cell in self.collectionView.visibleCells {
+                    if let mediaCell = cell as? MediaCell, let webView = mediaCell.webView {
+                        // Force video playback via JS
+                        webView.evaluateJavaScript("""
+                            if (document.querySelector('video')) {
+                                var video = document.querySelector('video');
+                                video.muted = true;
+                                video.play();
+                                console.log('Starting video via explicit JS call');
+                            }
+                        """)
+                    }
+                }
+            }
         }
     }
     
     /// Start playing all visible video cells
     private func startPlayingAllVisibleVideos() {
-        // Give a short delay to allow cells to load their content
+        // This is now a simple wrapper around the scroll-based function
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Find all visible cells that are video cells
-            for cell in self.collectionView.visibleCells {
-                if let mediaCell = cell as? MediaCell, 
-                   let webView = mediaCell.webView,
-                   mediaCell.isVideoCell {
-                    
-                    // Execute JavaScript to start playing the video (while keeping it muted)
-                    webView.evaluateJavaScript("""
-                        var video = document.querySelector('video');
-                        if (video) {
-                            video.play();
-                        }
-                    """)
-                }
-            }
+            self.checkVisibleVideosAfterScroll()
         }
     }
 
@@ -225,20 +396,66 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellIdentifier, for: indexPath) as! MediaCell
         let imageURL = images[indexPath.row]
         
-        // Check if we have a corrected URL and if it's a video type
-        if let correctedURL = correctedURLs[indexPath.row],
-           correctedURL.pathExtension.lowercased() == "webm" || 
-           correctedURL.pathExtension.lowercased() == "mp4" {
+        print("📱 Configuring cell at index \(indexPath.row)")
+        
+        // Simplified approach: Treat all cells as potential videos in preload mode
+        if preloadVideos {
+            // Choose URL based on correctness map or fallback
+            var videoURL = imageURL
             
-            if preloadVideos {
-                // Setup for video with pre-loading
-                setupVideoCell(cell, url: correctedURL)
-            } else {
-                // Setup for image thumbnail
-                setupImageCell(cell, url: imageURL)
+            // Tag the cell with its index FIRST so setupVideoCell can use it
+            cell.tag = indexPath.row
+            
+            // If we have a corrected URL, use it
+            if let correctedURL = correctedURLs[indexPath.row] {
+                videoURL = correctedURL
+                print("🎬 Using corrected video URL for cell \(indexPath.row): \(videoURL.lastPathComponent)")
+                
+                // Check if we have an alternate URL too
+                if let alternateURL = alternateURLs[indexPath.row] {
+                    print("🔄 Also have alternate URL for cell \(indexPath.row): \(alternateURL.lastPathComponent)")
+                }
+            } 
+            // If not, try to create one by substituting extensions
+            else if videoURL.pathExtension.lowercased() == "jpg" || 
+                    videoURL.pathExtension.lowercased() == "jpeg" || 
+                    videoURL.pathExtension.lowercased() == "png" {
+                // Try both formats - MP4 first then WebM
+                let potentialMP4URL = URL(string: videoURL.absoluteString.replacingOccurrences(
+                    of: "." + videoURL.pathExtension, with: ".mp4"))
+                
+                let potentialWebmURL = URL(string: videoURL.absoluteString.replacingOccurrences(
+                    of: "." + videoURL.pathExtension, with: ".webm"))
+                
+                if let mp4URL = potentialMP4URL {
+                    videoURL = mp4URL
+                    correctedURLs[indexPath.row] = mp4URL // Store MP4 as primary
+                    print("🎬 Created primary MP4 URL: \(videoURL.lastPathComponent)")
+                    
+                    // Also store WebM as alternate if available
+                    if let webmURL = potentialWebmURL {
+                        alternateURLs[indexPath.row] = webmURL
+                        print("🎬 Created alternate WebM URL: \(webmURL.lastPathComponent)")
+                    }
+                }
+                else if let webmURL = potentialWebmURL {
+                    videoURL = webmURL
+                    correctedURLs[indexPath.row] = webmURL // Store WebM as primary
+                    print("🎬 Created primary WebM URL: \(videoURL.lastPathComponent)")
+                }
             }
-        } else {
-            // Regular image
+            
+            print("▶️ Setting up video cell for index \(indexPath.row)")
+            
+            // Setup cell for video with both primary and alternate URLs
+            setupVideoCell(cell, url: videoURL)
+            
+            // Add to playing videos tracking
+            playingVideoCells.insert(indexPath.row)
+        } 
+        // Non-preload mode - use regular image cells
+        else {
+            print("🖼️ Using image cell for index \(indexPath.row)")
             setupImageCell(cell, url: imageURL)
         }
         
@@ -255,89 +472,258 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         }
     }
     
-    /// Set up a cell to display a video
+    /// Set up a cell to display a video - simpler, more reliable approach
     private func setupVideoCell(_ cell: MediaCell, url: URL) {
+        print("🎬 Setting up video cell for URL: \(url.absoluteString)")
+        
+        // Get the cell index from tag
+        let cellIndex = cell.tag
+        
+        // Check if we have an alternate URL for this cell
+        var alternateURL: URL? = nil
+        if cellIndex >= 0 {
+            alternateURL = alternateURLs[cellIndex]
+            if let altURL = alternateURL {
+                print("🔄 Found alternate URL for cell \(cellIndex): \(altURL.absoluteString)")
+            }
+        }
+        
         // Create WKWebViewConfiguration for video
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
+        config.mediaTypesRequiringUserActionForPlayback = [] // Allow videos to play without user interaction
+        config.preferences.javaScriptEnabled = true
         
-        // Create preferences
-        let preferences = WKPreferences()
-        preferences.javaScriptEnabled = true
-        preferences.javaScriptCanOpenWindowsAutomatically = true
-        config.preferences = preferences
-        
-        // Setup the cell for video
+        // Ensure the cell is properly configured for video
         cell.setupForVideo(configuration: config)
         
-        // Determine the MIME type based on file extension
-        let mimeType: String
-        if url.pathExtension.lowercased() == "webm" {
-            mimeType = "video/webm"
-        } else if url.pathExtension.lowercased() == "mp4" {
-            mimeType = "video/mp4"
+        // Simplify MIME type detection
+        let fileExtension = url.pathExtension.lowercased()
+        let primaryMimeType: String
+        
+        if fileExtension == "webm" {
+            primaryMimeType = "video/webm"
+        } else if fileExtension == "mp4" {
+            primaryMimeType = "video/mp4"
         } else {
-            mimeType = "video/\(url.pathExtension.lowercased())"
+            primaryMimeType = "video/\(fileExtension)"
         }
         
-        // Create HTML for video display
+        // Determine the alternate MIME type if we have an alternate URL
+        var alternateMimeType: String = ""
+        if let altURL = alternateURL {
+            let altExtension = altURL.pathExtension.lowercased()
+            if altExtension == "webm" {
+                alternateMimeType = "video/webm"
+            } else if altExtension == "mp4" {
+                alternateMimeType = "video/mp4"
+            } else {
+                alternateMimeType = "video/\(altExtension)"
+            }
+        }
+        
+        print("🎬 Using primary MIME type: \(primaryMimeType)")
+        if !alternateMimeType.isEmpty {
+            print("🎬 Using alternate MIME type: \(alternateMimeType)")
+        }
+        
+        // Create HTML that includes both sources if available
+        let alternateSourceTag = alternateURL != nil ? 
+            "<source src=\"\(alternateURL!.absoluteString)\" type=\"\(alternateMimeType)\">" : ""
+        
+        // Create a much simpler and more reliable HTML for video display with fallback support
         let videoHTML = """
         <!DOCTYPE html>
         <html>
         <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                body { margin: 0; padding: 0; background-color: black; overflow: hidden; }
+                body, html { 
+                    margin: 0; 
+                    padding: 0; 
+                    width: 100%; 
+                    height: 100%; 
+                    background: #000; 
+                    overflow: hidden;
+                }
                 video {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
                     width: 100%;
                     height: 100%;
                     object-fit: contain;
-                    background-color: black;
+                    background: #000;
                 }
-                /* Small play button for thumbnails */
-                video::-webkit-media-controls-play-button {
-                    background-color: rgba(255, 255, 255, 0.7);
-                    border-radius: 50%;
-                }
-                /* Smaller controls for thumbnail view */
-                video::-webkit-media-controls-panel {
-                    background-color: rgba(0, 0, 0, 0.7);
+                .error-msg {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    color: white;
+                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    background: rgba(0,0,0,0.7);
+                    padding: 10px;
+                    border-radius: 5px;
+                    display: none;
                 }
             </style>
         </head>
         <body>
-            <video controls playsinline muted loop autoplay preload="metadata">
-                <source src="\(url.absoluteString)" type="\(mimeType)">
+            <video autoplay loop muted playsinline webkit-playsinline>
+                <source src="\(url.absoluteString)" type="\(primaryMimeType)">
+                \(alternateSourceTag)
                 Your browser does not support the video tag.
             </video>
+            
+            <div class="error-msg" id="errorMsg">Error loading video</div>
+            
+            <script>
+                // Get video element and force autoplay
+                var video = document.querySelector('video');
+                var errorMsg = document.getElementById('errorMsg');
+                
+                // Function to ensure video plays
+                function ensureVideoPlays() {
+                    if(video && video.paused) {
+                        console.log("Starting video playback");
+                        video.muted = true;
+                        video.play().catch(function(e) {
+                            console.log("Error playing video: " + e);
+                            setTimeout(ensureVideoPlays, 200);
+                        });
+                    }
+                }
+                
+                // Try to play video immediately
+                ensureVideoPlays();
+                
+                // Also try after a short delay to handle edge cases
+                setTimeout(ensureVideoPlays, 100);
+                setTimeout(ensureVideoPlays, 500);
+                setTimeout(ensureVideoPlays, 1000);
+                
+                // Keep checking that video plays
+                setInterval(ensureVideoPlays, 2000);
+                
+                // Handle video events
+                video.addEventListener('loadeddata', function() {
+                    console.log("Video loaded");
+                    ensureVideoPlays();
+                    errorMsg.style.display = 'none';
+                });
+                
+                video.addEventListener('canplay', function() {
+                    console.log("Video can play");
+                    ensureVideoPlays();
+                    errorMsg.style.display = 'none';
+                });
+                
+                video.addEventListener('play', function() {
+                    console.log("Video started playing");
+                    errorMsg.style.display = 'none';
+                });
+                
+                video.addEventListener('pause', function() {
+                    console.log("Video paused");
+                    ensureVideoPlays();
+                });
+                
+                video.addEventListener('ended', function() {
+                    console.log("Video ended");
+                    ensureVideoPlays();
+                });
+                
+                video.addEventListener('error', function(e) {
+                    console.log("Video error: " + e);
+                    errorMsg.style.display = 'block';
+                    
+                    // Try switching source order if there are multiple sources
+                    if (video.querySelectorAll('source').length > 1) {
+                        var sources = Array.from(video.querySelectorAll('source'));
+                        // Move the second source to be first
+                        video.insertBefore(sources[1], sources[0]);
+                        // Reload video to try the other source
+                        video.load();
+                        setTimeout(ensureVideoPlays, 200);
+                    }
+                });
+            </script>
         </body>
         </html>
         """
         
-        // Load the HTML content
+        // Load HTML directly
         cell.webView?.navigationDelegate = self
         cell.webView?.loadHTMLString(videoHTML, baseURL: nil)
     }
     
     // MARK: - WKNavigationDelegate
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        print("🌐 WebView finished loading HTML")
+        
         // Find the cell containing this webView
         for cell in collectionView.visibleCells {
             if let mediaCell = cell as? MediaCell, mediaCell.webView == webView {
+                // Stop activity indicator
                 mediaCell.activityIndicator?.stopAnimating()
                 
-                // If preload is enabled, start playing the video immediately when it loads
-                if preloadVideos && mediaCell.isVideoCell {
+                // Get the index path for this cell if possible
+                if let indexPath = collectionView.indexPath(for: cell) {
+                    print("🎬 WebView loaded at index \(indexPath.row)")
+                    
+                    // Add to tracking set when navigation completes
+                    if preloadVideos {
+                        playingVideoCells.insert(indexPath.row)
+                    }
+                }
+                
+                // If preload is enabled, ensure video plays
+                if preloadVideos {
+                    // Use a simple JavaScript to force play
                     webView.evaluateJavaScript("""
-                        var video = document.querySelector('video');
-                        if (video) {
+                    var video = document.querySelector('video');
+                    if (video) {
+                        video.muted = true;
+                        video.loop = true;
+                        video.play();
+                        
+                        // Also try with a slight delay (sometimes helps with browser quirks)
+                        setTimeout(function() {
                             video.play();
-                        }
+                        }, 250);
+                    }
                     """)
+                }
+                
+                break
+            }
+        }
+    }
+    
+    // Simple error handling for WebView
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("❌ WebView navigation failed: \(error.localizedDescription)")
+        handleWebViewError(webView)
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("❌ WebView provisional navigation failed: \(error.localizedDescription)")
+        handleWebViewError(webView)
+    }
+    
+    // Helper to handle WebView errors
+    private func handleWebViewError(_ webView: WKWebView) {
+        // Find the cell containing this webView
+        for cell in collectionView.visibleCells {
+            if let mediaCell = cell as? MediaCell, mediaCell.webView == webView {
+                // Stop activity indicator
+                mediaCell.activityIndicator?.stopAnimating()
+                
+                // If in preload mode, try to recover by showing the image instead
+                if preloadVideos, let indexPath = collectionView.indexPath(for: cell) {
+                    // Try to show image instead
+                    if indexPath.row < images.count {
+                        let imageURL = images[indexPath.row]
+                        setupImageCell(mediaCell, url: imageURL)
+                    }
                 }
                 
                 break
@@ -347,17 +733,77 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     
     // MARK: - UIScrollViewDelegate
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        // If preload is enabled, start playing videos that are now visible
+        // When scrolling stops, play all visible videos if preload is enabled
         if preloadVideos {
-            startPlayingAllVisibleVideos()
+            checkVisibleVideosAfterScroll()
         }
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        // If not decelerating, play visible videos immediately
+        // When user stops dragging, play videos if preload is enabled
         if !decelerate && preloadVideos {
-            startPlayingAllVisibleVideos()
+            checkVisibleVideosAfterScroll()
         }
+    }
+    
+    // Add continuous scrolling detection for smoother video loading
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        // During scrolling, debounce the check for new visible cells
+        if preloadVideos {
+            NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(checkVisibleVideosAfterScroll), object: nil)
+            perform(#selector(checkVisibleVideosAfterScroll), with: nil, afterDelay: 0.1)
+        }
+    }
+    
+    @objc private func checkVisibleVideosAfterScroll() {
+        // When scrolling changes visible cells, make sure videos are playing
+        guard preloadVideos else { return }
+        
+        // Get all currently visible cells
+        let visibleCells = collectionView.visibleCells.compactMap { $0 as? MediaCell }
+        print("👀 There are \(visibleCells.count) visible cells")
+        
+        // Make sure all visible video cells are playing
+        for cell in visibleCells {
+            if cell.isVideoCell, let webView = cell.webView {
+                // Use simple JavaScript to ensure video is playing
+                webView.evaluateJavaScript("""
+                    var video = document.querySelector('video');
+                    if (video && video.paused) {
+                        video.play();
+                    }
+                """)
+                
+                // Track this cell if we have its index path
+                if let indexPath = collectionView.indexPath(for: cell) {
+                    playingVideoCells.insert(indexPath.row)
+                }
+            }
+            // If cell isn't yet a video cell but should be (like if we're reusing a cell)
+            else if !cell.isVideoCell {
+                if let indexPath = collectionView.indexPath(for: cell),
+                   indexPath.row < images.count {
+                    
+                    var videoURL = images[indexPath.row]
+                    
+                    // Check if we have a corrected URL for this index
+                    if let correctedURL = correctedURLs[indexPath.row] {
+                        videoURL = correctedURL
+                    }
+                    
+                    // If this should be a video (based on user toggling preload on), set it up
+                    if preloadVideos {
+                        setupVideoCell(cell, url: videoURL)
+                        
+                        // Track this cell
+                        playingVideoCells.insert(indexPath.row)
+                    }
+                }
+            }
+        }
+        
+        // We don't need to pause non-visible videos - WebKit will suspend non-visible WebViews automatically
+        // The operating system will manage memory for us
     }
 
     // MARK: - UICollectionViewDelegate
@@ -367,67 +813,56 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let selectedURL = images[indexPath.row]
         let urlToUse: URL
         
-        // Use the corrected URL if available
-        if let correctedURL = correctedURLs[indexPath.row] {
+        // Check if this is an actual image file (not a video)
+        let fileExtension = selectedURL.pathExtension.lowercased()
+        let isActualImage = ["jpg", "jpeg", "png", "gif"].contains(fileExtension)
+        
+        // For actual images, use original URL. For videos, use corrected URL if available
+        if isActualImage {
+            urlToUse = selectedURL
+            print("Using original image URL: \(urlToUse.absoluteString)")
+        } else if let correctedURL = correctedURLs[indexPath.row] {
             urlToUse = correctedURL
+            print("Using corrected video URL: \(urlToUse.absoluteString)")
         } else {
             urlToUse = selectedURL
+            print("Using original URL: \(urlToUse.absoluteString)")
         }
         
         print("ImageGalleryVC - selectedURL - " + urlToUse.absoluteString)
         
-        // Create a copy of corrected URLs for all images
-        var allCorrectedURLs: [URL] = []
+        // Create arrays for the URLs to pass to urlWeb
+        var allURLsToPass: [URL] = []
         
-        // Build the array of corrected URLs for all items
+        // Build the array of URLs for all items - use original for images, corrected for videos
         for i in 0..<images.count {
-            if let correctedURL = correctedURLs[i] {
-                allCorrectedURLs.append(correctedURL)
+            let itemURL = images[i]
+            let itemExtension = itemURL.pathExtension.lowercased()
+            let itemIsActualImage = ["jpg", "jpeg", "png", "gif"].contains(itemExtension)
+            
+            if itemIsActualImage {
+                // For actual images, always use the original URL
+                allURLsToPass.append(itemURL)
+            } else if let correctedURL = correctedURLs[i] {
+                // For videos, use corrected URL if available
+                allURLsToPass.append(correctedURL)
             } else {
-                allCorrectedURLs.append(images[i])
+                // Fallback to original URL
+                allURLsToPass.append(itemURL)
             }
         }
         
-        // If the user already has videos preloaded, we can just unmute the selected one
-        if preloadVideos && (urlToUse.pathExtension.lowercased() == "webm" || 
-                           urlToUse.pathExtension.lowercased() == "mp4") {
-            // Find the cell for the selected item
-            if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell, 
-               let webView = cell.webView {
-                
-                // Execute JavaScript to unmute the video and play it
-                webView.evaluateJavaScript("""
-                    var video = document.querySelector('video');
-                    if (video) {
-                        video.muted = false;
-                        video.play();
-                    }
-                """)
-                
-                // Optionally highlight the selected cell
-                cell.contentView.layer.borderWidth = 2
-                cell.contentView.layer.borderColor = UIColor.systemBlue.cgColor
-                
-                // Remove highlight from other cells
-                for visibleCell in collectionView.visibleCells {
-                    if visibleCell != cell {
-                        visibleCell.contentView.layer.borderWidth = 0
-                    }
-                }
-                
-                return // Don't navigate to a new screen
-            }
-        }
+        print("Creating URLWeb view controller with \(allURLsToPass.count) URLs")
         
-        // Create the urlWeb view controller
+        // Create the urlWeb view controller to display the full video/image
         let urlWebVC = urlWeb()
-        urlWebVC.images = allCorrectedURLs // Pass the list of images/videos with corrected URL
+        urlWebVC.images = allURLsToPass // Pass the list of images/videos with appropriate URLs
         urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
         urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
         
-        // Navigate to the viewer
+        // Add the urlWebVC to the navigation stack
         if let navController = navigationController {
-            print("Pushing urlWebVC onto navigation stack.")
+            print("Pushing urlWebVC onto navigation stack from ImageGalleryVC.")
             navController.pushViewController(urlWebVC, animated: true)
         } else {
             print("Navigation controller is nil. Attempting modal presentation.")

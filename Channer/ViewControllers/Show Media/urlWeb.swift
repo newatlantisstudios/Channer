@@ -366,6 +366,10 @@ class urlWeb: UIViewController {
                 mimeType = "video/\(url.pathExtension.lowercased())"
             }
             
+            // Check if we have a fallback URL to try
+            let alternateSourceTag = fallbackURL != nil ? 
+                        "<source src=\"\(fallbackURL!.absoluteString)\" type=\"\(fallbackURL!.pathExtension.lowercased() == "webm" ? "video/webm" : "video/mp4")\">" : ""
+            
             // Create custom HTML for video display with proper controls
             let videoHTML = """
             <!DOCTYPE html>
@@ -412,6 +416,7 @@ class urlWeb: UIViewController {
             <body>
                 <video id="videoPlayer" controls autoplay loop playsinline muted>
                     <source src="\(url.absoluteString)" type="\(mimeType)">
+                    \(alternateSourceTag)
                     Your browser does not support the video tag.
                 </video>
                 
@@ -421,12 +426,16 @@ class urlWeb: UIViewController {
                 
                 <script>
                     // Debug info
-                    console.log('Loading video URL: \(url.absoluteString)');
-                    console.log('MIME type: \(mimeType)');
+                    console.log('Loading primary video URL: \(url.absoluteString)');
+                    console.log('Primary MIME type: \(mimeType)');
+                    
+                    \(fallbackURL != nil ? "console.log('Alternate URL available: \(fallbackURL!.absoluteString)');" : "")
                     
                     // Get reference to the video element and error message
                     var video = document.getElementById('videoPlayer');
                     var errorMsg = document.getElementById('errorMessage');
+                    var sourceIndex = 0;
+                    var sources = video.querySelectorAll('source');
                     
                     // Function to try playing the video with error handling
                     function tryPlayVideo() {
@@ -441,8 +450,30 @@ class urlWeb: UIViewController {
                     // Add click handler to retry playback
                     errorMsg.addEventListener('click', function() {
                         errorMsg.style.display = 'none';
+                        // Try alternating sources on click if available
+                        if (sources.length > 1) {
+                            switchSource();
+                        }
                         tryPlayVideo();
                     });
+                    
+                    // Function to switch between available sources
+                    function switchSource() {
+                        if (sources.length <= 1) return;
+                        
+                        // Try the next source
+                        sourceIndex = (sourceIndex + 1) % sources.length;
+                        console.log('Switching to source ' + sourceIndex + ': ' + sources[sourceIndex].src);
+                        
+                        // Move the selected source to be first (highest priority)
+                        video.insertBefore(sources[sourceIndex], video.firstChild);
+                        
+                        // Reload the video with the new source order
+                        video.load();
+                        
+                        // Try playing after a short delay
+                        setTimeout(tryPlayVideo, 300);
+                    }
                     
                     // Handle when the video can play
                     video.addEventListener('canplay', function() {
@@ -458,7 +489,15 @@ class urlWeb: UIViewController {
                             console.log('Error code:', video.error.code);
                             console.log('Error message:', video.error.message);
                         }
+                        
+                        // Show error message
                         errorMsg.style.display = 'block';
+                        
+                        // Try switching source if we have multiple
+                        if (sources.length > 1) {
+                            console.log('Trying alternate source due to error');
+                            switchSource();
+                        }
                     });
                     
                     // Try playing the video at different intervals
@@ -482,20 +521,17 @@ class urlWeb: UIViewController {
                             }
                         });
                     });
-                        var video = document.querySelector('video');
-                        video.addEventListener('canplay', function() {
-                            video.play().catch(function(error) {
-                                console.log('Auto-play failed:', error);
-                            });
+                    
+                    // Source error handling - crucial for format compatibility
+                    for (var i = 0; i < sources.length; i++) {
+                        sources[i].addEventListener('error', function(e) {
+                            console.log('Source error, trying next source if available');
+                            // This helps handle incompatible source formats
+                            if (sources.length > 1) {
+                                switchSource();
+                            }
                         });
-                        
-                        // Force play attempt
-                        setTimeout(function() {
-                            video.play().catch(function(error) {
-                                console.log('Delayed play failed:', error);
-                            });
-                        }, 500);
-                    });
+                    }
                 </script>
             </body>
             </html>
@@ -538,10 +574,11 @@ class urlWeb: UIViewController {
     /// Initiates the download process for the current content
     @objc private func downloadData() {
         let folderName: String
-        // Determine folder based on file type
-        if images[currentIndex].absoluteString.contains("png") || images[currentIndex].absoluteString.contains("jpg") {
+        // Determine folder based on file type or extension
+        let fileExtension = images[currentIndex].pathExtension.lowercased()
+        if fileExtension == "png" || fileExtension == "jpg" || fileExtension == "jpeg" {
             folderName = "images"
-        } else if images[currentIndex].absoluteString.contains("gif") || images[currentIndex].absoluteString.contains("webm") {
+        } else if fileExtension == "gif" || fileExtension == "webm" || fileExtension == "mp4" {
             folderName = "media"
         } else {
             showAlert(title: "Error", message: "Unsupported file type")

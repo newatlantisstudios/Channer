@@ -340,37 +340,123 @@ class threadRepliesCV: UICollectionViewController {
         cell.replyText.isHidden = false
         cell.threadImage.isHidden = false
         cell.replyText.text = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        
+        print("Debug (iPad): Configuring media cell with image URL: \(imageUrl)")
                 
         let finalImageUrl: String
-            if imageUrl.contains(".webm") {
-                finalImageUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
+        if imageUrl.contains(".webm") {
+            finalImageUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
+            print("Debug (iPad): Using JPG thumbnail for WebM: \(finalImageUrl)")
+        } else if imageUrl.contains(".mp4") {
+            finalImageUrl = imageUrl.replacingOccurrences(of: ".mp4", with: "s.jpg")
+            print("Debug (iPad): Using JPG thumbnail for MP4: \(finalImageUrl)")
+        } else if imageUrl.contains(".png") {
+            // Get thumbnail URL for PNG image - 4chan uses JPG thumbnails even for PNG files
+            let components = imageUrl.components(separatedBy: "/")
+            if let last = components.last, let range = last.range(of: ".") {
+                let filename = String(last[..<range.lowerBound])
+                // Always use .jpg extension for thumbnails, even for PNG files
+                let thumbnailFilename = filename + "s.jpg"
+                finalImageUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+                print("Debug (iPad): Using JPG thumbnail for PNG: \(finalImageUrl)")
             } else {
                 finalImageUrl = imageUrl
+                print("Debug (iPad): Using original PNG URL: \(finalImageUrl)")
             }
-                
-            // Correct way to set image on UIButton using Kingfisher
-            if let url = URL(string: finalImageUrl) {
-                cell.threadImage.kf.setImage(with: url, for: .normal)
+        } else {
+            // Default JPG handling
+            let components = imageUrl.components(separatedBy: "/")
+            if let last = components.last, let range = last.range(of: ".") {
+                let filename = String(last[..<range.lowerBound])
+                let thumbnailFilename = filename + "s.jpg"
+                finalImageUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+                print("Debug (iPad): Using JPG thumbnail: \(finalImageUrl)")
+            } else {
+                finalImageUrl = imageUrl
+                print("Debug (iPad): Using original URL: \(finalImageUrl)")
             }
+        }
                 
-            cell.threadImage.tag = indexPath.row
-            cell.threadImage.layer.cornerRadius = 12
-            cell.threadImage.contentMode = .scaleAspectFill
-            cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
+        // Correct way to set image on UIButton using Kingfisher
+        if let url = URL(string: finalImageUrl) {
+            // Use enhanced options for better loading
+            let options: KingfisherOptionsInfo = [
+                .scaleFactor(UIScreen.main.scale),
+                .transition(.fade(0.2)),
+                .cacheOriginalImage,
+                .backgroundDecode,
+                .retryStrategy(DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(1)))
+            ]
+            
+            cell.threadImage.kf.setImage(
+                with: url,
+                for: .normal,
+                options: options) { result in
+                    switch result {
+                    case .success:
+                        print("Debug (iPad): Successfully loaded image: \(url)")
+                    case .failure(let error):
+                        print("Debug (iPad): Failed to load image: \(error.localizedDescription)")
+                        
+                        // We shouldn't need fallbacks anymore since we're always using JPG thumbnails,
+                        // but let's keep this just in case for robustness
+                        if finalImageUrl.hasSuffix(".png") {
+                            let jpgUrl = finalImageUrl.replacingOccurrences(of: ".png", with: ".jpg")
+                            print("Debug (iPad): Thumbnail loading failed. Trying explicit JPG fallback: \(jpgUrl)")
+                            
+                            if let fallbackUrl = URL(string: jpgUrl) {
+                                cell.threadImage.kf.setImage(with: fallbackUrl, for: .normal, options: options)
+                            }
+                        }
+                    }
+                }
+        }
+                
+        cell.threadImage.tag = indexPath.row
+        cell.threadImage.layer.cornerRadius = 12
+        cell.threadImage.contentMode = .scaleAspectFill
+        cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
         
-            // Store image URL for hover preview
-            cell.setImageURL(finalImageUrl)
+        // Store the original high-quality image URL for hover preview
+        cell.setImageURL(imageUrl)
+        print("Debug (iPad): Stored full image URL for tap action: \(imageUrl)")
     }
     
     // MARK: - Actions
     @objc func threadContentOpen(_ sender: UIButton) {
+        // Get the selected image URL
+        let selectedIndex = sender.tag
+        guard selectedIndex < threadRepliesImages.count else {
+            print("Debug (iPad): Invalid image index")
+            return
+        }
+        
+        let selectedImageURL = threadRepliesImages[selectedIndex]
+        print("Debug (iPad): Opening image at index \(selectedIndex): \(selectedImageURL)")
+        
+        // Check if this is a PNG image that might need special handling
+        if selectedImageURL.contains(".png") {
+            print("Debug (iPad): PNG image detected in threadContentOpen")
+        }
+        
+        // Set up the gallery view controller with potentially corrected image URLs
         let segue = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "imageGrid") as! ImageGalleryVC
         
-        segue.imagesLinks = threadRepliesImages
-        segue.selectedIndex = sender.tag
+        // For ImageGalleryVC, we need to make sure we're passing the correct full-size URLs, not thumbnails
+        let processedImageLinks = threadRepliesImages.map { url -> String in
+            // If the URL contains "s.jpg" but is actually a PNG, correct it
+            if url.contains("s.jpg") && url.contains(".png") {
+                return url.replacingOccurrences(of: "s.jpg", with: ".png")
+            }
+            return url
+        }
+        
+        segue.imagesLinks = processedImageLinks
+        segue.selectedIndex = selectedIndex
         segue.currentTableView = nil
         segue.currentCollectionView = collectionView
         
+        print("Debug (iPad): Presenting image gallery with \(processedImageLinks.count) images")
         self.present(segue, animated: true, completion: nil)
     }
     

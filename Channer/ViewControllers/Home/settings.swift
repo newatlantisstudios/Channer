@@ -10,6 +10,8 @@ class settings: UIViewController {
     var boardAbv = ["a", "c", "w", "m", "cgl", "cm", "f", "n", "jp", "v", "vg", "vp", "vr", "co", "g", "tv", "k", "o", "an", "tg", "sp", "asp", "sci", "his", "int", "out", "toy", "i", "po", "p", "ck", "ic", "wg", "lit", "mu", "fa", "3", "gd", "diy", "wsg", "qst", "biz", "trv", "fit", "x", "adv", "lgbt", "mlp", "news", "wsr", "vip", "b", "r9k", "pol", "bant", "soc", "s4s", "s", "hc", "hm", "h", "e", "u", "d", "y", "t", "hr", "gif", "aco", "r"]
     
     // UI Components
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
     private let headerLabel = UILabel()
     private let selectedBoardView = UIView()
     private let selectedBoardLabel = UILabel()
@@ -43,7 +45,6 @@ class settings: UIViewController {
     private let keyboardShortcutsView = UIView()
     private let keyboardShortcutsLabel = UILabel()
     private let keyboardShortcutsToggle = UISwitch()
-    private let keyboardShortcutsButton = UIButton(type: .system)
     
     private let highQualityThumbnailsView = UIView()
     private let highQualityThumbnailsLabel = UILabel()
@@ -52,6 +53,11 @@ class settings: UIViewController {
     private var boardsDisplayModeView: UIView!
     private var boardsDisplayModeLabel: UILabel!
     private var boardsDisplayModeSegment: UISegmentedControl!
+    
+    // UI for preload videos toggle
+    private let preloadVideosView = UIView()
+    private let preloadVideosLabel = UILabel()
+    private let preloadVideosToggle = UISwitch()
     
     // Constants
     private let userDefaultsKey = "defaultBoard"
@@ -64,6 +70,7 @@ class settings: UIViewController {
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
+    private let preloadVideosKey = "channer_preload_videos_enabled"
     
     // MARK: - Initialization
     required init?(coder: NSCoder) {
@@ -97,6 +104,10 @@ class settings: UIViewController {
             UserDefaults.standard.set(false, forKey: highQualityThumbnailsKey)
         }
         
+        if UserDefaults.standard.object(forKey: preloadVideosKey) == nil {
+            UserDefaults.standard.set(false, forKey: preloadVideosKey)
+        }
+        
         sortBoardsAlphabetically()
         setupUI()
     }
@@ -117,18 +128,27 @@ class settings: UIViewController {
     private func setupUI() {
         view.backgroundColor = ThemeManager.shared.backgroundColor
         
+        // Setup scroll view
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.alwaysBounceVertical = true
+        view.addSubview(scrollView)
+        
+        // Setup content view
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(contentView)
+        
         // Header Label
         headerLabel.text = "Choose Your Start Up Board"
         headerLabel.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         headerLabel.textAlignment = .center
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(headerLabel)
+        contentView.addSubview(headerLabel)
         
         // Selected Board View
         selectedBoardView.backgroundColor = UIColor.systemGray5
         selectedBoardView.layer.cornerRadius = 12
         selectedBoardView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(selectedBoardView)
+        contentView.addSubview(selectedBoardView)
         
         // Selected Board Label
         selectedBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
@@ -149,7 +169,7 @@ class settings: UIViewController {
         faceIDView.layer.cornerRadius = 10
         faceIDView.clipsToBounds = true
         faceIDView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(faceIDView)
+        contentView.addSubview(faceIDView)
         
         // FaceID Label
         faceIDLabel.text = "Require FaceID/TouchID for History & Favorites"
@@ -176,7 +196,7 @@ class settings: UIViewController {
         notificationsView.layer.cornerRadius = 10
         notificationsView.clipsToBounds = true
         notificationsView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(notificationsView)
+        contentView.addSubview(notificationsView)
         
         // Notifications Label
         notificationsLabel.text = "Enable Thread Update Notifications"
@@ -202,7 +222,7 @@ class settings: UIViewController {
         offlineReadingView.layer.cornerRadius = 10
         offlineReadingView.clipsToBounds = true
         offlineReadingView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(offlineReadingView)
+        contentView.addSubview(offlineReadingView)
         
         // Offline Reading Label
         offlineReadingLabel.text = "Enable Offline Reading Mode"
@@ -242,7 +262,7 @@ class settings: UIViewController {
         iCloudSyncView.layer.cornerRadius = 10
         iCloudSyncView.clipsToBounds = true
         iCloudSyncView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(iCloudSyncView)
+        contentView.addSubview(iCloudSyncView)
         
         // iCloud Sync Label
         iCloudSyncLabel.text = "Enable iCloud Sync"
@@ -300,7 +320,7 @@ class settings: UIViewController {
         launchWithStartupBoardView.layer.cornerRadius = 10
         launchWithStartupBoardView.clipsToBounds = true
         launchWithStartupBoardView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(launchWithStartupBoardView)
+        contentView.addSubview(launchWithStartupBoardView)
         
         // Launch With Startup Board Label
         launchWithStartupBoardLabel.text = "Launch With Startup Board"
@@ -325,7 +345,7 @@ class settings: UIViewController {
         themeSettingsView.layer.cornerRadius = 10
         themeSettingsView.clipsToBounds = true
         themeSettingsView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(themeSettingsView)
+        contentView.addSubview(themeSettingsView)
         
         // Theme Settings Label
         themeSettingsLabel.text = "App Theme Settings"
@@ -349,7 +369,7 @@ class settings: UIViewController {
         contentFilteringView.layer.cornerRadius = 10
         contentFilteringView.clipsToBounds = true
         contentFilteringView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(contentFilteringView)
+        contentView.addSubview(contentFilteringView)
         
         // Content Filtering Label
         contentFilteringLabel.text = "Content Filtering"
@@ -373,7 +393,7 @@ class settings: UIViewController {
         autoRefreshView.layer.cornerRadius = 10
         autoRefreshView.clipsToBounds = true
         autoRefreshView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(autoRefreshView)
+        contentView.addSubview(autoRefreshView)
         
         // Auto-refresh Label
         autoRefreshLabel.text = "Auto-refresh Settings"
@@ -392,43 +412,44 @@ class settings: UIViewController {
         autoRefreshButton.addTarget(self, action: #selector(autoRefreshButtonTapped), for: .touchUpInside)
         autoRefreshView.addSubview(autoRefreshButton)
         
-        // Keyboard Shortcuts View
-        keyboardShortcutsView.backgroundColor = UIColor.secondarySystemGroupedBackground
-        keyboardShortcutsView.layer.cornerRadius = 10
-        keyboardShortcutsView.clipsToBounds = true
-        keyboardShortcutsView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(keyboardShortcutsView)
+        // Keyboard Shortcuts View (iPad only)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            keyboardShortcutsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+            keyboardShortcutsView.layer.cornerRadius = 10
+            keyboardShortcutsView.clipsToBounds = true
+            keyboardShortcutsView.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(keyboardShortcutsView)
+        }
         
-        // Keyboard Shortcuts Label
-        keyboardShortcutsLabel.text = "iPad Keyboard Shortcuts"
-        keyboardShortcutsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        keyboardShortcutsLabel.textAlignment = .left
-        keyboardShortcutsLabel.numberOfLines = 1
-        keyboardShortcutsLabel.adjustsFontSizeToFitWidth = true
-        keyboardShortcutsLabel.minimumScaleFactor = 0.8
-        keyboardShortcutsLabel.translatesAutoresizingMaskIntoConstraints = false
-        keyboardShortcutsView.addSubview(keyboardShortcutsLabel)
+        // Keyboard Shortcuts Label (iPad only)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            keyboardShortcutsLabel.text = "iPad Keyboard Shortcuts"
+            keyboardShortcutsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+            keyboardShortcutsLabel.textAlignment = .left
+            keyboardShortcutsLabel.numberOfLines = 1
+            keyboardShortcutsLabel.adjustsFontSizeToFitWidth = true
+            keyboardShortcutsLabel.minimumScaleFactor = 0.8
+            keyboardShortcutsLabel.translatesAutoresizingMaskIntoConstraints = false
+            keyboardShortcutsView.addSubview(keyboardShortcutsLabel)
+            
+            // Keyboard Shortcuts Toggle
+            let isKeyboardShortcutsEnabled = UserDefaults.standard.bool(forKey: keyboardShortcutsEnabledKey)
+            keyboardShortcutsToggle.isOn = isKeyboardShortcutsEnabled
+            keyboardShortcutsToggle.translatesAutoresizingMaskIntoConstraints = false
+            keyboardShortcutsToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+            keyboardShortcutsToggle.addTarget(self, action: #selector(keyboardShortcutsToggleChanged), for: .valueChanged)
+            keyboardShortcutsView.addSubview(keyboardShortcutsToggle)
+        }
         
-        // Keyboard Shortcuts Toggle
-        let isKeyboardShortcutsEnabled = UserDefaults.standard.bool(forKey: keyboardShortcutsEnabledKey)
-        keyboardShortcutsToggle.isOn = isKeyboardShortcutsEnabled
-        keyboardShortcutsToggle.translatesAutoresizingMaskIntoConstraints = false
-        keyboardShortcutsToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
-        keyboardShortcutsToggle.addTarget(self, action: #selector(keyboardShortcutsToggleChanged), for: .valueChanged)
-        keyboardShortcutsView.addSubview(keyboardShortcutsToggle)
-        
-        // Keyboard Shortcuts Button
-        keyboardShortcutsButton.setTitle("View", for: .normal)
-        keyboardShortcutsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        keyboardShortcutsButton.translatesAutoresizingMaskIntoConstraints = false
-        keyboardShortcutsButton.addTarget(self, action: #selector(keyboardShortcutsButtonTapped), for: .touchUpInside)
-        keyboardShortcutsView.addSubview(keyboardShortcutsButton)
         
         // Setup the Boards Display Mode view
         setupBoardsDisplayModeView()
         
         // Setup High Quality Thumbnails view
         setupHighQualityThumbnailsView()
+        
+        // Setup Preload Videos view
+        setupPreloadVideosView()
         
         setupConstraints()
     }
@@ -918,28 +939,23 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
     
-    @objc private func keyboardShortcutsButtonTapped() {
-        // Navigate to keyboard shortcuts documentation
-        if let url = URL(string: "file://" + NSString(string: NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]).appendingPathComponent("KEYBOARD_SHORTCUTS.md")) {
-            let webVC = urlWeb()
-            webVC.images = [url]
-            navigationController?.pushViewController(webVC, animated: true)
-        } else {
-            // Show an alert with shortcut information
-            let alert = UIAlertController(
-                title: "Keyboard Shortcuts",
-                message: "iPad keyboard shortcuts provide quick access to various app features. Enable them to use with an external keyboard.",
-                preferredStyle: .alert
-            )
-            
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
-        }
+    @objc private func preloadVideosToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: preloadVideosKey)
+        UserDefaults.standard.synchronize() // Force save immediately
+        
+        // Show confirmation alert
+        let title = sender.isOn ? "Video Preloading Enabled" : "Video Preloading Disabled"
+        let message = sender.isOn ? "Videos in galleries will automatically load and play. This may use more data." : "Videos in galleries will not automatically load."
+        
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
         
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
+    
     
     private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
         let alertController = UIAlertController(
@@ -1009,7 +1025,7 @@ class settings: UIViewController {
         highQualityThumbnailsToggle.addTarget(self, action: #selector(highQualityThumbnailsToggleChanged), for: .valueChanged)
         
         // Add views to view hierarchy
-        view.addSubview(highQualityThumbnailsView)
+        contentView.addSubview(highQualityThumbnailsView)
         highQualityThumbnailsView.addSubview(highQualityThumbnailsLabel)
         highQualityThumbnailsView.addSubview(highQualityThumbnailsToggle)
         
@@ -1017,12 +1033,9 @@ class settings: UIViewController {
         NSLayoutConstraint.activate([
             // High Quality Thumbnails View
             highQualityThumbnailsView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
-            highQualityThumbnailsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            highQualityThumbnailsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            highQualityThumbnailsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            highQualityThumbnailsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             highQualityThumbnailsView.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Update the keyboardShortcutsView to be below this view
-            keyboardShortcutsView.topAnchor.constraint(equalTo: highQualityThumbnailsView.bottomAnchor, constant: 16),
             
             // High Quality Thumbnails Label
             highQualityThumbnailsLabel.centerYAnchor.constraint(equalTo: highQualityThumbnailsView.centerYAnchor),
@@ -1032,6 +1045,53 @@ class settings: UIViewController {
             // High Quality Thumbnails Toggle
             highQualityThumbnailsToggle.centerYAnchor.constraint(equalTo: highQualityThumbnailsView.centerYAnchor),
             highQualityThumbnailsToggle.trailingAnchor.constraint(equalTo: highQualityThumbnailsView.trailingAnchor, constant: -30),
+        ])
+    }
+    
+    private func setupPreloadVideosView() {
+        // Set up the preload videos view
+        preloadVideosView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        preloadVideosView.layer.cornerRadius = 10
+        preloadVideosView.clipsToBounds = true
+        preloadVideosView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set up the preload videos label
+        preloadVideosLabel.text = "Preload Videos in Gallery"
+        preloadVideosLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        preloadVideosLabel.textAlignment = .left
+        preloadVideosLabel.numberOfLines = 1
+        preloadVideosLabel.adjustsFontSizeToFitWidth = true
+        preloadVideosLabel.minimumScaleFactor = 0.8
+        preloadVideosLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set up the preload videos toggle
+        let isPreloadVideosEnabled = UserDefaults.standard.bool(forKey: preloadVideosKey)
+        preloadVideosToggle.isOn = isPreloadVideosEnabled
+        preloadVideosToggle.translatesAutoresizingMaskIntoConstraints = false
+        preloadVideosToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        preloadVideosToggle.addTarget(self, action: #selector(preloadVideosToggleChanged), for: .valueChanged)
+        
+        // Add views to view hierarchy
+        contentView.addSubview(preloadVideosView)
+        preloadVideosView.addSubview(preloadVideosLabel)
+        preloadVideosView.addSubview(preloadVideosToggle)
+        
+        // Add constraints for the views
+        NSLayoutConstraint.activate([
+            // Preload Videos View
+            preloadVideosView.topAnchor.constraint(equalTo: highQualityThumbnailsView.bottomAnchor, constant: 16),
+            preloadVideosView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            preloadVideosView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            preloadVideosView.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Preload Videos Label
+            preloadVideosLabel.centerYAnchor.constraint(equalTo: preloadVideosView.centerYAnchor),
+            preloadVideosLabel.leadingAnchor.constraint(equalTo: preloadVideosView.leadingAnchor, constant: 20),
+            preloadVideosLabel.trailingAnchor.constraint(lessThanOrEqualTo: preloadVideosToggle.leadingAnchor, constant: -15),
+            
+            // Preload Videos Toggle
+            preloadVideosToggle.centerYAnchor.constraint(equalTo: preloadVideosView.centerYAnchor),
+            preloadVideosToggle.trailingAnchor.constraint(equalTo: preloadVideosView.trailingAnchor, constant: -30),
         ])
     }
     
@@ -1074,7 +1134,7 @@ class settings: UIViewController {
         }()
         
         // Add views to view hierarchy
-        view.addSubview(boardsDisplayModeView)
+        contentView.addSubview(boardsDisplayModeView)
         boardsDisplayModeView.addSubview(boardsDisplayModeLabel)
         boardsDisplayModeView.addSubview(boardsDisplayModeSegment)
         
@@ -1082,8 +1142,8 @@ class settings: UIViewController {
         NSLayoutConstraint.activate([
             // Boards Display Mode View
             boardsDisplayModeView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
-            boardsDisplayModeView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            boardsDisplayModeView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
             
             // Boards Display Mode Label
@@ -1146,15 +1206,28 @@ class settings: UIViewController {
     
     private func setupConstraints() {
         NSLayoutConstraint.activate([
+            // Scroll View
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            
+            // Content View
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            
             // Header Label
-            headerLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            headerLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            headerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            headerLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             // Selected Board View
             selectedBoardView.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 16),
-            selectedBoardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            selectedBoardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            selectedBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            selectedBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             selectedBoardView.heightAnchor.constraint(equalToConstant: 50),
             
             // Selected Board Label
@@ -1168,8 +1241,8 @@ class settings: UIViewController {
             
             // FaceID View
             faceIDView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
-            faceIDView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            faceIDView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             faceIDView.heightAnchor.constraint(equalToConstant: 44),
             // Ensure the view is wide enough
             faceIDView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
@@ -1186,8 +1259,8 @@ class settings: UIViewController {
             
             // Notifications View
             notificationsView.topAnchor.constraint(equalTo: faceIDView.bottomAnchor, constant: 16),
-            notificationsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            notificationsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            notificationsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            notificationsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             notificationsView.heightAnchor.constraint(equalToConstant: 44),
             notificationsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1202,8 +1275,8 @@ class settings: UIViewController {
             
             // Offline Reading View
             offlineReadingView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
-            offlineReadingView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            offlineReadingView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            offlineReadingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            offlineReadingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             offlineReadingView.heightAnchor.constraint(equalToConstant: 44),
             offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1218,8 +1291,8 @@ class settings: UIViewController {
             
             // iCloud Sync View
             iCloudSyncView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
-            iCloudSyncView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            iCloudSyncView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            iCloudSyncView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            iCloudSyncView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             iCloudSyncView.heightAnchor.constraint(equalToConstant: 64),
             iCloudSyncView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1243,8 +1316,8 @@ class settings: UIViewController {
             
             // Launch With Startup Board View
             launchWithStartupBoardView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
-            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
             launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1259,8 +1332,8 @@ class settings: UIViewController {
             
             // Theme Settings View
             themeSettingsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
-            themeSettingsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            themeSettingsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            themeSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            themeSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: 44),
             themeSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1275,8 +1348,8 @@ class settings: UIViewController {
             
             // Content Filtering View
             contentFilteringView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
-            contentFilteringView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            contentFilteringView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            contentFilteringView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            contentFilteringView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             contentFilteringView.heightAnchor.constraint(equalToConstant: 44),
             contentFilteringView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1291,8 +1364,8 @@ class settings: UIViewController {
             
             // Auto-refresh View
             autoRefreshView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
-            autoRefreshView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            autoRefreshView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            autoRefreshView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            autoRefreshView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             autoRefreshView.heightAnchor.constraint(equalToConstant: 44),
             autoRefreshView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1305,25 +1378,36 @@ class settings: UIViewController {
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
             
-            // Keyboard Shortcuts View top constraint is set in setupBoardsDisplayModeView to ensure proper ordering
-            keyboardShortcutsView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            keyboardShortcutsView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
-            keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-            
-            // Keyboard Shortcuts Label
-            keyboardShortcutsLabel.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
-            keyboardShortcutsLabel.leadingAnchor.constraint(equalTo: keyboardShortcutsView.leadingAnchor, constant: 20),
-            keyboardShortcutsLabel.trailingAnchor.constraint(lessThanOrEqualTo: keyboardShortcutsButton.leadingAnchor, constant: -15),
-            
-            // Keyboard Shortcuts Toggle
-            keyboardShortcutsToggle.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
-            keyboardShortcutsToggle.trailingAnchor.constraint(equalTo: keyboardShortcutsView.trailingAnchor, constant: -20),
-            
-            // Keyboard Shortcuts Button
-            keyboardShortcutsButton.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
-            keyboardShortcutsButton.trailingAnchor.constraint(equalTo: keyboardShortcutsToggle.leadingAnchor, constant: -15)
         ])
+        
+        // iPad-only constraints for keyboard shortcuts
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            NSLayoutConstraint.activate([
+                // Keyboard Shortcuts View
+                keyboardShortcutsView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+                keyboardShortcutsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+                keyboardShortcutsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+                keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
+                keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+                
+                // Keyboard Shortcuts Label
+                keyboardShortcutsLabel.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
+                keyboardShortcutsLabel.leadingAnchor.constraint(equalTo: keyboardShortcutsView.leadingAnchor, constant: 20),
+                keyboardShortcutsLabel.trailingAnchor.constraint(lessThanOrEqualTo: keyboardShortcutsToggle.leadingAnchor, constant: -15),
+                
+                // Keyboard Shortcuts Toggle
+                keyboardShortcutsToggle.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
+                keyboardShortcutsToggle.trailingAnchor.constraint(equalTo: keyboardShortcutsView.trailingAnchor, constant: -20),
+                
+                // Bottom constraint for scroll content size
+                keyboardShortcutsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            ])
+        } else {
+            // For iPhone, set bottom constraint to preload videos view
+            NSLayoutConstraint.activate([
+                preloadVideosView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            ])
+        }
     }
     
     // MARK: - Helper Methods
