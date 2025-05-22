@@ -467,7 +467,23 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     /// Set up a cell to display an image
     private func setupImageCell(_ cell: MediaCell, url: URL) {
         cell.setupForImage()
-        cell.imageView?.kf.setImage(with: url) { _ in
+        
+        // For video files, display thumbnail but keep original URL for playback
+        var displayURL = url
+        if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            // Convert to thumbnail URL for display in gallery grid
+            let components = url.absoluteString.components(separatedBy: "/")
+            if let last = components.last {
+                let fileExtension = url.pathExtension.lowercased()
+                let base = last.replacingOccurrences(of: ".\(fileExtension)", with: "")
+                if let thumbnailURL = URL(string: url.absoluteString.replacingOccurrences(of: last, with: "\(base)s.jpg")) {
+                    displayURL = thumbnailURL
+                    print("Using thumbnail for display: \(thumbnailURL.absoluteString)")
+                }
+            }
+        }
+        
+        cell.imageView?.kf.setImage(with: displayURL) { _ in
             cell.activityIndicator?.stopAnimating()
         }
     }
@@ -809,60 +825,24 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // MARK: - UICollectionViewDelegate
     /// Handles selection of a collection view item.
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        // Get the URL for the selected item
+        // Get the original URL - let urlWeb handle format detection like thread view does
         let selectedURL = images[indexPath.row]
-        let urlToUse: URL
         
-        // Check if this is an actual image file (not a video)
-        let fileExtension = selectedURL.pathExtension.lowercased()
-        let isActualImage = ["jpg", "jpeg", "png", "gif"].contains(fileExtension)
+        print("ImageGalleryVC - selectedURL - " + selectedURL.absoluteString)
         
-        // For actual images, use original URL. For videos, use corrected URL if available
-        if isActualImage {
-            urlToUse = selectedURL
-            print("Using original image URL: \(urlToUse.absoluteString)")
-        } else if let correctedURL = correctedURLs[indexPath.row] {
-            urlToUse = correctedURL
-            print("Using corrected video URL: \(urlToUse.absoluteString)")
-        } else {
-            urlToUse = selectedURL
-            print("Using original URL: \(urlToUse.absoluteString)")
-        }
-        
-        print("ImageGalleryVC - selectedURL - " + urlToUse.absoluteString)
-        
-        // Create arrays for the URLs to pass to urlWeb
-        var allURLsToPass: [URL] = []
-        
-        // Build the array of URLs for all items - use original for images, corrected for videos
-        for i in 0..<images.count {
-            let itemURL = images[i]
-            let itemExtension = itemURL.pathExtension.lowercased()
-            let itemIsActualImage = ["jpg", "jpeg", "png", "gif"].contains(itemExtension)
-            
-            if itemIsActualImage {
-                // For actual images, always use the original URL
-                allURLsToPass.append(itemURL)
-            } else if let correctedURL = correctedURLs[i] {
-                // For videos, use corrected URL if available
-                allURLsToPass.append(correctedURL)
-            } else {
-                // Fallback to original URL
-                allURLsToPass.append(itemURL)
-            }
-        }
-        
-        print("Creating URLWeb view controller with \(allURLsToPass.count) URLs")
-        
-        // Create the urlWeb view controller to display the full video/image
+        // Pass original URLs directly to urlWeb like thread view does
+        // This matches thread view's approach: thread view passes unprocessed URLs from JSON
+        // and lets urlWeb handle format detection and playback
         let urlWebVC = urlWeb()
-        urlWebVC.images = allURLsToPass // Pass the list of images/videos with appropriate URLs
+        urlWebVC.images = images // Pass all original URLs without processing
         urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
         urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
         
+        print("Creating URLWeb view controller with \(images.count) original URLs (matching thread view approach)")
+        
         // Add the urlWebVC to the navigation stack
         if let navController = navigationController {
-            print("Pushing urlWebVC onto navigation stack from ImageGalleryVC.")
+            print("Pushing urlWebVC onto navigation stack from ImageGalleryVC - using thread view's approach with original URLs.")
             navController.pushViewController(urlWebVC, animated: true)
         } else {
             print("Navigation controller is nil. Attempting modal presentation.")

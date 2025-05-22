@@ -676,30 +676,23 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func showGallery() {
         print("Gallery button tapped.")
         
-        // Map valid image URLs
+        // Pass original URLs directly to gallery (same as thread view does)
+        // This ensures videos play correctly in gallery just like in thread view
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
             if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
             
-            // For videos, convert to thumbnail URLs for display in gallery
-            if imageUrlString.hasSuffix(".webm") || imageUrlString.hasSuffix(".mp4") {
-                let components = imageUrlString.components(separatedBy: "/")
-                if let last = components.last {
-                    let fileExtension = imageUrlString.hasSuffix(".webm") ? ".webm" : ".mp4"
-                    let base = last.replacingOccurrences(of: fileExtension, with: "")
-                    print("Converting video URL to thumbnail: \(imageUrlString) -> \(base)s.jpg")
-                    return URL(string: imageUrlString.replacingOccurrences(of: last, with: "\(base)s.jpg"))
-                }
-                return nil
-            }
+            // Pass original URLs directly - no thumbnail conversion
+            // This matches thread view behavior where original URLs are used
+            print("Using original URL for gallery: \(imageUrlString)")
             return url
         }
         
-        print("Filtered image URLs: \(imageUrls)")
+        print("Filtered image URLs for gallery: \(imageUrls)")
         
-        // Instantiate the gallery view controller
+        // Instantiate the gallery view controller with original URLs
         let galleryVC = ImageGalleryVC(images: imageUrls)
-        print("GalleryVC instantiated.")
+        print("GalleryVC instantiated with original URLs.")
         
         // Navigate to the gallery
         if let navController = navigationController {
