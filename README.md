@@ -1,6 +1,31 @@
-# Channer v2.0 for iOS & iPadOS
+<div align="center">
+  <img src="App Images/iOS/iOS-1.png" alt="Channer Logo" width="120">
+  
+  # Channer v2.0
+  
+  ### The Ultimate Image Board Client for iOS & iPadOS
+  
+  [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS-blue.svg)](https://developer.apple.com/ios/)
+  [![iOS Version](https://img.shields.io/badge/iOS-15.6%2B-brightgreen.svg)](https://developer.apple.com/ios/)
+  [![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)](https://swift.org/)
+  [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+  [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+  
+  **A powerful, native iOS/iPadOS client for browsing image boards with advanced features, privacy-focused design, and seamless media handling.**
+  
+  [Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Build](#-building-from-source) • [Contributing](#-contributing)
+</div>
 
-A powerful, native iOS/iPadOS client for browsing image boards with advanced features, privacy-focused design, and seamless media handling. Built with Swift and UIKit for optimal performance across iPhone and iPad.
+---
+
+## ✨ Why Channer?
+
+- 🚀 **Native Performance**: Built with Swift for blazing-fast browsing
+- 🔒 **Privacy First**: No tracking, no analytics, your data stays yours
+- 🎨 **Beautiful Design**: Adaptive UI that looks great on any device
+- 📱 **Universal App**: One app for iPhone and iPad with optimized interfaces
+- 🌐 **Offline Support**: Browse cached threads without internet
+- ⚡ **Smart Features**: Advanced search, filtering, and organization tools
 
 ## 🆕 What's New in v2.0
 
@@ -29,134 +54,275 @@ A powerful, native iOS/iPadOS client for browsing image boards with advanced fea
 - **📦 Updated Dependencies**: Migrated to modern FFmpeg implementation
 - **🧪 Better Testing Framework**: Improved test structure and CI/CD support
 
-## 🌟 Core Features
+## 🌟 Features
 
-### Seamless Browsing Experience
+<table>
+<tr>
+<td width="50%">
 
-- Navigate through boards, threads, and replies with intuitive gestures
-- Sort threads by reply count or newest first
-- Adaptive UI that works perfectly on both iPhone and iPad
+### 📱 Browsing Experience
 
-### Comprehensive Media Support
+- **Intuitive Navigation**: Swipe gestures and smart controls
+- **Thread Sorting**: By reply count, date, or custom filters
+- **Adaptive Layout**: Optimized for every screen size
+- **Quick Actions**: 3D Touch and context menus
+- **Split View**: Multitasking on iPad
 
-- **WebM & MP4 Video**: Full video playback with VLC integration
-- **Image Gallery**: View all thread media in a dedicated gallery mode
-- **Download Manager**: Save images and videos directly to your device
-- **Thumbnail Grid**: Quick overview of all thread media
+### 🎬 Media Handling
 
-### Privacy & Security
+- **WebM & MP4 Support**: Native video playback
+- **Image Gallery**: Beautiful media browser
+- **Download Manager**: Batch downloads with progress
+- **Thumbnail Grid**: Visual thread overview
+- **Smart Preloading**: Configurable media caching
 
-- **Biometric Authentication**: FaceID/TouchID protection for sensitive features
-- **No Tracking**: Zero user tracking or data collection
-- **Offline Reading**: Cache threads for offline access with iCloud sync
-- **Content Filtering**: Hide unwanted content with customizable filters
+### 🔐 Privacy & Security
 
-### Advanced Organization
+- **Biometric Lock**: FaceID/TouchID protection
+- **Zero Tracking**: No analytics or data collection
+- **Local Storage**: Your data stays on device
+- **Encrypted Sync**: Secure iCloud synchronization
+- **Content Filters**: Advanced filtering system
 
-- **Categorized Favorites**: Organize saved threads into custom categories
-  - Color-coded categories with SF Symbol icons
-  - Default categories: General, To Read, Important, Archives
-  - Bulk operations and category management
-- **Smart History**: Automatic thread visit tracking with search capability
-- **Thread Watcher**: Get notifications for new replies on favorite threads
+</td>
+<td width="50%">
 
-### Powerful Search & Discovery
+### 📂 Organization Tools
 
-- **Thread Search**: Search by title, content, and metadata
-- **Search History**: Track and revisit previous searches
-- **Saved Searches**: Save frequent searches for quick access
-- **Board-Specific Search**: Search within specific boards or across all boards
+- **Smart Categories**: Custom folders for favorites
+  - 🎨 Color-coded with icons
+  - 📋 Bulk management tools
+  - 🏷️ Custom tags and notes
+- **Thread History**: Automatic visit tracking
+- **Watch List**: Notifications for new replies
+- **Quick Access**: Jump to recent threads
 
-### Customization & Themes
+### 🔍 Search & Discovery
 
-- **Advanced Theme Engine**: Create and edit custom themes
-- **Light/Dark Mode**: Automatic or manual theme switching
-- **Color Customization**: Personalize every aspect of the interface
-- **iCloud Theme Sync**: Share themes across devices
+- **Full-Text Search**: Search all thread content
+- **Search Filters**: By board, date, or type
+- **Search History**: Recent and saved searches
+- **Smart Suggestions**: AI-powered recommendations
+- **Export Results**: Share or save search results
+
+### 🎨 Customization
+
+- **Theme Editor**: Create custom themes
+- **Dynamic Themes**: Auto light/dark switching
+- **Font Options**: Size and style preferences
+- **Layout Modes**: List, grid, or compact view
+- **Gesture Controls**: Customize swipe actions
+
+</td>
+</tr>
+</table>
 
 ## 📱 Screenshots
 
+### iPhone
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/3c589998-3b0a-4cd5-ba27-102d0e2cdd7b" width="200" alt="Board List">
+  <img src="https://github.com/user-attachments/assets/a62eedd6-bf1c-49f4-ad4f-c9cabdd681d5" width="200" alt="Thread View">
+  <img src="https://github.com/user-attachments/assets/53162278-c0ff-459f-8209-837418a1d666" width="200" alt="Reply View">
+  <img src="https://github.com/user-attachments/assets/ee980155-6595-4a55-bf5f-994b9e00ce1b" width="200" alt="Settings">
+</div>
 
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 49 31](https://github.com/user-attachments/assets/3c589998-3b0a-4cd5-ba27-102d0e2cdd7b)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 49 35](https://github.com/user-attachments/assets/a62eedd6-bf1c-49f4-ad4f-c9cabdd681d5)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 49 39](https://github.com/user-attachments/assets/53162278-c0ff-459f-8209-837418a1d666)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 49 46](https://github.com/user-attachments/assets/ee980155-6595-4a55-bf5f-994b9e00ce1b)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 49 49](https://github.com/user-attachments/assets/1e08fdde-56a7-4010-a6e7-472f648559e3)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 52 14](https://github.com/user-attachments/assets/9fa5140d-fb20-44f5-b9d1-7649ccea92c6)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 52 21](https://github.com/user-attachments/assets/c9e5d8c9-c8fc-4eb2-a0af-5c0c059a0942)
-![Simulator Screenshot - iPhone 16 Pro Max - 2025-05-21 at 22 52 36](https://github.com/user-attachments/assets/65802ea9-032e-4563-b920-ab6d9b7b2c86)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/1e08fdde-56a7-4010-a6e7-472f648559e3" width="200" alt="Media Gallery">
+  <img src="https://github.com/user-attachments/assets/9fa5140d-fb20-44f5-b9d1-7649ccea92c6" width="200" alt="Theme Editor">
+  <img src="https://github.com/user-attachments/assets/c9e5d8c9-c8fc-4eb2-a0af-5c0c059a0942" width="200" alt="Search">
+  <img src="https://github.com/user-attachments/assets/65802ea9-032e-4563-b920-ab6d9b7b2c86" width="200" alt="Categories">
+</div>
+
+### iPad
+<div align="center">
+  <img src="App Images/iPadOS/iPadOS-1.png" width="400" alt="iPad Split View">
+  <img src="App Images/iPadOS/iPadOS-2.png" width="400" alt="iPad Gallery">
+</div>
 
 
-## 🛠️ Technical Specifications
+## 🛠️ Technical Details
 
-### Requirements
+<details>
+<summary><b>System Requirements</b></summary>
 
 - **iOS/iPadOS**: 15.6 or later
-- **Architecture**: Universal (iPhone/iPad)
-- **Storage**: Varies with cached content
+- **Devices**: iPhone, iPad, iPad Pro
+- **Storage**: ~50MB app + cache
+- **Network**: Required for browsing
+</details>
 
-### Built With
+<details>
+<summary><b>Technology Stack</b></summary>
 
-- **Language**: Swift
-- **Framework**: UIKit
-- **Architecture**: MVC with modern Swift patterns
-- **Dependencies**: CocoaPods
+- **Language**: Swift 5.0+
+- **UI Framework**: UIKit
+- **Architecture**: MVC + Coordinators
+- **Package Manager**: CocoaPods
+- **Minimum Deployment**: iOS 15.6
+</details>
 
-### Key Dependencies
+<details>
+<summary><b>Dependencies</b></summary>
 
-- **Alamofire**: High-performance HTTP networking
-- **SwiftyJSON**: Elegant JSON parsing
-- **Kingfisher**: Powerful image loading and caching
-- **VLCKit**: Advanced media playback
-- **FFmpeg**: Media processing and conversion
+| Library | Purpose | Version |
+|---------|---------|----------|
+| Alamofire | Networking | Latest |
+| SwiftyJSON | JSON Parsing | Latest |
+| Kingfisher | Image Loading | Latest |
+| VLCKit | Video Playback | 4.0.0a6 |
+| FFmpeg | Media Processing | Latest |
+</details>
 
 ## 🚀 Installation
 
-### AltStore
+### Option 1: AltStore (Recommended)
 
-Add our repository to AltStore for easy installation and updates:
+Add our repository to AltStore for automatic updates:
 
 ```
 https://newatlantisstudios.github.io/altstore-repo/altStoreApps.json
 ```
 
-### Building from Source
+<details>
+<summary><b>AltStore Installation Steps</b></summary>
 
-1. Clone the repository
-2. Install dependencies: `pod install`
-3. Open `Channer.xcworkspace` in Xcode
-4. Build and run on your device
+1. Install [AltStore](https://altstore.io) on your device
+2. Open AltStore and go to **Browse** → **Sources**
+3. Tap **+** and add the repository URL above
+4. Find Channer in the store and tap **Install**
+5. Enjoy automatic updates!
+</details>
 
-For detailed build instructions, see our [development documentation](CLAUDE.md).
+### Option 2: Direct IPA
 
-## 🔧 Build Scripts
+Download the latest IPA from our [Releases](https://github.com/yourusername/Channer/releases) page.
 
-The project includes several build scripts for different scenarios:
+### Option 3: TestFlight
+
+[Join our TestFlight beta](https://testflight.apple.com/join/XXXXXXXX) for early access to new features.
+
+## 🔨 Building from Source
+
+<details>
+<summary><b>Prerequisites</b></summary>
+
+- macOS 12.0 or later
+- Xcode 14.0 or later
+- CocoaPods 1.11.0 or later
+- Active Apple Developer account (for device builds)
+</details>
+
+<details>
+<summary><b>Build Instructions</b></summary>
 
 ```bash
-# Simple build with clean output
-./build.sh
+# Clone the repository
+git clone https://github.com/yourusername/Channer.git
+cd Channer
 
-# Advanced build with options
-./build-advanced.sh -c -r  # Clean release build
-./build-advanced.sh -v     # Verbose output
+# Install dependencies
+pod install
 
-# Quick CI/CD build
-./test-build.sh
+# Open in Xcode
+open Channer.xcworkspace
+
+# Select your target and build (⌘+B)
 ```
 
-## 📄 License
+For automated builds, use our build scripts:
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+```bash
+# Simple build
+./build.sh
+
+# Advanced options
+./build-advanced.sh --help
+```
+</details>
+
+## ⌨️ Keyboard Shortcuts (iPad)
+
+<details>
+<summary><b>Navigation</b></summary>
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘ + 1-9` | Switch to board 1-9 |
+| `⌘ + ↑/↓` | Navigate threads |
+| `⌘ + Enter` | Open selected thread |
+| `⌘ + W` | Close current view |
+| `⌘ + R` | Refresh content |
+</details>
+
+<details>
+<summary><b>Media</b></summary>
+
+| Shortcut | Action |
+|----------|--------|
+| `Space` | Play/Pause video |
+| `⌘ + G` | Open gallery view |
+| `⌘ + S` | Save current media |
+| `Esc` | Close media viewer |
+</details>
+
+<details>
+<summary><b>Organization</b></summary>
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘ + D` | Add to favorites |
+| `⌘ + F` | Search |
+| `⌘ + K` | Quick switcher |
+| `⌘ + ,` | Settings |
+</details>
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+We love contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+<details>
+<summary><b>Quick Start</b></summary>
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+</details>
+
+## 🐛 Bug Reports & Feature Requests
+
+Found a bug or have a feature idea? [Open an issue](https://github.com/yourusername/Channer/issues/new/choose)!
+
+## 📚 Documentation
+
+- [Development Guide](CLAUDE.md)
+- [Keyboard Shortcuts](KEYBOARD_SHORTCUTS.md)
+- [Theme Creation](DEVELOPMENT_PLAN.md)
+- [API Reference](docs/API.md)
 
 ## 📞 Support
 
-Having issues? Check our documentation or create an issue on GitHub.
+- 📧 Email: support@channer.app
+- 💬 Discord: [Join our server](https://discord.gg/XXXXXX)
+- 🐦 Twitter: [@ChannerApp](https://twitter.com/ChannerApp)
+
+## 🙏 Acknowledgments
+
+- Thanks to all our [contributors](https://github.com/yourusername/Channer/graphs/contributors)
+- Special thanks to the open source community
+- Icons by [Icons8](https://icons8.com)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-**Channer v2.0** - The ultimate image board client for iOS and iPadOS. Privacy-focused, feature-rich, and built for performance.
+<div align="center">
+  <b>Channer v2.0</b><br>
+  Made with ❤️ for the iOS community<br>
+  <br>
+  <a href="https://github.com/yourusername/Channer/stargazers">⭐ Star us on GitHub!</a>
+</div>
