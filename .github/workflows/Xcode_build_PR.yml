@@ -1,8 +1,12 @@
-# File: .github/workflows/pr.yml
+# .github/workflows/pr.yml
 name: Xcode Build on PR
 
 on:
   pull_request:
+
+permissions:
+  contents: read      # for checkout/artifacts
+  issues: write       # to allow gh pr comment via the GITHUB_TOKEN
 
 jobs:
   build:
@@ -19,29 +23,22 @@ jobs:
         id: build
         continue-on-error: true
         run: |
-          # ── (Optional) If you’re using CocoaPods:
-          # bundle install
-          # pod install
-
-          # ── Run the build (at repo root, because Channer.xcodeproj lives here) ──
+          cd Channer
           set +e
-          xcodebuild \
-            -project Channer.xcodeproj \
-            -scheme Channer \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            build -verbose > full.log 2>&1
+          xcodebuild -project Channer.xcodeproj \
+                     -scheme Channer \
+                     -sdk iphonesimulator \
+                     -destination 'platform=iOS Simulator,name=iPhone 16' \
+                     build -verbose > full.log 2>&1
           echo "exit_code=$?" >> $GITHUB_OUTPUT
           set -e
-
-          # ── Extract only actual errors ──
           grep -iE 'error:|fatal error:|Undefined symbols|CompileSwiftSources' full.log > errors.log || true
 
       - name: Upload error log artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-errors
-          path: errors.log
+          path: Channer/errors.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -50,12 +47,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd Channer
           if [ ! -s errors.log ]; then
             ERRORS="⚠️ Build failed, but no clear errors were found."
           else
             ERRORS=$(sed 's/`/\\`/g' errors.log)
           fi
-
           {
             echo "🚨 **Xcode Build Failed** on \`${{ github.head_ref }}\`"
             echo ""
@@ -66,7 +63,6 @@ jobs:
             echo '```'
             echo "</details>"
           } > comment.txt
-
           gh pr comment ${{ github.event.pull_request.number }} --body "$(cat comment.txt)"
 
       - name: Fail the job if build failed
