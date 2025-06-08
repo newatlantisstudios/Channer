@@ -1,4 +1,4 @@
-# File: .github/workflows/pr.yml
+# .github/workflows/pr.yml
 name: Xcode Build on PR
 
 permissions:
@@ -14,30 +14,39 @@ jobs:
     runs-on: [self-hosted, macstudio]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Select Xcode version
         run: sudo /usr/bin/xcode-select -s /Applications/Xcode.app
+
+      - name: Install CocoaPods deps
+        run: |
+          # ensure cocoapods is available; skip if already installed
+          if ! command -v pod >/dev/null; then
+            sudo gem install cocoapods
+          fi
+
+          cd Channer
+          pod install
 
       - name: Run Xcode Build
         id: build
         continue-on-error: true
         run: |
-          set +e
-          xcodebuild -project Channer.xcodeproj \
+          xcodebuild -workspace Channer.xcworkspace \
                      -scheme Channer \
                      -sdk iphonesimulator \
                      -destination 'platform=iOS Simulator,name=iPhone 16' \
                      build -verbose > full.log 2>&1
           echo "exit_code=$?" >> $GITHUB_OUTPUT
-          set -e
           grep -iE 'error:|fatal error:|Undefined symbols|CompileSwiftSources' full.log > errors.log || true
 
       - name: Upload error log artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-errors
-          path: errors.log
+          path: Channer/errors.log
           if-no-files-found: warn
           retention-days: 7
 
@@ -46,12 +55,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd Channer
           if [ ! -s errors.log ]; then
-            ERRORS="⚠️ Build failed, but no clear errors were found."
+            ERRORS="⚠️ Build failed, but no explicit errors were found."
           else
             ERRORS=$(sed 's/`/\\`/g' errors.log)
           fi
-
           {
             echo "🚨 **Xcode Build Failed** on \`${{ github.head_ref }}\`"
             echo ""
@@ -62,7 +71,6 @@ jobs:
             echo '```'
             echo "</details>"
           } > comment.txt
-
           gh pr comment ${{ github.event.pull_request.number }} --body "$(cat comment.txt)"
 
       - name: Fail the job if build failed
