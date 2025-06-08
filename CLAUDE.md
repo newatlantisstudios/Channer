@@ -8,7 +8,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 
 ## Development Environment
 
-- Platform: iOS/iPadOS 18.0+
+- Platform: iOS/iPadOS 15.6+ (build target 18.0+)
 - Language: Swift
 - Framework: UIKit
 - Build System: Xcode
@@ -19,7 +19,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 - **SwiftyJSON**: Used for JSON parsing
 - **Alamofire**: Used for networking
 - **Kingfisher**: Used for image loading and caching
-- **VLCKit**: Used for media playback
+- **VLCKit** (4.0.0a6): Used for media playback
 - **FFmpeg**: Used for media processing (replaced deprecated ffmpeg-kit-ios-full)
 
 ## Build and Run Commands
@@ -85,21 +85,66 @@ brew install xcbeautify
 
 The app follows a standard iOS MVC architecture with these key components:
 
-1. **ThemeManager**: A singleton that manages app-wide theming with light/dark mode support and theme customization
+### Singleton Managers
+1. **ThemeManager**: Manages app-wide theming with 6 built-in themes and custom theme support
 2. **ThreadCacheManager**: Manages offline reading capabilities and thread caching with iCloud sync
 3. **FavoritesManager**: Handles saving and retrieving favorite threads with categorization support
 4. **HistoryManager**: Tracks visited threads
 5. **ContentFilterManager**: Manages keyword, poster, and image filtering for content
+6. **SearchManager**: Thread search functionality with history and saved searches
+7. **ICloudSyncManager**: Handles settings and data sync across devices
+8. **ConflictResolutionManager**: Intelligent handling of sync conflicts
+9. **NotificationManager**: Push notification support for thread updates
+10. **KeyboardShortcutManager**: iPad keyboard shortcut handling
+11. **PencilInteractionManager**: Apple Pencil support
 
-## Key View Controllers
+### Key View Controllers
 
+#### Main Navigation Flow
 1. **boardsCV**: Main collection view that displays all available boards
 2. **boardTV**: Displays threads from a selected board
 3. **threadRepliesTV**: Displays replies in a thread
-4. **settings**: Contains app configuration options
-5. **ThemeEditorViewController**: Allows customization of app themes
-6. **CategorizedFavoritesViewController**: Manages categorized favorites
-7. **ContentFilterViewController**: Manages content filtering settings
+
+#### Settings & Configuration
+- **settings**: Main settings view controller
+- **ThemeEditorViewController**: Allows customization of app themes
+- **ThemeListViewController**: Lists available themes
+- **ContentFilterViewController**: Manages content filtering settings
+
+#### Organization & Search
+- **CategorizedFavoritesViewController**: Manages categorized favorites
+- **CategoryManagerViewController**: Category creation and management
+- **SearchViewController**: Thread search interface
+- **ConflictResolutionViewController**: Handles sync conflict resolution
+
+#### Media Handling
+- **ImageGalleryVC**: Gallery view for thread images
+- **WebMViewController**: WebM video player
+- **ThumbnailGridVC**: Grid view of media thumbnails
+- **ImageViewController**: Full-screen image viewer
+
+## Recent Feature Implementations
+
+### Enhanced Bookmarking System
+- Categorized favorites with color-coding and SF Symbol icons
+- Default categories: General, To Read, Important, Archives
+- Bulk operations and category management
+- Full implementation details in `ENHANCED_BOOKMARKING_SUMMARY.md`
+
+### iCloud Sync
+- Complete settings, themes, and data synchronization
+- Automatic conflict resolution
+- Implementation details in `ICLOUD_SYNC_IMPLEMENTATION.md`
+
+### Thread Search
+- Comprehensive search with history tracking
+- Saved searches and board-specific filtering
+- Details in `THREAD_SEARCH_SUMMARY.md`
+
+### iPad Enhancements
+- Full keyboard shortcut support (see `KEYBOARD_SHORTCUTS.md`)
+- Split view controller optimization
+- Apple Pencil interaction support
 
 ## Authentication
 
@@ -107,7 +152,7 @@ The app uses FaceID/TouchID for securing certain features like history, favorite
 
 ## Testing
 
-The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files. Unit tests can be added to the `ChannerTests` directory and UI tests to the `ChannerUITests` directory.
+The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files.
 
 To run tests:
 ```bash
@@ -118,12 +163,27 @@ xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'pla
 xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
-## Recent Updates
+## Important Notes
 
-As of May 2025, the project has replaced the deprecated `ffmpeg-kit-ios-full` library with the standard `FFmpeg` pod due to the original repository being archived.
+### Files Not Yet Added to Xcode Project
+The following files have been created but need to be added to the Xcode project:
+- `BookmarkCategory.swift`
+- `CategoryManagerViewController.swift`
+- `CategorizedFavoritesViewController.swift`
+- `ConflictResolutionManager.swift`
+- `ConflictResolutionViewController.swift`
+- `SearchManager.swift`
+- `SearchViewController.swift`
 
-## Planned Features
+Refer to `ADD_TO_XCODE_PROJECT.md` for instructions on adding these files.
 
-- Additional file format support
-- UI improvements for iPad layout
-- Enhanced theme customization options
+### Recent Updates
+- Replaced deprecated `ffmpeg-kit-ios-full` with standard `FFmpeg` pod
+- Fixed video playback consistency between gallery and thread views
+- Improved settings UI with media preload options
+- Made videos start muted by default in web player
+
+### Platform-Specific Features
+- **iPad**: Split view controllers, keyboard shortcuts, Apple Pencil support
+- **iPhone**: Adaptive UI with gesture navigation
+- **Universal**: iCloud sync, biometric authentication, offline caching
