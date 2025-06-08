@@ -92,6 +92,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             UserDefaults.standard.set(false, forKey: offlineReadingEnabledKey)
             UserDefaults.standard.synchronize()
         }
+
+        // Set default board to /g/ if it hasn't been chosen yet
+        let defaultBoardKey = "defaultBoard"
+        if UserDefaults.standard.object(forKey: defaultBoardKey) == nil {
+            UserDefaults.standard.set("g", forKey: defaultBoardKey)
+            UserDefaults.standard.synchronize()
+        }
         
         // Set default value for launch with startup board if it doesn't exist
         let launchWithStartupBoardKey = "channer_launch_with_startup_board"
