@@ -120,18 +120,8 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
             return
         }
 
-        // Adapt behavior based on device type
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // Push the view controller directly onto the existing navigation stack
-            if let detailNavController = self.splitViewController?.viewController(for: .secondary) as? UINavigationController {
-                detailNavController.pushViewController(vc, animated: true)
-            } else {
-                print("Detail view controller is not a UINavigationController.")
-            }
-        } else {
-            // iPhone behavior: push to the navigation stack
-            navigationController?.pushViewController(vc, animated: true)
-        }
+        // Push to the navigation stack
+        navigationController?.pushViewController(vc, animated: true)
     }
     
     // MARK: - UICollectionViewDelegateFlowLayout

@@ -2,16 +2,8 @@
 
 ## Prerequisites
 
-1. **Add files to Xcode project:**
-   - Open `Channer.xcworkspace` in Xcode
-   - Right-click on `Utilities` folder and select "Add Files to Channer..."
-   - Add `/Channer/Utilities/ConflictResolutionManager.swift`
-   - Right-click on `ViewControllers/Home` folder and add:
-     - `/Channer/ViewControllers/Home/ConflictResolutionViewController.swift`
-   - Make sure "Copy items if needed" is unchecked (files are already in place)
-   - Ensure "Add to targets: Channer" is checked
-
-2. **Build the app** to ensure everything compiles
+1. **Ensure app is built** with conflict resolution system
+2. **Prepare testing devices** with same iCloud account
 
 ## Test Setup
 

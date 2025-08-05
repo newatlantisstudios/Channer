@@ -53,6 +53,11 @@ class WebMViewController: UIViewController {
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        print("DEBUG: WebMViewController - viewDidLoad started")
+        print("DEBUG: WebMViewController - Video URL: \(videoURL)")
+        print("DEBUG: WebMViewController - Hide download button: \(hideDownloadButton)")
+        
         setupUI()
         setupVideo()
         createWebMDirectory() // Ensure the directory exists
@@ -123,7 +128,12 @@ class WebMViewController: UIViewController {
     
     /// Initializes the video player with the provided video URL.
     private func setupVideo() {
-        guard let url = URL(string: videoURL) else { return }
+        print("DEBUG: WebMViewController - setupVideo called with URL: \(videoURL)")
+        guard let url = URL(string: videoURL) else { 
+            print("DEBUG: WebMViewController - Failed to create URL from string: \(videoURL)")
+            return 
+        }
+        print("DEBUG: WebMViewController - Successfully created URL: \(url)")
         
         // Add player layer to video view if not already added
         if playerLayer.superlayer == nil {
@@ -155,7 +165,13 @@ class WebMViewController: UIViewController {
                 case .failed:
                     // Failed to load
                     let errorMessage = item.error?.localizedDescription ?? "Unknown error"
-                    print("Failed to load video: \(errorMessage)")
+                    let errorCode = (item.error as NSError?)?.code ?? -1
+                    let errorDomain = (item.error as NSError?)?.domain ?? "Unknown"
+                    print("DEBUG: WebMViewController - Failed to load video")
+                    print("DEBUG: WebMViewController - Error: \(errorMessage)")
+                    print("DEBUG: WebMViewController - Error code: \(errorCode)")
+                    print("DEBUG: WebMViewController - Error domain: \(errorDomain)")
+                    print("DEBUG: WebMViewController - Full error: \(String(describing: item.error))")
                     self.showAlert(message: "Failed to play video: \(errorMessage)")
                     
                 case .unknown:

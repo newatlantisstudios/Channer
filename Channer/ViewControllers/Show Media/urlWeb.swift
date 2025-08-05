@@ -40,6 +40,7 @@ class urlWeb: UIViewController {
         // Create the web view with the enhanced configuration
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.backgroundColor = .black
@@ -354,8 +355,16 @@ class urlWeb: UIViewController {
         videoView.isHidden = true
         webView.isHidden = false
         
-        // Create HTML content for video playback
+        // Handle local video files differently than remote ones
         if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            // For local files, try direct loading first
+            if url.isFileURL {
+                print("DEBUG: urlWeb - Local video file detected, trying direct load first")
+                let request = URLRequest(url: url)
+                webView.load(request)
+                activityIndicator.stopAnimating()
+                return
+            }
             // Determine the MIME type based on the file extension
             let mimeType: String
             if url.pathExtension.lowercased() == "webm" {
@@ -394,9 +403,17 @@ class urlWeb: UIViewController {
                         width: 70px;
                         height: 70px;
                     }
-                    /* Make controls more visible */
+                    /* Make controls more visible and accessible */
                     video::-webkit-media-controls-panel {
-                        background-color: rgba(0, 0, 0, 0.7);
+                        background-color: rgba(0, 0, 0, 0.8);
+                        min-height: 50px;
+                    }
+                    video::-webkit-media-controls {
+                        min-height: 50px;
+                    }
+                    /* Ensure touch targets are large enough */
+                    video::-webkit-media-controls-timeline {
+                        min-height: 40px;
                     }
                     .error-message {
                         position: fixed;
@@ -426,6 +443,7 @@ class urlWeb: UIViewController {
                 
                 <script>
                     // Debug info
+                    console.log('=== VIDEO PLAYER DEBUG START ===');
                     console.log('Loading primary video URL: \(url.absoluteString)');
                     console.log('Primary MIME type: \(mimeType)');
                     
@@ -436,6 +454,10 @@ class urlWeb: UIViewController {
                     var errorMsg = document.getElementById('errorMessage');
                     var sourceIndex = 0;
                     var sources = video.querySelectorAll('source');
+                    
+                    console.log('Video element found:', !!video);
+                    console.log('Video has controls:', video.controls);
+                    console.log('Video sources count:', sources.length);
                     
                     // Function to try playing the video with error handling
                     function tryPlayVideo() {
@@ -475,12 +497,6 @@ class urlWeb: UIViewController {
                         setTimeout(tryPlayVideo, 300);
                     }
                     
-                    // Handle when the video can play
-                    video.addEventListener('canplay', function() {
-                        console.log('Video can play now!');
-                        errorMsg.style.display = 'none';
-                        tryPlayVideo();
-                    });
                     
                     // Add comprehensive error handling
                     video.addEventListener('error', function(e) {
@@ -500,27 +516,36 @@ class urlWeb: UIViewController {
                         }
                     });
                     
-                    // Try playing the video at different intervals
-                    setTimeout(function() { tryPlayVideo(); }, 100);
-                    setTimeout(function() { tryPlayVideo(); }, 500);
-                    setTimeout(function() { tryPlayVideo(); }, 1500);
+                    // Handle when the video can play - ensure autoplay works
+                    video.addEventListener('canplay', function() {
+                        console.log('Video can play now!');
+                        errorMsg.style.display = 'none';
+                        if (video.paused) {
+                            tryPlayVideo();
+                        }
+                    });
                     
                     // Additional handlers for better user experience
-                    document.addEventListener('click', function() {
-                        // User interaction can trigger autoplay
-                        tryPlayVideo();
-                    });
-                    
-                    // Log video events for debugging
-                    ['loadstart', 'progress', 'suspend', 'abort', 'loadedmetadata', 
-                     'loadeddata', 'waiting', 'playing', 'canplay', 'canplaythrough'].forEach(function(evt) {
-                        video.addEventListener(evt, function() {
-                            console.log('Video event:', evt);
-                            if (evt === 'playing' || evt === 'canplaythrough') {
-                                errorMsg.style.display = 'none';
+                    // Disabled to avoid interfering with pause functionality
+                    /*
+                    document.addEventListener('click', function(e) {
+                        // Only trigger autoplay if not clicking on video controls
+                        if (e.target !== video && !video.contains(e.target)) {
+                            // User interaction can trigger autoplay
+                            if (video.paused) {
+                                tryPlayVideo();
                             }
+                        }
+                    });
+                    */
+                    
+                    // Log important video events for debugging
+                    ['pause', 'play', 'ended'].forEach(function(evt) {
+                        video.addEventListener(evt, function() {
+                            console.log('Video event:', evt, 'paused:', video.paused);
                         });
                     });
+                    
                     
                     // Source error handling - crucial for format compatibility
                     for (var i = 0; i < sources.length; i++) {
@@ -537,7 +562,17 @@ class urlWeb: UIViewController {
             </html>
             """
             
-            webView.loadHTMLString(videoHTML, baseURL: nil)
+            print("DEBUG: urlWeb - Loading HTML video content")
+            print("DEBUG: urlWeb - Video HTML length: \(videoHTML.count) characters")
+            print("DEBUG: urlWeb - Video source URL: \(url.absoluteString)")
+            
+            // For local files, we need to set the proper baseURL to allow access
+            if url.isFileURL {
+                print("DEBUG: urlWeb - Loading local file, setting baseURL to: \(url.deletingLastPathComponent())")
+                webView.loadHTMLString(videoHTML, baseURL: url.deletingLastPathComponent())
+            } else {
+                webView.loadHTMLString(videoHTML, baseURL: nil)
+            }
         } else {
             // For non-video content, just load the URL directly
             let request = URLRequest(url: url)
@@ -642,6 +677,24 @@ class urlWeb: UIViewController {
     }
 }
 
+// MARK: - WKUIDelegate Methods
+extension urlWeb: WKUIDelegate {
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        print("JavaScript Alert: \(message)")
+        completionHandler()
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        print("JavaScript Confirm: \(message)")
+        completionHandler(true)
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        print("JavaScript Prompt: \(prompt)")
+        completionHandler(defaultText)
+    }
+}
+
 // MARK: - WKNavigationDelegate Methods
 extension urlWeb: WKNavigationDelegate {
     /// Called when the web view begins to load content
@@ -653,10 +706,42 @@ extension urlWeb: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         activityIndicator.stopAnimating()
     }
+    
+    /// Called when the web view fails to load content during provisional navigation
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        activityIndicator.stopAnimating()
+        
+        print("DEBUG: urlWeb - Provisional navigation failed with error: \(error.localizedDescription)")
+        print("DEBUG: urlWeb - Error code: \((error as NSError).code)")
+        print("DEBUG: urlWeb - Error domain: \((error as NSError).domain)")
+        
+        // Check if this is a "plugin handled load" error, which means the media is actually playing
+        let nsError = error as NSError
+        if nsError.domain == "WebKitErrorDomain" && nsError.code == 204 {
+            // Error code 204 means "Plug-in handled load" - this is actually success for media files
+            print("DEBUG: urlWeb - Plugin handled load (media playing successfully), suppressing error popup")
+            return
+        }
+        
+        // For real errors, show alert
+        showAlert(title: "Error", message: error.localizedDescription)
+    }
 
     /// Called when the web view fails to load content
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         activityIndicator.stopAnimating()
+        
+        print("DEBUG: urlWeb - Navigation failed with error: \(error.localizedDescription)")
+        print("DEBUG: urlWeb - Error code: \((error as NSError).code)")
+        print("DEBUG: urlWeb - Error domain: \((error as NSError).domain)")
+        
+        // Check if this is a "plugin handled load" error, which means the media is actually playing
+        let nsError = error as NSError
+        if nsError.domain == "WebKitErrorDomain" && nsError.code == 204 {
+            // Error code 204 means "Plug-in handled load" - this is actually success for media files
+            print("DEBUG: urlWeb - Plugin handled load (media playing successfully), suppressing error popup")
+            return
+        }
         
         // Check if we have a fallback URL to try
         if let fallbackURL = fallbackURL {
@@ -671,7 +756,7 @@ extension urlWeb: WKNavigationDelegate {
                 webView.load(request)
             }
         } else {
-            // No fallback available, show error
+            // No fallback available, show error only for real errors
             showAlert(title: "Error", message: error.localizedDescription)
         }
     }

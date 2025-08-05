@@ -33,7 +33,6 @@
 		177BC7F12CDEC27C000FE370 /* WebMThumbnailCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */; };
 		177BC7F32CDECC2E000FE370 /* ThumbnailGridVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */; };
 		177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F42CDECD05000FE370 /* ImageViewController.swift */; };
-		1781F6432CEED92A00CE243D /* CustomSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6422CEED92600CE243D /* CustomSplitViewController.swift */; };
 		1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6452CEEEC7B00CE243D /* boardCVCell.swift */; };
 		1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6462CEEEC7B00CE243D /* boardsCV.swift */; };
 		178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */; };
@@ -102,7 +101,6 @@
 		177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMThumbnailCell.swift; sourceTree = "<group>"; };
 		177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridVC.swift; sourceTree = "<group>"; };
 		177BC7F42CDECD05000FE370 /* ImageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewController.swift; sourceTree = "<group>"; };
-		1781F6422CEED92600CE243D /* CustomSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomSplitViewController.swift; sourceTree = "<group>"; };
 		1781F6452CEEEC7B00CE243D /* boardCVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardCVCell.swift; sourceTree = "<group>"; };
 		1781F6462CEEEC7B00CE243D /* boardsCV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsCV.swift; sourceTree = "<group>"; };
 		178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
@@ -175,7 +173,6 @@
 			children = (
 				176EC64A2245F145009F2A8D /* Info.plist */,
 				176EC63E2245F144009F2A8D /* AppDelegate.swift */,
-				1781F6422CEED92600CE243D /* CustomSplitViewController.swift */,
 				176EC6452245F145009F2A8D /* Assets.xcassets */,
 			);
 			path = Application;
@@ -526,13 +523,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -561,7 +554,6 @@
 				170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */,
 				178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */,
 				17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */,
-				1781F6432CEED92A00CE243D /* CustomSplitViewController.swift in Sources */,
 				179B6B962CDDEC9A0099D980 /* FilesListVC.swift in Sources */,
 				179B6B982CDDF0780099D980 /* ImageGalleryVC.swift in Sources */,
 				17737E312CDC6F6400DF0874 /* boardTVCell.swift in Sources */,

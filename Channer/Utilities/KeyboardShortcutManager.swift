@@ -82,16 +82,6 @@ class KeyboardShortcutManager {
         ]
     }
     
-    // iPad-specific shortcuts for split view
-    func getIPadSplitViewShortcuts(target: Any) -> [UIKeyCommand] {
-        guard isEnabled else { return [] }
-        
-        return [
-            UIKeyCommand(title: "Focus on Master View", action: #selector(CustomSplitViewController.focusMasterView), input: "[", modifierFlags: .command),
-            UIKeyCommand(title: "Focus on Detail View", action: #selector(CustomSplitViewController.focusDetailView), input: "]", modifierFlags: .command),
-            UIKeyCommand(title: "Toggle Split View", action: #selector(CustomSplitViewController.toggleSplitView), input: "\\", modifierFlags: .command)
-        ]
-    }
 }
 
 // Extension to check if a key exists in UserDefaults

@@ -55,6 +55,10 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
         do {
             let fileURLs = try fileManager.contentsOfDirectory(at: currentDirectory, includingPropertiesForKeys: nil)
             files = fileURLs.filter { !$0.lastPathComponent.hasPrefix(".") } // Filter out hidden files
+            print("DEBUG: FilesListVC - Loaded \(files.count) files from directory: \(currentDirectory.path)")
+            for (index, file) in files.enumerated() {
+                print("DEBUG: FilesListVC - File \(index): \(file.lastPathComponent) (extension: \(file.pathExtension), isDirectory: \(file.hasDirectoryPath))")
+            }
             tableView.reloadData()
         } catch {
             print("Error loading files from directory: \(error.localizedDescription)")
@@ -83,22 +87,57 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
             tableView.deselectRow(at: indexPath, animated: true)
             let selectedURL = files[indexPath.row]
             
+            print("DEBUG: FilesListVC - Selected file: \(selectedURL.lastPathComponent)")
+            print("DEBUG: FilesListVC - File path: \(selectedURL.path)")
+            print("DEBUG: FilesListVC - File extension: \(selectedURL.pathExtension.lowercased())")
+            print("DEBUG: FilesListVC - Is directory: \(selectedURL.hasDirectoryPath)")
+            print("DEBUG: FilesListVC - File exists: \(FileManager.default.fileExists(atPath: selectedURL.path))")
+            
             if selectedURL.hasDirectoryPath {
+                print("DEBUG: FilesListVC - Handling directory selection")
                 if selectedURL.lastPathComponent.lowercased() == "images" {
+                    print("DEBUG: FilesListVC - Opening Images directory with ThumbnailGridVC")
                     // Push a thumbnail grid for image files
                     let imageGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["jpg", "jpeg", "png"])
-                    let splitVC = self.splitViewController
-                    splitVC?.showDetailViewController(imageGalleryVC, sender: self)
+                    navigationController?.pushViewController(imageGalleryVC, animated: true)
                 } else if selectedURL.lastPathComponent.lowercased() == "webm" {
+                    print("DEBUG: FilesListVC - Opening WebM directory with ThumbnailGridVC")
                     // Push a thumbnail grid for webm files
                     let webmGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["webm"])
-                    let splitVC = self.splitViewController
-                    splitVC?.showDetailViewController(webmGalleryVC, sender: self)
+                    navigationController?.pushViewController(webmGalleryVC, animated: true)
                 } else {
+                    print("DEBUG: FilesListVC - Opening generic directory with FilesListVC")
                     // For other directories, push FilesListVC to continue exploring
                     let filesListVC = FilesListVC(directory: selectedURL)
-                    let splitVC = self.splitViewController
-                    splitVC?.showDetailViewController(filesListVC, sender: self)
+                    navigationController?.pushViewController(filesListVC, animated: true)
+                }
+            } else {
+                print("DEBUG: FilesListVC - Handling individual file selection")
+                // Handle individual file selection
+                let fileExtension = selectedURL.pathExtension.lowercased()
+                
+                if ["jpg", "jpeg", "png"].contains(fileExtension) {
+                    print("DEBUG: FilesListVC - Opening image file with ImageViewController")
+                    // Open image in ImageViewController
+                    let imageViewController = ImageViewController(imageURL: selectedURL)
+                    navigationController?.pushViewController(imageViewController, animated: true)
+                } else if fileExtension == "gif" {
+                    print("DEBUG: FilesListVC - Opening GIF file with urlWeb for animation support")
+                    // Open GIF in urlWeb for animation support
+                    let urlWebViewController = urlWeb()
+                    urlWebViewController.images = [selectedURL]
+                    urlWebViewController.currentIndex = 0
+                    navigationController?.pushViewController(urlWebViewController, animated: true)
+                } else if fileExtension == "webm" || fileExtension == "mp4" {
+                    print("DEBUG: FilesListVC - Opening video file with urlWeb")
+                    print("DEBUG: FilesListVC - Video URL: \(selectedURL.absoluteString)")
+                    // Open video in urlWeb for better local file support
+                    let urlWebViewController = urlWeb()
+                    urlWebViewController.images = [selectedURL]
+                    urlWebViewController.currentIndex = 0
+                    navigationController?.pushViewController(urlWebViewController, animated: true)
+                } else {
+                    print("DEBUG: FilesListVC - Unsupported file type: \(fileExtension)")
                 }
             }
         }

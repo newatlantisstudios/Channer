@@ -8,7 +8,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 
 ## Development Environment
 
-- Platform: iOS/iPadOS 15.6+ (build target 18.0+)
+- Platform: iOS/iPadOS (deployment target 15.6+, build target 18.0+)
 - Language: Swift
 - Framework: UIKit
 - Build System: Xcode
@@ -20,7 +20,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 - **Alamofire**: Used for networking
 - **Kingfisher**: Used for image loading and caching
 - **VLCKit** (4.0.0a6): Used for media playback
-- **FFmpeg**: Used for media processing (replaced deprecated ffmpeg-kit-ios-full)
+- **FFmpeg**: Used for media processing via native bridging header integration
 
 ## Build and Run Commands
 
@@ -152,35 +152,32 @@ The app uses FaceID/TouchID for securing certain features like history, favorite
 
 ## Testing
 
-The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files.
+The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files. The CI/CD pipeline validates builds but comprehensive test coverage is not yet implemented.
 
-To run tests:
+To run placeholder tests:
 ```bash
-# Unit tests
-xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'platform=iOS Simulator,name=iPhone 15'
+# Unit tests (placeholder)
+xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'platform=iOS Simulator,name=iPhone 16'
 
-# UI tests
-xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destination 'platform=iOS Simulator,name=iPhone 15'
+# UI tests (placeholder)
+xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
+
+## CI/CD Configuration
+
+The project includes GitHub Actions workflow for pull request validation:
+- **Workflow**: `.github/workflows/Xcode_build_PR.yml`
+- **Runner**: Self-hosted macstudio
+- **Test Device**: iPhone 16 Simulator
+- **Features**: Automatic build validation, error reporting to PRs, artifact uploads
 
 ## Important Notes
 
-### Files Not Yet Added to Xcode Project
-The following files have been created but need to be added to the Xcode project:
-- `BookmarkCategory.swift`
-- `CategoryManagerViewController.swift`
-- `CategorizedFavoritesViewController.swift`
-- `ConflictResolutionManager.swift`
-- `ConflictResolutionViewController.swift`
-- `SearchManager.swift`
-- `SearchViewController.swift`
-
-Refer to `ADD_TO_XCODE_PROJECT.md` for instructions on adding these files.
-
 ### Recent Updates
-- Replaced deprecated `ffmpeg-kit-ios-full` with standard `FFmpeg` pod
-- Fixed video playback consistency between gallery and thread views
+- Enhanced video playback consistency between gallery and thread views
 - Improved settings UI with media preload options
+- Implemented native FFmpeg integration via bridging header (removed pod dependency)
+- Added comprehensive GitHub Actions CI/CD pipeline
 - Made videos start muted by default in web player
 
 ### Platform-Specific Features

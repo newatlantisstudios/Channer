@@ -1,6 +1,6 @@
 PODS:
   - Alamofire (5.10.2)
-  - Kingfisher (8.3.2)
+  - Kingfisher (8.5.0)
   - SwiftyJSON (5.0.2)
   - VLCKit (4.0.0a6)
 
@@ -19,7 +19,7 @@ SPEC REPOS:
 
 SPEC CHECKSUMS:
   Alamofire: 7193b3b92c74a07f85569e1a6c4f4237291e7496
-  Kingfisher: 0621d0ac0c78fecb19f6dc5303bde2b52abaf2f5
+  Kingfisher: ff0d31a1f07bdff6a1ebb3ba08b8e6e567b6500c
   SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
   VLCKit: 80332c6fbe83e9278aca1b7e27799f2b521a7f76
 

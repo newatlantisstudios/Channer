@@ -19,6 +19,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     init(imageURL: URL) {
         self.imageURL = imageURL
         super.init(nibName: nil, bundle: nil)
+        print("DEBUG: ImageViewController - Initialized with URL: \(imageURL.path)")
     }
     
     /// Required initializer with coder (not implemented).
@@ -30,15 +31,22 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        print("DEBUG: ImageViewController - viewDidLoad started")
+        print("DEBUG: ImageViewController - Loading image from: \(imageURL.path)")
+        print("DEBUG: ImageViewController - File exists: \(FileManager.default.fileExists(atPath: imageURL.path))")
 
         view.backgroundColor = .black
         setupScrollView()
         setupImageView()
 
         if let image = UIImage(contentsOfFile: imageURL.path) {
+            print("DEBUG: ImageViewController - Successfully loaded image, size: \(image.size)")
             imageView.image = image
             imageView.sizeToFit()
             scrollView.contentSize = imageView.bounds.size
+        } else {
+            print("DEBUG: ImageViewController - Failed to load image from path: \(imageURL.path)")
         }
     }
     
