@@ -107,6 +107,28 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         var vc: UIViewController
 
         if selectedURL.pathExtension.lowercased() == "webm" {
+            print("DEBUG: ThumbnailGridVC - WebM file selected: \(selectedURL.absoluteString)")
+            
+            // Simple header-based VP9 detection
+            do {
+                let data = try Data(contentsOf: selectedURL, options: [.dataReadingMapped])
+                let headerData = data.prefix(4096)
+                let headerString = String(data: headerData, encoding: .ascii) ?? ""
+                let isVP9 = headerString.range(of: "VP90", options: .caseInsensitive) != nil ||
+                           headerString.range(of: "vp09", options: .caseInsensitive) != nil
+                
+                print("DEBUG: ThumbnailGridVC - Header VP9 detection: \(isVP9)")
+                
+                if isVP9 {
+                    print("DEBUG: ThumbnailGridVC - VP9 detected - may fail with VLCKit")
+                    print("DEBUG: ThumbnailGridVC - Consider implementing fallback to WKWebView for VP9 files")
+                } else {
+                    print("DEBUG: ThumbnailGridVC - VP8 or other codec detected - should work with VLCKit")
+                }
+            } catch {
+                print("DEBUG: ThumbnailGridVC - Could not read file header: \(error)")
+            }
+            
             // Play .webm video using WebMViewController
             let webMViewController = WebMViewController()
             webMViewController.videoURL = selectedURL.absoluteString

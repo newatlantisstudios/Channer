@@ -37,11 +37,9 @@ class boardsTV: UITableViewController {
     /// Flag to track if we've already performed the initial startup navigation
     private var hasPerformedStartupNavigation = false
     
-    /// An array containing the full names of the boards.
-    var boardNames = ["Anime & Manga", "Anime/Cute", "Anime/Wallpapers", "Mecha", "Cosplay & EGL", "Cute/Male", "Flash", "Transportation", "Otaku Culture", "Video Games", "Video Game Generals", "Pokémon", "Retro Games", "Comics & Cartoons", "Technology", "Television & Film", "Weapons", "Auto", "Animals & Nature", "Traditional Games", "Sports", "Alternative Sports", "Science & Math", "History & Humanities", "International", "Outdoors", "Toys", "Oekaki", "Papercraft & Origami", "Photography", "Food & Cooking", "Artwork/Critique", "Wallpapers/General", "Literature", "Music", "Fashion", "3DCG", "Graphic Design", "Do-It-Yourself", "Worksafe GIF", "Quests", "Business & Finance", "Travel", "Fitness", "Paranormal", "Advice", "LGBT", "Pony", "Current News", "Worksafe Requests", "Very Important Posts", "Random", "ROBOT9001", "Politically Incorrect", "International/Random", "Cams & Meetups", "Shit 4chan Says", "Sexy Beautiful Women", "Hardcore", "Handsome Men", "Hentai", "Ecchi", "Yuri", "Hentai/Alternative", "Yaoi", "Torrents", "High Resolution", "Adult GIF", "Adult Cartoons", "Adult Requests"]
-    
-    /// An array containing the abbreviated names of the boards.
-    var boardsAbv = ["a", "c", "w", "m", "cgl", "cm", "f", "n", "jp", "v", "vg", "vp", "vr", "co", "g", "tv", "k", "o", "an", "tg", "sp", "asp", "sci", "his", "int", "out", "toy", "i", "po", "p", "ck", "ic", "wg", "lit", "mu", "fa", "3", "gd", "diy", "wsg", "qst", "biz", "trv", "fit", "x", "adv", "lgbt", "mlp", "news", "wsr", "vip", "b", "r9k", "pol", "bant", "soc", "s4s", "s", "hc", "hm", "h", "e", "u", "d", "y", "t", "hr", "gif", "aco", "r"]
+    /// Boards data (populated from BoardsService)
+    var boardNames: [String] = []
+    var boardsAbv: [String] = []
     
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
     
@@ -132,7 +130,9 @@ class boardsTV: UITableViewController {
                                              name: NSNotification.Name("KeyboardShortcutsToggled"), 
                                              object: nil)
         
-        // Sort boards alphabetically
+        // Load cached boards and then fetch latest
+        boardNames = BoardsService.shared.boardNames
+        boardsAbv = BoardsService.shared.boardAbv
         sortBoardsAlphabetically()
         
         // Set theme background color for automatic light/dark mode support
@@ -206,6 +206,15 @@ class boardsTV: UITableViewController {
         
         // Update initial badge count
         updateNotificationBadge()
+
+        // Fetch latest boards and refresh table on completion
+        BoardsService.shared.fetchBoards { [weak self] in
+            guard let self = self else { return }
+            self.boardNames = BoardsService.shared.boardNames
+            self.boardsAbv = BoardsService.shared.boardAbv
+            self.sortBoardsAlphabetically()
+            self.tableView.reloadData()
+        }
     }
     
     deinit {

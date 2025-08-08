@@ -292,6 +292,12 @@ class threadRepliesCell: UITableViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         contentView.layoutIfNeeded()
+        // Provide a shadowPath to avoid offscreen rendering cost per frame
+        let cornerRadius: CGFloat = 12
+        customBackgroundView.layer.shadowPath = UIBezierPath(roundedRect: customBackgroundView.bounds, cornerRadius: cornerRadius).cgPath
+        // Rasterize the static background for smoother scrolling
+        customBackgroundView.layer.shouldRasterize = true
+        customBackgroundView.layer.rasterizationScale = UIScreen.main.scale
     }
     
     // MARK: - Pointer Interaction for Apple Pencil Hover

@@ -87,57 +87,28 @@ class SearchViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func selectBoard() {
-        // TODO: Implement board selection
-        // For now, just toggle between all boards and a specific board
-        if let currentBoard = currentBoard {
-            self.currentBoard = nil
-            navigationItem.rightBarButtonItem?.title = "All Boards"
-        } else {
-            // Show board selection dialog
-            showBoardSelectionDialog()
-        }
+        // Show board selection dialog
+        showBoardSelectionDialog()
     }
     
     private func showBoardSelectionDialog() {
         let alert = UIAlertController(title: "Select Board", message: nil, preferredStyle: .actionSheet)
         
-        // Get board list from home view controller
-        let boardsAbv = ["a", "c", "w", "m", "cgl", "cm", "f", "n", "jp", "v", "vg", "vp", "vr", "co", "g", "tv", "k", "o", "an", "tg", "sp", "asp", "sci", "his", "int", "out", "toy", "i", "po", "p", "ck", "ic", "wg", "lit", "mu", "fa", "3", "gd", "diy", "wsg", "qst", "biz", "trv", "fit", "x", "adv", "lgbt", "mlp", "news", "wsr", "vip", "b", "r9k", "pol", "bant", "soc", "s4s", "s", "hc", "hm", "h", "e", "u", "d", "y", "t", "hr", "gif", "aco", "r"]
-        
-        // Sort boards alphabetically
-        let sortedBoards = boardsAbv.sorted()
-        
-        // Add most popular boards at the top
-        let popularBoards = ["b", "pol", "v", "g", "a", "tv", "sp", "int"]
-        
-        // Add separator
-        alert.addAction(UIAlertAction(title: "Popular Boards", style: .default, handler: nil))
-        alert.actions.last?.isEnabled = false
-        
-        for board in popularBoards {
-            alert.addAction(UIAlertAction(title: "/\(board)/", style: .default) { _ in
-                self.currentBoard = board
-                self.navigationItem.rightBarButtonItem?.title = "/\(board)/"
-            })
-        }
-        
-        // Add separator 
-        alert.addAction(UIAlertAction(title: "All Boards", style: .default, handler: nil))
-        alert.actions.last?.isEnabled = false
+        // Load cached boards and refresh later when latest arrives
+        let names = BoardsService.shared.boardNames
+        let abvs = BoardsService.shared.boardAbv
+        let combined = zip(names, abvs).map { ($0, $1) }.sorted { $0.0 < $1.0 }
         
         alert.addAction(UIAlertAction(title: "All Boards", style: .default) { _ in
             self.currentBoard = nil
             self.navigationItem.rightBarButtonItem?.title = "All Boards"
         })
+        alert.actions.last?.isEnabled = true
         
-        // Add all sorted boards
-        alert.addAction(UIAlertAction(title: "Alphabetical", style: .default, handler: nil))
-        alert.actions.last?.isEnabled = false
-        
-        for board in sortedBoards {
-            alert.addAction(UIAlertAction(title: "/\(board)/", style: .default) { _ in
-                self.currentBoard = board
-                self.navigationItem.rightBarButtonItem?.title = "/\(board)/"
+        for (title, code) in combined {
+            alert.addAction(UIAlertAction(title: "\(title) (/\(code)/)", style: .default) { _ in
+                self.currentBoard = code
+                self.navigationItem.rightBarButtonItem?.title = "/\(code)/"
             })
         }
         
@@ -148,6 +119,9 @@ class SearchViewController: UIViewController {
         }
         
         present(alert, animated: true)
+        
+        // Fetch latest boards and rebuild the sheet next time
+        BoardsService.shared.fetchBoards()
     }
     
     // MARK: - Search Implementation
@@ -200,7 +174,7 @@ class SearchViewController: UIViewController {
     }
     
     private func searchAllBoards(query: String) {
-        let boards = ["a", "c", "w", "m", "cgl", "cm", "f", "n", "jp", "v", "vg", "vp", "vr", "co", "g", "tv", "k", "o", "an", "tg", "sp", "asp", "sci", "his", "int", "out", "toy", "i", "po", "p", "ck", "ic", "wg", "lit", "mu", "fa", "3", "gd", "diy", "wsg", "qst", "biz", "trv", "fit", "x", "adv", "lgbt", "mlp", "news", "wsr", "vip", "b", "r9k", "pol", "bant", "soc", "s4s", "s", "hc", "hm", "h", "e", "u", "d", "y", "t", "hr", "gif", "aco", "r"]
+        let boards = BoardsService.shared.boardAbv
         
         var allResults: [ThreadData] = []
         let searchGroup = DispatchGroup()

@@ -48,6 +48,7 @@
 		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		B7C50959EA75BAFA53ED9B6F /* Pods_Channer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */; };
 		F78E2662AB7CC0EB66CCB5D8 /* Pods_ChannerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 16700A75F5E12DAADDA25578 /* Pods_ChannerTests.framework */; };
+        17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +115,7 @@
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Channer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+        17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardsService.swift; sourceTree = "<group>"; };
 		3DB358D3D4C27D3A430359CF /* Pods-ChannerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerTests.release.xcconfig"; path = "Target Support Files/Pods-ChannerTests/Pods-ChannerTests.release.xcconfig"; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 		171A75E22DD6F9FF00D75B34 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+                17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
@@ -539,6 +542,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */,
 				17DD68422249B84100641BCA /* urlWeb.swift in Sources */,
 				1776B0A82CE307A300B304E7 /* HistoryManager.swift in Sources */,
 				171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */,

@@ -71,6 +71,7 @@
 ### 🎬 Media Handling
 
 - **WebM & MP4 Support**: Native video playback
+- **Local Videos via VLC**: Downloaded videos play using the in-app VLCKit player exclusively for maximum compatibility
 - **Image Gallery**: Beautiful media browser
 - **Download Manager**: Batch downloads with progress
 - **Thumbnail Grid**: Visual thread overview

@@ -1,13 +1,14 @@
 import UIKit
 import UserNotifications
-import SwiftyJSON
 import Foundation
+import LocalAuthentication
 
 class settings: UIViewController {
 
     // MARK: - Properties
-    var boardNames = ["Anime & Manga", "Anime/Cute", "Anime/Wallpapers", "Mecha", "Cosplay & EGL", "Cute/Male", "Flash", "Transportation", "Otaku Culture", "Video Games", "Video Game Generals", "Pokémon", "Retro Games", "Comics & Cartoons", "Technology", "Television & Film", "Weapons", "Auto", "Animals & Nature", "Traditional Games", "Sports", "Alternative Sports", "Science & Math", "History & Humanities", "International", "Outdoors", "Toys", "Oekaki", "Papercraft & Origami", "Photography", "Food & Cooking", "Artwork/Critique", "Wallpapers/General", "Literature", "Music", "Fashion", "3DCG", "Graphic Design", "Do-It-Yourself", "Worksafe GIF", "Quests", "Business & Finance", "Travel", "Fitness", "Paranormal", "Advice", "LGBT", "Pony", "Current News", "Worksafe Requests", "Very Important Posts", "Random", "ROBOT9001", "Politically Incorrect", "International/Random", "Cams & Meetups", "Shit 4chan Says", "Sexy Beautiful Women", "Hardcore", "Handsome Men", "Hentai", "Ecchi", "Yuri", "Hentai/Alternative", "Yaoi", "Torrents", "High Resolution", "Adult GIF", "Adult Cartoons", "Adult Requests"]
-    var boardAbv = ["a", "c", "w", "m", "cgl", "cm", "f", "n", "jp", "v", "vg", "vp", "vr", "co", "g", "tv", "k", "o", "an", "tg", "sp", "asp", "sci", "his", "int", "out", "toy", "i", "po", "p", "ck", "ic", "wg", "lit", "mu", "fa", "3", "gd", "diy", "wsg", "qst", "biz", "trv", "fit", "x", "adv", "lgbt", "mlp", "news", "wsr", "vip", "b", "r9k", "pol", "bant", "soc", "s4s", "s", "hc", "hm", "h", "e", "u", "d", "y", "t", "hr", "gif", "aco", "r"]
+    // Boards (now sourced from BoardsService)
+    var boardNames: [String] = []
+    var boardAbv: [String] = []
     
     // UI Components
     private let scrollView = UIScrollView()
@@ -108,8 +109,18 @@ class settings: UIViewController {
             UserDefaults.standard.set(false, forKey: preloadVideosKey)
         }
         
+        // Load cached boards from shared service, then fetch latest
+        boardNames = BoardsService.shared.boardNames
+        boardAbv = BoardsService.shared.boardAbv
         sortBoardsAlphabetically()
         setupUI()
+        BoardsService.shared.fetchBoards { [weak self] in
+            guard let self = self else { return }
+            self.boardNames = BoardsService.shared.boardNames
+            self.boardAbv = BoardsService.shared.boardAbv
+            self.sortBoardsAlphabetically()
+            self.updateSelectedBoardLabel()
+        }
     }
     
     private func sortBoardsAlphabetically() {
@@ -123,6 +134,8 @@ class settings: UIViewController {
         boardNames = sortedBoards.map { $0.0 }
         boardAbv = sortedBoards.map { $0.1 }
     }
+
+    // No local networking: boards now provided by BoardsService
     
     // MARK: - UI Setup
     private func setupUI() {
@@ -455,13 +468,69 @@ class settings: UIViewController {
     }
     
     @objc private func faceIDToggleChanged(_ sender: UISwitch) {
-        UserDefaults.standard.set(sender.isOn, forKey: faceIDEnabledKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        print("FaceID toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        // If turning OFF FaceID and it was previously ON, require authentication
+        let wasPreviouslyEnabled = UserDefaults.standard.bool(forKey: faceIDEnabledKey)
         
-        // Provide haptic feedback
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        if wasPreviouslyEnabled && !sender.isOn {
+            // Revert the toggle state temporarily
+            sender.isOn = true
+            
+            // Require authentication to turn off FaceID
+            authenticateToChangeSetting { [weak self] success in
+                DispatchQueue.main.async {
+                    if success {
+                        // Authentication successful, allow the change
+                        sender.isOn = false
+                        UserDefaults.standard.set(false, forKey: self?.faceIDEnabledKey ?? "")
+                        UserDefaults.standard.synchronize()
+                        print("FaceID toggle changed to: false after authentication, UserDefaults synchronized")
+                    } else {
+                        // Authentication failed, keep toggle on
+                        sender.isOn = true
+                        print("FaceID toggle change denied due to failed authentication")
+                    }
+                    
+                    // Provide haptic feedback
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                }
+            }
+        } else {
+            // Turning ON FaceID or no change needed, proceed normally
+            UserDefaults.standard.set(sender.isOn, forKey: faceIDEnabledKey)
+            UserDefaults.standard.synchronize()
+            print("FaceID toggle changed to: \(sender.isOn), UserDefaults synchronized")
+            
+            // Provide haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+        }
+    }
+    
+    private func authenticateToChangeSetting(completion: @escaping (Bool) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+        
+        // Check if Face ID/Touch ID is available
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            let reason = "Authenticate to disable Face ID/Touch ID requirement."
+            
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, error in
+                completion(success)
+            }
+        } else {
+            // Fall back to device passcode if biometrics not available
+            if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+                let reason = "Authenticate to disable Face ID/Touch ID requirement."
+                
+                context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
+                    completion(success)
+                }
+            } else {
+                // No authentication method available
+                completion(false)
+            }
+        }
     }
     
     @objc private func notificationsToggleChanged(_ sender: UISwitch) {

@@ -107,6 +107,21 @@ class threadRepliesCV: UICollectionViewController {
         
         collectionView!.collectionViewLayout = layout
         
+        // Improved scrolling performance for iPad
+        collectionView?.decelerationRate = UIScrollView.DecelerationRate.fast
+        collectionView?.showsVerticalScrollIndicator = true
+        collectionView?.bounces = true
+        collectionView?.alwaysBounceVertical = true
+        collectionView?.scrollsToTop = true
+        
+        // Optimize for smooth scrolling
+        if #available(iOS 15.0, *) {
+            collectionView?.isPrefetchingEnabled = true
+        }
+        
+        // Memory optimization
+        collectionView?.remembersLastFocusedIndexPath = false
+        
         let fileManager = FileManager.default
         let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         

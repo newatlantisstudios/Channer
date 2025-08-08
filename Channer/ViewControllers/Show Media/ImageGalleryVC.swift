@@ -837,6 +837,15 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         urlWebVC.images = images // Pass all original URLs without processing
         urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
         urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
+        // If the media comes from i.4cdn.org, set a board-level referer to reduce 429s
+        if let host = selectedURL.host, host == "i.4cdn.org" {
+            let comps = selectedURL.pathComponents
+            if comps.count > 1 {
+                let board = comps[1]
+                urlWebVC.refererString = "https://boards.4chan.org/\(board)/"
+                print("Creating URLWeb with board referer: \(urlWebVC.refererString!)")
+            }
+        }
         
         print("Creating URLWeb view controller with \(images.count) original URLs (matching thread view approach)")
         

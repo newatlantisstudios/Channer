@@ -129,13 +129,13 @@ class FilesListVC: UIViewController, UITableViewDelegate, UITableViewDataSource 
                     urlWebViewController.currentIndex = 0
                     navigationController?.pushViewController(urlWebViewController, animated: true)
                 } else if fileExtension == "webm" || fileExtension == "mp4" {
-                    print("DEBUG: FilesListVC - Opening video file with urlWeb")
+                    print("DEBUG: FilesListVC - Opening local video with VLCKit (WebMViewController)")
                     print("DEBUG: FilesListVC - Video URL: \(selectedURL.absoluteString)")
-                    // Open video in urlWeb for better local file support
-                    let urlWebViewController = urlWeb()
-                    urlWebViewController.images = [selectedURL]
-                    urlWebViewController.currentIndex = 0
-                    navigationController?.pushViewController(urlWebViewController, animated: true)
+                    // Use VLCKit-only player for local video files
+                    let vlcVC = WebMViewController()
+                    vlcVC.videoURL = selectedURL.absoluteString
+                    vlcVC.hideDownloadButton = true
+                    navigationController?.pushViewController(vlcVC, animated: true)
                 } else {
                     print("DEBUG: FilesListVC - Unsupported file type: \(fileExtension)")
                 }

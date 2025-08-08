@@ -32,9 +32,96 @@ class Reachability {
     }
 }
 
+// MARK: - Preloading Pipeline
+extension threadRepliesTV {
+    private func preloadThreadContent(completion: @escaping () -> Void) {
+        guard !hasPreloadedContent else { completion(); return }
+        self.view.layoutIfNeeded()
+        self.tableView.layoutIfNeeded()
+
+        let width = self.tableView.bounds.width
+        guard width > 0 else { completion(); return }
+
+        let replies = self.threadReplies
+        let images = self.threadRepliesImages
+        let board = self.boardAbv
+        let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            var newHeights: [Int: CGFloat] = [:]
+            let baseMin: CGFloat = 172
+            let verticalPadding: CGFloat = 56 // derived from layout
+            let textWidthWithImage = max(0, width - 164) // 8+12+120+8 left, 16 right
+            let textWidthNoImage = max(0, width - 36)    // 8+12 left, 16 right
+
+            for i in 0..<replies.count {
+                let hasImg = (i < images.count) && (images[i] != "https://i.4cdn.org/\(board)/")
+                let text = replies[i]
+                let constraintWidth = hasImg ? textWidthWithImage : textWidthNoImage
+                let bounds = text.boundingRect(
+                    with: CGSize(width: constraintWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    context: nil
+                )
+                let measured = ceil(bounds.height) + verticalPadding
+                newHeights[i] = max(baseMin, measured)
+            }
+
+            let firstScreenCount = min(12, images.count)
+            let firstScreenUrls: [URL] = (0..<firstScreenCount).compactMap { idx in
+                guard images[idx] != "https://i.4cdn.org/\(board)/" else { return nil }
+                return self.thumbnailURL(from: images[idx], useHQ: useHQ)
+            }
+
+            DispatchQueue.main.async {
+                for (k, v) in newHeights { self.cellHeightCache[k] = v }
+                self.hasPreloadedContent = true
+
+                if !firstScreenUrls.isEmpty {
+                    self.imagePrefetcher?.stop()
+                    self.imagePrefetcher = ImagePrefetcher(urls: firstScreenUrls, progressBlock: nil) { _, _, _ in
+                        completion()
+                    }
+                    self.imagePrefetcher?.start()
+                } else {
+                    completion()
+                }
+
+                // Background prefetch remaining thumbnails
+                let remainingUrls: [URL] = images.enumerated().compactMap { i, raw in
+                    guard i >= firstScreenCount, raw != "https://i.4cdn.org/\(board)/" else { return nil }
+                    return self.thumbnailURL(from: raw, useHQ: useHQ)
+                }
+                if !remainingUrls.isEmpty {
+                    let backgroundPrefetcher = ImagePrefetcher(urls: remainingUrls)
+                    backgroundPrefetcher.start()
+                }
+            }
+        }
+    }
+
+    private func thumbnailURL(from raw: String, useHQ: Bool) -> URL? {
+        if raw.hasSuffix(".webm") || raw.hasSuffix(".mp4") {
+            let comps = raw.split(separator: "/")
+            if let last = comps.last {
+                let base = last.replacingOccurrences(of: ".webm", with: "").replacingOccurrences(of: ".mp4", with: "")
+                return URL(string: raw.replacingOccurrences(of: String(last), with: "\(base)s.jpg"))
+            }
+            return URL(string: raw)
+        }
+        if useHQ { return URL(string: raw) }
+        let comps = raw.split(separator: "/")
+        if let last = comps.last, let dot = last.firstIndex(of: ".") {
+            let filename = String(last[..<dot]) + "s.jpg"
+            return URL(string: raw.replacingOccurrences(of: String(last), with: filename))
+        }
+        return URL(string: raw)
+    }
+}
+
 
 // MARK: - Thread Replies Table View Controller
-class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextViewDelegate, UISearchBarDelegate {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate {
     
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -201,6 +288,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private let refreshProgressView = UIProgressView(progressViewStyle: .default)
     private var refreshStatusHeight: NSLayoutConstraint?
     
+    // Scroll performance optimization
+    private var isScrolling = false
+    private var pendingImageLoads = Set<IndexPath>()
+    
+    // Reload throttling
+    private var reloadTimer: Timer?
+    private var pendingReloadContext: String?
+    
+    // Cell height caching
+    private var cellHeightCache = [Int: CGFloat]()
+    
+    // Image loading optimization
+    private var imageLoadTimer: Timer?
+
+    // Image prefetcher
+    private var imagePrefetcher: ImagePrefetcher?
+    // Whether we have preloaded heights and first-screen images
+    private var hasPreloadedContent = false
+    
     // MARK: - Initializer
     
     init() {
@@ -256,12 +362,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         view.addSubview(tableView)
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.prefetchDataSource = self
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.separatorStyle = .none
         tableView.allowsSelection = true
         tableView.register(threadRepliesCell.self, forCellReuseIdentifier: cellIdentifier)
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172
+        
+        // Improved scrolling performance
+        // Using normal deceleration feels smoother and less abrupt
+        tableView.decelerationRate = .normal
+        tableView.showsVerticalScrollIndicator = true
+        tableView.bounces = true
+        tableView.alwaysBounceVertical = true
+        tableView.scrollsToTop = true
+        
+        // Optimize for smooth scrolling
+        if #available(iOS 15.0, *) {
+            tableView.isPrefetchingEnabled = true // Enable prefetch for smoother image loads
+            tableView.sectionHeaderTopPadding = 0
+        }
+        
+        // Memory and performance optimizations
+        tableView.remembersLastFocusedIndexPath = false
+        
+        // Additional scroll performance settings
+        tableView.contentInsetAdjustmentBehavior = .never
+        tableView.insetsContentViewsToSafeArea = false
         
         // Add long press gesture recognizer for filtering
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
@@ -726,8 +854,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        //print("Configuring cell at index: \(indexPath.row)")
-        //print("threadReplies count: \(threadReplies.count)")
+        // Reduced logging - only for debugging if needed
+        // print("🔄 CELL: Configuring cell \(indexPath.row)")
+        
+        // Always return a fully reusable cell; skip heavy work during scroll below
         
         // If search is active, we need to map the visible row index to the actual data index
         var actualIndex = indexPath.row
@@ -808,6 +938,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Set up image if present
             if hasImage {
                 //print("Debug: Configuring image with URL: \(imageUrl)")
+                if isScrolling {
+                    // Track pending image loads for when scrolling stops
+                    pendingImageLoads.insert(indexPath)
+                }
                 configureImage(for: cell, with: imageUrl)
                 
                 // Prepare cell for hover interaction
@@ -835,12 +969,51 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
         
-        // Force layout to calculate cell height
-        cell.layoutIfNeeded()
-        //print("Debug: Cell at index \(indexPath.row) height after layout: \(cell.frame.size.height)")
+        // Avoid forcing synchronous layout here to keep scrolling smooth
         
         return cell
     }
+    
+    // MARK: - Height Caching for Performance
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        // Return cached height if available
+        if let cachedHeight = cellHeightCache[indexPath.row] {
+            return cachedHeight
+        }
+        // Use a reasonable estimate based on content
+        return 172
+    }
+    
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        // Cache the actual cell height after it's been laid out
+        let height = cell.frame.size.height
+        cellHeightCache[indexPath.row] = height
+    }
+    
+    // MARK: - Prefetching for Scroll Performance
+    func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
+        // Prefetch only image data using Kingfisher, not cells
+        if isScrolling { return }
+        let urls: [URL] = indexPaths.compactMap { ip in
+            guard ip.row < threadRepliesImages.count else { return nil }
+            let raw = threadRepliesImages[ip.row]
+            guard !raw.isEmpty, raw != "https://i.4cdn.org/\(boardAbv)/" else { return nil }
+            let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+            return thumbnailURL(from: raw, useHQ: useHQ)
+        }
+        guard !urls.isEmpty else { return }
+        imagePrefetcher?.stop()
+        imagePrefetcher = ImagePrefetcher(urls: urls)
+        imagePrefetcher?.start()
+    }
+    
+    func tableView(_ tableView: UITableView, cancelPrefetchingForRowsAt indexPaths: [IndexPath]) {
+        // Stop active image prefetching and clear pending markers
+        imagePrefetcher?.stop()
+        for indexPath in indexPaths { pendingImageLoads.remove(indexPath) }
+    }
+    
+    // Removed minimal cell creation to avoid layout thrash and reuse issues
     
     // MARK: - Data Loading Methods
     /// Methods to handle data fetching and processing
@@ -852,7 +1025,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             isLoading = false
             print("Loading initial data...")
             print("Reply count: \(replyCount), Thread replies: \(threadReplies.count)")
-            tableView.reloadData()
+            debugReloadData(context: "Search filter update")
             return
         }
         
@@ -877,12 +1050,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         let json = try JSON(data: cachedData)
                         self.processThreadData(json)
                         self.structureThreadReplies()
-                        self.isLoading = false
-                        
-                        // Reload table view and stop loading indicator
-                        self.loadingIndicator.stopAnimating()
-                        self.tableView.reloadData()
-                        self.onViewReady?()
+                        self.preloadThreadContent { [weak self] in
+                            guard let self = self else { return }
+                            self.isLoading = false
+                            self.loadingIndicator.stopAnimating()
+                            self.tableView.reloadData()
+                            self.onViewReady?()
+                        }
                     } catch {
                         print("Error parsing cached JSON: \(error)")
                         self.handleLoadError()
@@ -917,7 +1091,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 let json = try JSON(data: data)
                 self.processThreadData(json)
                 self.structureThreadReplies()
-                self.isLoading = false
                 
                 // Cache thread if offline reading is enabled
                 if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
@@ -925,10 +1098,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     print("Thread was successfully loaded and is already cached")
                 }
                 
-                // Reload table view and stop loading indicator
-                self.loadingIndicator.stopAnimating()
-                self.tableView.reloadData()
-                self.onViewReady?()
+                // Preload heights and first-screen thumbnails, then present
+                self.preloadThreadContent { [weak self] in
+                    guard let self = self else { return }
+                    self.isLoading = false
+                    self.loadingIndicator.stopAnimating()
+                    self.debugReloadData(context: "Preload complete")
+                    self.onViewReady?()
+                }
             } catch {
                 print("Error parsing JSON: \(error)")
                 self.handleLoadError()
@@ -966,8 +1143,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 let json = try JSON(data: data)
                 self.processThreadData(json)
                 self.structureThreadReplies()
-                self.isLoading = false
-                self.tableView.reloadData()
+                self.preloadThreadContent { [weak self] in
+                    guard let self = self else { return }
+                    self.isLoading = false
+                    self.tableView.reloadData()
+                }
             } catch {
                 print("JSON parsing error: \(error)")
                 self.handleLoadError()
@@ -1013,6 +1193,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func processThreadData(_ json: JSON) {
+        hasPreloadedContent = false
         // Clear existing data before processing
         threadReplies.removeAll()
         threadBoardReplyNumber.removeAll()
@@ -1236,7 +1417,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         // Reload the table view
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     private func formatComment(_ comment: String, preserveOriginal: Bool = false) -> NSAttributedString {
@@ -1412,6 +1593,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
         print("Debug: Starting image configuration for URL: \(imageUrl)")
         
+        // Skip network image loading during scrolling for better performance
+        if isScrolling {
+            print("Debug: Deferring image load during scroll for: \(imageUrl)")
+            // Use a background placeholder only; avoid setting a foreground image
+            cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            return
+        }
+        
         // Check if high-quality thumbnails are enabled
         let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
         
@@ -1514,12 +1703,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         print("Debug: Image size: \(value.image.size)")
                     }
                     
-                    // Recalculate layout after image loads
+                    // Avoid forcing table re-layout on each image completion; also clear any overlay image
                     DispatchQueue.main.async {
+                        cell.threadImage.setImage(nil, for: .normal)
                         cell.setNeedsLayout()
-                        cell.layoutIfNeeded()
-                        self.tableView.beginUpdates()
-                        self.tableView.endUpdates()
                     }
                 case .failure(let error):
                     print("Debug: Failed to load image: \(error.localizedDescription)")
@@ -1537,7 +1724,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                     with: fallbackUrl,
                                     for: .normal,
                                     placeholder: UIImage(named: "loadingBoardImage"),
-                                    options: options)
+                                    options: options,
+                                    completionHandler: { _ in
+                                        // Ensure any overlay image is cleared once background loads
+                                        cell.threadImage.setImage(nil, for: .normal)
+                                    })
                             }
                         }
                     }
@@ -1577,6 +1768,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             urlWebVC.images = [selectedImageURL]
             urlWebVC.currentIndex = 0
             urlWebVC.enableSwipes = false
+            // Provide a proper Referer for 4chan media to avoid rate limits
+            if !boardAbv.isEmpty && !threadNumber.isEmpty {
+                urlWebVC.refererString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
+                print("Debug: Setting referer for media download: \(urlWebVC.refererString!)")
+            }
             print("Debug: Navigating to urlWeb for media playback.")
             
             // Handle navigation stack
@@ -1642,7 +1838,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
         
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     @objc private func showThread(sender: UIButton) {
         print("🔴showThread")
@@ -1735,7 +1931,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadRepliesImagesOld.removeAll()
         
         replyCount = threadReplies.count
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     // MARK: - Helper Methods
@@ -1971,7 +2167,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
         
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     /// Toggles filter status for a specific reply
@@ -1981,7 +2177,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         } else {
             filteredReplyIndices.insert(index)
         }
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     // MARK: - Refresh Status Management
@@ -2176,7 +2372,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
         
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     /// Extracts keywords from a reply and presents them for filtering
@@ -2249,7 +2445,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         if !isFilteringEnabled {
-            tableView.reloadData()
+            debugReloadData(context: "Search filter update")
             return
         }
         
@@ -2268,7 +2464,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // If no filters, skip filtering
         if keywordFilters.isEmpty && posterFilters.isEmpty && imageFilters.isEmpty {
-            tableView.reloadData()
+            debugReloadData(context: "Search filter update")
             return
         }
         
@@ -2308,14 +2504,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         // Reload table with filtered content
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     /// Clears all applied filters in the current view
     private func clearAllFilters() {
         // Clear local view filters
         filteredReplyIndices.removeAll()
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     @objc func refresh() {
         print("Refresh triggered")
@@ -2513,7 +2709,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         searchBar.resignFirstResponder()
         isSearchActive = false
         searchFilteredIndices.removeAll()
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
     // MARK: - Search Methods
@@ -2523,7 +2719,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // If search text is empty, show all replies
         guard !searchText.isEmpty else {
             isSearchActive = false
-            tableView.reloadData()
+            debugReloadData(context: "Search filter update")
             return
         }
         
@@ -2538,7 +2734,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
         
-        tableView.reloadData()
+        debugReloadData(context: "Search filter update")
     }
     
 }
@@ -2582,3 +2778,105 @@ extension UIColor {
     }
 }
 
+// MARK: - Debug Helper Methods
+extension threadRepliesTV {
+    
+    private func debugReloadData(context: String = "Unknown") {
+        // Throttle reloads during scrolling or rapid updates
+        if isScrolling {
+            pendingReloadContext = context
+            return
+        }
+        
+        // Cancel any pending reload
+        reloadTimer?.invalidate()
+        pendingReloadContext = context
+        
+        // Batch multiple reload requests together with a small delay
+        reloadTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            print("🔄 RELOAD: \(self.pendingReloadContext ?? "Unknown")")
+            
+            // Clear height cache when reloading data
+            self.cellHeightCache.removeAll()
+            
+            self.tableView.reloadData()
+            self.pendingReloadContext = nil
+        }
+    }
+}
+
+// MARK: - Scroll Performance Optimization
+extension threadRepliesTV {
+    
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        isScrolling = true
+        print("📱 SCROLL: Started dragging")
+    }
+    
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            scrollingDidEnd()
+        }
+    }
+    
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        scrollingDidEnd()
+        print("📱 SCROLL: Finished at offset \(Int(scrollView.contentOffset.y))")
+    }
+    
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        scrollingDidEnd()
+    }
+    
+    private func scrollingDidEnd() {
+        isScrolling = false
+        
+        // Process any pending reload that was deferred during scrolling
+        // Process any pending reload that was deferred during scrolling
+        if let context = pendingReloadContext {
+            debugReloadData(context: context)
+        }
+        
+        // Load images for visible cells that were deferred during scrolling
+        DispatchQueue.main.async { [weak self] in
+            self?.loadPendingImages()
+        }
+    }
+    
+    private func loadPendingImages() {
+        // Batch image loading to avoid overwhelming the system
+        imageLoadTimer?.invalidate()
+        imageLoadTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
+            guard let self = self else { 
+                timer.invalidate()
+                return 
+            }
+            
+            let visibleIndexPaths = self.tableView.indexPathsForVisibleRows ?? []
+            let pendingToLoad = visibleIndexPaths.filter { self.pendingImageLoads.contains($0) }
+            
+            if pendingToLoad.isEmpty {
+                timer.invalidate()
+                self.imageLoadTimer = nil
+                return
+            }
+            
+            // Load one image at a time to avoid blocking
+            if let indexPath = pendingToLoad.first,
+               let cell = self.tableView.cellForRow(at: indexPath) as? threadRepliesCell {
+                self.pendingImageLoads.remove(indexPath)
+                self.configureCellImage(cell: cell, at: indexPath)
+            }
+        }
+    }
+    
+    private func configureCellImage(cell: threadRepliesCell, at indexPath: IndexPath) {
+        guard indexPath.row < threadRepliesImages.count else { return }
+        
+        let imageURL = threadRepliesImages[indexPath.row]
+        if !imageURL.isEmpty && imageURL != "https://i.4cdn.org/\(boardAbv)/" {
+            configureImage(for: cell, with: imageURL)
+        }
+    }
+}
