@@ -1,12 +1,23 @@
 import UIKit
 import AVFoundation
 
-class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UIContextMenuInteractionDelegate {
     
     var files: [URL] = []
     var collectionView: UICollectionView!
     let fileTypes: [String]
     let directory: URL
+    
+    /// Tracks whether we're in selection mode
+    var isSelectionMode: Bool = false
+    
+    /// Set of selected index paths
+    var selectedIndexPaths: Set<IndexPath> = []
+    
+    /// Navigation bar buttons
+    var selectButton: UIBarButtonItem!
+    var cancelButton: UIBarButtonItem!
+    var deleteButton: UIBarButtonItem!
 
     // MARK: - Initialization
     // Handles the initialization of the view controller with a directory and supported file types.
@@ -30,6 +41,7 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         view.backgroundColor = .systemBackground
         self.navigationItem.title = directory.lastPathComponent
         
+        setupNavigationBar()
         setupCollectionView()
         loadFiles()
     }
@@ -49,6 +61,11 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         collectionView.delegate = self
         collectionView.backgroundColor = .systemBackground
         collectionView.alwaysBounceVertical = true // Enable vertical bounce
+        
+        // Enable context menu interactions for delete functionality
+        let interaction = UIContextMenuInteraction(delegate: self)
+        collectionView.addInteraction(interaction)
+        
         view.addSubview(collectionView)
         
         // Set up constraints for full screen
@@ -60,6 +77,132 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         ])
     }
     
+    /// Sets up navigation bar buttons for selection mode
+    private func setupNavigationBar() {
+        selectButton = UIBarButtonItem(title: "Select", style: .plain, target: self, action: #selector(selectButtonTapped))
+        cancelButton = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelButtonTapped))
+        deleteButton = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(deleteSelectedItems))
+        deleteButton.isEnabled = false
+        
+        navigationItem.rightBarButtonItem = selectButton
+    }
+    
+    // MARK: - Selection Mode Actions
+    
+    @objc private func selectButtonTapped() {
+        isSelectionMode = true
+        collectionView.allowsMultipleSelection = true
+        
+        navigationItem.leftBarButtonItem = cancelButton
+        navigationItem.rightBarButtonItem = deleteButton
+        
+        updateDeleteButtonState()
+    }
+    
+    @objc private func cancelButtonTapped() {
+        exitSelectionMode()
+    }
+    
+    @objc private func deleteSelectedItems() {
+        guard !selectedIndexPaths.isEmpty else { return }
+        
+        let selectedFiles = selectedIndexPaths.map { files[$0.row] }
+        let fileCount = selectedFiles.count
+        
+        let alert = UIAlertController(
+            title: "Delete \(fileCount) Item\(fileCount > 1 ? "s" : "")",
+            message: "Are you sure you want to delete \(fileCount) item\(fileCount > 1 ? "s" : "")? This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        
+        let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
+            self.performBatchDelete(selectedFiles)
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        alert.addAction(deleteAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true, completion: nil)
+    }
+    
+    private func performBatchDelete(_ filesToDelete: [URL]) {
+        let fileManager = FileManager.default
+        var failedDeletions: [String] = []
+        var indexPathsToDelete: [IndexPath] = []
+        
+        // Sort selected index paths in descending order to delete from the end first
+        let sortedIndexPaths = selectedIndexPaths.sorted { $0.row > $1.row }
+        
+        for indexPath in sortedIndexPaths {
+            let fileURL = files[indexPath.row]
+            
+            do {
+                // If it's a video file, also delete its thumbnail
+                if fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4" {
+                    let thumbnailURL = getLocalThumbnailURL(for: fileURL)
+                    if fileManager.fileExists(atPath: thumbnailURL.path) {
+                        try fileManager.removeItem(at: thumbnailURL)
+                    }
+                }
+                
+                // Delete the main file
+                try fileManager.removeItem(at: fileURL)
+                
+                // Remove from data source (removing from end to maintain indices)
+                files.remove(at: indexPath.row)
+                indexPathsToDelete.append(indexPath)
+                
+                print("DEBUG: ThumbnailGridVC - Successfully deleted: \(fileURL.lastPathComponent)")
+                
+            } catch {
+                print("ERROR: ThumbnailGridVC - Failed to delete file: \(error.localizedDescription)")
+                failedDeletions.append(fileURL.lastPathComponent)
+            }
+        }
+        
+        // Update collection view
+        collectionView.deleteItems(at: indexPathsToDelete)
+        
+        // Exit selection mode
+        exitSelectionMode()
+        
+        // Show error message if any deletions failed
+        if !failedDeletions.isEmpty {
+            let errorAlert = UIAlertController(
+                title: "Some Deletions Failed",
+                message: "Could not delete: \(failedDeletions.joined(separator: ", "))",
+                preferredStyle: .alert
+            )
+            errorAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            present(errorAlert, animated: true, completion: nil)
+        }
+    }
+    
+    private func exitSelectionMode() {
+        isSelectionMode = false
+        selectedIndexPaths.removeAll()
+        collectionView.allowsMultipleSelection = false
+        
+        // Deselect all items
+        if let selectedItems = collectionView.indexPathsForSelectedItems {
+            for indexPath in selectedItems {
+                collectionView.deselectItem(at: indexPath, animated: false)
+            }
+        }
+        
+        navigationItem.leftBarButtonItem = nil
+        navigationItem.rightBarButtonItem = selectButton
+        
+        // Refresh collection view to remove selection UI
+        collectionView.reloadData()
+    }
+    
+    private func updateDeleteButtonState() {
+        deleteButton.isEnabled = !selectedIndexPaths.isEmpty
+    }
+    
     // MARK: - Data Loading
     // Loads files from the specified directory.
     
@@ -67,7 +210,11 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         let fileManager = FileManager.default
         do {
             let fileURLs = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            files = fileURLs.filter { fileTypes.contains($0.pathExtension.lowercased()) }
+            // Filter out hidden files (those starting with ".") AND filter by file type
+            files = fileURLs.filter { 
+                !$0.lastPathComponent.hasPrefix(".") && fileTypes.contains($0.pathExtension.lowercased()) 
+            }
+            print("DEBUG: ThumbnailGridVC - Loaded \(files.count) non-hidden files from \(directory.path)")
             collectionView.reloadData()
         } catch {
             print("Error loading files from directory: \(error.localizedDescription)")
@@ -85,7 +232,11 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: WebMThumbnailCell.reuseIdentifier, for: indexPath) as! WebMThumbnailCell
         let fileURL = files[indexPath.row]
         
-        if fileURL.pathExtension.lowercased() == "webm" {
+        // First try to load a saved thumbnail
+        if let savedThumbnail = loadSavedThumbnail(for: fileURL) {
+            print("DEBUG: ThumbnailGridVC - Using saved thumbnail for: \(fileURL.lastPathComponent)")
+            cell.configure(with: savedThumbnail)
+        } else if fileURL.pathExtension.lowercased() == "webm" {
             generateThumbnail(for: fileURL) { image in
                 DispatchQueue.main.async {
                     cell.configure(with: image)
@@ -96,6 +247,10 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
             cell.configure(with: image)
         }
         
+        // Configure selection mode UI
+        let isSelected = selectedIndexPaths.contains(indexPath)
+        cell.setSelectionMode(isSelectionMode, isSelected: isSelected)
+        
         return cell
     }
     
@@ -103,6 +258,17 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
     // Handles user interactions with the collection view.
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if isSelectionMode {
+            selectedIndexPaths.insert(indexPath)
+            updateDeleteButtonState()
+            
+            // Update cell's selection state
+            if let cell = collectionView.cellForItem(at: indexPath) as? WebMThumbnailCell {
+                cell.setSelectionMode(isSelectionMode, isSelected: true)
+            }
+            return
+        }
+        
         let selectedURL = files[indexPath.row]
         var vc: UIViewController
 
@@ -144,6 +310,18 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
 
         // Push to the navigation stack
         navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+        if isSelectionMode {
+            selectedIndexPaths.remove(indexPath)
+            updateDeleteButtonState()
+            
+            // Update cell's selection state
+            if let cell = collectionView.cellForItem(at: indexPath) as? WebMThumbnailCell {
+                cell.setSelectionMode(isSelectionMode, isSelected: false)
+            }
+        }
     }
     
     // MARK: - UICollectionViewDelegateFlowLayout
@@ -193,6 +371,125 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
                     completion(nil)
                 }
             }
+        }
+    }
+    
+    // MARK: - Thumbnail Helper Methods
+    
+    /// Loads a saved thumbnail for a media file
+    private func loadSavedThumbnail(for mediaURL: URL) -> UIImage? {
+        let thumbnailURL = getLocalThumbnailURL(for: mediaURL)
+        
+        guard FileManager.default.fileExists(atPath: thumbnailURL.path) else {
+            return nil
+        }
+        
+        do {
+            let data = try Data(contentsOf: thumbnailURL)
+            return UIImage(data: data)
+        } catch {
+            print("DEBUG: ThumbnailGridVC - Failed to load thumbnail: \(error)")
+            return nil
+        }
+    }
+    
+    /// Gets the URL where a thumbnail should be stored for a given media file
+    private func getLocalThumbnailURL(for mediaURL: URL) -> URL {
+        let directory = mediaURL.deletingLastPathComponent()
+        let fileName = mediaURL.deletingPathExtension().lastPathComponent
+        let thumbnailFileName = ".\(fileName).thumbnail.png" // Hidden file with dot prefix
+        return directory.appendingPathComponent(thumbnailFileName)
+    }
+    
+    // MARK: - UIContextMenuInteractionDelegate
+    
+    /// Provides context menu configuration for collection view items
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
+        // Disable context menu during selection mode
+        guard !isSelectionMode else { return nil }
+        
+        let locationInCollectionView = interaction.location(in: collectionView)
+        
+        guard let indexPath = collectionView.indexPathForItem(at: locationInCollectionView) else {
+            return nil
+        }
+        
+        let fileURL = files[indexPath.row]
+        let fileName = fileURL.lastPathComponent
+        
+        return UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
+            let deleteAction = UIAction(
+                title: "Delete",
+                image: UIImage(systemName: "trash"),
+                attributes: .destructive
+            ) { _ in
+                self.showDeleteConfirmation(for: fileURL, at: indexPath)
+            }
+            
+            return UIMenu(title: fileName, children: [deleteAction])
+        }
+    }
+    
+    // MARK: - Delete Functionality
+    
+    /// Shows a confirmation alert before deleting a file
+    private func showDeleteConfirmation(for fileURL: URL, at indexPath: IndexPath) {
+        let fileName = fileURL.lastPathComponent
+        
+        let alert = UIAlertController(
+            title: "Delete File",
+            message: "Are you sure you want to delete \"\(fileName)\"? This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        
+        let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
+            self.deleteFile(at: fileURL, indexPath: indexPath)
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        
+        alert.addAction(deleteAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true, completion: nil)
+    }
+    
+    /// Deletes the file at the specified URL and updates the collection view
+    private func deleteFile(at fileURL: URL, indexPath: IndexPath) {
+        let fileManager = FileManager.default
+        
+        do {
+            // If it's a video file, also delete its thumbnail
+            if fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4" {
+                let thumbnailURL = getLocalThumbnailURL(for: fileURL)
+                if fileManager.fileExists(atPath: thumbnailURL.path) {
+                    try fileManager.removeItem(at: thumbnailURL)
+                    print("DEBUG: ThumbnailGridVC - Deleted thumbnail for: \(fileURL.lastPathComponent)")
+                }
+            }
+            
+            // Delete the main file
+            try fileManager.removeItem(at: fileURL)
+            
+            // Update the data source
+            files.remove(at: indexPath.row)
+            
+            // Update the collection view
+            collectionView.deleteItems(at: [indexPath])
+            
+            print("DEBUG: ThumbnailGridVC - Successfully deleted: \(fileURL.lastPathComponent)")
+            
+        } catch {
+            print("ERROR: ThumbnailGridVC - Failed to delete file: \(error.localizedDescription)")
+            
+            // Show error alert
+            let errorAlert = UIAlertController(
+                title: "Delete Failed",
+                message: "Could not delete \"\(fileURL.lastPathComponent)\". \(error.localizedDescription)",
+                preferredStyle: .alert
+            )
+            errorAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            present(errorAlert, animated: true, completion: nil)
         }
     }
 }

@@ -157,8 +157,18 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         collectionView.dataSource = self
         collectionView.register(MediaCell.self, forCellWithReuseIdentifier: cellIdentifier)
         collectionView.backgroundColor = .systemBackground
-        collectionView.frame = view.bounds
+        
+        // Use Auto Layout constraints instead of frame-based layout
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collectionView)
+        
+        // Pin collection view to all edges of the view
+        NSLayoutConstraint.activate([
+            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
         
         // Scroll to the initially selected image if set
         if let selectedURL = selectedImageURL, let index = images.firstIndex(of: selectedURL) {
@@ -175,6 +185,15 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         } else {
             collectionView.reloadData()
         }
+    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        
+        // Invalidate the collection view layout on rotation to recalculate cell sizes
+        coordinator.animate(alongsideTransition: { _ in
+            self.collectionView.collectionViewLayout.invalidateLayout()
+        }, completion: nil)
     }
     
     // MARK: - URL Processing

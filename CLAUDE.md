@@ -8,7 +8,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 
 ## Development Environment
 
-- Platform: iOS/iPadOS (deployment target 15.6+, build target 18.0+)
+- Platform: iOS/iPadOS (deployment target 15.6+, platform target 18.0+)
 - Language: Swift
 - Framework: UIKit
 - Build System: Xcode
@@ -20,7 +20,7 @@ Channer is a native iOS and iPadOS client for browsing image boards with a focus
 - **Alamofire**: Used for networking
 - **Kingfisher**: Used for image loading and caching
 - **VLCKit** (4.0.0a6): Used for media playback
-- **FFmpeg**: Used for media processing via native bridging header integration
+- **FFmpeg**: Used for media processing via native bridging header integration (system FFmpeg, no pod dependency)
 
 ## Build and Run Commands
 
@@ -170,6 +170,7 @@ The project includes GitHub Actions workflow for pull request validation:
 - **Runner**: Self-hosted macstudio
 - **Test Device**: iPhone 16 Simulator
 - **Features**: Automatic build validation, error reporting to PRs, artifact uploads
+- **Dependencies**: Automatically installs CocoaPods if not present
 
 ## Important Notes
 

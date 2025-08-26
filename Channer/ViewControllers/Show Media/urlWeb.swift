@@ -1222,21 +1222,21 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     /// Handles left and right swipe gestures to navigate content
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
         if gesture.direction == .left {
-            // Move to next content if available
+            // Move to next content, loop to beginning if at end
             if currentIndex < images.count - 1 {
                 currentIndex += 1
-                loadContent()
             } else {
-                showAlert(title: "End", message: "No more images")
+                currentIndex = 0 // Loop to beginning
             }
+            loadContent()
         } else if gesture.direction == .right {
-            // Move to previous content if available
+            // Move to previous content, loop to end if at beginning
             if currentIndex > 0 {
                 currentIndex -= 1
-                loadContent()
             } else {
-                showAlert(title: "Start", message: "No previous images")
+                currentIndex = images.count - 1 // Loop to end
             }
+            loadContent()
         }
     }
 
@@ -1346,10 +1346,120 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
 
             // Save downloaded content to local file system
             try FileManager.default.copyItem(at: tempLocalUrl, to: localUrl)
+            
+            // Download and save API thumbnail for the downloaded media
+            await downloadAndSaveThumbnail(originalURL: url, localURL: localUrl)
+            
             showAlert(title: "Success", message: "Download complete")
         } catch {
             showAlert(title: "Download Failed", message: error.localizedDescription)
         }
+    }
+    
+    /// Downloads and saves the API thumbnail for the downloaded media file
+    private func downloadAndSaveThumbnail(originalURL: URL, localURL: URL) async {
+        print("DEBUG: urlWeb - Downloading API thumbnail for: \(originalURL.absoluteString)")
+        
+        // Download the API thumbnail
+        if let thumbnailURL = getThumbnailURL(from: originalURL),
+           let thumbnailData = await downloadThumbnailData(from: thumbnailURL) {
+            saveThumbnail(thumbnailData, for: localURL)
+            print("DEBUG: urlWeb - API thumbnail saved successfully")
+        } else {
+            print("DEBUG: urlWeb - Failed to download API thumbnail")
+        }
+    }
+    
+    /// Generates the thumbnail URL from a media URL (using 4chan API format)
+    private func getThumbnailURL(from mediaURL: URL) -> URL? {
+        let urlString = mediaURL.absoluteString
+        
+        if urlString.hasSuffix(".webm") || urlString.hasSuffix(".mp4") {
+            // For videos: replace .webm/.mp4 with s.jpg
+            let components = urlString.components(separatedBy: "/")
+            if let last = components.last {
+                let fileExtension = mediaURL.pathExtension.lowercased()
+                let base = last.replacingOccurrences(of: ".\(fileExtension)", with: "")
+                let thumbnailURLString = urlString.replacingOccurrences(of: last, with: "\(base)s.jpg")
+                return URL(string: thumbnailURLString)
+            }
+        } else {
+            // For images: add 's' before the extension
+            let components = urlString.components(separatedBy: "/")
+            if let last = components.last, let dot = last.firstIndex(of: ".") {
+                let filename = String(last[..<dot]) + "s.jpg"
+                let thumbnailURLString = urlString.replacingOccurrences(of: last, with: filename)
+                return URL(string: thumbnailURLString)
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Downloads thumbnail data from the API
+    private func downloadThumbnailData(from thumbnailURL: URL) async -> Data? {
+        do {
+            var request = URLRequest(url: thumbnailURL)
+            request.httpMethod = "GET"
+            request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+            
+            // Set appropriate headers for 4chan
+            if thumbnailURL.host == "i.4cdn.org" {
+                let comps = thumbnailURL.pathComponents
+                if comps.count > 1 {
+                    let board = comps[1]
+                    request.setValue("https://boards.4chan.org/\(board)/", forHTTPHeaderField: "Referer")
+                    request.setValue("https://boards.4chan.org", forHTTPHeaderField: "Origin")
+                }
+            }
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                print("DEBUG: urlWeb - Failed to download thumbnail, status: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                return nil
+            }
+            
+            return data
+        } catch {
+            print("DEBUG: urlWeb - Error downloading thumbnail: \(error)")
+            return nil
+        }
+    }
+    
+    /// Saves thumbnail data to a hidden file alongside the media file
+    @discardableResult
+    private func saveThumbnail(_ thumbnailData: Data, for mediaURL: URL) -> URL? {
+        var thumbnailURL = getLocalThumbnailURL(for: mediaURL)
+        
+        do {
+            // Ensure directory exists
+            let directory = thumbnailURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+            
+            // Write thumbnail data
+            try thumbnailData.write(to: thumbnailURL)
+            
+            // Hide the thumbnail file
+            var resourceValues = URLResourceValues()
+            resourceValues.isHidden = true
+            try thumbnailURL.setResourceValues(resourceValues)
+            
+            print("DEBUG: urlWeb - Saved thumbnail: \(thumbnailURL.path)")
+            return thumbnailURL
+        } catch {
+            print("DEBUG: urlWeb - Failed to save thumbnail: \(error)")
+            return nil
+        }
+    }
+    
+    /// Gets the URL where a thumbnail should be stored for a given media file
+    private func getLocalThumbnailURL(for mediaURL: URL) -> URL {
+        let directory = mediaURL.deletingLastPathComponent()
+        let fileName = mediaURL.deletingPathExtension().lastPathComponent
+        let thumbnailFileName = ".\(fileName).thumbnail.png" // Hidden file with dot prefix
+        return directory.appendingPathComponent(thumbnailFileName)
     }
 
     // MARK: - Utility Methods

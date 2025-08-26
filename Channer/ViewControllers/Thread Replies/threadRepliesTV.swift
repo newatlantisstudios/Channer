@@ -301,6 +301,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // Image loading optimization
     private var imageLoadTimer: Timer?
+    private var scrollImageLoadTimer: Timer?
+    private let maxConcurrentScrollLoads = 6
+    private var currentScrollLoads = 0
+    private var lastScrollVelocity: CGFloat = 0
 
     // Image prefetcher
     private var imagePrefetcher: ImagePrefetcher?
@@ -937,11 +941,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             
             // Set up image if present
             if hasImage {
-                //print("Debug: Configuring image with URL: \(imageUrl)")
-                if isScrolling {
-                    // Track pending image loads for when scrolling stops
-                    pendingImageLoads.insert(indexPath)
-                }
+                print("🔄 CELL: Cell \(indexPath.row) has image, calling configureImage")
                 configureImage(for: cell, with: imageUrl)
                 
                 // Prepare cell for hover interaction
@@ -1593,11 +1593,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
         print("Debug: Starting image configuration for URL: \(imageUrl)")
         
-        // Skip network image loading during scrolling for better performance
+        // During scrolling, use velocity-based loading strategy
         if isScrolling {
-            print("Debug: Deferring image load during scroll for: \(imageUrl)")
-            // Use a background placeholder only; avoid setting a foreground image
-            cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            let shouldLoadDuringScroll = abs(lastScrollVelocity) < 800 || currentScrollLoads < maxConcurrentScrollLoads
+            
+            print("🖼️ IMAGE: isScrolling=\(isScrolling), velocity=\(lastScrollVelocity), currentLoads=\(currentScrollLoads)/\(maxConcurrentScrollLoads), shouldLoad=\(shouldLoadDuringScroll)")
+            
+            if shouldLoadDuringScroll {
+                print("🖼️ IMAGE: Loading during scroll: \(imageUrl)")
+                loadImageDuringScroll(for: cell, with: imageUrl)
+            } else {
+                print("🖼️ IMAGE: Deferring image load during fast scroll for: \(imageUrl)")
+                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            }
             return
         }
         
@@ -2811,7 +2819,15 @@ extension threadRepliesTV {
     
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         isScrolling = true
+        lastScrollVelocity = 0
         print("📱 SCROLL: Started dragging")
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        // Track scroll velocity for adaptive loading
+        let velocity = scrollView.panGestureRecognizer.velocity(in: scrollView).y
+        lastScrollVelocity = velocity
+        print("📱 SCROLL: Velocity = \(velocity), isScrolling = \(isScrolling)")
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
@@ -2830,7 +2846,9 @@ extension threadRepliesTV {
     }
     
     private func scrollingDidEnd() {
+        print("📱 SCROLL: Ending scroll, resetting state")
         isScrolling = false
+        currentScrollLoads = 0 // Reset scroll load counter
         
         // Process any pending reload that was deferred during scrolling
         // Process any pending reload that was deferred during scrolling
@@ -2878,5 +2896,64 @@ extension threadRepliesTV {
         if !imageURL.isEmpty && imageURL != "https://i.4cdn.org/\(boardAbv)/" {
             configureImage(for: cell, with: imageURL)
         }
+    }
+    
+    // MARK: - Throttled Scroll Loading
+    private func loadImageDuringScroll(for cell: threadRepliesCell, with imageUrl: String) {
+        currentScrollLoads += 1
+        print("🚀 LOAD: Starting scroll load #\(currentScrollLoads) for: \(imageUrl)")
+        
+        // Check if high-quality thumbnails are enabled
+        let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        
+        // Generate thumbnail URL using same method as normal loading
+        let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
+        print("🚀 LOAD: Thumbnail URL: \(thumbnailUrl)")
+        
+        guard let url = thumbnailUrl else {
+            print("❌ LOAD: Invalid thumbnail URL")
+            currentScrollLoads = max(0, currentScrollLoads - 1)
+            return
+        }
+        
+        // Store the high-quality URL for when the image is tapped (same as normal loading)
+        cell.setImageURL(imageUrl)
+        
+        // Use same processor and options as normal loading but optimized for scroll
+        let processor = RoundCornerImageProcessor(cornerRadius: 8)
+        
+        let options: KingfisherOptionsInfo = [
+            .processor(processor),
+            .scaleFactor(UIScreen.main.scale),
+            .cacheOriginalImage,
+            .backgroundDecode,
+            .callbackQueue(.mainAsync)
+        ]
+        
+        // Set placeholder
+        cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+        
+        // Use setBackgroundImage like normal loading
+        cell.threadImage.kf.setBackgroundImage(
+            with: url,
+            for: .normal,
+            placeholder: UIImage(named: "loadingBoardImage"),
+            options: options,
+            completionHandler: { [weak self] result in
+                let newCount = max(0, (self?.currentScrollLoads ?? 1) - 1)
+                self?.currentScrollLoads = newCount
+                
+                switch result {
+                case .success:
+                    print("✅ LOAD: Completed scroll load, remaining: \(newCount)")
+                    // Clear any overlay image like normal loading
+                    DispatchQueue.main.async {
+                        cell.threadImage.setImage(nil, for: .normal)
+                    }
+                case .failure(let error):
+                    print("❌ LOAD: Failed scroll load: \(error), remaining: \(newCount)")
+                }
+            }
+        )
     }
 }

@@ -1,0 +1,268 @@
+Current boards display mode: Grid
+Loading cached threads from local storage
+DEBUG: Creating root view controller with display mode: 0
+DEBUG: UserDefaults value: 0
+DEBUG: Using collection view (grid) for boards
+Notification permission granted
+Boards sorted alphabetically
+UserDefaults changed notification - FaceID enabled: false
+nw_connection_copy_connected_local_endpoint_block_invoke [C1] Connection has no local endpoint
+nw_connection_copy_connected_local_endpoint_block_invoke [C1] Connection has no local endpoint
+UserDefaults changed notification - FaceID enabled: false
+AX Safe category class 'SLHighlightDisambiguationPillViewAccessibility' was not found!
+UserDefaults changed notification - FaceID enabled: false
+UserDefaults changed notification - FaceID enabled: false
+Boards sorted alphabetically
+Error synchronizing with cloud for store <(GVCXLUMS72.com.newatlantisstudios.channer.app)>: Error Domain=SyncedDefaults Code=8888 "No account" UserInfo={NSLocalizedDescription=No account}
+2
+=== boardTV viewDidLoad ===
+Is favorites view: false
+Is searching: false
+Thread data count: 0
+Filtered thread data count: 0
+Setting up search bar for boardTV
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 0
+Filtered thread data count: 0
+Is searching: false
+Is favorites view: false
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 0
+Filtered thread data count: 0
+Is searching: false
+Is favorites view: false
+=== boardTV viewWillAppear ===
+Is favorites view: false
+Thread data count before: 0
+Filtered thread data count before: 0
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 0
+Filtered thread data count: 0
+Is searching: false
+Is favorites view: false
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 0
+Filtered thread data count: 0
+Is searching: false
+Is favorites view: false
+UserDefaults changed notification - FaceID enabled: false
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 0
+Filtered thread data count: 0
+Is searching: false
+Is favorites view: false
+nw_connection_copy_connected_local_endpoint_block_invoke [C3] Connection has no local endpoint
+nw_connection_copy_connected_local_endpoint_block_invoke [C3] Connection has no local endpoint
+Errors loading threads: [Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength)]
+=== boardTV numberOfRowsInSection called ===
+Thread data count: 75
+Filtered thread data count: 75
+Is searching: false
+Is favorites view: false
+Error -17102 decompressing image -- possibly corrupt
+Error -17102 decompressing image -- possibly corrupt
+Error -17102 decompressing image -- possibly corrupt
+Loaded 8 history items
+Thread added to history.
+Pushed threadRepliesTV on navigation stack.
+Loaded 4 categories
+=== loadFavorites called ===
+Loaded 0 favorites
+Migrating favorites. Found 0 favorites
+First category ID: B9E172A3-2442-4DE7-93B1-CBECF549EECE
+No migration needed
+=== loadFavorites called ===
+Loaded 0 favorites
+Loading data from: https://a.4cdn.org/gif/thread/29357684.json
+🔄 RELOAD: Preload complete
+🔄 CELL: Cell 0 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756197824485681.webm
+Debug: Video thumbnail URL: https://i.4cdn.org/gif/1756197824485681s.jpg
+Debug: Generated valid URL: https://i.4cdn.org/gif/1756197824485681s.jpg
+Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1756197824485681.webm
+Debug: Loading image with URL: https://i.4cdn.org/gif/1756197824485681s.jpg
+🔄 CELL: Cell 1 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198015656598.webm
+Debug: Video thumbnail URL: https://i.4cdn.org/gif/1756198015656598s.jpg
+Debug: Generated valid URL: https://i.4cdn.org/gif/1756198015656598s.jpg
+Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1756198015656598.webm
+Debug: Loading image with URL: https://i.4cdn.org/gif/1756198015656598s.jpg
+Error -17102 decompressing image -- possibly corrupt
+🔄 CELL: Cell 2 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198115470852.webm
+Debug: Video thumbnail URL: https://i.4cdn.org/gif/1756198115470852s.jpg
+Debug: Generated valid URL: https://i.4cdn.org/gif/1756198115470852s.jpg
+Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1756198115470852.webm
+Debug: Loading image with URL: https://i.4cdn.org/gif/1756198115470852s.jpg
+Error -17102 decompressing image -- possibly corrupt
+🔄 CELL: Cell 3 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198231079862.webm
+Debug: Video thumbnail URL: https://i.4cdn.org/gif/1756198231079862s.jpg
+Debug: Generated valid URL: https://i.4cdn.org/gif/1756198231079862s.jpg
+Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1756198231079862.webm
+Debug: Loading image with URL: https://i.4cdn.org/gif/1756198231079862s.jpg
+Error -17102 decompressing image -- possibly corrupt
+🔄 CELL: Cell 4 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198292584289.webm
+Debug: Video thumbnail URL: https://i.4cdn.org/gif/1756198292584289s.jpg
+Debug: Generated valid URL: https://i.4cdn.org/gif/1756198292584289s.jpg
+Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1756198292584289.webm
+Debug: Loading image with URL: https://i.4cdn.org/gif/1756198292584289s.jpg
+Error -17102 decompressing image -- possibly corrupt
+Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1756197824485681s.jpg
+Debug: Image size: (83.0, 80.33333333333333), hasAlpha: true
+Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1756198015656598s.jpg
+Debug: Image size: (124.0, 120.0), hasAlpha: true
+Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1756198115470852s.jpg
+Debug: Image size: (125.0, 70.0), hasAlpha: true
+Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1756198231079862s.jpg
+Debug: Image size: (70.0, 125.0), hasAlpha: true
+Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1756198292584289s.jpg
+Debug: Image size: (125.0, 92.0), hasAlpha: true
+📱 SCROLL: Started dragging
+📱 SCROLL: Velocity = -304.19836239967685, isScrolling = true
+🔄 CELL: Cell 5 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198389601566.webm
+🖼️ IMAGE: isScrolling=true, velocity=-304.19836239967685, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198389601566.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198389601566.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198389601566s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = -1503.1528854611754, isScrolling = true
+📱 SCROLL: Velocity = -2677.949389553247, isScrolling = true
+🔄 CELL: Cell 6 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198434477351.webm
+🖼️ IMAGE: isScrolling=true, velocity=-2677.949389553247, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198434477351.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198434477351.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198434477351s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = -3635.6706380726523, isScrolling = true
+📱 SCROLL: Velocity = -2376.507572639091, isScrolling = true
+📱 SCROLL: Velocity = -3109.014314357527, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 7 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198498870591.webm
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198498870591.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198498870591.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198498870591s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 8 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198535754612.mp4
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198535754612.mp4
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198535754612.mp4
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198535754612s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 9 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198614051099.webm
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198614051099.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198614051099.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198614051099s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Started dragging
+📱 SCROLL: Ending scroll, resetting state
+📱 SCROLL: Ending scroll, resetting state
+📱 SCROLL: Finished at offset 872
+📱 SCROLL: Started dragging
+📱 SCROLL: Velocity = -139.73125774133678, isScrolling = true
+📱 SCROLL: Velocity = -608.1437424307358, isScrolling = true
+📱 SCROLL: Velocity = -811.3119844459733, isScrolling = true
+🔄 CELL: Cell 10 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198659048438.webm
+🖼️ IMAGE: isScrolling=true, velocity=-811.3119844459733, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198659048438.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198659048438.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198659048438s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = -1365.1738413977575, isScrolling = true
+📱 SCROLL: Velocity = -2363.5197060400205, isScrolling = true
+📱 SCROLL: Velocity = -2453.623726573384, isScrolling = true
+📱 SCROLL: Velocity = -2480.953947826073, isScrolling = true
+🔄 CELL: Cell 11 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198710780569.webm
+🖼️ IMAGE: isScrolling=true, velocity=-2480.953947826073, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198710780569.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198710780569.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198710780569s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = -2825.3611177453677, isScrolling = true
+📱 SCROLL: Velocity = -2825.3611177453677, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 13 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198813541536.webm
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198813541536.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198813541536.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198813541536s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 14 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198873507269.webm
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198873507269.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198873507269.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198873507269s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+📱 SCROLL: Velocity = 0.0, isScrolling = true
+🔄 CELL: Cell 15 has image, calling configureImage
+Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1756198938170200.webm
+🖼️ IMAGE: isScrolling=true, velocity=0.0, currentLoads=0/6, shouldLoad=true
+🖼️ IMAGE: Loading during scroll: https://i.4cdn.org/gif/1756198938170200.webm
+🚀 LOAD: Starting scroll load #1 for: https://i.4cdn.org/gif/1756198938170200.webm
+🚀 LOAD: Thumbnail URL: Optional(https://i.4cdn.org/gif/1756198938170200s.jpg)
+Error -17102 decompressing image -- possibly corrupt
+✅ LOAD: Completed scroll load, remaining: 0
+📱 SCROLL: Started dragging
+📱 SCROLL: Ending scroll, resetting state
+📱 SCROLL: Ending scroll, resetting state
+📱 SCROLL: Finished at offset 1929
+Message from debugger: killed
