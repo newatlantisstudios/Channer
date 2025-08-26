@@ -16,6 +16,141 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     // Property to enable or disable swipes
     var enableSwipes: Bool = true
     
+    // UI Enhancement Properties
+    /// Progress indicator showing current position
+    private lazy var progressIndicator: UIPageControl = {
+        let pageControl = UIPageControl()
+        pageControl.translatesAutoresizingMaskIntoConstraints = false
+        pageControl.currentPageIndicatorTintColor = .white
+        pageControl.pageIndicatorTintColor = .white.withAlphaComponent(0.4)
+        pageControl.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        pageControl.layer.cornerRadius = 15
+        pageControl.isUserInteractionEnabled = true
+        pageControl.addTarget(self, action: #selector(pageControlValueChanged(_:)), for: .valueChanged)
+        return pageControl
+    }()
+    
+    /// Media counter label as alternative to page control for many items
+    private lazy var mediaCounterLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .white
+        label.textAlignment = .center
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        label.layer.cornerRadius = 15
+        label.clipsToBounds = true
+        return label
+    }()
+    
+    /// Container view for progress indicators
+    private lazy var progressContainer: UIView = {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        return container
+    }()
+    
+    /// Left swipe hint arrow
+    private lazy var leftSwipeHint: UIImageView = {
+        let imageView = UIImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.image = UIImage(systemName: "chevron.left.circle.fill")?.withRenderingMode(.alwaysTemplate)
+        imageView.tintColor = .white
+        imageView.alpha = 0.0
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+    
+    /// Right swipe hint arrow
+    private lazy var rightSwipeHint: UIImageView = {
+        let imageView = UIImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.image = UIImage(systemName: "chevron.right.circle.fill")?.withRenderingMode(.alwaysTemplate)
+        imageView.tintColor = .white
+        imageView.alpha = 0.0
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+    
+    /// Left tap zone for navigation
+    private lazy var leftTapZone: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(leftTapZoneTapped))
+        view.addGestureRecognizer(tapGesture)
+        return view
+    }()
+    
+    /// Right tap zone for navigation
+    private lazy var rightTapZone: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(rightTapZoneTapped))
+        view.addGestureRecognizer(tapGesture)
+        return view
+    }()
+    
+    /// Timer for hiding swipe hints
+    private var hintTimer: Timer?
+    
+    /// Fade transition view for smooth content changes
+    private lazy var transitionOverlay: UIView = {
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = .black
+        overlay.alpha = 0.0
+        overlay.isUserInteractionEnabled = false
+        return overlay
+    }()
+    
+    /// Loading indicator for content transitions
+    private lazy var transitionIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.hidesWhenStopped = true
+        indicator.color = .white
+        return indicator
+    }()
+    
+    /// Thumbnail preview collection view
+    private lazy var thumbnailPreviewBar: UICollectionView = {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .horizontal
+        layout.minimumLineSpacing = 4
+        layout.minimumInteritemSpacing = 4
+        layout.sectionInset = UIEdgeInsets(top: 4, left: 12, bottom: 4, right: 12)
+        
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        collectionView.showsHorizontalScrollIndicator = false
+        collectionView.delegate = self
+        collectionView.dataSource = self
+        collectionView.register(ThumbnailPreviewCell.self, forCellWithReuseIdentifier: "ThumbnailCell")
+        collectionView.isHidden = true // Initially hidden
+        return collectionView
+    }()
+    
+    /// Button to toggle thumbnail preview bar
+    private lazy var thumbnailToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        button.setImage(UIImage(systemName: "rectangle.grid.2x2", withConfiguration: config), for: .normal)
+        button.tintColor = .white
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        button.layer.cornerRadius = 20
+        button.addTarget(self, action: #selector(toggleThumbnailPreviewBar), for: .touchUpInside)
+        return button
+    }()
+    
+    /// Flag to track thumbnail bar visibility
+    private var isThumbnailBarVisible = false
+    
     // Fallback URL to try if the first URL fails
     private var fallbackURL: URL? = nil
     
@@ -171,6 +306,15 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         // Clean up old temporary files
         cleanupOldTemporaryFiles()
         
+        // Setup and update progress indicators
+        setupProgressIndicators()
+        updateProgressIndicators()
+        
+        // Show swipe hints briefly on first load if multiple items
+        if enableSwipes && images.count > 1 {
+            showSwipeHints()
+        }
+        
         print("enableSwipes \(enableSwipes)")
 
         // Set navigation bar appearance to black
@@ -222,6 +366,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         
         // Stop periodic audio checking
         stopPeriodicAudioChecking()
+        
+        // Clean up hint timer
+        hintTimer?.invalidate()
+        hintTimer = nil
     }
     
     /// Cleans up any temporary downloaded files
@@ -351,7 +499,8 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         // Automatically move to the next content if video is finished playing
         if currentIndex < images.count - 1 {
             currentIndex += 1
-            loadContent()
+            loadContent(animated: true)
+            updateProgressIndicators()
         }
     }
 
@@ -365,6 +514,18 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         view.addSubview(videoView)
         view.addSubview(vlcVideoView)
         view.addSubview(activityIndicator)
+        view.addSubview(progressContainer)
+        view.addSubview(leftSwipeHint)
+        view.addSubview(rightSwipeHint)
+        view.addSubview(leftTapZone)
+        view.addSubview(rightTapZone)
+        view.addSubview(transitionOverlay)
+        view.addSubview(transitionIndicator)
+        view.addSubview(thumbnailPreviewBar)
+        view.addSubview(thumbnailToggleButton)
+        
+        // Setup progress indicators
+        setupProgressIndicators()
 
         // Setup constraints for webView, videoView, and activityIndicator
         NSLayoutConstraint.activate([
@@ -388,11 +549,254 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
 
             // ActivityIndicator constraints
             activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            
+            // Progress container constraints
+            progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            progressContainer.heightAnchor.constraint(equalToConstant: 30),
+            
+            // Left swipe hint constraints
+            leftSwipeHint.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+            leftSwipeHint.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            leftSwipeHint.widthAnchor.constraint(equalToConstant: 44),
+            leftSwipeHint.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Right swipe hint constraints
+            rightSwipeHint.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            rightSwipeHint.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            rightSwipeHint.widthAnchor.constraint(equalToConstant: 44),
+            rightSwipeHint.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Left tap zone constraints (left third of screen)
+            leftTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            leftTapZone.topAnchor.constraint(equalTo: view.topAnchor),
+            leftTapZone.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            leftTapZone.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.33),
+            
+            // Right tap zone constraints (right third of screen)
+            rightTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            rightTapZone.topAnchor.constraint(equalTo: view.topAnchor),
+            rightTapZone.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            rightTapZone.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.33),
+            
+            // Transition overlay constraints
+            transitionOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            transitionOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            transitionOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            transitionOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            // Transition indicator constraints
+            transitionIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            transitionIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            
+            // Thumbnail preview bar constraints
+            thumbnailPreviewBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            thumbnailPreviewBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            thumbnailPreviewBar.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -8),
+            thumbnailPreviewBar.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Thumbnail toggle button constraints
+            thumbnailToggleButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+            thumbnailToggleButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            thumbnailToggleButton.widthAnchor.constraint(equalToConstant: 40),
+            thumbnailToggleButton.heightAnchor.constraint(equalToConstant: 40)
         ])
 
         // Initially hide the video view
         videoView.isHidden = true
+    }
+    
+    // MARK: - Progress Indicator Setup
+    /// Sets up progress indicators based on number of items
+    private func setupProgressIndicators() {
+        // Clear any existing indicators
+        progressContainer.subviews.forEach { $0.removeFromSuperview() }
+        
+        if images.count <= 1 {
+            // Hide progress indicators and thumbnail button for single items
+            progressContainer.isHidden = true
+            thumbnailToggleButton.isHidden = true
+            return
+        }
+        
+        // Show thumbnail button for multiple items
+        thumbnailToggleButton.isHidden = false
+        
+        progressContainer.isHidden = false
+        
+        if images.count <= 10 {
+            // Use page control for small number of items
+            progressContainer.addSubview(progressIndicator)
+            progressIndicator.numberOfPages = images.count
+            progressIndicator.currentPage = currentIndex
+            
+            NSLayoutConstraint.activate([
+                progressIndicator.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+                progressIndicator.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor),
+                progressIndicator.heightAnchor.constraint(equalToConstant: 30),
+                progressIndicator.widthAnchor.constraint(lessThanOrEqualTo: progressContainer.widthAnchor)
+            ])
+        } else {
+            // Use counter label for large number of items
+            progressContainer.addSubview(mediaCounterLabel)
+            updateMediaCounter()
+            
+            NSLayoutConstraint.activate([
+                mediaCounterLabel.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+                mediaCounterLabel.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor),
+                mediaCounterLabel.heightAnchor.constraint(equalToConstant: 30),
+                mediaCounterLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80)
+            ])
+        }
+    }
+    
+    /// Updates the media counter display
+    private func updateMediaCounter() {
+        let currentPosition = currentIndex + 1
+        mediaCounterLabel.text = "  \(currentPosition) of \(images.count)  "
+    }
+    
+    /// Updates progress indicators when index changes
+    private func updateProgressIndicators() {
+        if images.count <= 10 {
+            progressIndicator.currentPage = currentIndex
+        } else {
+            updateMediaCounter()
+        }
+    }
+    
+    /// Handles page control value changes
+    @objc private func pageControlValueChanged(_ sender: UIPageControl) {
+        let newIndex = sender.currentPage
+        if newIndex != currentIndex && newIndex >= 0 && newIndex < images.count {
+            // Add haptic feedback
+            let selectionGenerator = UISelectionFeedbackGenerator()
+            selectionGenerator.selectionChanged()
+            
+            currentIndex = newIndex
+            loadContent(animated: true)
+            updateThumbnailSelection()
+        }
+    }
+    
+    // MARK: - Swipe Hints and Navigation
+    /// Shows swipe hints to indicate navigation is possible
+    private func showSwipeHints() {
+        guard images.count > 1 else { return }
+        
+        // Cancel any existing timer
+        hintTimer?.invalidate()
+        
+        // Show hints with animation
+        UIView.animate(withDuration: 0.3, delay: 0.5, options: [.curveEaseInOut]) {
+            if self.currentIndex > 0 {
+                self.leftSwipeHint.alpha = 0.7
+            }
+            if self.currentIndex < self.images.count - 1 {
+                self.rightSwipeHint.alpha = 0.7
+            }
+        } completion: { _ in
+            // Hide hints after 2 seconds
+            self.hintTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+                self.hideSwipeHints()
+            }
+        }
+    }
+    
+    /// Hides swipe hints
+    private func hideSwipeHints() {
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut]) {
+            self.leftSwipeHint.alpha = 0.0
+            self.rightSwipeHint.alpha = 0.0
+        }
+    }
+    
+    /// Shows temporary flash on swipe direction
+    private func showSwipeDirection(_ direction: SwipeDirection) {
+        let hintView = direction == .left ? rightSwipeHint : leftSwipeHint
+        
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut]) {
+            hintView.alpha = 0.9
+            hintView.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
+        } completion: { _ in
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut]) {
+                hintView.alpha = 0.0
+                hintView.transform = .identity
+            }
+        }
+    }
+    
+    /// Tap zone handlers
+    @objc private func leftTapZoneTapped() {
+        if currentIndex > 0 {
+            // Add haptic feedback
+            let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+            impactGenerator.impactOccurred()
+            
+            currentIndex -= 1
+            loadContent(animated: true)
+            updateProgressIndicators()
+            updateThumbnailSelection()
+            showSwipeDirection(.right)
+        }
+    }
+    
+    @objc private func rightTapZoneTapped() {
+        if currentIndex < images.count - 1 {
+            // Add haptic feedback
+            let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+            impactGenerator.impactOccurred()
+            
+            currentIndex += 1
+            loadContent(animated: true)
+            updateProgressIndicators()
+            updateThumbnailSelection()
+            showSwipeDirection(.left)
+        }
+    }
+    
+    /// Updates thumbnail selection in preview bar
+    private func updateThumbnailSelection() {
+        guard isThumbnailBarVisible else { return }
+        
+        // Reload the collection view to update selection
+        DispatchQueue.main.async {
+            self.thumbnailPreviewBar.reloadData()
+            
+            // Scroll to current item
+            let indexPath = IndexPath(item: self.currentIndex, section: 0)
+            self.thumbnailPreviewBar.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
+        }
+    }
+    
+    /// Swipe direction enum
+    private enum SwipeDirection {
+        case left, right
+    }
+    
+    // MARK: - Thumbnail Preview Bar
+    /// Toggles the visibility of the thumbnail preview bar
+    @objc private func toggleThumbnailPreviewBar() {
+        isThumbnailBarVisible.toggle()
+        
+        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0, options: [.curveEaseInOut]) {
+            self.thumbnailPreviewBar.isHidden = !self.isThumbnailBarVisible
+            
+            // Update button appearance
+            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+            let imageName = self.isThumbnailBarVisible ? "rectangle.grid.2x2.fill" : "rectangle.grid.2x2"
+            self.thumbnailToggleButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
+        }
+        
+        // Scroll to current item when showing
+        if isThumbnailBarVisible {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                let indexPath = IndexPath(item: self.currentIndex, section: 0)
+                self.thumbnailPreviewBar.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
+            }
+        }
     }
 
     /// Configures the navigation bar appearance and adds buttons
@@ -437,12 +841,24 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Content Loading
-    /// Loads the content based on the current index
-    private func loadContent() {
+    /// Loads the content based on the current index with smooth transitions
+    private func loadContent(animated: Bool = true) {
         guard currentIndex >= 0 && currentIndex < images.count else {
             showAlert(title: "Error", message: "Invalid index")
             return
         }
+        
+        if animated {
+            performSmoothTransition {
+                self.loadContentInternal()
+            }
+        } else {
+            loadContentInternal()
+        }
+    }
+    
+    /// Internal content loading method
+    private func loadContentInternal() {
 
         var url = images[currentIndex]
         print("loadContent url: \(url)")
@@ -507,6 +923,34 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         } else {
             print("Loading web content: \(url.absoluteString)")
             tryWebPlayback(url: url)
+        }
+    }
+    
+    // MARK: - Smooth Transitions
+    /// Performs a smooth transition when changing content
+    private func performSmoothTransition(completion: @escaping () -> Void) {
+        // Start transition
+        transitionIndicator.startAnimating()
+        
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseInOut]) {
+            self.transitionOverlay.alpha = 0.7
+        } completion: { _ in
+            // Load new content
+            completion()
+            
+            // Wait a moment for content to start loading, then fade out
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.hideTransitionOverlay()
+            }
+        }
+    }
+    
+    /// Hides the transition overlay with animation
+    private func hideTransitionOverlay() {
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseOut]) {
+            self.transitionOverlay.alpha = 0.0
+        } completion: { _ in
+            self.transitionIndicator.stopAnimating()
         }
     }
     
@@ -1219,24 +1663,39 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Swipe Handling
-    /// Handles left and right swipe gestures to navigate content
+    /// Handles left and right swipe gestures to navigate content with improved feedback
     @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        // Add haptic feedback for better user experience
+        let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+        impactGenerator.prepare()
+        impactGenerator.impactOccurred()
+        
         if gesture.direction == .left {
+            // Show swipe direction feedback
+            showSwipeDirection(.left)
+            
             // Move to next content, loop to beginning if at end
             if currentIndex < images.count - 1 {
                 currentIndex += 1
             } else {
                 currentIndex = 0 // Loop to beginning
             }
-            loadContent()
+            loadContent(animated: true)
+            updateProgressIndicators()
+            updateThumbnailSelection()
         } else if gesture.direction == .right {
+            // Show swipe direction feedback
+            showSwipeDirection(.right)
+            
             // Move to previous content, loop to end if at beginning
             if currentIndex > 0 {
                 currentIndex -= 1
             } else {
                 currentIndex = images.count - 1 // Loop to end
             }
-            loadContent()
+            loadContent(animated: true)
+            updateProgressIndicators()
+            updateThumbnailSelection()
         }
     }
 
@@ -1641,5 +2100,112 @@ extension urlWeb: WKNavigationDelegate {
             // No fallback available, show error only for real errors
             showAlert(title: "Error", message: error.localizedDescription)
         }
+    }
+}
+
+// MARK: - Thumbnail Preview Collection View
+extension urlWeb: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return images.count
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ThumbnailCell", for: indexPath) as! ThumbnailPreviewCell
+        
+        let imageURL = images[indexPath.item]
+        let isSelected = indexPath.item == currentIndex
+        
+        cell.configure(with: imageURL, isSelected: isSelected)
+        
+        return cell
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item != currentIndex else { return }
+        
+        // Add haptic feedback
+        let selectionGenerator = UISelectionFeedbackGenerator()
+        selectionGenerator.selectionChanged()
+        
+        currentIndex = indexPath.item
+        loadContent(animated: true)
+        updateProgressIndicators()
+        updateThumbnailSelection()
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        return CGSize(width: 52, height: 52)
+    }
+}
+
+// MARK: - ThumbnailPreviewCell
+class ThumbnailPreviewCell: UICollectionViewCell {
+    private let imageView = UIImageView()
+    private let selectionBorder = UIView()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupViews()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupViews()
+    }
+    
+    private func setupViews() {
+        // Setup image view
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 4
+        contentView.addSubview(imageView)
+        
+        // Setup selection border
+        selectionBorder.translatesAutoresizingMaskIntoConstraints = false
+        selectionBorder.layer.borderWidth = 2
+        selectionBorder.layer.borderColor = UIColor.systemBlue.cgColor
+        selectionBorder.layer.cornerRadius = 4
+        selectionBorder.isHidden = true
+        contentView.addSubview(selectionBorder)
+        
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            selectionBorder.topAnchor.constraint(equalTo: contentView.topAnchor),
+            selectionBorder.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            selectionBorder.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            selectionBorder.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        ])
+    }
+    
+    func configure(with url: URL, isSelected: Bool) {
+        // Generate thumbnail URL for videos
+        var thumbnailURL = url
+        if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            let components = url.absoluteString.components(separatedBy: "/")
+            if let last = components.last {
+                let fileExtension = url.pathExtension.lowercased()
+                let base = last.replacingOccurrences(of: ".\(fileExtension)", with: "")
+                if let newThumbnailURL = URL(string: url.absoluteString.replacingOccurrences(of: last, with: "\(base)s.jpg")) {
+                    thumbnailURL = newThumbnailURL
+                }
+            }
+        }
+        
+        // Load image using Kingfisher
+        imageView.kf.setImage(with: thumbnailURL, placeholder: UIImage(systemName: "photo"))
+        
+        // Update selection state
+        selectionBorder.isHidden = !isSelected
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        imageView.image = nil
+        selectionBorder.isHidden = true
     }
 }

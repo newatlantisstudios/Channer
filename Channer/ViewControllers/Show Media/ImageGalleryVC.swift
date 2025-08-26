@@ -12,6 +12,16 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     let collectionView: UICollectionView
     /// Optional URL to store the initially selected image.
     var selectedImageURL: URL?
+    /// Currently selected index for highlighting
+    private var selectedIndex: Int = 0
+    /// Media counter label for navigation bar
+    private lazy var mediaCounterLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+        label.textColor = .label
+        label.textAlignment = .center
+        return label
+    }()
     /// Dictionary to cache corrected URLs (tracking actual media types)
     private var correctedURLs: [Int: URL] = [:]
     /// Dictionary to cache alternate format URLs (for switching between formats)
@@ -63,6 +73,60 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             // Reset any styling
             contentView.layer.borderWidth = 0
             contentView.layer.borderColor = nil
+            contentView.backgroundColor = .clear
+            contentView.layer.shadowOpacity = 0
+            
+            // Reset selection state
+            setSelected(false, animated: false)
+        }
+        
+        /// Updates the cell's selection state with visual feedback
+        func setSelected(_ selected: Bool, animated: Bool = true) {
+            let changes = {
+                if selected {
+                    self.contentView.layer.borderWidth = 3
+                    self.contentView.layer.borderColor = UIColor.systemBlue.cgColor
+                    self.contentView.layer.cornerRadius = 8
+                    self.contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.1)
+                    
+                    // Add subtle shadow
+                    self.contentView.layer.shadowColor = UIColor.systemBlue.cgColor
+                    self.contentView.layer.shadowOffset = CGSize(width: 0, height: 2)
+                    self.contentView.layer.shadowOpacity = 0.3
+                    self.contentView.layer.shadowRadius = 4
+                } else {
+                    self.contentView.layer.borderWidth = 0
+                    self.contentView.layer.borderColor = nil
+                    self.contentView.layer.cornerRadius = 4
+                    self.contentView.backgroundColor = .clear
+                    self.contentView.layer.shadowOpacity = 0
+                }
+            }
+            
+            if animated {
+                UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseInOut], animations: changes)
+            } else {
+                changes()
+            }
+        }
+        
+        /// Adds hover effect for better user feedback
+        func setHighlighted(_ highlighted: Bool, animated: Bool = true) {
+            let changes = {
+                if highlighted {
+                    self.contentView.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+                    self.contentView.alpha = 0.8
+                } else {
+                    self.contentView.transform = .identity
+                    self.contentView.alpha = 1.0
+                }
+            }
+            
+            if animated {
+                UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut], animations: changes)
+            } else {
+                changes()
+            }
         }
         
         func setupForImage() {
@@ -172,9 +236,13 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         
         // Scroll to the initially selected image if set
         if let selectedURL = selectedImageURL, let index = images.firstIndex(of: selectedURL) {
+            selectedIndex = index
             let indexPath = IndexPath(item: index, section: 0)
             collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
         }
+        
+        // Setup navigation bar with media counter
+        setupNavigationBarWithCounter()
 
         // Process URLs to determine media types
         processMediaURLs()
@@ -194,6 +262,19 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         coordinator.animate(alongsideTransition: { _ in
             self.collectionView.collectionViewLayout.invalidateLayout()
         }, completion: nil)
+    }
+    
+    // MARK: - Navigation Bar Setup
+    /// Sets up the navigation bar with media counter
+    private func setupNavigationBarWithCounter() {
+        updateMediaCounter()
+        navigationItem.titleView = mediaCounterLabel
+    }
+    
+    /// Updates the media counter display
+    private func updateMediaCounter() {
+        let currentPosition = selectedIndex + 1
+        mediaCounterLabel.text = "\(currentPosition) of \(images.count)"
     }
     
     // MARK: - URL Processing
@@ -416,6 +497,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let imageURL = images[indexPath.row]
         
         print("📱 Configuring cell at index \(indexPath.row)")
+        
+        // Update selection state
+        cell.setSelected(indexPath.row == selectedIndex, animated: false)
         
         // Simplified approach: Treat all cells as potential videos in preload mode
         if preloadVideos {
@@ -844,6 +928,19 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // MARK: - UICollectionViewDelegate
     /// Handles selection of a collection view item.
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        // Update selected index and refresh counter
+        let previousIndex = selectedIndex
+        selectedIndex = indexPath.row
+        updateMediaCounter()
+        
+        // Update cell selection states
+        if let previousCell = collectionView.cellForItem(at: IndexPath(row: previousIndex, section: 0)) as? MediaCell {
+            previousCell.setSelected(false, animated: true)
+        }
+        if let currentCell = collectionView.cellForItem(at: indexPath) as? MediaCell {
+            currentCell.setSelected(true, animated: true)
+        }
+        
         // Get the original URL - let urlWeb handle format detection like thread view does
         let selectedURL = images[indexPath.row]
         
@@ -878,6 +975,20 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             present(navController, animated: true)
         }
     }
+    
+    /// Handles cell highlighting for touch feedback
+    func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell {
+            cell.setHighlighted(true, animated: true)
+        }
+    }
+    
+    /// Handles removing cell highlighting
+    func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell {
+            cell.setHighlighted(false, animated: true)
+        }
+    }
 
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Returns the size for the item at the given index path.
@@ -886,5 +997,15 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let availableWidth = collectionView.frame.width - padding * 5 // Adjusted for 4 items with 5 paddings
         let widthPerItem = availableWidth / 4 // Changed from 2 to 4 columns
         return CGSize(width: widthPerItem, height: widthPerItem)
+    }
+    
+    // MARK: - Navigation Updates
+    /// Updates gallery state when returning from full-screen view
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Refresh the selection state when returning from urlWeb
+        collectionView.reloadData()
+        updateMediaCounter()
     }
 }
