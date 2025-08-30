@@ -51,9 +51,21 @@ class boardTVCell: UITableViewCell {
     /// Image view for the topic image.
     let topicImage: UIImageView = {
             let imageView = UIImageView()
-        imageView.layer.cornerRadius = 8
+        // Use device corner radius for image
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        print("boardTVCell - Device corner radius: \(deviceCornerRadius)")
+        imageView.layer.cornerRadius = deviceCornerRadius
+        imageView.layer.cornerCurve = .continuous
             imageView.contentMode = .scaleAspectFill
             imageView.clipsToBounds = true
+        print("boardTVCell - Image frame: \(imageView.frame), bounds: \(imageView.bounds)")
+        print("boardTVCell - Content mode: \(imageView.contentMode.rawValue), clips to bounds: \(imageView.clipsToBounds)")
             return imageView
         }()
 
@@ -64,13 +76,25 @@ class boardTVCell: UITableViewCell {
     let customBackgroundView: UIView = {
             let view = UIView()
             view.backgroundColor = ThemeManager.shared.cellBackgroundColor
-            view.layer.cornerRadius = 12
+            
+            // Use device corner radius
+            let deviceCornerRadius: CGFloat
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+            } else {
+                deviceCornerRadius = 39.0 // Default for modern iOS devices
+            }
+            
+            view.layer.cornerRadius = deviceCornerRadius
+            view.layer.cornerCurve = .continuous
             view.layer.borderWidth = 6.0
             view.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
             view.layer.shadowColor = UIColor.black.cgColor
-            view.layer.shadowOffset = CGSize(width: 0, height: 2)
-            view.layer.shadowOpacity = 0.2
-            view.layer.shadowRadius = 3
+            view.layer.shadowOffset = CGSize(width: 0, height: 4)
+            view.layer.shadowOpacity = 0.15
+            view.layer.shadowRadius = 6
+            view.layer.masksToBounds = false
             return view
         }()
     
@@ -202,9 +226,9 @@ class boardTVCell: UITableViewCell {
                     topicImage.widthAnchor.constraint(equalToConstant: 120),
                     topicImage.heightAnchor.constraint(equalToConstant: 120),
 
-                    // Topic Stats
+                    // Topic Stats (positioned lower to avoid border)
                     topicStats.centerXAnchor.constraint(equalTo: topicImage.centerXAnchor, constant: 1),
-                    topicStats.topAnchor.constraint(equalTo: topicImage.bottomAnchor),
+                    topicStats.topAnchor.constraint(equalTo: topicImage.bottomAnchor, constant: 8),
                     topicStats.widthAnchor.constraint(equalToConstant: 120),
                     topicStats.heightAnchor.constraint(equalToConstant: 21),
 
@@ -308,8 +332,11 @@ class boardTVCell: UITableViewCell {
 
             // Configure the image
             if let url = URL(string: thread.imageUrl) {
+                print("boardTVCell - Setting image from URL: \(thread.imageUrl)")
+                print("boardTVCell - Image constraints - width: 120, height: 120")
                 topicImage.kf.setImage(with: url, placeholder: UIImage(named: "loadingBoardImage"))
             } else {
+                print("boardTVCell - Setting placeholder image")
                 topicImage.image = UIImage(named: "loadingBoardImage")
             }
     }

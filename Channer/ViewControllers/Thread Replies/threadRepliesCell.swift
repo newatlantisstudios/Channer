@@ -10,12 +10,25 @@ class threadRepliesCell: UITableViewCell {
     // MARK: - UI Components
     let threadImage: UIButton = {
         let button = UIButton()
-        button.layer.cornerRadius = 8
+        // Use device corner radius for consistency with threads view
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        print("threadRepliesCell - Device corner radius: \(deviceCornerRadius)")
+        button.layer.cornerRadius = deviceCornerRadius
+        button.layer.cornerCurve = .continuous
         button.clipsToBounds = true
         button.imageView?.contentMode = .scaleAspectFill
         button.imageView?.clipsToBounds = true
         button.layer.masksToBounds = true
         button.translatesAutoresizingMaskIntoConstraints = false
+        print("threadRepliesCell - Button frame: \(button.frame), bounds: \(button.bounds)")
+        print("threadRepliesCell - ImageView content mode: \(button.imageView?.contentMode.rawValue ?? -1), clips to bounds: \(button.imageView?.clipsToBounds ?? false)")
+        print("threadRepliesCell - Button clips to bounds: \(button.clipsToBounds), masksToBounds: \(button.layer.masksToBounds)")
         return button
     }()
 
@@ -78,13 +91,25 @@ class threadRepliesCell: UITableViewCell {
     let customBackgroundView: UIView = {
         let view = UIView()
         view.backgroundColor = ThemeManager.shared.cellBackgroundColor
-        view.layer.cornerRadius = 12
+        
+        // Use device corner radius
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        
+        view.layer.cornerRadius = deviceCornerRadius
+        view.layer.cornerCurve = .continuous
         view.layer.borderWidth = 6.0
         view.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOffset = CGSize(width: 0, height: 2)
-        view.layer.shadowOpacity = 0.2
-        view.layer.shadowRadius = 3
+        view.layer.shadowOffset = CGSize(width: 0, height: 4)
+        view.layer.shadowOpacity = 0.15
+        view.layer.shadowRadius = 6
+        view.layer.masksToBounds = false
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -253,9 +278,15 @@ class threadRepliesCell: UITableViewCell {
 
     // MARK: - Configuration Method
     func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false) {
+        print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
         replyTextNoImage.isHidden = withImage
+        
+        if withImage {
+            print("threadRepliesCell - Image constraints - width: 120, height: 120")
+            print("threadRepliesCell - Final image frame after constraints: \(threadImage.frame)")
+        }
         
         // Add visual feedback for the thread reply button
         thread.showsTouchWhenHighlighted = true
@@ -293,8 +324,15 @@ class threadRepliesCell: UITableViewCell {
         super.layoutSubviews()
         contentView.layoutIfNeeded()
         // Provide a shadowPath to avoid offscreen rendering cost per frame
-        let cornerRadius: CGFloat = 12
-        customBackgroundView.layer.shadowPath = UIBezierPath(roundedRect: customBackgroundView.bounds, cornerRadius: cornerRadius).cgPath
+        // Use device corner radius
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        customBackgroundView.layer.shadowPath = UIBezierPath(roundedRect: customBackgroundView.bounds, cornerRadius: deviceCornerRadius).cgPath
         // Rasterize the static background for smoother scrolling
         customBackgroundView.layer.shouldRasterize = true
         customBackgroundView.layer.rasterizationScale = UIScreen.main.scale
@@ -313,9 +351,8 @@ class threadRepliesCell: UITableViewCell {
         if let interaction = pointerInteraction {
             threadImage.addInteraction(interaction)
             
-            // Add blue border to indicate hover capability
-            threadImage.layer.borderWidth = 2.0
-            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+            // Remove any border
+            threadImage.layer.borderWidth = 0.0
         }
     }
     
@@ -340,7 +377,16 @@ class threadRepliesCell: UITableViewCell {
         let previewSize: CGFloat = 550
         let imageView = UIImageView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
         imageView.contentMode = .scaleAspectFit
-        imageView.layer.cornerRadius = 15
+        // Use device corner radius for preview image
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        imageView.layer.cornerRadius = deviceCornerRadius
+        imageView.layer.cornerCurve = .continuous
         imageView.clipsToBounds = true
         imageView.backgroundColor = UIColor.systemBackground
         imageView.layer.borderColor = UIColor.label.cgColor
@@ -459,11 +505,20 @@ class threadRepliesCell: UITableViewCell {
     }
     
     func setImageURL(_ url: String?) {
+        print("threadRepliesCell - setImageURL called with: \(url ?? "nil")")
         self.imageURL = url
-        // Mark image as hoverble with blue border
+        
+        if let url = url, let imageURL = URL(string: url) {
+            print("threadRepliesCell - Loading image from URL")
+            threadImage.kf.setImage(with: imageURL, for: .normal, placeholder: UIImage(named: "loadingBoardImage"))
+        } else {
+            print("threadRepliesCell - Setting placeholder image")
+            threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+        }
+        
+        // Remove any border from image
         if !threadImage.isHidden {
-            threadImage.layer.borderWidth = 2.0
-            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+            threadImage.layer.borderWidth = 0.0
         }
     }
     
@@ -476,10 +531,18 @@ class threadRepliesCell: UITableViewCell {
 // MARK: - UIPointerInteractionDelegate
 extension threadRepliesCell: UIPointerInteractionDelegate {
     func pointerInteraction(_ interaction: UIPointerInteraction, styleFor region: UIPointerRegion) -> UIPointerStyle? {
-        // Create a hover preview with the image shape
+        // Create a hover preview with the image shape using device corner radius
         let targetRect = threadImage.bounds
         let previewParams = UIPreviewParameters()
-        previewParams.visiblePath = UIBezierPath(roundedRect: targetRect, cornerRadius: 8)
+        // Use device corner radius for consistency
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        previewParams.visiblePath = UIBezierPath(roundedRect: targetRect, cornerRadius: deviceCornerRadius)
         
         let preview = UITargetedPreview(view: threadImage, parameters: previewParams)
         
