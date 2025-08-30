@@ -260,8 +260,21 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         // Robust loop trigger on stop near the end
         if player.state == .stopped && player.position >= 0.99 {
             print("DEBUG: WebMViewController - Detected .stopped near end via Notification, looping")
+            print("🎵 DEBUG: WebMViewController - Notification Pre-loop Audio Muted: \(player.audio?.isMuted ?? false)")
+            print("🎵 DEBUG: WebMViewController - Notification Pre-loop isMuted variable: \(isMuted)")
+            
             player.position = 0.0
             player.play()
+            
+            // IMMEDIATELY force mute after restarting playback via notification
+            player.audio?.isMuted = true
+            player.audio?.volume = 0
+            // Ensure our internal state remains muted
+            isMuted = true
+            
+            print("🎵 DEBUG: WebMViewController - Notification Post-loop IMMEDIATE mute applied")
+            print("🎵 DEBUG: WebMViewController - Notification Post-loop Audio Muted: \(player.audio?.isMuted ?? false)")
+            print("🎵 DEBUG: WebMViewController - Notification Post-loop isMuted variable: \(isMuted)")
         }
     }
     
@@ -734,8 +747,38 @@ extension WebMViewController {
                 print("DEBUG: WebMViewController - VLC stopped at position: \(pos)")
                 if pos >= 0.99 {
                     print("DEBUG: WebMViewController - Looping VLC video from .stopped state")
+                    print("🎵 DEBUG: WebMViewController - Pre-loop Audio Muted: \(player.audio?.isMuted ?? false)")
+                    print("🎵 DEBUG: WebMViewController - Pre-loop Audio Volume: \(player.audio?.volume ?? -1)")
+                    print("🎵 DEBUG: WebMViewController - Pre-loop isMuted variable: \(self.isMuted)")
+                    
                     player.position = 0.0
                     player.play()
+                    
+                    // IMMEDIATELY force mute after restarting playback to prevent audio from turning on
+                    player.audio?.isMuted = true
+                    player.audio?.volume = 0
+                    // Ensure our internal state remains muted
+                    self.isMuted = true
+                    
+                    print("🎵 DEBUG: WebMViewController - Post-loop IMMEDIATE mute applied")
+                    print("🎵 DEBUG: WebMViewController - Post-loop Audio Muted: \(player.audio?.isMuted ?? false)")
+                    print("🎵 DEBUG: WebMViewController - Post-loop Audio Volume: \(player.audio?.volume ?? -1)")
+                    print("🎵 DEBUG: WebMViewController - Post-loop isMuted variable: \(self.isMuted)")
+                    
+                    // Additional delayed enforcement to catch any VLC timing issues
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                        player.audio?.isMuted = true
+                        player.audio?.volume = 0
+                        self.isMuted = true
+                        print("🎵 DEBUG: WebMViewController - Post-loop 0.01s delay mute enforced")
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        player.audio?.isMuted = true
+                        player.audio?.volume = 0
+                        self.isMuted = true
+                        print("🎵 DEBUG: WebMViewController - Post-loop 0.05s delay mute enforced")
+                    }
                 }
                 
             case .error:
@@ -793,8 +836,21 @@ extension WebMViewController {
             print("DEBUG: WebMViewController - Loop monitor tick - state: \(state.rawValue), position: \(pos)")
             if pos >= 0.995 || (state == .stopped && pos >= 0.8) {
                 print("DEBUG: WebMViewController - Loop monitor: looping video (seek to 0 + play)")
+                print("🎵 DEBUG: WebMViewController - Loop monitor Pre-loop Audio Muted: \(self.vlcPlayer.audio?.isMuted ?? false)")
+                print("🎵 DEBUG: WebMViewController - Loop monitor Pre-loop isMuted variable: \(self.isMuted)")
+                
                 self.vlcPlayer.position = 0.0
                 self.vlcPlayer.play()
+                
+                // IMMEDIATELY force mute after restarting playback via loop monitor
+                self.vlcPlayer.audio?.isMuted = true
+                self.vlcPlayer.audio?.volume = 0
+                // Ensure our internal state remains muted
+                self.isMuted = true
+                
+                print("🎵 DEBUG: WebMViewController - Loop monitor Post-loop IMMEDIATE mute applied")
+                print("🎵 DEBUG: WebMViewController - Loop monitor Post-loop Audio Muted: \(self.vlcPlayer.audio?.isMuted ?? false)")
+                print("🎵 DEBUG: WebMViewController - Loop monitor Post-loop isMuted variable: \(self.isMuted)")
             }
         }
     }
