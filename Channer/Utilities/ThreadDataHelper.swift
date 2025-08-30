@@ -7,6 +7,8 @@ class ThreadDataHelper {
     // MARK: - Static Methods
     
     /// Applies content filtering to thread JSON data
+    /// - Parameter threadData: Raw thread JSON data to filter
+    /// - Returns: Filtered thread data or original data if filtering fails/disabled
     static func applyContentFiltering(to threadData: Data) -> Data? {
         // Only apply filtering if it's enabled
         if !ContentFilterManager.shared.isFilteringEnabled() {
@@ -30,6 +32,11 @@ class ThreadDataHelper {
     }
     
     /// Determines if a thread should be hidden based on content filters
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNumber: Thread ID number
+    ///   - threadJSON: Parsed thread JSON data
+    /// - Returns: True if thread should be filtered/hidden, false otherwise
     static func shouldFilterThread(boardAbv: String, threadNumber: String, threadJSON: JSON) -> Bool {
         // Only check filtering if it's enabled
         if !ContentFilterManager.shared.isFilteringEnabled() {
@@ -42,6 +49,8 @@ class ThreadDataHelper {
     }
     
     /// Applies content filtering to a collection of thread JSON objects
+    /// - Parameter threads: Array of thread JSON objects to filter
+    /// - Returns: Filtered array with unwanted threads removed
     static func applyFiltering(to threads: [JSON]) -> [JSON] {
         // Only apply filtering if it's enabled
         if !ContentFilterManager.shared.isFilteringEnabled() {

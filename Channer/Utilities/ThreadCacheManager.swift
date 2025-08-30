@@ -3,19 +3,25 @@ import Alamofire
 import SwiftyJSON
 import Kingfisher
 
-/// A manager for caching thread data and content for offline reading
+/// Manages caching thread data and content for offline reading
+/// Provides functionality to save threads locally with image caching and iCloud sync support
 class ThreadCacheManager {
     
     // MARK: - Singleton Instance
     static let shared = ThreadCacheManager()
     
     // MARK: - Properties
+    
+    /// UserDefaults/iCloud key for storing cached thread data
     private let threadCacheKey = "cachedThreads"
+    /// UserDefaults key for offline reading preference
     private let offlineEnabledKey = "offlineReadingEnabled"
+    /// iCloud key-value store for syncing cached threads across devices
     private let iCloudStore = NSUbiquitousKeyValueStore.default
+    /// File manager for handling cached image files
     private let fileManager = FileManager.default
     
-    // In-memory cache
+    /// In-memory cache of all cached threads
     private(set) var cachedThreads: [CachedThread] = []
     
     // MARK: - Initialization
@@ -35,11 +41,17 @@ class ThreadCacheManager {
     }
     
     /// Sets whether offline reading mode is enabled
+    /// - Parameter enabled: True to enable offline reading, false to disable
     func setOfflineReadingEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: offlineEnabledKey)
     }
     
-    /// Saves a thread for offline reading
+    /// Saves a thread for offline reading with image caching
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation (e.g., "g", "pol")
+    ///   - threadNumber: Thread ID number
+    ///   - categoryId: Optional category ID for organization
+    ///   - completion: Completion handler with success/failure result
     func cacheThread(boardAbv: String, threadNumber: String, categoryId: String? = nil, completion: @escaping (Bool) -> Void) {
         // Check if thread is already cached
         if isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
@@ -102,7 +114,10 @@ class ThreadCacheManager {
         }
     }
     
-    /// Removes a thread from the cache
+    /// Removes a thread from the cache including its images
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNumber: Thread ID number
     func removeFromCache(boardAbv: String, threadNumber: String) {
         // Remove from memory cache
         cachedThreads.removeAll { $0.boardAbv == boardAbv && $0.threadNumber == threadNumber }
@@ -115,11 +130,19 @@ class ThreadCacheManager {
     }
     
     /// Checks if a thread is cached for offline reading
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNumber: Thread ID number
+    /// - Returns: True if thread is cached, false otherwise
     func isCached(boardAbv: String, threadNumber: String) -> Bool {
         return cachedThreads.contains { $0.boardAbv == boardAbv && $0.threadNumber == threadNumber }
     }
     
-    /// Retrieves cached thread data if available
+    /// Retrieves cached thread JSON data if available
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNumber: Thread ID number
+    /// - Returns: Cached thread JSON data or nil if not cached
     func getCachedThread(boardAbv: String, threadNumber: String) -> Data? {
         if let cachedThread = cachedThreads.first(where: { $0.boardAbv == boardAbv && $0.threadNumber == threadNumber }) {
             return cachedThread.threadData
@@ -132,7 +155,9 @@ class ThreadCacheManager {
         return cachedThreads
     }
     
-    /// Gets cached threads by category
+    /// Gets cached threads filtered by category
+    /// - Parameter categoryId: Category ID to filter by, nil returns all threads
+    /// - Returns: Array of cached threads matching the category
     func getCachedThreads(for categoryId: String?) -> [CachedThread] {
         if let categoryId = categoryId {
             return cachedThreads.filter { $0.categoryId == categoryId }
@@ -140,7 +165,11 @@ class ThreadCacheManager {
         return cachedThreads
     }
     
-    /// Updates the category of a cached thread
+    /// Updates the category assignment of a cached thread
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNumber: Thread ID number
+    ///   - categoryId: New category ID or nil to remove category
     func updateCachedThreadCategory(boardAbv: String, threadNumber: String, categoryId: String?) {
         if let index = cachedThreads.firstIndex(where: { $0.boardAbv == boardAbv && $0.threadNumber == threadNumber }) {
             cachedThreads[index].categoryId = categoryId

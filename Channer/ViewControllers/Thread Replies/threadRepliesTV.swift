@@ -8,7 +8,12 @@ import Foundation
 // No need to import KeyboardShortcutManager as it's in the same project
 
 // MARK: - Reachability (Network Connectivity)
+
+/// Simple network reachability checker
+/// Used to determine if device has internet connectivity
 class Reachability {
+    /// Checks if the device has network connectivity
+    /// - Returns: True if connected to network, false otherwise
     class func isConnectedToNetwork() -> Bool {
         var zeroAddress = sockaddr_in()
         zeroAddress.sin_len = UInt8(MemoryLayout.size(ofValue: zeroAddress))
@@ -33,7 +38,11 @@ class Reachability {
 }
 
 // MARK: - Preloading Pipeline
+/// Extensions for optimizing thread content loading and caching
 extension threadRepliesTV {
+    /// Preloads thread content including cell height calculations and image prefetching
+    /// Optimizes scrolling performance by precalculating content dimensions
+    /// - Parameter completion: Called when preloading completes
     private func preloadThreadContent(completion: @escaping () -> Void) {
         guard !hasPreloadedContent else { completion(); return }
         self.view.layoutIfNeeded()
@@ -100,6 +109,11 @@ extension threadRepliesTV {
         }
     }
 
+    /// Generates thumbnail URL from full image URL
+    /// - Parameters:
+    ///   - raw: Original full-size image URL
+    ///   - useHQ: Whether to use high-quality thumbnails
+    /// - Returns: Thumbnail URL or nil if conversion fails
     private func thumbnailURL(from raw: String, useHQ: Bool) -> URL? {
         if raw.hasSuffix(".webm") || raw.hasSuffix(".mp4") {
             let comps = raw.split(separator: "/")
@@ -121,6 +135,10 @@ extension threadRepliesTV {
 
 
 // MARK: - Thread Replies Table View Controller
+
+/// Main view controller for displaying thread replies
+/// Supports search, filtering, favorites, gallery mode, and offline caching
+/// Includes keyboard shortcuts for iPad and optimized scrolling performance
 class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate {
     
     // MARK: - Keyboard Shortcuts
@@ -898,9 +916,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 let hasValidImage = threadRepliesImages[actualIndex] != "https://i.4cdn.org/\(boardAbv)/"
                 
                 if hasValidImage {
-                    // Visual indicator for hover capability
-                    cell.threadImage.layer.borderWidth = 1.0
-                    cell.threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+                    // Remove any existing border
+                    cell.threadImage.layer.borderWidth = 0.0
                 }
             }
         }
@@ -946,9 +963,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 
                 // Prepare cell for hover interaction
                 if #available(iOS 13.4, *) {
-                    // Add visual indicator for hover capability
-                    cell.threadImage.layer.borderWidth = 1.0
-                    cell.threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+                    // Remove any existing border
+                    cell.threadImage.layer.borderWidth = 0.0
                     
                     // Store the image URL for hover preview
                     cell.setImageURL(imageUrl) 
@@ -1681,7 +1697,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         print("Debug: Set full image URL for tap action: \(imageUrl)")
         
         // Load image with Kingfisher using the same style as catalog view
-        let processor = RoundCornerImageProcessor(cornerRadius: 8)
+        // Use device corner radius for consistent look
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        let processor = RoundCornerImageProcessor(cornerRadius: deviceCornerRadius)
         
         // Enhanced options for better image loading
         let options: KingfisherOptionsInfo = [
@@ -2920,7 +2944,15 @@ extension threadRepliesTV {
         cell.setImageURL(imageUrl)
         
         // Use same processor and options as normal loading but optimized for scroll
-        let processor = RoundCornerImageProcessor(cornerRadius: 8)
+        // Use device corner radius for consistent look
+        let deviceCornerRadius: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
+        } else {
+            deviceCornerRadius = 39.0 // Default for modern iOS devices
+        }
+        let processor = RoundCornerImageProcessor(cornerRadius: deviceCornerRadius)
         
         let options: KingfisherOptionsInfo = [
             .processor(processor),

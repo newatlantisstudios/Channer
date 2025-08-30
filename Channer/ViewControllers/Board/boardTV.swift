@@ -95,6 +95,8 @@ struct ThreadData: Codable {
     }
 }
 
+/// Main view controller for displaying threads from a selected board
+/// Supports thread searching, favorites management, and keyboard shortcuts on iPad
 class boardTV: UITableViewController, UISearchBarDelegate {
     
     // MARK: - Keyboard Shortcuts

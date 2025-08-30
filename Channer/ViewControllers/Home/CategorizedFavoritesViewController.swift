@@ -1,10 +1,13 @@
 import UIKit
 
-// Delegate protocol for category manager
+/// Delegate protocol for category manager updates
 protocol CategoryManagerDelegate: AnyObject {
+    /// Called when categories are updated
     func categoriesDidUpdate()
 }
 
+/// Main view controller for managing categorized favorite threads
+/// Provides tabbed interface for different favorite categories with search functionality
 class CategorizedFavoritesViewController: UIViewController, CategoryManagerDelegate, UISearchResultsUpdating {
     
     // MARK: - Properties

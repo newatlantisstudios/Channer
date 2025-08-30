@@ -1,16 +1,21 @@
 import UIKit
 
+/// Manages Apple Pencil hover interactions for enhanced iPad experience
+/// Provides image preview functionality when hovering over image views with Apple Pencil
 @available(iOS 13.0, *)
 public class PencilInteractionManager: NSObject {
     
-    // Singleton instance
+    // MARK: - Properties
+    
+    /// Singleton instance
     public static let shared = PencilInteractionManager()
     
-    // Reference to the hover view
+    /// Reference to the hover preview container view
     private var hoverPreviewView: UIView?
+    /// Image view within the preview container
     private var previewImageView: UIImageView?
     
-    // Currently active interactions
+    /// Dictionary mapping views to their active hover interactions
     private var activeInteractions = [UIView: UIHoverInteraction]()
     
     private override init() {
@@ -20,7 +25,11 @@ public class PencilInteractionManager: NSObject {
     
     // MARK: - Public Methods
     
-    /// Enables pencil hover interactions for a view
+    /// Enables pencil hover interactions for a view with optional image preview
+    /// - Parameters:
+    ///   - view: The view to enable hover interactions on
+    ///   - image: Optional image to show in hover preview
+    ///   - imageURL: Optional image URL for future loading (currently unused)
     public func enableHoverInteractions(for view: UIView, withImage image: UIImage? = nil, imageURL: String? = nil) {
         print("PencilInteractionManager: Enabling hover for view \(view)")
         
@@ -51,7 +60,8 @@ public class PencilInteractionManager: NSObject {
         print("PencilInteractionManager: Hover enabled for view \(view)")
     }
     
-    /// Disables pencil hover interactions for a view
+    /// Disables pencil hover interactions for a specific view
+    /// - Parameter view: The view to disable hover interactions on
     public func disableHoverInteractions(for view: UIView) {
         print("PencilInteractionManager: Disabling hover for view \(view)")
         
@@ -78,6 +88,8 @@ public class PencilInteractionManager: NSObject {
     
     // MARK: - Private Methods
     
+    /// Creates the hover preview container view with styling
+    /// - Returns: Configured preview container view
     private func createHoverPreview() -> UIView {
         print("PencilInteractionManager: Creating hover preview")
         
@@ -108,6 +120,10 @@ public class PencilInteractionManager: NSObject {
         return containerView
     }
     
+    /// Shows the hover preview at the specified location with the given image
+    /// - Parameters:
+    ///   - location: Screen location to position the preview
+    ///   - image: Image to display in the preview
     private func showHoverPreview(at location: CGPoint, with image: UIImage) {
         print("PencilInteractionManager: Showing hover preview at \(location) with image size \(image.size)")
         
@@ -140,6 +156,8 @@ public class PencilInteractionManager: NSObject {
         }
     }
     
+    /// Updates the hover preview position as the pencil moves
+    /// - Parameter location: New screen location for the preview
     private func updateHoverPreviewPosition(to location: CGPoint) {
         guard let hoverView = hoverPreviewView else { return }
         
@@ -147,6 +165,7 @@ public class PencilInteractionManager: NSObject {
         hoverView.center = CGPoint(x: location.x, y: location.y - 150)
     }
     
+    /// Removes the hover preview with animation
     private func removeHoverPreview() {
         print("PencilInteractionManager: Removing hover preview")
         

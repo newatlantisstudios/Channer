@@ -1,20 +1,28 @@
 import UIKit
 import AVFoundation
 
+/// View controller for displaying a grid of media thumbnails with selection and deletion capabilities
+/// Supports both image and video file previews in a collection view layout
 class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UIContextMenuInteractionDelegate {
     
+    // MARK: - Properties
+    
+    /// Array of media file URLs to display
     var files: [URL] = []
+    /// Collection view for displaying thumbnails
     var collectionView: UICollectionView!
+    /// Supported file types to filter by
     let fileTypes: [String]
+    /// Directory containing the media files
     let directory: URL
     
     /// Tracks whether we're in selection mode
     var isSelectionMode: Bool = false
     
-    /// Set of selected index paths
+    /// Set of selected index paths during multi-selection
     var selectedIndexPaths: Set<IndexPath> = []
     
-    /// Navigation bar buttons
+    /// Navigation bar buttons for selection mode
     var selectButton: UIBarButtonItem!
     var cancelButton: UIBarButtonItem!
     var deleteButton: UIBarButtonItem!
@@ -22,6 +30,10 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
     // MARK: - Initialization
     // Handles the initialization of the view controller with a directory and supported file types.
     
+    /// Initializes the thumbnail grid with a directory and file types
+    /// - Parameters:
+    ///   - directory: Directory to scan for media files
+    ///   - fileTypes: Array of supported file extensions
     init(directory: URL, fileTypes: [String]) {
         self.directory = directory
         self.fileTypes = fileTypes

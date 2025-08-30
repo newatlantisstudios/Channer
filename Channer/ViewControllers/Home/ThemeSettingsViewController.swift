@@ -1,5 +1,7 @@
 import UIKit
 
+/// View controller for managing app themes and appearance settings
+/// Allows users to select from built-in themes or create custom themes
 class ThemeSettingsViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
     // MARK: - Properties

@@ -9,8 +9,15 @@
 import UIKit
 import Kingfisher
 
+/// iPad-optimized collection view controller for displaying thread replies
+/// Uses collection view layout for better performance on larger iPad screens
 class threadRepliesCV: UICollectionViewController {
     
+    // MARK: - HTML Parsing Methods
+    
+    /// Extracts reply number from HTML text
+    /// - Parameter text: HTML string containing reply number
+    /// - Returns: Reply number string or "None" if not found
     func replyNo(_ text: String) ->String {
         
         if let a: Range = text.range(of: "id=\"p") {
@@ -27,6 +34,9 @@ class threadRepliesCV: UICollectionViewController {
         return "None"
     }
     
+    /// Extracts and processes date from HTML text
+    /// - Parameter text: HTML string containing dateTime class
+    /// - Returns: Processed date string or error message
     func processDate(_ text: String) ->String {
         
         if let a: Range = text.range(of: "class=\"dateTime") {
@@ -48,6 +58,9 @@ class threadRepliesCV: UICollectionViewController {
         return "error2"
     }
     
+    /// Extracts reply text content from HTML
+    /// - Parameter text: HTML string containing post message
+    /// - Returns: Extracted message content or error message
     func replyText(_ text: String) ->String {
         //class="postMessage"
         if let a: Range = text.range(of: "class=\"postMessage") {
@@ -68,23 +81,37 @@ class threadRepliesCV: UICollectionViewController {
         return "error"
     }
     
+    // MARK: - Properties
+    
+    /// Counter for replies with numbers
     var repliesWithNo = 0
     
+    /// Current thread number
     var threadNumber = ""
+    /// Current board abbreviation
     var boardAbv = ""
+    /// Flag indicating if viewing board thread list
     var forBoardThread = Bool()
+    /// Current reply number being viewed
     var replyNumber = ""
     
+    /// Array of thread reply image URLs
     var threadRepliesImages: [String] = []
+    /// Array of thread reply content
     var threadReplies: [String] = []
+    /// Backup array of old thread replies
     var threadRepliesOld: [String] = []
+    /// Array of thread board reply numbers
     var threadBoardReplyNumber: [String] = []
+    /// Dictionary mapping thread boards to their replies
     var threadBoardReplies: [String: [String]] = [:]
     
+    /// Array of thread post IDs
     var threadPostId = [String]()
+    /// Dictionary mapping board posts to their replies
     var boardPostReplies: [String: [String]] = [:]
     
-    // Current view is a reply
+    /// Flag indicating if current view is a reply
     var isReply: Bool = false
     
     override func viewDidLoad() {
@@ -291,9 +318,8 @@ class threadRepliesCV: UICollectionViewController {
                 let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
                 
                 if hasImage && cell.threadImage != nil {
-                    // Visual indicator for hover capability
-                    cell.threadImage.layer.borderWidth = 1.0
-                    cell.threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+                    // Remove any border
+                    cell.threadImage.layer.borderWidth = 0.0
                     
                     // Store image URL for hover preview
                     cell.setImageURL(imageUrl)

@@ -2,6 +2,8 @@ import UIKit
 import Alamofire
 import SwiftyJSON
 
+/// View controller for searching threads across boards
+/// Provides thread search functionality with board filtering and result display
 class SearchViewController: UIViewController {
     
     // MARK: - Properties

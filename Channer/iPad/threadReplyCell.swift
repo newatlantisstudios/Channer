@@ -67,8 +67,7 @@ class threadReplyCell: UICollectionViewCell {
             threadImage.addInteraction(interaction)
             
             // Add blue border to indicate hover capability
-            threadImage.layer.borderWidth = 2.0
-            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+            threadImage.layer.borderWidth = 0.0
         }
     }
     
@@ -216,8 +215,7 @@ class threadReplyCell: UICollectionViewCell {
         
         // Mark image as hoverable with blue border
         if threadImage != nil && !threadImage.isHidden {
-            threadImage.layer.borderWidth = 2.0
-            threadImage.layer.borderColor = UIColor.systemBlue.cgColor
+            threadImage.layer.borderWidth = 0.0
             
             // Make sure hover interaction is set up
             updatePointerInteractionIfNeeded()

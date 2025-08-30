@@ -1,6 +1,6 @@
 import Foundation
 
-// Notification object to represent a reply notification
+/// Represents a reply notification with tracking metadata
 struct ReplyNotification: Codable, Identifiable {
     let id: String
     let boardAbv: String
@@ -23,7 +23,8 @@ struct ReplyNotification: Codable, Identifiable {
     }
 }
 
-// Singleton manager for handling notifications
+/// Manages reply notifications for the app
+/// Provides functionality to track, store, and manage reply notifications with thread-safe operations
 class NotificationManager {
     static let shared = NotificationManager()
     
@@ -42,7 +43,9 @@ class NotificationManager {
     
     // MARK: - Notification Management
     
-    /// Gets all notifications
+    /// Gets all notifications sorted by timestamp (newest first)
+    /// Thread-safe method that ensures UserDefaults access on main thread
+    /// - Returns: Array of all notifications sorted by timestamp
     func getNotifications() -> [ReplyNotification] {
         // Ensure we're on the main thread when accessing UserDefaults
         if !Thread.isMainThread {
@@ -67,7 +70,8 @@ class NotificationManager {
         return []
     }
     
-    /// Adds a new notification
+    /// Adds a new notification and updates unread count
+    /// - Parameter notification: The notification to add
     func addNotification(_ notification: ReplyNotification) {
         var notifications = getNotifications()
         notifications.append(notification)
@@ -80,7 +84,8 @@ class NotificationManager {
         NotificationCenter.default.post(name: .notificationAdded, object: nil)
     }
     
-    /// Marks a notification as read
+    /// Marks a specific notification as read by ID
+    /// - Parameter notificationId: Unique identifier of the notification
     func markAsRead(_ notificationId: String) {
         var notifications = getNotifications()
         if let index = notifications.firstIndex(where: { $0.id == notificationId }) {
@@ -106,7 +111,8 @@ class NotificationManager {
         NotificationCenter.default.post(name: .notificationRead, object: nil)
     }
     
-    /// Removes a notification
+    /// Removes a notification by ID
+    /// - Parameter notificationId: Unique identifier of the notification to remove
     func removeNotification(_ notificationId: String) {
         var notifications = getNotifications()
         notifications.removeAll { $0.id == notificationId }
@@ -126,7 +132,9 @@ class NotificationManager {
         NotificationCenter.default.post(name: .notificationRemoved, object: nil)
     }
     
-    /// Gets unread notification count
+    /// Gets the count of unread notifications
+    /// Thread-safe method that ensures UserDefaults access on main thread
+    /// - Returns: Number of unread notifications
     func getUnreadCount() -> Int {
         // Ensure we're on the main thread when accessing UserDefaults
         if !Thread.isMainThread {
