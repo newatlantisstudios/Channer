@@ -7,7 +7,7 @@
 //
 
 import XCTest
-@testable import _chan
+@testable import Channer
 
 class _chanTests: XCTestCase {
 
