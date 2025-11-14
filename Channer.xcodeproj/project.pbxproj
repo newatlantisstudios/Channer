@@ -40,6 +40,7 @@
 		1797989A2CF7A37300486211 /* LocalAuthentication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 179798992CF7A37300486211 /* LocalAuthentication.framework */; };
 		179B6B962CDDEC9A0099D980 /* FilesListVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179B6B952CDDEC960099D980 /* FilesListVC.swift */; };
 		179B6B982CDDF0780099D980 /* ImageGalleryVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */; };
+		17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */; };
 		17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */; };
 		17DD68422249B84100641BCA /* urlWeb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DD68412249B84100641BCA /* urlWeb.swift */; };
 		17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */; };
@@ -48,7 +49,6 @@
 		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		B7C50959EA75BAFA53ED9B6F /* Pods_Channer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */; };
 		F78E2662AB7CC0EB66CCB5D8 /* Pods_ChannerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 16700A75F5E12DAADDA25578 /* Pods_ChannerTests.framework */; };
-        17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -110,12 +110,12 @@
 		1797989B2CF7CBBF00486211 /* Channer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Channer.entitlements; sourceTree = "<group>"; };
 		179B6B952CDDEC960099D980 /* FilesListVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesListVC.swift; sourceTree = "<group>"; };
 		179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGalleryVC.swift; sourceTree = "<group>"; };
+		17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardsService.swift; sourceTree = "<group>"; };
 		17C02999234D7CA5002F1145 /* VPX.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VPX.framework; path = Pods/libvpx/VPX.framework; sourceTree = "<group>"; };
 		17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFormatter.swift; sourceTree = "<group>"; };
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		2189F9D1FC201B4DB995D917 /* Pods_Channer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Channer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-        17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardsService.swift; sourceTree = "<group>"; };
 		3DB358D3D4C27D3A430359CF /* Pods-ChannerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerTests.release.xcconfig"; path = "Target Support Files/Pods-ChannerTests/Pods-ChannerTests.release.xcconfig"; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
@@ -159,14 +159,14 @@
 		171A75E22DD6F9FF00D75B34 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-                17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
+				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
+				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
 				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
-				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -526,9 +526,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Channer/Pods-Channer-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -542,7 +546,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-                17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */,
+				17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */,
 				17DD68422249B84100641BCA /* urlWeb.swift in Sources */,
 				1776B0A82CE307A300B304E7 /* HistoryManager.swift in Sources */,
 				171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */,
@@ -741,7 +745,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Channer/Channer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.3;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = GVCXLUMS72;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -759,7 +763,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 2.2;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -779,7 +783,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Channer/Channer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.3;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = GVCXLUMS72;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -793,7 +797,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 2.2;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";

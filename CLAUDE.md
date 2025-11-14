@@ -4,23 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Channer is a native iOS and iPadOS client for browsing image boards with a focus on user privacy, smooth media handling, and a clean interface. The app uses Swift and UIKit with an adaptive UI that works well on both iPhone and iPad.
+Channer is a native iOS and iPadOS client for browsing image boards with a focus on user privacy, smooth media handling, and a clean interface. The app uses Swift and UIKit with an MVC architecture and adaptive UI that works on both iPhone and iPad.
 
 ## Development Environment
 
-- Platform: iOS/iPadOS (deployment target 15.6+, platform target 18.0+)
-- Language: Swift
-- Framework: UIKit
-- Build System: Xcode
-- Dependencies: CocoaPods
+- **Platform**: iOS/iPadOS (deployment target 15.6+, platform target 18.0+)
+- **Language**: Swift 5.0+
+- **Framework**: UIKit
+- **Build System**: Xcode with CocoaPods
+- **Workspace**: Always use `Channer.xcworkspace`, NOT `Channer.xcodeproj`
 
 ## Key Dependencies
 
-- **SwiftyJSON**: Used for JSON parsing
-- **Alamofire**: Used for networking
-- **Kingfisher**: Used for image loading and caching
-- **VLCKit** (4.0.0a6): Used for media playback
-- **FFmpeg**: Used for media processing via native bridging header integration (system FFmpeg, no pod dependency)
+- **Alamofire**: All networking requests (board lists, thread data, API calls)
+- **SwiftyJSON**: JSON parsing for API responses
+- **Kingfisher**: Async image loading, caching, and download management
+- **VLCKit** (4.0.0a6): Local video file playback (downloaded files only)
+- **FFmpeg**: Media processing via bridging header (`FFmpeg-Bridging-Header.h`) - uses system FFmpeg, not a pod
 
 ## Build and Run Commands
 
@@ -83,72 +83,95 @@ brew install xcbeautify
 
 ## Architecture Overview
 
-The app follows a standard iOS MVC architecture with these key components:
+The app follows an MVC architecture with singleton managers for shared state and services.
 
-### Singleton Managers
-1. **ThemeManager**: Manages app-wide theming with 6 built-in themes and custom theme support
-2. **ThreadCacheManager**: Manages offline reading capabilities and thread caching with iCloud sync
-3. **FavoritesManager**: Handles saving and retrieving favorite threads with categorization support
-4. **HistoryManager**: Tracks visited threads
-5. **ContentFilterManager**: Manages keyword, poster, and image filtering for content
-6. **SearchManager**: Thread search functionality with history and saved searches
-7. **ICloudSyncManager**: Handles settings and data sync across devices
-8. **ConflictResolutionManager**: Intelligent handling of sync conflicts
-9. **NotificationManager**: Push notification support for thread updates
-10. **KeyboardShortcutManager**: iPad keyboard shortcut handling
+### Directory Structure
+```
+Channer/
+├── Application/        # AppDelegate, SceneDelegate, Info.plist
+├── ViewControllers/    # All view controllers organized by feature
+│   ├── Home/          # Main screens (boardsCV, boardsTV, settings)
+│   ├── Board/         # Board listing (boardTV, boardTVCell)
+│   ├── Thread Replies/# Thread view (threadRepliesTV, threadRepliesCell)
+│   ├── Show Media/    # Media viewers (ImageGalleryVC, WebMViewController)
+│   └── Downloads/     # Download management
+├── iPad/              # iPad-specific views (threadsCell, threadRepliesCV)
+├── Utilities/         # Singleton managers and helpers
+├── Networking/        # Network services (ICloudSyncManager)
+└── Files/             # Assets and resources
+```
+
+### Singleton Managers (All in `Utilities/`)
+These are the core services accessed throughout the app:
+
+1. **ThemeManager**: App-wide theming (6 built-in themes + custom themes)
+2. **ThreadCacheManager**: Offline thread caching with iCloud sync
+3. **FavoritesManager**: Thread bookmarks with categorization
+4. **HistoryManager**: Visited thread tracking
+5. **ContentFilterManager**: Keyword/poster/image filtering
+6. **SearchManager**: Thread search with history
+7. **ICloudSyncManager**: Settings/data sync across devices (also in `Networking/`)
+8. **ConflictResolutionManager**: Handles iCloud sync conflicts
+9. **NotificationManager**: Push notifications for thread updates
+10. **KeyboardShortcutManager**: iPad keyboard shortcuts
 11. **PencilInteractionManager**: Apple Pencil support
 
-### Key View Controllers
+### Navigation Flow
+The main user journey follows this pattern:
+```
+boardsCV (boards list)
+  → boardTV (threads in selected board)
+    → threadRepliesTV (replies in selected thread)
+      → ImageGalleryVC / WebMViewController (media viewing)
+```
 
-#### Main Navigation Flow
-1. **boardsCV**: Main collection view that displays all available boards
-2. **boardTV**: Displays threads from a selected board
-3. **threadRepliesTV**: Displays replies in a thread
+**Key View Controllers**:
+- **boardsCV**: Main entry point - displays all available boards in collection view
+- **boardTV**: Shows threads from selected board in table view
+- **threadRepliesTV**: Displays all replies in a thread with media thumbnails
+- **ImageGalleryVC**: Full-screen image gallery with swipe navigation
+- **WebMViewController**: Video player for WebM/MP4 files
+- **ThumbnailGridVC**: Grid view of all media in a thread
+- **settings**: Main settings interface
+- **CategorizedFavoritesViewController**: Organized bookmarks with categories
+- **SearchViewController**: Thread search with filters
 
-#### Settings & Configuration
-- **settings**: Main settings view controller
-- **ThemeEditorViewController**: Allows customization of app themes
-- **ThemeListViewController**: Lists available themes
-- **ContentFilterViewController**: Manages content filtering settings
+## Data Persistence & Networking
 
-#### Organization & Search
-- **CategorizedFavoritesViewController**: Manages categorized favorites
-- **CategoryManagerViewController**: Category creation and management
-- **SearchViewController**: Thread search interface
-- **ConflictResolutionViewController**: Handles sync conflict resolution
+### Data Storage
+- **UserDefaults**: Settings, preferences, authentication flags
+- **FileManager**: Cached threads, downloaded media, offline content
+- **iCloud**: Settings/theme sync via `NSUbiquitousKeyValueStore`
 
-#### Media Handling
-- **ImageGalleryVC**: Gallery view for thread images
-- **WebMViewController**: WebM video player
-- **ThumbnailGridVC**: Grid view of media thumbnails
-- **ImageViewController**: Full-screen image viewer
+### Networking Pattern
+All API calls use Alamofire with SwiftyJSON for parsing:
+1. Request made via `Alamofire.request()`
+2. Response parsed with `SwiftyJSON`
+3. Data processed through manager singletons
+4. UI updated on main thread
 
-## Recent Feature Implementations
+### Media Handling
+- **Thumbnails/Images**: Kingfisher handles loading, caching, and memory management
+- **WebM/MP4 (streaming)**: Played inline via WebMViewController with native player
+- **Downloaded videos**: Played exclusively through VLCKit player for maximum format compatibility
+- **Preloading**: Configurable in settings to optimize data usage
 
-### Enhanced Bookmarking System
-- Categorized favorites with color-coding and SF Symbol icons
-- Default categories: General, To Read, Important, Archives
-- Bulk operations and category management
-- Full implementation details in `ENHANCED_BOOKMARKING_SUMMARY.md`
+## Key Features & Implementation Details
 
-### iCloud Sync
-- Complete settings, themes, and data synchronization
-- Automatic conflict resolution
-- Implementation details in `ICLOUD_SYNC_IMPLEMENTATION.md`
+### Enhanced Bookmarking (v2.2)
+Categorized favorites with color-coding, SF Symbol icons, and bulk operations. Default categories: General, To Read, Important, Archives. See `ENHANCED_BOOKMARKING_SUMMARY.md`.
 
-### Thread Search
-- Comprehensive search with history tracking
-- Saved searches and board-specific filtering
-- Details in `THREAD_SEARCH_SUMMARY.md`
+### iCloud Sync (v2.2)
+Complete settings/themes/data synchronization with automatic conflict resolution via `ConflictResolutionManager`. See `ICLOUD_SYNC_IMPLEMENTATION.md` and `CONFLICT_RESOLUTION_IMPLEMENTATION.md`.
+
+### Thread Search (v2.2)
+Full-text search with history tracking, saved searches, and board-specific filtering via `SearchManager`. See `THREAD_SEARCH_SUMMARY.md`.
 
 ### iPad Enhancements
-- Full keyboard shortcut support (see `KEYBOARD_SHORTCUTS.md`)
-- Split view controller optimization
-- Apple Pencil interaction support
+Full keyboard shortcut support (`KeyboardShortcutManager`), split view optimization, and Apple Pencil support. See `KEYBOARD_SHORTCUTS.md`.
 
-## Authentication
-
-The app uses FaceID/TouchID for securing certain features like history, favorites, and downloads. This is implemented through the LocalAuthentication framework.
+### Authentication
+FaceID/TouchID protection for history, favorites, and downloads via LocalAuthentication framework. Controlled by `faceIDEnabledKey` in UserDefaults.
 
 ## Testing
 
@@ -165,23 +188,32 @@ xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destinati
 
 ## CI/CD Configuration
 
-The project includes GitHub Actions workflow for pull request validation:
+GitHub Actions workflow validates all pull requests:
 - **Workflow**: `.github/workflows/Xcode_build_PR.yml`
 - **Runner**: Self-hosted macstudio
-- **Test Device**: iPhone 16 Simulator
-- **Features**: Automatic build validation, error reporting to PRs, artifact uploads
-- **Dependencies**: Automatically installs CocoaPods if not present
+- **Target**: iPhone 16 Simulator (iOS 18.0)
+- **Process**: Auto-installs CocoaPods → Builds project → Posts errors to PR comments
+- **Artifacts**: Build logs uploaded with 7-day retention
 
-## Important Notes
+## Important Implementation Notes
 
-### Recent Updates
-- Enhanced video playback consistency between gallery and thread views
-- Improved settings UI with media preload options
-- Implemented native FFmpeg integration via bridging header (removed pod dependency)
-- Added comprehensive GitHub Actions CI/CD pipeline
-- Made videos start muted by default in web player
+### Video Playback
+- **Streaming videos** (in-app WebM/MP4): Native AVPlayer via WebMViewController
+- **Downloaded videos**: Exclusively use VLCKit for maximum codec compatibility
+- Videos start **muted by default** in web player
+- Gallery and thread views maintain playback consistency
 
-### Platform-Specific Features
-- **iPad**: Split view controllers, keyboard shortcuts, Apple Pencil support
-- **iPhone**: Adaptive UI with gesture navigation
-- **Universal**: iCloud sync, biometric authentication, offline caching
+### FFmpeg Integration
+FFmpeg is integrated via bridging header (`FFmpeg-Bridging-Header.h`) linking to system FFmpeg libraries, NOT via CocoaPods. The old `ffmpeg-kit-ios-full` pod has been removed.
+
+### iPad-Specific Behavior
+- Split view controllers for multitasking
+- Keyboard shortcuts via `KeyboardShortcutManager`
+- Apple Pencil interactions via `PencilInteractionManager`
+- Hover support in thread replies views (`threadRepliesCV+HoverSupport.swift`)
+
+### Content Filtering
+`ContentFilterManager` provides keyword, poster, and image filtering. Helper class `ThreadDataHelper` applies filters to thread data. Currently has TODO items for full implementation.
+
+### Theming System
+`ThemeManager` singleton controls app-wide theming. Supports 6 built-in themes plus custom themes created via `ThemeEditorViewController`. Themes sync across devices via iCloud.
