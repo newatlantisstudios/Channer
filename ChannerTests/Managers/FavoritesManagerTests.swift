@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import _chan
+@testable import Channer
 
 class FavoritesManagerTests: XCTestCase {
 

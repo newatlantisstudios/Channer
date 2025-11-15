@@ -31,26 +31,50 @@ class TestDataFactory {
         let createdAt = "01/13/25(Mon)12:00:00"
         let lastReplyTime = Int(Date().timeIntervalSince1970)
 
+        // Helper function to escape JSON strings properly
+        func escapeJSON(_ string: String) -> String {
+            let escaped = string
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\r", with: "\\r")
+                .replacingOccurrences(of: "\t", with: "\\t")
+            return escaped
+        }
+
+        print("DEBUG: Creating test thread with title: \(title)")
+        print("DEBUG: Creating test thread with comment: \(comment)")
+
+        let imageUrlValue = imageUrl ?? (images > 0 ? "https://i.4cdn.org/\(boardAbv)/1234567890123.jpg" : "")
+
         let data = """
         {
-            "number": "\(number)",
-            "stats": "\(stats)",
-            "title": "\(title)",
-            "comment": "\(comment)",
-            "imageUrl": "\(imageUrl ?? (images > 0 ? "https://i.4cdn.org/\(boardAbv)/1234567890123.jpg" : ""))",
-            "boardAbv": "\(boardAbv)",
+            "number": "\(escapeJSON(number))",
+            "stats": "\(escapeJSON(stats))",
+            "title": "\(escapeJSON(title))",
+            "comment": "\(escapeJSON(comment))",
+            "imageUrl": "\(escapeJSON(imageUrlValue))",
+            "boardAbv": "\(escapeJSON(boardAbv))",
             "replies": \(replies),
             "currentReplies": null,
-            "createdAt": "\(createdAt)",
+            "createdAt": "\(escapeJSON(createdAt))",
             "hasNewReplies": \(hasNewReplies),
-            "categoryId": \(categoryId != nil ? "\"\(categoryId!)\"" : "null"),
+            "categoryId": \(categoryId != nil ? "\"\(escapeJSON(categoryId!))\"" : "null"),
             "lastReplyTime": \(lastReplyTime),
             "bumpIndex": null
         }
         """.data(using: .utf8)!
 
+        print("DEBUG: Generated JSON string:")
+        print(String(data: data, encoding: .utf8) ?? "Could not decode data")
+
         let decoder = JSONDecoder()
-        return try! decoder.decode(ThreadData.self, from: data)
+        do {
+            return try decoder.decode(ThreadData.self, from: data)
+        } catch {
+            print("DEBUG: Failed to decode JSON with error: \(error)")
+            fatalError("Failed to decode ThreadData: \(error)")
+        }
     }
 
     /// Create a thread with specific properties for testing edge cases

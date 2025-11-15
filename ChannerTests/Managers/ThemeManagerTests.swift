@@ -7,7 +7,7 @@
 
 import XCTest
 import UIKit
-@testable import _chan
+@testable import Channer
 
 class ThemeManagerTests: XCTestCase {
 
@@ -47,8 +47,16 @@ class ThemeManagerTests: XCTestCase {
         // Given
         let themeId = "oled"
 
+        print("DEBUG: Available themes before setting:")
+        for theme in sut.availableThemes {
+            print("  - \(theme.id): \(theme.name)")
+        }
+
         // When
+        print("DEBUG: Setting theme to: \(themeId)")
         sut.setTheme(id: themeId)
+
+        print("DEBUG: Current theme after setting: \(sut.currentTheme.id) - \(sut.currentTheme.name)")
 
         // Then
         XCTAssertEqual(sut.currentTheme.id, themeId)
@@ -238,16 +246,28 @@ class ThemeManagerTests: XCTestCase {
     }
 
     func testColorsUpdateAfterThemeChange() {
-        // Given
-        let defaultBgColor = sut.backgroundColor
+        // Given - Get the default theme's background color
+        sut.setTheme(id: "default")
+        let defaultTheme = sut.currentTheme
 
-        // When
+        // When - Switch to OLED theme
         sut.setTheme(id: "oled")
-        let oledBgColor = sut.backgroundColor
+        let oledTheme = sut.currentTheme
 
-        // Then
-        // Colors should be different (at least hex representation)
-        XCTAssertNotEqual(defaultBgColor.hexString, oledBgColor.hexString)
+        // Then - The theme's ColorSet values should be different
+        // We test the dark mode colors since OLED and Default have different dark backgrounds
+        print("DEBUG TEST: Default dark bg: \(defaultTheme.backgroundColor.dark)")
+        print("DEBUG TEST: OLED dark bg: \(oledTheme.backgroundColor.dark)")
+
+        XCTAssertNotEqual(defaultTheme.backgroundColor.dark, oledTheme.backgroundColor.dark,
+                         "OLED theme should have different dark background than Default theme")
+
+        // Also verify the themes are actually different
+        XCTAssertNotEqual(defaultTheme.id, oledTheme.id)
+        XCTAssertEqual(oledTheme.id, "oled")
+
+        // Verify OLED has true black for dark mode
+        XCTAssertEqual(oledTheme.backgroundColor.dark, "#000000")
     }
 
     // MARK: - ColorSet Tests

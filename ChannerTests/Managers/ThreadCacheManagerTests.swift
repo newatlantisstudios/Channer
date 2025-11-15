@@ -6,14 +6,14 @@
 //
 
 import XCTest
-@testable import _chan
+@testable import Channer
 
 class ThreadCacheManagerTests: XCTestCase {
 
     var sut: ThreadCacheManager!
     var mockUserDefaults: MockUserDefaults!
     var mockiCloudStore: MockiCloudStore!
-    var mockKingfisher: MockKingfisher!
+//     var mockKingfisher: MockKingfisher!
 
     override func setUp() {
         super.setUp()
@@ -22,8 +22,8 @@ class ThreadCacheManagerTests: XCTestCase {
         mockUserDefaults = MockUserDefaults()
         mockiCloudStore = MockiCloudStore.shared
         mockiCloudStore.reset()
-        mockKingfisher = MockKingfisher.shared
-        mockKingfisher.reset()
+        //         mockKingfisher = MockKingfisher.shared
+        // mockKingfisher.reset()
 
         // Get shared instance
         sut = ThreadCacheManager.shared
@@ -35,7 +35,7 @@ class ThreadCacheManagerTests: XCTestCase {
     override func tearDown() {
         mockUserDefaults.reset()
         mockiCloudStore.reset()
-        mockKingfisher.reset()
+        // mockKingfisher.reset()
         sut.clearAllCachedThreads()
         sut = nil
         super.tearDown()

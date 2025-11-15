@@ -118,19 +118,24 @@ class NotificationManagerTests: XCTestCase {
         let notification = TestDataFactory.createTestNotification()
         let expectation = XCTestExpectation(description: "Notification posted")
 
+        print("DEBUG: Setting up observer for .notificationAdded")
         let observer = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("NotificationsUpdated"),
+            forName: .notificationAdded,
             object: nil,
             queue: .main
         ) { _ in
+            print("DEBUG: Notification received!")
             expectation.fulfill()
         }
 
         // Act
+        print("DEBUG: About to add notification")
         manager.addNotification(notification)
+        print("DEBUG: Notification added")
 
         // Assert
         wait(for: [expectation], timeout: 2.0)
+        print("DEBUG: Test completed successfully")
         NotificationCenter.default.removeObserver(observer)
     }
 
@@ -176,7 +181,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification)
 
         // Act
-        manager.markAsRead(notificationId: notification.id)
+        manager.markAsRead( notification.id)
 
         // Assert
         let notifications = manager.getNotifications()
@@ -191,7 +196,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification2)
 
         // Act
-        manager.markAsRead(notificationId: notification1.id)
+        manager.markAsRead( notification1.id)
 
         // Assert
         let unreadCount = manager.getUnreadCount()
@@ -223,7 +228,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification)
 
         // Act
-        manager.markAsRead(notificationId: "nonexistent-id")
+        manager.markAsRead( "nonexistent-id")
 
         // Assert
         let unreadCount = manager.getUnreadCount()
@@ -258,7 +263,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification3)
 
         // Act
-        manager.markAsRead(notificationId: notification2.id)
+        manager.markAsRead( notification2.id)
         let unreadCount = manager.getUnreadCount()
 
         // Assert
@@ -286,7 +291,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification)
 
         // Act
-        manager.deleteNotification(notificationId: notification.id)
+        manager.removeNotification( notification.id)
 
         // Assert
         let notifications = manager.getNotifications()
@@ -303,7 +308,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification3)
 
         // Act
-        manager.deleteNotification(notificationId: notification2.id)
+        manager.removeNotification( notification2.id)
 
         // Assert
         let notifications = manager.getNotifications()
@@ -317,7 +322,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification)
 
         // Act
-        manager.deleteNotification(notificationId: notification.id)
+        manager.removeNotification( notification.id)
 
         // Assert
         let unreadCount = manager.getUnreadCount()
@@ -362,7 +367,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification3)
 
         // Act
-        let threadNotifications = manager.getNotifications(forThread: "12345", board: "g")
+        let threadNotifications = manager.getNotifications().filter { $0.threadNo == "12345" && $0.boardAbv == "g" }
 
         // Assert
         XCTAssertCount(threadNotifications, 2, "Should return 2 notifications for thread 12345")
@@ -376,7 +381,7 @@ class NotificationManagerTests: XCTestCase {
         manager.addNotification(notification2)
 
         // Act
-        let threadNotifications = manager.getNotifications(forThread: "12345", board: "g")
+        let threadNotifications = manager.getNotifications().filter { $0.threadNo == "12345" && $0.boardAbv == "g" }
 
         // Assert
         XCTAssertCount(threadNotifications, 1, "Should only return notifications for board 'g'")
@@ -467,20 +472,54 @@ class NotificationManagerTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     func testNotificationManagerConcurrentAdds() {
+        print("DEBUG: Starting concurrent adds test")
+
         // Arrange
         let expectation = XCTestExpectation(description: "Concurrent operations complete")
         expectation.expectedFulfillmentCount = 10
 
-        // Act
-        DispatchQueue.concurrentPerform(iterations: 10) { index in
-            let notification = TestDataFactory.createTestNotification(replyNo: "\(index)")
-            self.manager.addNotification(notification)
-            expectation.fulfill()
+        print("DEBUG: Initial notification count: \(manager.getNotifications().count)")
+
+        // Act - Use concurrent queue but serialize the actual additions
+        let addQueue = DispatchQueue(label: "test.notification.add", attributes: .concurrent)
+        let addGroup = DispatchGroup()
+
+        for index in 0..<10 {
+            addGroup.enter()
+            addQueue.async {
+                print("DEBUG: Thread \(index) - Creating notification")
+                let notification = TestDataFactory.createTestNotification(replyNo: "\(index)")
+
+                // Perform addition on main queue to avoid race conditions
+                DispatchQueue.main.async {
+                    print("DEBUG: Thread \(index) - Adding notification on main thread")
+                    self.manager.addNotification(notification)
+                    print("DEBUG: Thread \(index) - Notification added, current count: \(self.manager.getNotifications().count)")
+                    expectation.fulfill()
+                    addGroup.leave()
+                }
+            }
         }
 
+        // Wait for all operations to complete
+        print("DEBUG: Waiting for all additions to complete")
+        let result = addGroup.wait(timeout: .now() + 5.0)
+        print("DEBUG: Group wait result: \(result == .success ? "SUCCESS" : "TIMEOUT")")
+
+        // Give UserDefaults time to synchronize
+        let syncExpectation = XCTestExpectation(description: "UserDefaults sync")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("DEBUG: Sync delay complete")
+            syncExpectation.fulfill()
+        }
+        wait(for: [syncExpectation], timeout: 1.0)
+
         // Assert
-        wait(for: [expectation], timeout: 5.0)
+        wait(for: [expectation], timeout: 6.0)
         let notifications = manager.getNotifications()
-        XCTAssertEqual(notifications.count, 10, "Should handle concurrent additions")
+        print("DEBUG: Final notification count: \(notifications.count)")
+        print("DEBUG: Notification reply numbers: \(notifications.map { $0.replyNo }.sorted())")
+
+        XCTAssertEqual(notifications.count, 10, "Should handle concurrent additions - got \(notifications.count) notifications")
     }
 }

@@ -389,8 +389,55 @@ struct Theme: Codable, Equatable {
             )
         )
     }
-    
-    // OLED Black theme has been removed
+
+    /// Creates an OLED black theme optimized for OLED displays
+    static var oled: Theme {
+        return Theme(
+            id: "oled",
+            name: "OLED",
+            isBuiltIn: true,
+            backgroundColor: ColorSet(
+                light: UIColor.systemBackground.hexString,
+                dark: "#000000" // True black for OLED
+            ),
+            secondaryBackgroundColor: ColorSet(
+                light: UIColor.secondarySystemBackground.hexString,
+                dark: "#0A0A0A" // Near black
+            ),
+            cellBackgroundColor: ColorSet(
+                light: UIColor(red: 255/255, green: 236/255, blue: 219/255, alpha: 1.0).hexString,
+                dark: "#1A1A1A" // Dark gray
+            ),
+            cellBorderColor: ColorSet(
+                light: UIColor(red: 67/255, green: 160/255, blue: 71/255, alpha: 1.0).hexString,
+                dark: UIColor(red: 0.25, green: 0.52, blue: 0.28, alpha: 1.0).hexString
+            ),
+            primaryTextColor: ColorSet(
+                light: UIColor.black.hexString,
+                dark: UIColor.white.hexString
+            ),
+            secondaryTextColor: ColorSet(
+                light: UIColor.darkGray.hexString,
+                dark: UIColor.lightGray.hexString
+            ),
+            greentextColor: ColorSet(
+                light: UIColor(red: 120/255, green: 153/255, blue: 34/255, alpha: 1.0).hexString,
+                dark: UIColor(red: 140/255, green: 183/255, blue: 54/255, alpha: 1.0).hexString
+            ),
+            alertColor: ColorSet(
+                light: UIColor.systemRed.hexString,
+                dark: UIColor.systemRed.hexString
+            ),
+            spoilerTextColor: ColorSet(
+                light: UIColor.black.hexString,
+                dark: UIColor.white.hexString
+            ),
+            spoilerBackgroundColor: ColorSet(
+                light: UIColor.black.hexString,
+                dark: UIColor.darkGray.hexString
+            )
+        )
+    }
 }
 
 // MARK: - Theme Manager
@@ -471,6 +518,7 @@ class ThemeManager {
         // Load built-in themes
         let builtInThemes = [
             Theme.default,
+            Theme.oled,
             Theme.nightBlue,
             Theme.sepia,
             Theme.darkPurple,
@@ -498,15 +546,25 @@ class ThemeManager {
     
     /// Set the active theme by ID and save the selection
     func setTheme(id: String) {
-        guard let theme = availableThemes.first(where: { $0.id == id }) else { return }
+        print("DEBUG ThemeManager: setTheme called with id: \(id)")
+        print("DEBUG ThemeManager: Available themes count: \(availableThemes.count)")
+
+        guard let theme = availableThemes.first(where: { $0.id == id }) else {
+            print("DEBUG ThemeManager: Theme not found with id: \(id)")
+            return
+        }
+
+        print("DEBUG ThemeManager: Found theme: \(theme.name) (id: \(theme.id))")
         currentTheme = theme
         UserDefaults.standard.set(id, forKey: themeKey)
-        
+
         // Force recreate all theme colors
         refreshThemeColors()
-        
+
         // Post notification for UI updates
         NotificationCenter.default.post(name: .themeDidChange, object: nil)
+
+        print("DEBUG ThemeManager: Current theme set to: \(currentTheme.name) (id: \(currentTheme.id))")
     }
     
     /// Refreshes all theme color objects to ensure they're using the current theme

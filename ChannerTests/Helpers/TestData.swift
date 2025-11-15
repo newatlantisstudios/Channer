@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 import SwiftyJSON
-@testable import _chan
+@testable import Channer
 
 /// Sample test data fixtures for all model types
 struct TestData {
@@ -116,7 +116,9 @@ struct TestData {
             primaryTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
             secondaryTextColor: ColorSet(light: "#8E8E93", dark: "#AEAEB2"),
             greentextColor: ColorSet(light: "#34C759", dark: "#30D158"),
-            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A")
+            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A"),
+            spoilerTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
+            spoilerBackgroundColor: ColorSet(light: "#000000", dark: "#8E8E93")
         )
     }
 
@@ -132,7 +134,9 @@ struct TestData {
             primaryTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
             secondaryTextColor: ColorSet(light: "#8E8E93", dark: "#AEAEB2"),
             greentextColor: ColorSet(light: "#34C759", dark: "#30D158"),
-            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A")
+            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A"),
+            spoilerTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
+            spoilerBackgroundColor: ColorSet(light: "#000000", dark: "#8E8E93")
         )
     }
 
@@ -148,9 +152,13 @@ struct TestData {
             primaryTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
             secondaryTextColor: ColorSet(light: "#8E8E93", dark: "#AEAEB2"),
             greentextColor: ColorSet(light: "#34C759", dark: "#30D158"),
-            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A")
+            alertColor: ColorSet(light: "#FF3B30", dark: "#FF453A"),
+            spoilerTextColor: ColorSet(light: "#000000", dark: "#FFFFFF"),
+            spoilerBackgroundColor: ColorSet(light: "#000000", dark: "#8E8E93")
         )
     }
+
+
 
     // MARK: - CachedThread Fixtures
 
@@ -160,7 +168,7 @@ struct TestData {
         categoryId: String? = nil
     ) -> CachedThread {
         let threadJson = sampleThreadRepliesJSON(threadNumber: threadNumber)
-        let threadData = try! JSONEncoder().encode(threadJson.dictionaryObject!)
+        let threadData = try! threadJson.rawData()
 
         return CachedThread(
             boardAbv: boardAbv,
@@ -296,31 +304,31 @@ struct TestData {
     // MARK: - Notification Fixtures
 
     static func sampleReplyNotification(
-        threadNumber: String = "123456789",
         boardAbv: String = "g",
-        newReplyCount: Int = 5
+        threadNo: String = "123456789",
+        replyNo: String = "123456790",
+        replyToNo: String = "123456789",
+        replyText: String = "Test reply text"
     ) -> ReplyNotification {
         return ReplyNotification(
-            id: UUID().uuidString,
-            threadNumber: threadNumber,
             boardAbv: boardAbv,
-            threadTitle: "Test Thread Title",
-            newReplyCount: newReplyCount,
-            timestamp: Date(),
-            isRead: false
+            threadNo: threadNo,
+            replyNo: replyNo,
+            replyToNo: replyToNo,
+            replyText: replyText
         )
     }
+
 
     // MARK: - Search Fixtures
 
     static func sampleSearchItem(
         query: String = "test query",
         boardAbv: String = "g"
-    ) -> SearchItem {
-        return SearchItem(
+    ) -> SearchManager.SearchItem {
+        return SearchManager.SearchItem(
             query: query,
-            boardAbv: boardAbv,
-            timestamp: Date()
+            boardAbv: boardAbv
         )
     }
 
@@ -328,13 +336,11 @@ struct TestData {
         name: String = "My Search",
         query: String = "test query",
         boardAbv: String? = nil
-    ) -> SavedSearch {
-        return SavedSearch(
-            id: UUID().uuidString,
+    ) -> SearchManager.SavedSearch {
+        return SearchManager.SavedSearch(
             name: name,
             query: query,
-            boardAbv: boardAbv,
-            createdAt: Date()
+            boardAbv: boardAbv
         )
     }
 

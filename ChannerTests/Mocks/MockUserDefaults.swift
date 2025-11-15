@@ -20,8 +20,9 @@ class MockUserDefaults: UserDefaults {
         super.init(suiteName: suitename)
     }
 
-    override init() {
-        super.init()
+    // Convenience initializer for testing
+    convenience init() {
+        self.init(suiteName: "com.test.mock")!
     }
 
     // MARK: - Getter Methods

@@ -7,7 +7,7 @@
 
 import XCTest
 import UIKit
-@testable import _chan
+@testable import Channer
 
 /// Shared helper methods and utilities for all tests
 class TestHelpers {
