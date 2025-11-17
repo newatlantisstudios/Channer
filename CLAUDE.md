@@ -127,14 +127,19 @@ boardsCV (boards list)
 
 **Key View Controllers**:
 - **boardsCV**: Main entry point - displays all available boards in collection view
-- **boardTV**: Shows threads from selected board in table view
-- **threadRepliesTV**: Displays all replies in a thread with media thumbnails
+- **boardTV**: Shows threads from selected board in table view (also defines `ThreadData` struct)
+- **threadRepliesTV**: Displays all replies in a thread with media thumbnails (also defines `Reachability` and `TextFormatter`)
 - **ImageGalleryVC**: Full-screen image gallery with swipe navigation
 - **WebMViewController**: Video player for WebM/MP4 files
 - **ThumbnailGridVC**: Grid view of all media in a thread
 - **settings**: Main settings interface
 - **CategorizedFavoritesViewController**: Organized bookmarks with categories
 - **SearchViewController**: Thread search with filters
+
+**Important**: Some data models are defined inline within view controller files rather than in separate model files:
+- `ThreadData` struct: in `ViewControllers/Board/boardTV.swift`
+- `BookmarkCategory`: in `ViewControllers/Home/BookmarkCategory.swift`
+- Other models may be embedded in their respective manager files
 
 ## Data Persistence & Networking
 
@@ -175,16 +180,76 @@ FaceID/TouchID protection for history, favorites, and downloads via LocalAuthent
 
 ## Testing
 
-The project has test targets (ChannerTests and ChannerUITests) but currently contains only placeholder test files. The CI/CD pipeline validates builds but comprehensive test coverage is not yet implemented.
+The project has comprehensive test infrastructure with unit tests for managers and UI tests for user flows.
 
-To run placeholder tests:
-```bash
-# Unit tests (placeholder)
-xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'platform=iOS Simulator,name=iPhone 16'
-
-# UI tests (placeholder)
-xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests -destination 'platform=iOS Simulator,name=iPhone 16'
+### Test Structure
 ```
+ChannerTests/
+├── Managers/          # Unit tests for singleton managers
+├── Models/            # Tests for data models (BookmarkCategory, etc.)
+├── Mocks/             # Mock implementations for testing
+└── Helpers/           # Test utilities and helpers
+    ├── MockUserDefaults.swift
+    ├── MockiCloudStore.swift
+    ├── TestDataFactory.swift
+    └── XCTestCase+Helpers.swift
+
+ChannerUITests/
+└── Screens/           # UI tests for main screens
+```
+
+### Running Tests
+
+**Run all unit tests:**
+```bash
+xcodebuild test -workspace Channer.xcworkspace -scheme Channer -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+**Run specific test class:**
+```bash
+xcodebuild test -workspace Channer.xcworkspace -scheme Channer \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:ChannerTests/ThemeManagerTests
+```
+
+**Run single test method:**
+```bash
+xcodebuild test -workspace Channer.xcworkspace -scheme Channer \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:ChannerTests/ThemeManagerTests/testThemeManagerSetThemePostsNotification
+```
+
+**Run UI tests:**
+```bash
+xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+**Run tests from Xcode:**
+- Press `Cmd+U` to run all tests
+- Use Test Navigator (`Cmd+6`) to run individual tests
+- Click the diamond icon next to any test method
+
+### Test Helpers
+
+**TestDataFactory**: Creates realistic test fixtures for threads, categories, notifications, themes, etc.
+
+**MockUserDefaults**: In-memory UserDefaults for isolated testing without polluting app data.
+
+**MockiCloudStore**: Mock NSUbiquitousKeyValueStore for testing iCloud sync without real iCloud access.
+
+**XCTestCase+Helpers**: Extensions for async testing, notifications, file operations, and common assertions.
+
+### Test Coverage
+Current test coverage includes:
+- ContentFilterManager (29 test cases)
+- HistoryManager (32 test cases)
+- NotificationManager (36 test cases)
+- ThemeManager (42 test cases)
+- BookmarkCategory model (28 test cases)
+- UI tests for board list screen (14 test cases)
+
+See `TESTING_SUMMARY.md` and `TEST_STRUCTURE_ANALYSIS.md` for detailed test documentation.
 
 ## CI/CD Configuration
 
@@ -192,8 +257,9 @@ GitHub Actions workflow validates all pull requests:
 - **Workflow**: `.github/workflows/Xcode_build_PR.yml`
 - **Runner**: Self-hosted macstudio
 - **Target**: iPhone 16 Simulator (iOS 18.0)
-- **Process**: Auto-installs CocoaPods → Builds project → Posts errors to PR comments
+- **Process**: Auto-installs CocoaPods → Builds project → Runs tests → Posts errors to PR comments
 - **Artifacts**: Build logs uploaded with 7-day retention
+- **Note**: The Podfile is located in the project root directory
 
 ## Important Implementation Notes
 
@@ -217,3 +283,10 @@ FFmpeg is integrated via bridging header (`FFmpeg-Bridging-Header.h`) linking to
 
 ### Theming System
 `ThemeManager` singleton controls app-wide theming. Supports 6 built-in themes plus custom themes created via `ThemeEditorViewController`. Themes sync across devices via iCloud.
+
+### Thread Safety Considerations
+Some singleton managers (notably `FavoritesManager` and `NotificationManager`) handle concurrent access from multiple threads. When modifying these managers or creating new ones:
+- Use appropriate synchronization mechanisms (serial queues, locks, or actors)
+- Test concurrent operations (see existing test suite for examples with `DispatchQueue.concurrentPerform`)
+- Be aware that iCloud sync callbacks may arrive on background threads
+- UserDefaults operations should be coordinated to prevent race conditions
