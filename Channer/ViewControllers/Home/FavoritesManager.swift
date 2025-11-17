@@ -4,7 +4,7 @@ import SwiftyJSON
 import UIKit
 
 // Inline BookmarkCategory definition until files are added to project
-struct BookmarkCategory: Codable {
+struct BookmarkCategory: Codable, Equatable {
     let id: String
     var name: String
     var color: String  // Hex color string
@@ -23,15 +23,18 @@ struct BookmarkCategory: Codable {
 }
 
 class FavoritesManager {
-    
+
     // MARK: - Singleton Instance
     static let shared = FavoritesManager()
     private let favoritesKey = "favorites"
     private let categoriesKey = "bookmarkCategories"
-    
+
+    // MARK: - Thread Safety
+    private let syncQueue = DispatchQueue(label: "com.channer.favoritesmanager.sync", attributes: .concurrent)
+
     // MARK: - Category Properties
     private var categories: [BookmarkCategory] = []
-    
+
     init() {
         loadCategories()
         setupiCloudObserver()
@@ -119,19 +122,21 @@ class FavoritesManager {
     }
     
     func removeFavorite(threadNumber: String) {
-        var favorites = loadFavorites()
-        
-        // Find the favorite to get its board info before removing
-        if let favorite = favorites.first(where: { $0.number == threadNumber }) {
-            // Remove from offline cache
-            ThreadCacheManager.shared.removeFromCache(
-                boardAbv: favorite.boardAbv,
-                threadNumber: threadNumber
-            )
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+
+            // Find the favorite to get its board info before removing
+            if let favorite = favorites.first(where: { $0.number == threadNumber }) {
+                // Remove from offline cache
+                ThreadCacheManager.shared.removeFromCache(
+                    boardAbv: favorite.boardAbv,
+                    threadNumber: threadNumber
+                )
+            }
+
+            favorites.removeAll { $0.number == threadNumber }
+            self.saveFavorites(favorites)
         }
-        
-        favorites.removeAll { $0.number == threadNumber }
-        saveFavorites(favorites)
     }
     
     func isFavorited(threadNumber: String) -> Bool {
@@ -139,30 +144,36 @@ class FavoritesManager {
     }
     
     func updateFavorite(thread: ThreadData) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == thread.number }) {
-            favorites[index] = thread
-            saveFavorites(favorites)
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == thread.number }) {
+                favorites[index] = thread
+                self.saveFavorites(favorites)
+            }
         }
     }
     
     func markThreadHasNewReplies(threadNumber: String) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
-            var updatedThread = favorites[index]
-            updatedThread.hasNewReplies = true
-            favorites[index] = updatedThread
-            saveFavorites(favorites)
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
+                var updatedThread = favorites[index]
+                updatedThread.hasNewReplies = true
+                favorites[index] = updatedThread
+                self.saveFavorites(favorites)
+            }
         }
     }
     
     func clearNewRepliesFlag(threadNumber: String) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
-            var updatedThread = favorites[index]
-            updatedThread.hasNewReplies = false
-            favorites[index] = updatedThread
-            saveFavorites(favorites)
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
+                var updatedThread = favorites[index]
+                updatedThread.hasNewReplies = false
+                favorites[index] = updatedThread
+                self.saveFavorites(favorites)
+            }
         }
     }
     
@@ -236,13 +247,15 @@ class FavoritesManager {
     
     // MARK: - Additional Methods
     func markThreadAsSeen(threadID: String) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == threadID }) {
-            if let currentReplies = favorites[index].currentReplies {
-                favorites[index].replies = currentReplies
-                saveFavorites(favorites)
-            } else {
-                print("Error: currentReplies is nil for thread \(threadID).")
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == threadID }) {
+                if let currentReplies = favorites[index].currentReplies {
+                    favorites[index].replies = currentReplies
+                    self.saveFavorites(favorites)
+                } else {
+                    print("Error: currentReplies is nil for thread \(threadID).")
+                }
             }
         }
     }
@@ -325,18 +338,20 @@ class FavoritesManager {
     }
     
     func deleteCategory(id: String) {
-        // Move all threads from this category to the default category
-        var favorites = loadFavorites()
-        for i in 0..<favorites.count {
-            if favorites[i].categoryId == id {
-                favorites[i].categoryId = categories.first?.id
+        syncQueue.sync(flags: .barrier) {
+            // Move all threads from this category to the default category
+            var favorites = self.loadFavorites()
+            for i in 0..<favorites.count {
+                if favorites[i].categoryId == id {
+                    favorites[i].categoryId = self.categories.first?.id
+                }
             }
+            self.saveFavorites(favorites)
+
+            // Remove the category
+            self.categories.removeAll { $0.id == id }
+            self.saveCategories()
         }
-        saveFavorites(favorites)
-        
-        // Remove the category
-        categories.removeAll { $0.id == id }
-        saveCategories()
     }
     
     func getCategories() -> [BookmarkCategory] {
@@ -349,35 +364,43 @@ class FavoritesManager {
     
     // MARK: - Enhanced Favorite Management
     func addFavorite(_ favorite: ThreadData, to categoryId: String? = nil) {
-        print("=== addFavorite called ===")
-        print("Thread number: \(favorite.number)")
-        print("Board: \(favorite.boardAbv)")
-        print("Target category ID: \(categoryId ?? "nil")")
-        
-        var favorites = loadFavorites()
-        var newFavorite = favorite
-        newFavorite.categoryId = categoryId ?? categories.first?.id
-        
-        print("Actual category ID assigned: \(newFavorite.categoryId ?? "nil")")
-        
-        favorites.append(newFavorite)
-        saveFavorites(favorites)
-        
-        // Automatically cache the thread for offline reading
-        ThreadCacheManager.shared.cacheThread(
-            boardAbv: newFavorite.boardAbv,
-            threadNumber: newFavorite.number,
-            categoryId: newFavorite.categoryId
-        ) { success in
-            if success {
-                print("Thread automatically cached for offline reading")
-            } else {
-                print("Failed to cache thread for offline reading")
+        syncQueue.sync(flags: .barrier) {
+            print("=== addFavorite called ===")
+            print("Thread number: \(favorite.number)")
+            print("Board: \(favorite.boardAbv)")
+            print("Target category ID: \(categoryId ?? "nil")")
+            print("Thread: \(Thread.current)")
+
+            var favorites = self.loadFavorites()
+            print("Current favorites count before add: \(favorites.count)")
+
+            var newFavorite = favorite
+            newFavorite.categoryId = categoryId ?? self.categories.first?.id
+
+            print("Actual category ID assigned: \(newFavorite.categoryId ?? "nil")")
+
+            favorites.append(newFavorite)
+            print("Favorites count after append: \(favorites.count)")
+
+            self.saveFavorites(favorites)
+            print("Saved favorites. Final count: \(favorites.count)")
+
+            // Automatically cache the thread for offline reading
+            ThreadCacheManager.shared.cacheThread(
+                boardAbv: newFavorite.boardAbv,
+                threadNumber: newFavorite.number,
+                categoryId: newFavorite.categoryId
+            ) { success in
+                if success {
+                    print("Thread automatically cached for offline reading")
+                } else {
+                    print("Failed to cache thread for offline reading")
+                }
             }
+
+            print("Added favorite with category: \(newFavorite.categoryId ?? "nil")")
+            print("Total favorites after add: \(favorites.count)")
         }
-        
-        print("Added favorite with category: \(newFavorite.categoryId ?? "nil")")
-        print("Total favorites after add: \(favorites.count)")
     }
     
     func getFavorites(for categoryId: String? = nil) -> [ThreadData] {
@@ -395,46 +418,50 @@ class FavoritesManager {
     }
     
     func changeFavoriteCategory(threadNumber: String, to categoryId: String) {
-        var favorites = loadFavorites()
-        if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
-            let favorite = favorites[index]
-            favorites[index].categoryId = categoryId
-            saveFavorites(favorites)
-            
-            // Update cached thread category if it exists
-            ThreadCacheManager.shared.updateCachedThreadCategory(
-                boardAbv: favorite.boardAbv,
-                threadNumber: threadNumber,
-                categoryId: categoryId
-            )
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == threadNumber }) {
+                let favorite = favorites[index]
+                favorites[index].categoryId = categoryId
+                self.saveFavorites(favorites)
+
+                // Update cached thread category if it exists
+                ThreadCacheManager.shared.updateCachedThreadCategory(
+                    boardAbv: favorite.boardAbv,
+                    threadNumber: threadNumber,
+                    categoryId: categoryId
+                )
+            }
         }
     }
     
     private func migrateExistingFavorites() {
-        var favorites = loadFavorites()
-        var needsSave = false
-        
-        print("Migrating favorites. Found \(favorites.count) favorites")
-        print("First category ID: \(categories.first?.id ?? "none")")
-        
-        for i in 0..<favorites.count {
-            let currentCategoryId = favorites[i].categoryId
-            print("Thread \(favorites[i].number) current category: \(currentCategoryId ?? "nil")")
-            
-            if currentCategoryId == nil || currentCategoryId!.isEmpty {
-                favorites[i].categoryId = categories.first?.id
-                needsSave = true
-                print("Migrated thread \(favorites[i].number) to category \(favorites[i].categoryId ?? "nil")")
-            } else {
-                print("Thread \(favorites[i].number) already has category \(currentCategoryId ?? "nil")")
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            var needsSave = false
+
+            print("Migrating favorites. Found \(favorites.count) favorites")
+            print("First category ID: \(self.categories.first?.id ?? "none")")
+
+            for i in 0..<favorites.count {
+                let currentCategoryId = favorites[i].categoryId
+                print("Thread \(favorites[i].number) current category: \(currentCategoryId ?? "nil")")
+
+                if currentCategoryId == nil || currentCategoryId!.isEmpty {
+                    favorites[i].categoryId = self.categories.first?.id
+                    needsSave = true
+                    print("Migrated thread \(favorites[i].number) to category \(favorites[i].categoryId ?? "nil")")
+                } else {
+                    print("Thread \(favorites[i].number) already has category \(currentCategoryId ?? "nil")")
+                }
             }
-        }
-        
-        if needsSave {
-            saveFavorites(favorites)
-            print("Migration complete - saved favorites")
-        } else {
-            print("No migration needed")
+
+            if needsSave {
+                self.saveFavorites(favorites)
+                print("Migration complete - saved favorites")
+            } else {
+                print("No migration needed")
+            }
         }
     }
     

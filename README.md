@@ -1,7 +1,7 @@
 <div align="center">
   <img src="App Images/iOS/iOS-1.png" alt="Channer Logo" width="120">
   
-  # Channer v2.0
+  # Channer v2.2
   
   ### The Ultimate Image Board Client for iOS & iPadOS
   
@@ -27,7 +27,7 @@
 - 🌐 **Offline Support**: Browse cached threads without internet
 - ⚡ **Smart Features**: Advanced search, filtering, and organization tools
 
-## 🆕 What's New in v2.0
+## 🆕 What's New in v2.2
 
 ### Enhanced Organization & Sync
 
@@ -177,31 +177,9 @@
 
 ## 🚀 Installation
 
-### Option 1: AltStore (Recommended)
-
-Add our repository to AltStore for automatic updates:
-
-```
-https://newatlantisstudios.github.io/altstore-repo/altStoreApps.json
-```
-
-<details>
-<summary><b>AltStore Installation Steps</b></summary>
-
-1. Install [AltStore](https://altstore.io) on your device
-2. Open AltStore and go to **Browse** → **Sources**
-3. Tap **+** and add the repository URL above
-4. Find Channer in the store and tap **Install**
-5. Enjoy automatic updates!
-</details>
-
-### Option 2: Direct IPA
+### Direct IPA
 
 Download the latest IPA from our [Releases](https://github.com/yourusername/Channer/releases) page.
-
-### Option 3: TestFlight
-
-[Join our TestFlight beta](https://testflight.apple.com/join/XXXXXXXX) for early access to new features.
 
 ## 🔨 Building from Source
 
@@ -303,11 +281,6 @@ Found a bug or have a feature idea? [Open an issue](https://github.com/yourusern
 - [Theme Creation](DEVELOPMENT_PLAN.md)
 - [API Reference](docs/API.md)
 
-## 📞 Support
-
-- 📧 Email: support@channer.app
-- 💬 Discord: [Join our server](https://discord.gg/XXXXXX)
-- 🐦 Twitter: [@ChannerApp](https://twitter.com/ChannerApp)
 
 ## 🙏 Acknowledgments
 
@@ -322,7 +295,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <b>Channer v2.0</b><br>
+  <b>Channer v2.2</b><br>
   Made with ❤️ for the iOS community<br>
   <br>
   <a href="https://github.com/yourusername/Channer/stargazers">⭐ Star us on GitHub!</a>

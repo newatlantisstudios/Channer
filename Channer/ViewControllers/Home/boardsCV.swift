@@ -165,7 +165,11 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
         let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
         let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
-        
+        settingsButton.accessibilityLabel = "Settings"
+        settingsButton.accessibilityIdentifier = "Settings"
+
+        print("[DEBUG] Settings button created with accessibility label and identifier: 'Settings'")
+
         // Set both buttons as right bar button items
         navigationItem.rightBarButtonItems = [settingsButton, notificationButton]
         
