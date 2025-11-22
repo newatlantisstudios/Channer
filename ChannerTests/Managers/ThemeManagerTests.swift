@@ -63,6 +63,14 @@ class ThemeManagerTests: XCTestCase {
         XCTAssertEqual(sut.currentTheme.name, "OLED")
     }
 
+    func testSetThemeUpdatesCurrentTheme() {
+        // When
+        sut.setTheme(id: "sepia")
+
+        // Then
+        XCTAssertEqual(sut.currentTheme.id, "sepia")
+    }
+
     func testSetInvalidThemeDoesNothing() {
         // Given
         let initialTheme = sut.currentTheme
@@ -268,6 +276,17 @@ class ThemeManagerTests: XCTestCase {
 
         // Verify OLED has true black for dark mode
         XCTAssertEqual(oledTheme.backgroundColor.dark, "#000000")
+    }
+
+    func testDefaultThemeUsesResolvedSystemColors() {
+        let lightTrait = UITraitCollection(userInterfaceStyle: .light)
+        let darkTrait = UITraitCollection(userInterfaceStyle: .dark)
+        let theme = Theme.default
+
+        XCTAssertEqual(theme.backgroundColor.light, UIColor.systemBackground.resolvedColor(with: lightTrait).hexString)
+        XCTAssertEqual(theme.secondaryBackgroundColor.light, UIColor.secondarySystemBackground.resolvedColor(with: lightTrait).hexString)
+        XCTAssertEqual(theme.alertColor.light, UIColor.systemRed.resolvedColor(with: lightTrait).hexString)
+        XCTAssertEqual(theme.alertColor.dark, UIColor.systemRed.resolvedColor(with: darkTrait).hexString)
     }
 
     // MARK: - ColorSet Tests

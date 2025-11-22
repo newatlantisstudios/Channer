@@ -94,6 +94,12 @@ struct Theme: Codable, Equatable {
     // Spoiler Colors
     var spoilerTextColor: ColorSet
     var spoilerBackgroundColor: ColorSet
+
+    /// Resolve a potentially dynamic system color to a concrete hex string for a specific interface style.
+    private static func resolvedHexString(for color: UIColor, style: UIUserInterfaceStyle) -> String {
+        let traitCollection = UITraitCollection(userInterfaceStyle: style)
+        return color.resolvedColor(with: traitCollection).hexString
+    }
     
     /// Creates a default theme with the app's original colors
     static var `default`: Theme {
@@ -102,11 +108,11 @@ struct Theme: Codable, Equatable {
             name: "Default",
             isBuiltIn: true,
             backgroundColor: ColorSet(
-                light: UIColor.systemBackground.hexString,
+                light: resolvedHexString(for: .systemBackground, style: .light),
                 dark: UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1.0).hexString
             ),
             secondaryBackgroundColor: ColorSet(
-                light: UIColor.secondarySystemBackground.hexString,
+                light: resolvedHexString(for: .secondarySystemBackground, style: .light),
                 dark: UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1.0).hexString
             ),
             cellBackgroundColor: ColorSet(
@@ -130,8 +136,8 @@ struct Theme: Codable, Equatable {
                 dark: UIColor(red: 140/255, green: 183/255, blue: 54/255, alpha: 1.0).hexString
             ),
             alertColor: ColorSet(
-                light: UIColor.systemRed.hexString,
-                dark: UIColor.systemRed.hexString
+                light: resolvedHexString(for: .systemRed, style: .light),
+                dark: resolvedHexString(for: .systemRed, style: .dark)
             ),
             spoilerTextColor: ColorSet(
                 light: UIColor.black.hexString,
