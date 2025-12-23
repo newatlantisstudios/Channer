@@ -803,10 +803,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Configure the popover presentation controller for iPad or SplitView
         if let popover = actionSheet.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) })
-            popover.sourceView = self.view
-            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
+            if let barButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) }) {
+                popover.barButtonItem = barButton
+                popover.permittedArrowDirections = .up
+            } else {
+                popover.sourceView = self.view
+                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
         }
         
         // Present the action sheet
@@ -949,7 +953,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Set up image if present
             if hasImage {
                 print("🔄 CELL: Cell \(indexPath.row) has image, calling configureImage")
-                configureImage(for: cell, with: imageUrl)
+                configureImage(for: cell, with: imageUrl, at: indexPath)
                 
                 // Prepare cell for hover interaction
                 if #available(iOS 13.4, *) {
@@ -1596,21 +1600,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // MARK: - Image Handling Methods
     /// Methods to handle image loading and interactions
-    private func configureImage(for cell: threadRepliesCell, with imageUrl: String) {
+    private func configureImage(for cell: threadRepliesCell, with imageUrl: String, at indexPath: IndexPath? = nil) {
         print("Debug: Starting image configuration for URL: \(imageUrl)")
-        
+
         // During scrolling, use velocity-based loading strategy
         if isScrolling {
             let shouldLoadDuringScroll = abs(lastScrollVelocity) < 800 || currentScrollLoads < maxConcurrentScrollLoads
-            
+
             print("🖼️ IMAGE: isScrolling=\(isScrolling), velocity=\(lastScrollVelocity), currentLoads=\(currentScrollLoads)/\(maxConcurrentScrollLoads), shouldLoad=\(shouldLoadDuringScroll)")
-            
+
             if shouldLoadDuringScroll {
                 print("🖼️ IMAGE: Loading during scroll: \(imageUrl)")
                 loadImageDuringScroll(for: cell, with: imageUrl)
             } else {
                 print("🖼️ IMAGE: Deferring image load during fast scroll for: \(imageUrl)")
-                cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                cell.threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                // Track this cell for loading after scrolling ends
+                if let indexPath = indexPath {
+                    pendingImageLoads.insert(indexPath)
+                    print("🖼️ IMAGE: Added indexPath \(indexPath.row) to pendingImageLoads")
+                }
             }
             return
         }
@@ -2952,12 +2961,15 @@ extension threadRepliesTV {
             .backgroundDecode,
             .callbackQueue(.mainAsync)
         ]
-        
-        // Set placeholder
-        cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
-        
-        // Use setBackgroundImage like normal loading
-        cell.threadImage.kf.setBackgroundImage(
+
+        // Configure button's imageView for proper aspect fill scaling (same as normal loading)
+        cell.threadImage.imageView?.contentMode = .scaleAspectFill
+        cell.threadImage.imageView?.clipsToBounds = true
+        cell.threadImage.contentHorizontalAlignment = .fill
+        cell.threadImage.contentVerticalAlignment = .fill
+
+        // Use setImage like normal loading (not setBackgroundImage)
+        cell.threadImage.kf.setImage(
             with: url,
             for: .normal,
             placeholder: UIImage(named: "loadingBoardImage"),
@@ -2965,13 +2977,12 @@ extension threadRepliesTV {
             completionHandler: { [weak self] result in
                 let newCount = max(0, (self?.currentScrollLoads ?? 1) - 1)
                 self?.currentScrollLoads = newCount
-                
+
                 switch result {
                 case .success:
                     print("✅ LOAD: Completed scroll load, remaining: \(newCount)")
-                    // Clear any overlay image like normal loading
                     DispatchQueue.main.async {
-                        cell.threadImage.setImage(nil, for: .normal)
+                        cell.setNeedsLayout()
                     }
                 case .failure(let error):
                     print("❌ LOAD: Failed scroll load: \(error), remaining: \(newCount)")

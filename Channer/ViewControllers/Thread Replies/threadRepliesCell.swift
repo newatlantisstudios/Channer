@@ -157,6 +157,10 @@ class threadRepliesCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         removeHoverPreview()
+        // Cancel any in-flight image downloads to prevent race conditions
+        threadImage.kf.cancelImageDownloadTask()
+        threadImage.setImage(nil, for: .normal)
+        imageURL = nil
     }
     
     // Update UI when trait collection changes (light/dark mode)
@@ -510,21 +514,9 @@ class threadRepliesCell: UITableViewCell {
     }
     
     func setImageURL(_ url: String?) {
-        print("threadRepliesCell - setImageURL called with: \(url ?? "nil")")
+        // Only store the URL for later use (tap actions, hover preview)
+        // Image loading is handled by configureImage in threadRepliesTV
         self.imageURL = url
-        
-        if let url = url, let imageURL = URL(string: url) {
-            print("threadRepliesCell - Loading image from URL")
-            threadImage.kf.setImage(with: imageURL, for: .normal, placeholder: UIImage(named: "loadingBoardImage"))
-        } else {
-            print("threadRepliesCell - Setting placeholder image")
-            threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
-        }
-        
-        // Remove any border from image
-        if !threadImage.isHidden {
-            threadImage.layer.borderWidth = 0.0
-        }
     }
     
     // Handle tap on the preview overlay to dismiss it
