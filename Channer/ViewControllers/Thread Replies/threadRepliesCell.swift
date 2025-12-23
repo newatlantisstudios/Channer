@@ -225,6 +225,11 @@ class threadRepliesCell: UITableViewCell {
     }
 
     private func setupConstraints() {
+        // Border width + padding to keep content inside the border
+        // Account for the large corner radius (39pt) - content near corners needs more inset
+        let cornerInset: CGFloat = 18  // Inset for corners (top-left, top-right, bottom corners)
+        let sideInset: CGFloat = 14    // Inset for sides (where corner doesn't affect as much)
+
         // Common constraints
         NSLayoutConstraint.activate([
             customBackgroundView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
@@ -234,20 +239,20 @@ class threadRepliesCell: UITableViewCell {
 
             threadImage.widthAnchor.constraint(equalToConstant: 120),
             threadImage.heightAnchor.constraint(equalToConstant: 120),
-            threadImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 12),
-            threadImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 28),
+            threadImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: sideInset),
+            threadImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 32),
 
-            boardReplyCount.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 16),
-            boardReplyCount.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
+            boardReplyCount.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
+            boardReplyCount.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
 
             thread.widthAnchor.constraint(equalToConstant: 40),
             thread.heightAnchor.constraint(equalToConstant: 40),
-            thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -12),
-            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -12),
-            
+            thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -sideInset),
+            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -sideInset),
+
             // Filter badge constraints
-            filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
-            filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -8),
+            filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
+            filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
             filterBadge.widthAnchor.constraint(equalToConstant: 80),
             filterBadge.heightAnchor.constraint(equalToConstant: 24)
         ])
@@ -263,16 +268,16 @@ class threadRepliesCell: UITableViewCell {
         replyTextWithImageConstraints = [
             replyText.leadingAnchor.constraint(equalTo: threadImage.trailingAnchor, constant: 8),
             replyText.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
-            replyText.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -16),
-            replyText.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -16)
+            replyText.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            replyText.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
         ]
 
         // Constraints for replyText without image
         replyTextNoImageConstraints = [
-            replyTextNoImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 12),
+            replyTextNoImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
             replyTextNoImage.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
-            replyTextNoImage.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -16),
-            replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -16)
+            replyTextNoImage.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
         ]
     }
 
