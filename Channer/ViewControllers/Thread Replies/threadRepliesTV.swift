@@ -1687,7 +1687,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         print("Debug: Set full image URL for tap action: \(imageUrl)")
         
         // Load image with Kingfisher using the same style as catalog view
-        // Use device corner radius for consistent look
+        // Use device corner radius to match board thread thumbnails
         let deviceCornerRadius: CGFloat
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
@@ -1710,7 +1710,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         print("Debug: Loading image with URL: \(url)")
         
-        cell.threadImage.kf.setBackgroundImage(
+        // Configure button's imageView for proper aspect fill scaling (like board view)
+        cell.threadImage.imageView?.contentMode = .scaleAspectFill
+        cell.threadImage.imageView?.clipsToBounds = true
+        cell.threadImage.contentHorizontalAlignment = .fill
+        cell.threadImage.contentVerticalAlignment = .fill
+
+        cell.threadImage.kf.setImage(
             with: url,
             for: .normal,
             placeholder: UIImage(named: "loadingBoardImage"),
@@ -1724,10 +1730,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     } else {
                         print("Debug: Image size: \(value.image.size)")
                     }
-                    
-                    // Avoid forcing table re-layout on each image completion; also clear any overlay image
+
+                    // Ensure proper layout after image loads
                     DispatchQueue.main.async {
-                        cell.threadImage.setImage(nil, for: .normal)
                         cell.setNeedsLayout()
                     }
                 case .failure(let error):
@@ -1742,15 +1747,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         if let fallbackUrl = URL(string: jpgUrl) {
                             // Use main thread for UI updates to avoid actor isolation errors
                             DispatchQueue.main.async {
-                                cell.threadImage.kf.setBackgroundImage(
+                                cell.threadImage.kf.setImage(
                                     with: fallbackUrl,
                                     for: .normal,
                                     placeholder: UIImage(named: "loadingBoardImage"),
-                                    options: options,
-                                    completionHandler: { _ in
-                                        // Ensure any overlay image is cleared once background loads
-                                        cell.threadImage.setImage(nil, for: .normal)
-                                    })
+                                    options: options)
                             }
                         }
                     }
