@@ -468,20 +468,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
+
         navigationController?.navigationBar.isHidden = false
-        
-        // Ensure navigation bar is properly configured
-        navigationController?.navigationBar.isTranslucent = true
-        navigationController?.navigationBar.backgroundColor = ThemeManager.shared.backgroundColor
-        
+
         // Ensure view is visible
         view.isHidden = false
         tableView.isHidden = false
-        
+
         // Update search bar appearance
         updateSearchBarAppearance()
-        
+
         // Restart auto-refresh timer when view appears
         setupAutoRefreshTimer()
     }
@@ -584,17 +580,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Clear background colors
         view.backgroundColor = ThemeManager.shared.backgroundColor
         tableView.backgroundColor = ThemeManager.shared.backgroundColor
-        
+
         // Configure table view
         tableView.separatorStyle = .none
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172
-        
-        // Ensure proper view hierarchy
-        if let navigationBar = navigationController?.navigationBar {
-            navigationBar.isTranslucent = true
-            navigationBar.barTintColor = .systemBackground
-        }
     }
     
     private func configureInitialUI() {
