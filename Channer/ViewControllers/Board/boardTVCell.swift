@@ -212,6 +212,11 @@ class boardTVCell: UITableViewCell {
                 $0.translatesAutoresizingMaskIntoConstraints = false
             }
 
+            // Border width + padding to keep content inside the border
+            // Account for the large corner radius (39pt) - content near corners needs more inset
+            let borderInset: CGFloat = 14
+            let trailingInset: CGFloat = 20  // Extra inset on trailing edge for rounded corner
+
                 NSLayoutConstraint.activate([
                     // Custom Background View
                     customBackgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 7),
@@ -220,35 +225,35 @@ class boardTVCell: UITableViewCell {
                     customBackgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6), // Adjusted for 5px padding
                     customBackgroundView.heightAnchor.constraint(equalToConstant: 166), // Fixed height
 
-                    // Topic Image
-                    topicImage.leadingAnchor.constraint(equalTo: contentView.layoutMarginsGuide.leadingAnchor, constant: 2),
-                    topicImage.topAnchor.constraint(equalTo: contentView.layoutMarginsGuide.topAnchor, constant: 4),
+                    // Topic Image - constrained to customBackgroundView with border inset
+                    topicImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: borderInset),
+                    topicImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: borderInset),
                     topicImage.widthAnchor.constraint(equalToConstant: 120),
                     topicImage.heightAnchor.constraint(equalToConstant: 120),
 
                     // Topic Stats (positioned lower to avoid border)
-                    topicStats.centerXAnchor.constraint(equalTo: topicImage.centerXAnchor, constant: 1),
-                    topicStats.topAnchor.constraint(equalTo: topicImage.bottomAnchor, constant: 8),
+                    topicStats.centerXAnchor.constraint(equalTo: topicImage.centerXAnchor),
+                    topicStats.topAnchor.constraint(equalTo: topicImage.bottomAnchor, constant: 4),
                     topicStats.widthAnchor.constraint(equalToConstant: 120),
                     topicStats.heightAnchor.constraint(equalToConstant: 21),
 
-                    // Topic Title (when visible)
+                    // Topic Title (when visible) - constrained to customBackgroundView
                     topicTitle.leadingAnchor.constraint(equalTo: topicImage.trailingAnchor, constant: 8),
-                    topicTitle.trailingAnchor.constraint(equalTo: contentView.layoutMarginsGuide.trailingAnchor),
-                    topicTitle.topAnchor.constraint(equalTo: contentView.layoutMarginsGuide.topAnchor, constant: 4),
+                    topicTitle.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -trailingInset),
+                    topicTitle.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: borderInset),
                     topicTitle.heightAnchor.constraint(greaterThanOrEqualToConstant: 17),
 
-                    // Topic Text Title (when title is present)
+                    // Topic Text Title (when title is present) - constrained to customBackgroundView
                     topicTextTitle.leadingAnchor.constraint(equalTo: topicImage.trailingAnchor, constant: 8),
-                    topicTextTitle.trailingAnchor.constraint(equalTo: contentView.layoutMarginsGuide.trailingAnchor),
-                    topicTextTitle.topAnchor.constraint(equalTo: topicTitle.bottomAnchor, constant: 8),
-                    topicTextTitle.bottomAnchor.constraint(equalTo: contentView.layoutMarginsGuide.bottomAnchor, constant: -9),
+                    topicTextTitle.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -trailingInset),
+                    topicTextTitle.topAnchor.constraint(equalTo: topicTitle.bottomAnchor, constant: 4),
+                    topicTextTitle.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -borderInset),
 
-                    // Topic Text No Title (when no title)
+                    // Topic Text No Title (when no title) - constrained to customBackgroundView
                     topicTextNoTitle.leadingAnchor.constraint(equalTo: topicImage.trailingAnchor, constant: 8),
-                    topicTextNoTitle.trailingAnchor.constraint(equalTo: contentView.layoutMarginsGuide.trailingAnchor),
-                    topicTextNoTitle.topAnchor.constraint(equalTo: contentView.layoutMarginsGuide.topAnchor, constant: 4),
-                    topicTextNoTitle.bottomAnchor.constraint(equalTo: contentView.layoutMarginsGuide.bottomAnchor, constant: -9)
+                    topicTextNoTitle.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -trailingInset),
+                    topicTextNoTitle.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: borderInset),
+                    topicTextNoTitle.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -borderInset)
                 ])
         }
     
