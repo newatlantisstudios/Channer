@@ -10,7 +10,7 @@ class threadRepliesCell: UITableViewCell {
     // MARK: - UI Components
     let threadImage: UIButton = {
         let button = UIButton()
-        // Use device corner radius for consistency with threads view
+        // Use device corner radius to match board thread thumbnails
         let deviceCornerRadius: CGFloat
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
