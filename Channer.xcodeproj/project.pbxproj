@@ -58,6 +58,7 @@
 		9857759C52EA1EFB8C79A9D8 /* XCTestCase+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */; };
 		98BDC7A15A899A1D32E5E8B7 /* Pods_Channer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B63F7130D81402B81D46DF87 /* Pods_Channer.framework */; };
 		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
+		9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */; };
 		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		A99069598E571715C5D821E8 /* BookmarkCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E195CC9FDB0228531243ED10 /* BookmarkCategoryTests.swift */; };
 		B65284C13704B5B149CF6B14 /* TestDataFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C335E2377BA19B313347A8C /* TestDataFactory.swift */; };
@@ -149,6 +150,7 @@
 		92384100D50DF2DC8905F7E0 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationManagerTests.swift; path = Managers/NotificationManagerTests.swift; sourceTree = "<group>"; };
 		930A59DEF14FCD71EB822C30 /* Pods-ChannerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ChannerTests.release.xcconfig"; path = "Target Support Files/Pods-ChannerTests/Pods-ChannerTests.release.xcconfig"; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchedPostsManager.swift; sourceTree = "<group>"; };
 		9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "XCTestCase+Helpers.swift"; path = "Helpers/XCTestCase+Helpers.swift"; sourceTree = "<group>"; };
 		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
 		B63F7130D81402B81D46DF87 /* Pods_Channer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Channer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -203,6 +205,7 @@
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
 				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
 				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
+				9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
 			);
 			path = Utilities;
@@ -651,6 +654,7 @@
 				171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */,
 				171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */,
 				9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */,
+				9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */,
 				9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */,
 				170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */,
 				178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */,

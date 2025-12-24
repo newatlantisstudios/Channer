@@ -1242,9 +1242,28 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Apply additional content filtering
         applyContentFiltering()
-        
+
         // Finalize thread structure
         structureThreadReplies()
+
+        // Check for new replies to watched posts
+        checkWatchedPostsForNewReplies()
+    }
+
+    /// Checks watched posts for new replies and creates notifications
+    private func checkWatchedPostsForNewReplies() {
+        guard !threadNumber.isEmpty, !boardAbv.isEmpty else { return }
+
+        let newRepliesCount = WatchedPostsManager.shared.checkForNewReplies(
+            threadNo: threadNumber,
+            boardAbv: boardAbv,
+            threadReplies: threadReplies,
+            replyNumbers: threadBoardReplyNumber
+        )
+
+        if newRepliesCount > 0 {
+            print("Found \(newRepliesCount) new replies to watched posts")
+        }
     }
     
     private func processPost(_ post: JSON, index: Int) {
@@ -2013,22 +2032,30 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Shows action sheet for a long-pressed cell
     private func showCellActionSheet(for indexPath: IndexPath) {
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        
+
+        // Watch for replies option
+        let postNo = threadBoardReplyNumber[indexPath.row]
+        let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
+        let watchTitle = isWatching ? "Stop Watching for Replies" : "Watch for Replies"
+        actionSheet.addAction(UIAlertAction(title: watchTitle, style: .default, handler: { _ in
+            self.toggleWatchForReplies(at: indexPath.row)
+        }))
+
         // Filter this reply option
         actionSheet.addAction(UIAlertAction(title: "Filter This Reply", style: .default, handler: { _ in
             self.toggleFilterForReply(at: indexPath.row)
         }))
-        
+
         // Filter similar replies option
         actionSheet.addAction(UIAlertAction(title: "Filter Similar Content", style: .default, handler: { _ in
             self.filterSimilarContent(to: indexPath.row)
         }))
-        
+
         // Add extract keywords option
         actionSheet.addAction(UIAlertAction(title: "Extract Keywords to Filter", style: .default, handler: { _ in
             self.extractKeywords(from: indexPath.row)
         }))
-        
+
         // Add cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
@@ -2046,7 +2073,53 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         present(actionSheet, animated: true)
     }
-    
+
+    /// Toggles watching for replies on a specific post
+    private func toggleWatchForReplies(at index: Int) {
+        guard index < threadBoardReplyNumber.count else { return }
+
+        let postNo = threadBoardReplyNumber[index]
+        let isCurrentlyWatching = WatchedPostsManager.shared.isWatching(
+            postNo: postNo,
+            threadNo: threadNumber,
+            boardAbv: boardAbv
+        )
+
+        if isCurrentlyWatching {
+            // Stop watching
+            WatchedPostsManager.shared.unwatchPost(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
+            showToast(message: "Stopped watching post #\(postNo)")
+        } else {
+            // Start watching - collect existing replies to this post
+            var existingReplies: [String] = []
+            for (i, reply) in threadReplies.enumerated() {
+                guard i < threadBoardReplyNumber.count else { continue }
+                if reply.string.contains(">>\(postNo)") && threadBoardReplyNumber[i] != postNo {
+                    existingReplies.append(threadBoardReplyNumber[i])
+                }
+            }
+
+            let postText = index < threadReplies.count ? threadReplies[index].string : ""
+            WatchedPostsManager.shared.watchPost(
+                boardAbv: boardAbv,
+                threadNo: threadNumber,
+                postNo: postNo,
+                postText: postText,
+                existingReplies: existingReplies
+            )
+            showToast(message: "Watching post #\(postNo) for new replies")
+        }
+    }
+
+    /// Shows a brief toast message
+    private func showToast(message: String) {
+        let toast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        present(toast, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            toast.dismiss(animated: true)
+        }
+    }
+
     /// Shows filter options in an action sheet
     @objc private func showFilterOptions() {
         let filterAlert = UIAlertController(title: "Filter Options", message: "Select filter action", preferredStyle: .alert)

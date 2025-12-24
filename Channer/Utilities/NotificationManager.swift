@@ -40,6 +40,10 @@ class NotificationManager {
             object: nil
         )
     }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
     
     // MARK: - Notification Management
     
