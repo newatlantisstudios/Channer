@@ -177,26 +177,49 @@ class SearchViewController: UIViewController {
     
     private func searchAllBoards(query: String) {
         let boards = BoardsService.shared.boardAbv
-        
+
+        // Handle case where boards haven't loaded yet
+        guard !boards.isEmpty else {
+            loadingIndicator.stopAnimating()
+            isSearching = false
+            let emptyLabel = UILabel()
+            emptyLabel.text = "Loading boards... Please try again."
+            emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
+            emptyLabel.textAlignment = .center
+            emptyLabel.font = .systemFont(ofSize: 16)
+            tableView.backgroundView = emptyLabel
+            // Trigger boards fetch for next attempt
+            BoardsService.shared.fetchBoards()
+            return
+        }
+
+        // Use a thread-safe approach with a serial queue for collecting results
+        let resultsQueue = DispatchQueue(label: "com.channer.searchResults")
         var allResults: [ThreadData] = []
         let searchGroup = DispatchGroup()
-        
+
+        // Add to search history once for the all-boards search
+        SearchManager.shared.addToHistory(query, boardAbv: nil)
+
         for board in boards {
             searchGroup.enter()
-            SearchManager.shared.performSearch(query: query, boardAbv: board) { results in
-                DispatchQueue.main.async {
+            SearchManager.shared.searchBoard(board: board, query: query) { results in
+                resultsQueue.async {
                     allResults.append(contentsOf: results)
                     searchGroup.leave()
                 }
             }
         }
-        
+
         searchGroup.notify(queue: .main) { [weak self] in
+            // Read results safely
+            let finalResults = resultsQueue.sync { allResults }
+
             self?.loadingIndicator.stopAnimating()
-            self?.searchResults = allResults.sorted { $0.replies > $1.replies } // Sort by popularity
+            self?.searchResults = finalResults.sorted { $0.replies > $1.replies } // Sort by popularity
             self?.isSearching = false
-            
-            if allResults.isEmpty {
+
+            if finalResults.isEmpty {
                 let emptyLabel = UILabel()
                 emptyLabel.text = "No results found"
                 emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
@@ -206,7 +229,7 @@ class SearchViewController: UIViewController {
             } else {
                 self?.tableView.backgroundView = nil
             }
-            
+
             self?.tableView.reloadData()
         }
     }
@@ -231,12 +254,15 @@ extension SearchViewController: UITableViewDataSource {
         cell.textLabel?.text = result.title.isEmpty ? "Thread #\(result.number)" : result.title
         cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
         
-        // Show stats and first bit of content
+        // Show stats and first bit of content - strip HTML tags and decode entities
         let preview = result.comment
-            .replacingOccurrences(of: "<br>", with: " ")
+            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "&#039;", with: "'")
+            .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "&gt;", with: ">")
             .replacingOccurrences(of: "&lt;", with: "<")
             .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let shortPreview = String(preview.prefix(100))
         
