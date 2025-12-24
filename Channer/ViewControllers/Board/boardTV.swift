@@ -280,15 +280,19 @@ class boardTV: UITableViewController, UISearchBarDelegate {
                 tableView.addGestureRecognizer(longPressGesture)
         } else if isHistoryView {
             self.title = "History"
-            
+
+            // Add long-press gesture recognizer for deleting history items
+            let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+            tableView.addGestureRecognizer(longPressGesture)
+
             // Add "Clear All" button with resized image
             let clearAllImage = UIImage(named: "clearAll")?.withRenderingMode(.alwaysTemplate)
             let resizedClearAllImage = clearAllImage?.resized(to: CGSize(width: 22, height: 22))
             let clearAllButton = UIBarButtonItem(image: resizedClearAllImage, style: .plain, target: self, action: #selector(clearAllHistory))
-            
+
             // Add "Clear All" button to the right side
             navigationItem.rightBarButtonItem = clearAllButton
-            
+
             // Verify and remove invalid history
             HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
                 self.threadData = updatedHistory
