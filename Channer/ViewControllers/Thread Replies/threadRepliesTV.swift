@@ -471,6 +471,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         navigationController?.navigationBar.isHidden = false
 
+        // Restore navigation bar appearance from theme when returning from media viewers
+        // Media viewers (WebMViewController, ImageViewController, urlWeb) set black nav bar
+        // and reset to "default" which doesn't match the app's theme
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.backgroundColor = ThemeManager.shared.backgroundColor
+        appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
+
+        // Animate the navigation bar color transition
+        if let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: { _ in
+                self.navigationController?.navigationBar.standardAppearance = appearance
+                self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                self.navigationController?.navigationBar.compactAppearance = appearance
+                self.navigationController?.navigationBar.isTranslucent = true
+                self.navigationController?.navigationBar.tintColor = nil
+            }, completion: nil)
+        } else {
+            // Fallback if no transition coordinator (e.g., not during navigation)
+            UIView.animate(withDuration: 0.3) {
+                self.navigationController?.navigationBar.standardAppearance = appearance
+                self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                self.navigationController?.navigationBar.compactAppearance = appearance
+                self.navigationController?.navigationBar.isTranslucent = true
+                self.navigationController?.navigationBar.tintColor = nil
+            }
+        }
+
         // Ensure view is visible
         view.isHidden = false
         tableView.isHidden = false
