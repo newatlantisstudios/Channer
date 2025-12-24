@@ -49,7 +49,17 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     private func setupUI() {
         view.backgroundColor = ThemeManager.shared.backgroundColor
         title = "Favorites"
-        
+
+        // Add manage categories button to navigation bar
+        let manageButton = UIBarButtonItem(
+            image: UIImage(systemName: "folder.badge.gearshape"),
+            style: .plain,
+            target: self,
+            action: #selector(showCategoryManager)
+        )
+        manageButton.accessibilityLabel = "Manage Categories"
+        navigationItem.rightBarButtonItem = manageButton
+
         // Setup search controller
         searchController = UISearchController(searchResultsController: nil)
         searchController.searchResultsUpdater = self
@@ -57,7 +67,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         searchController.searchBar.placeholder = "Search favorites..."
         searchController.searchBar.barTintColor = ThemeManager.shared.backgroundColor
         searchController.searchBar.tintColor = UIColor(hex: "#59a03b") ?? .systemGreen
-        
+
         // Add search bar to navigation item
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
@@ -147,8 +157,16 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         print("=== segmentChanged called ===")
         print("Selected index: \(selectedIndex)")
         print("Available categories: \(categories.count)")
-        
+
         updateFavoritesDisplay()
+    }
+
+    @objc private func showCategoryManager() {
+        let categoryManagerVC = CategoryManagerViewController()
+        categoryManagerVC.delegate = self
+        let navController = UINavigationController(rootViewController: categoryManagerVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
     }
     
     // MARK: - CategoryManagerDelegate
