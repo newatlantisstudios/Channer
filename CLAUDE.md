@@ -10,14 +10,14 @@ Channer is a native iOS/iPadOS image board client using Swift, UIKit, and MVC ar
 
 - **Platform**: iOS/iPadOS 15.6+ (platform target 18.0)
 - **Language**: Swift 5.0+
-- **Build System**: Xcode with CocoaPods
-- **Workspace**: Always use `Channer.xcworkspace`, NOT `Channer.xcodeproj`
+- **Build System**: Xcode with Swift Package Manager
+- **Workspace**: Use `Channer.xcworkspace` or `Channer.xcodeproj`
 
 ## Build Commands
 
 ```bash
-# Install dependencies and open workspace
-pod install && open Channer.xcworkspace
+# Open workspace (SPM packages resolve automatically)
+open Channer.xcworkspace
 
 # Build scripts
 ./build.sh                    # Simple build with xcbeautify
@@ -81,10 +81,10 @@ Some models are defined inline within view controller files:
 
 ## Key Dependencies
 
-- **Alamofire** + **SwiftyJSON**: Networking and JSON parsing
-- **Kingfisher**: Async image loading and caching
-- **VLCKit** (4.0.0a6): Downloaded video playback only
-- **FFmpeg**: Via bridging header (`FFmpeg-Bridging-Header.h`), NOT via CocoaPods
+- **Alamofire** + **SwiftyJSON**: Networking and JSON parsing (via Swift Package Manager)
+- **Kingfisher**: Async image loading and caching (via Swift Package Manager)
+- **VLCKit** (4.0.0a6): Downloaded video playback only (local XCFramework in `Frameworks/`)
+- **FFmpeg**: Via bridging header (`FFmpeg-Bridging-Header.h`), NOT via package manager
 
 ## Important Implementation Notes
 
