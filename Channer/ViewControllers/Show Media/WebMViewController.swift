@@ -19,7 +19,15 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private var isMuted: Bool = true
     /// Timer to monitor playback position and force loop at end
     private var loopCheckTimer: Timer?
-    
+    /// Timer to update seek bar position
+    private var seekBarUpdateTimer: Timer?
+    /// Flag to prevent seek bar updates while user is dragging
+    private var isSeeking: Bool = false
+    /// Timestamp of last seek to prevent slider snap-back
+    private var lastSeekTime: Date?
+    /// Cached actual duration calculated from position/time (for videos with incorrect metadata)
+    private var calculatedDurationMs: Int32 = 0
+
     // MARK: - UI Elements
     /// The view that displays the video content.
     private lazy var videoView: UIView = {
@@ -39,11 +47,56 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         print("🎵 DEBUG: WebMViewController - VLC Player created")
         print("🎵 DEBUG: WebMViewController - Initial Audio Muted: \(player.audio?.isMuted ?? false)")
         print("🎵 DEBUG: WebMViewController - Initial Audio Volume: \(player.audio?.volume ?? -1)")
-        
+
         return player
     }()
-    
-    
+
+    /// Container view for seek bar controls
+    private lazy var seekBarContainer: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        return view
+    }()
+
+    /// Seek bar slider
+    private lazy var seekBar: UISlider = {
+        let slider = UISlider()
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.minimumValue = 0
+        slider.maximumValue = 1
+        slider.value = 0
+        slider.minimumTrackTintColor = .white
+        slider.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
+        slider.thumbTintColor = .white
+        slider.addTarget(self, action: #selector(seekBarValueChanged(_:)), for: .valueChanged)
+        slider.addTarget(self, action: #selector(seekBarTouchDown(_:)), for: .touchDown)
+        slider.addTarget(self, action: #selector(seekBarTouchUp(_:)), for: [.touchUpInside, .touchUpOutside])
+        return slider
+    }()
+
+    /// Current time label
+    private lazy var currentTimeLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = .white
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        label.text = "0:00"
+        label.textAlignment = .left
+        return label
+    }()
+
+    /// Duration label
+    private lazy var durationLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = .white
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        label.text = "0:00"
+        label.textAlignment = .right
+        return label
+    }()
+
     // MARK: - Lifecycle Methods
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
@@ -84,7 +137,30 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Called just before the view controller is dismissed, covered, or otherwise hidden.
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        
+
+        // Use transition coordinator to handle interactive pop gesture cancellation
+        if let transitionCoordinator = transitionCoordinator {
+            transitionCoordinator.notifyWhenInteractionChanges { [weak self] context in
+                guard let self = self else { return }
+
+                if context.isCancelled {
+                    // Gesture was cancelled - restore navigation bar appearance
+                    let appearance = UINavigationBarAppearance()
+                    appearance.configureWithOpaqueBackground()
+                    appearance.backgroundColor = .black
+                    appearance.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+                    self.navigationController?.navigationBar.standardAppearance = appearance
+                    self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                    self.navigationController?.navigationBar.compactAppearance = appearance
+                    self.navigationController?.navigationBar.isTranslucent = false
+
+                    // Restart video playback
+                    self.vlcPlayer.play()
+                    self.startLoopMonitoring()
+                }
+            }
+        }
+
         // Reset navigation bar to default appearance when leaving this view controller
         let defaultAppearance = UINavigationBarAppearance()
         defaultAppearance.configureWithDefaultBackground()
@@ -92,16 +168,19 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         navigationController?.navigationBar.scrollEdgeAppearance = defaultAppearance
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
-        
+
         // Stop playback and remove observer
         vlcPlayer.stop()
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
-        
+
         // Stop periodic audio checking
         stopPeriodicAudioChecking()
 
         // Stop loop monitoring
         stopLoopMonitoring()
+
+        // Stop seek bar updates
+        stopSeekBarUpdates()
     }
     
     // MARK: - Setup Methods
@@ -109,12 +188,39 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private func setupUI() {
         view.backgroundColor = .black
         view.addSubview(videoView)
-        
+        view.addSubview(seekBarContainer)
+
+        // Add seek bar elements to container
+        seekBarContainer.addSubview(currentTimeLabel)
+        seekBarContainer.addSubview(seekBar)
+        seekBarContainer.addSubview(durationLabel)
+
         NSLayoutConstraint.activate([
             videoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             videoView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            videoView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            videoView.bottomAnchor.constraint(equalTo: seekBarContainer.topAnchor),
+
+            // Seek bar container at the bottom
+            seekBarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            seekBarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            seekBarContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            seekBarContainer.heightAnchor.constraint(equalToConstant: 44),
+
+            // Current time label
+            currentTimeLabel.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
+            currentTimeLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
+            currentTimeLabel.widthAnchor.constraint(equalToConstant: 45),
+
+            // Seek bar slider
+            seekBar.leadingAnchor.constraint(equalTo: currentTimeLabel.trailingAnchor, constant: 8),
+            seekBar.trailingAnchor.constraint(equalTo: durationLabel.leadingAnchor, constant: -8),
+            seekBar.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
+
+            // Duration label
+            durationLabel.trailingAnchor.constraint(equalTo: seekBarContainer.trailingAnchor, constant: -12),
+            durationLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
+            durationLabel.widthAnchor.constraint(equalToConstant: 45)
         ])
     }
     
@@ -250,6 +356,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Start loop monitoring as a safety net
         startLoopMonitoring()
+
+        // Start seek bar updates directly as a fallback (delegate may not always fire)
+        // Use a small delay to allow VLC to initialize
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.startSeekBarUpdates()
+        }
     }
     
     /// Called when the VLC player state changes.
@@ -355,7 +467,104 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         print("🎵 DEBUG: WebMViewController - toggleMute() - Updated navigation buttons")
         print("🎵 DEBUG: WebMViewController - === TOGGLE MUTE COMPLETE ===")
     }
-    
+
+    // MARK: - Seek Bar Control Methods
+    /// Called when user starts dragging the seek bar
+    @objc private func seekBarTouchDown(_ sender: UISlider) {
+        isSeeking = true
+    }
+
+    /// Called when user releases the seek bar
+    @objc private func seekBarTouchUp(_ sender: UISlider) {
+        isSeeking = false
+        // Record seek time to prevent slider snap-back
+        lastSeekTime = Date()
+        // Perform the seek when user releases - VLCKit 4.x position is Double (0.0-1.0)
+        vlcPlayer.position = Double(sender.value)
+    }
+
+    /// Called when seek bar value changes during dragging
+    @objc private func seekBarValueChanged(_ sender: UISlider) {
+        // Update time label while dragging to show where user will seek to
+        // Use calculated duration if available (more accurate for WebM files)
+        let duration = calculatedDurationMs > 0 ? calculatedDurationMs : (vlcPlayer.media?.length.intValue ?? 0)
+        if duration > 0 && duration < 3600000 {
+            let currentMs = Int32(sender.value * Float(duration))
+            currentTimeLabel.text = formatTime(milliseconds: currentMs)
+        }
+    }
+
+    /// Starts the timer to update seek bar position
+    private func startSeekBarUpdates() {
+        seekBarUpdateTimer?.invalidate()
+        seekBarUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.updateSeekBar()
+        }
+    }
+
+    /// Stops the seek bar update timer
+    private func stopSeekBarUpdates() {
+        seekBarUpdateTimer?.invalidate()
+        seekBarUpdateTimer = nil
+    }
+
+    /// Updates the seek bar position and time labels
+    private func updateSeekBar() {
+        guard !isSeeking else { return }
+
+        // Update slider position (only if valid, VLC returns -1 when not ready)
+        // Skip slider updates briefly after a seek to prevent snap-back
+        let position = vlcPlayer.position
+        let recentlySeekd = lastSeekTime.map { Date().timeIntervalSince($0) < 0.5 } ?? false
+        if position >= 0 && !recentlySeekd {
+            seekBar.value = Float(position)
+        }
+
+        // Get current time in milliseconds
+        let currentMs = vlcPlayer.time.intValue
+
+        // Calculate actual duration from position and time
+        // VLCKit sometimes reports incorrect duration for WebM files
+        // Formula: actual_duration = current_time / position
+        if position > 0.05 && currentMs > 0 {
+            let computed = Int32(Double(currentMs) / position)
+            // Only update if we get a reasonable value (less than 1 hour for typical videos)
+            if computed > 0 && computed < 3600000 {
+                calculatedDurationMs = computed
+            }
+        }
+
+        // Use calculated duration if available, otherwise try VLC's reported duration
+        var durationMs = calculatedDurationMs
+        if durationMs <= 0, let media = vlcPlayer.media {
+            let vlcDuration = media.length.intValue
+            // Only use VLC duration if it's reasonable (less than 1 hour)
+            if vlcDuration > 0 && vlcDuration < 3600000 {
+                durationMs = vlcDuration
+            }
+        }
+
+        // Update time labels if we have valid duration
+        if durationMs > 0 {
+            currentTimeLabel.text = formatTime(milliseconds: max(0, currentMs))
+            durationLabel.text = formatTime(milliseconds: durationMs)
+        }
+    }
+
+    /// Formats milliseconds into a time string (m:ss or h:mm:ss)
+    private func formatTime(milliseconds: Int32) -> String {
+        let totalSeconds = Int(milliseconds) / 1000
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%d:%02d", minutes, seconds)
+        }
+    }
+
     // MARK: - Download Methods
     /// Initiates the download of the video when the download button is tapped.
     @objc private func downloadVideo() {
@@ -738,7 +947,10 @@ extension WebMViewController {
 
                 // Also start loop monitoring while playing
                 self.startLoopMonitoring()
-                
+
+                // Start seek bar updates
+                self.startSeekBarUpdates()
+
             case .stopped:
                 print("DEBUG: WebMViewController - VLC player stopped")
                 let pos = player.position
