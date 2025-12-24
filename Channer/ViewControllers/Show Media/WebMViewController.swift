@@ -33,6 +33,13 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Cached actual duration calculated from position/time (for videos with incorrect metadata)
     private var calculatedDurationMs: Int32 = 0
 
+    /// Timer for auto-hiding controls
+    private var controlsHideTimer: Timer?
+    /// Flag to track if controls are currently visible
+    private var controlsVisible: Bool = true
+    /// Duration before controls auto-hide (in seconds)
+    private let controlsHideDelay: TimeInterval = 1.5
+
     // MARK: - UI Elements
     /// The view that displays the video content.
     private lazy var videoView: UIView = {
@@ -102,12 +109,15 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return label
     }()
 
-    /// Play/pause button
+    /// Play/pause button (centered on video)
     private lazy var playPauseButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(UIImage(systemName: "pause.fill"), for: .normal)
+        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        button.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
         button.tintColor = .white
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        button.layer.cornerRadius = 40
         button.addTarget(self, action: #selector(togglePlayPause), for: .touchUpInside)
         return button
     }()
@@ -253,6 +263,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Stop seek bar updates
         stopSeekBarUpdates()
+
+        // Stop controls hide timer
+        stopControlsHideTimer()
     }
     
     // MARK: - Setup Methods
@@ -262,11 +275,13 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.addSubview(videoView)
         view.addSubview(seekBarContainer)
 
-        // Add seek bar elements to container
-        seekBarContainer.addSubview(playPauseButton)
+        // Add seek bar elements to container (play/pause button moved to center of video)
         seekBarContainer.addSubview(currentTimeLabel)
         seekBarContainer.addSubview(seekBar)
         seekBarContainer.addSubview(durationLabel)
+
+        // Add play/pause button centered on video view
+        view.addSubview(playPauseButton)
 
         // Add tap gesture to video view for play/pause
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(videoViewTapped))
@@ -291,14 +306,14 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             seekBarContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             seekBarContainer.heightAnchor.constraint(equalToConstant: 44),
 
-            // Play/pause button
-            playPauseButton.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
-            playPauseButton.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
-            playPauseButton.widthAnchor.constraint(equalToConstant: 32),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 32),
+            // Play/pause button centered on video
+            playPauseButton.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
+            playPauseButton.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
+            playPauseButton.widthAnchor.constraint(equalToConstant: 80),
+            playPauseButton.heightAnchor.constraint(equalToConstant: 80),
 
-            // Current time label
-            currentTimeLabel.leadingAnchor.constraint(equalTo: playPauseButton.trailingAnchor, constant: 8),
+            // Current time label (now at leading edge since play/pause moved)
+            currentTimeLabel.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
             currentTimeLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
             currentTimeLabel.widthAnchor.constraint(equalToConstant: 45),
 
@@ -415,7 +430,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         // Start playback
         print("DEBUG: WebMViewController - Starting VLC playback")
         vlcPlayer.play()
-        
+
+        // Start auto-hide timer for controls
+        resetControlsHideTimer()
+
         // IMMEDIATE mute enforcement - multiple attempts to catch VLC before audio starts
         // Attempt 1: Immediate
         vlcPlayer.audio?.isMuted = true
@@ -589,32 +607,97 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Play/Pause Control Methods
-    /// Toggles play/pause state when video view is tapped
+    /// Toggles controls visibility when video view is tapped
     @objc private func videoViewTapped() {
-        togglePlayPause()
+        if controlsVisible {
+            hideControls()
+        } else {
+            showControls()
+        }
     }
 
     /// Toggles the play/pause state of the video
     @objc private func togglePlayPause() {
+        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
         if vlcPlayer.isPlaying {
             vlcPlayer.pause()
-            playPauseButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
+            playPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: config), for: .normal)
+            // Show controls and keep them visible when paused
+            showControls(autoHide: false)
         } else {
             vlcPlayer.play()
-            playPauseButton.setImage(UIImage(systemName: "pause.fill"), for: .normal)
+            playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
+            // Start auto-hide timer when playing
+            resetControlsHideTimer()
         }
     }
 
     /// Updates the play/pause button icon based on player state
     private func updatePlayPauseButton() {
+        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
         let imageName = vlcPlayer.isPlaying ? "pause.fill" : "play.fill"
-        playPauseButton.setImage(UIImage(systemName: imageName), for: .normal)
+        playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
+    }
+
+    // MARK: - Controls Visibility Methods
+    /// Shows the video controls with animation
+    private func showControls(autoHide: Bool = true) {
+        controlsVisible = true
+        controlsHideTimer?.invalidate()
+
+        let hasMultipleVideos = videoURLs.count > 1
+
+        UIView.animate(withDuration: 0.25) {
+            self.playPauseButton.alpha = 1.0
+            self.seekBarContainer.alpha = 1.0
+            self.mediaCounterLabel.alpha = hasMultipleVideos ? 1.0 : 0.0
+            // Show navigation hints if there are multiple videos
+            self.leftHint.alpha = hasMultipleVideos ? 0.7 : 0.0
+            self.rightHint.alpha = hasMultipleVideos ? 0.7 : 0.0
+        }
+
+        if autoHide && vlcPlayer.isPlaying {
+            resetControlsHideTimer()
+        }
+    }
+
+    /// Hides the video controls with animation
+    private func hideControls() {
+        controlsVisible = false
+        controlsHideTimer?.invalidate()
+
+        UIView.animate(withDuration: 0.25) {
+            self.playPauseButton.alpha = 0.0
+            self.seekBarContainer.alpha = 0.0
+            self.mediaCounterLabel.alpha = 0.0
+            self.leftHint.alpha = 0.0
+            self.rightHint.alpha = 0.0
+        }
+    }
+
+    /// Resets the auto-hide timer for controls
+    private func resetControlsHideTimer() {
+        controlsHideTimer?.invalidate()
+        controlsHideTimer = Timer.scheduledTimer(withTimeInterval: controlsHideDelay, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            if self.vlcPlayer.isPlaying {
+                self.hideControls()
+            }
+        }
+    }
+
+    /// Stops the controls hide timer
+    private func stopControlsHideTimer() {
+        controlsHideTimer?.invalidate()
+        controlsHideTimer = nil
     }
 
     // MARK: - Seek Bar Control Methods
     /// Called when user starts dragging the seek bar
     @objc private func seekBarTouchDown(_ sender: UISlider) {
         isSeeking = true
+        // Keep controls visible while user is seeking
+        stopControlsHideTimer()
     }
 
     /// Called when user releases the seek bar
@@ -624,6 +707,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         lastSeekTime = Date()
         // Perform the seek when user releases - VLCKit 4.x position is Double (0.0-1.0)
         vlcPlayer.position = Double(sender.value)
+        // Reset auto-hide timer after seeking
+        if vlcPlayer.isPlaying {
+            resetControlsHideTimer()
+        }
     }
 
     /// Called when seek bar value changes during dragging
@@ -1270,6 +1357,12 @@ extension WebMViewController {
 
     /// Handles tap on left zone - go to previous video
     @objc private func leftTapZoneTapped() {
+        // If controls are hidden, show them first instead of navigating
+        if !controlsVisible {
+            showControls()
+            return
+        }
+
         guard videoURLs.count > 1, currentIndex > 0 else {
             // Flash the hint to show we're at the beginning
             flashHint(leftHint)
@@ -1282,6 +1375,12 @@ extension WebMViewController {
 
     /// Handles tap on right zone - go to next video
     @objc private func rightTapZoneTapped() {
+        // If controls are hidden, show them first instead of navigating
+        if !controlsVisible {
+            showControls()
+            return
+        }
+
         guard videoURLs.count > 1, currentIndex < videoURLs.count - 1 else {
             // Flash the hint to show we're at the end
             flashHint(rightHint)
