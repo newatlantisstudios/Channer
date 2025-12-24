@@ -43,7 +43,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         super.viewDidLoad()
         print("viewDidLoad - FilesListVC")
         view.backgroundColor = .systemBackground
-        self.navigationItem.title = "Files"
+        self.navigationItem.title = "Downloaded"
         
         // Remove custom back/home button to use navigation controller's default back button
         // The navigation controller will automatically show a back button with an arrow
@@ -215,17 +215,36 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     }
     
     // MARK: - Data Loading
-    /// Loads files from the current directory into the files array.
+    /// Loads all files recursively from the current directory into the files array.
+    /// Shows a flat list of files without folder navigation.
     func loadFiles() {
         let fileManager = FileManager.default
-        do {
-            let fileURLs = try fileManager.contentsOfDirectory(at: currentDirectory, includingPropertiesForKeys: nil)
-            files = fileURLs.filter { !$0.lastPathComponent.hasPrefix(".") } // Filter out hidden files
-            print("DEBUG: FilesListVC - Loaded \(files.count) files from directory: \(currentDirectory.path)")
-            collectionView.reloadData()
-        } catch {
-            print("Error loading files from directory: \(error.localizedDescription)")
+        var allFiles: [URL] = []
+
+        // Recursively enumerate all files in the directory
+        if let enumerator = fileManager.enumerator(
+            at: currentDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let fileURL as URL in enumerator {
+                do {
+                    let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                    // Only include regular files, not directories
+                    if resourceValues.isRegularFile == true && resourceValues.isDirectory == false {
+                        allFiles.append(fileURL)
+                    }
+                } catch {
+                    print("DEBUG: FilesListVC - Error reading file properties: \(error)")
+                }
+            }
         }
+
+        // Sort files by name for consistent ordering
+        files = allFiles.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+
+        print("DEBUG: FilesListVC - Loaded \(files.count) files recursively from directory: \(currentDirectory.path)")
+        collectionView.reloadData()
     }
     
     // MARK: - UICollectionViewDataSource
@@ -239,59 +258,51 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FileThumbnailCell.reuseIdentifier, for: indexPath) as! FileThumbnailCell
         let fileURL = files[indexPath.row]
         let fileName = fileURL.lastPathComponent
-        let isDirectory = fileURL.hasDirectoryPath
-        
-        if isDirectory {
-            // Display folder icon for directories
-            let folderImage = UIImage(systemName: "folder.fill")
-            cell.configure(with: folderImage, fileName: fileName, isDirectory: true)
-        } else {
-            let fileExtension = fileURL.pathExtension.lowercased()
-            
-            // First try to load a saved thumbnail
-            if let savedThumbnail = loadSavedThumbnail(for: fileURL) {
-                print("DEBUG: FilesListVC - Using saved thumbnail for: \(fileURL.lastPathComponent)")
-                cell.configure(with: savedThumbnail, fileName: fileName, isDirectory: false)
-            } else if ["jpg", "jpeg", "png"].contains(fileExtension) {
-                // For images, generate thumbnail from the actual image
-                if let image = UIImage(contentsOfFile: fileURL.path) {
-                    let thumbnail = resizeImage(image, to: CGSize(width: 150, height: 150))
-                    cell.configure(with: thumbnail, fileName: fileName, isDirectory: false)
-                } else {
-                    let imageIcon = UIImage(systemName: "photo.fill")
-                    cell.configure(with: imageIcon, fileName: fileName, isDirectory: false)
-                }
-            } else if fileExtension == "webm" || fileExtension == "mp4" {
-                print("DEBUG: FilesListVC - No saved thumbnail found for video: \(fileURL.path)")
-                
-                // Set fallback icon immediately
-                let videoImage = UIImage(systemName: "video.fill")
-                cell.configure(with: videoImage, fileName: fileName, isDirectory: false)
-                
-                // Try to generate thumbnail as fallback (but this should rarely happen now)
-                generateThumbnail(for: fileURL) { image in
-                    DispatchQueue.main.async {
-                        if let image = image {
-                            print("DEBUG: FilesListVC - Generated fallback thumbnail for \(fileURL.lastPathComponent)")
-                            cell.configure(with: image, fileName: fileName, isDirectory: false)
-                        }
+        let fileExtension = fileURL.pathExtension.lowercased()
+
+        // First try to load a saved thumbnail
+        if let savedThumbnail = loadSavedThumbnail(for: fileURL) {
+            print("DEBUG: FilesListVC - Using saved thumbnail for: \(fileURL.lastPathComponent)")
+            cell.configure(with: savedThumbnail, fileName: fileName, isDirectory: false)
+        } else if ["jpg", "jpeg", "png"].contains(fileExtension) {
+            // For images, generate thumbnail from the actual image
+            if let image = UIImage(contentsOfFile: fileURL.path) {
+                let thumbnail = resizeImage(image, to: CGSize(width: 150, height: 150))
+                cell.configure(with: thumbnail, fileName: fileName, isDirectory: false)
+            } else {
+                let imageIcon = UIImage(systemName: "photo.fill")
+                cell.configure(with: imageIcon, fileName: fileName, isDirectory: false)
+            }
+        } else if fileExtension == "webm" || fileExtension == "mp4" {
+            print("DEBUG: FilesListVC - No saved thumbnail found for video: \(fileURL.path)")
+
+            // Set fallback icon immediately
+            let videoImage = UIImage(systemName: "video.fill")
+            cell.configure(with: videoImage, fileName: fileName, isDirectory: false)
+
+            // Try to generate thumbnail as fallback (but this should rarely happen now)
+            generateThumbnail(for: fileURL) { image in
+                DispatchQueue.main.async {
+                    if let image = image {
+                        print("DEBUG: FilesListVC - Generated fallback thumbnail for \(fileURL.lastPathComponent)")
+                        cell.configure(with: image, fileName: fileName, isDirectory: false)
                     }
                 }
-            } else if fileExtension == "gif" {
-                // For GIFs, show the actual image as thumbnail
-                let image = UIImage(contentsOfFile: fileURL.path)
-                cell.configure(with: image, fileName: fileName, isDirectory: false)
-            } else {
-                // Display generic file icon for other file types
-                let fileImage = UIImage(systemName: "doc.fill")
-                cell.configure(with: fileImage, fileName: fileName, isDirectory: false)
             }
+        } else if fileExtension == "gif" {
+            // For GIFs, show the actual image as thumbnail
+            let image = UIImage(contentsOfFile: fileURL.path)
+            cell.configure(with: image, fileName: fileName, isDirectory: false)
+        } else {
+            // Display generic file icon for other file types
+            let fileImage = UIImage(systemName: "doc.fill")
+            cell.configure(with: fileImage, fileName: fileName, isDirectory: false)
         }
-        
+
         // Configure selection mode UI
         let isSelected = selectedIndexPaths.contains(indexPath)
         cell.setSelectionMode(isSelectionMode, isSelected: isSelected)
-        
+
         return cell
     }
     
@@ -301,80 +312,83 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         if isSelectionMode {
             selectedIndexPaths.insert(indexPath)
             updateDeleteButtonState()
-            
+
             // Update cell's selection state
             if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
                 cell.setSelectionMode(isSelectionMode, isSelected: true)
             }
             return
         }
-        
+
         let selectedURL = files[indexPath.row]
-            
-            print("DEBUG: FilesListVC - Selected file: \(selectedURL.lastPathComponent)")
-            print("DEBUG: FilesListVC - File path: \(selectedURL.path)")
-            print("DEBUG: FilesListVC - File extension: \(selectedURL.pathExtension.lowercased())")
-            print("DEBUG: FilesListVC - Is directory: \(selectedURL.hasDirectoryPath)")
-            print("DEBUG: FilesListVC - File exists: \(FileManager.default.fileExists(atPath: selectedURL.path))")
-            
-            if selectedURL.hasDirectoryPath {
-                print("DEBUG: FilesListVC - Handling directory selection")
-                if selectedURL.lastPathComponent.lowercased() == "images" {
-                    print("DEBUG: FilesListVC - Opening Images directory with ThumbnailGridVC")
-                    // Push a thumbnail grid for image files
-                    let imageGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["jpg", "jpeg", "png"])
-                    navigationController?.pushViewController(imageGalleryVC, animated: true)
-                } else if selectedURL.lastPathComponent.lowercased() == "webm" {
-                    print("DEBUG: FilesListVC - Opening WebM directory with ThumbnailGridVC")
-                    // Push a thumbnail grid for webm files
-                    let webmGalleryVC = ThumbnailGridVC(directory: selectedURL, fileTypes: ["webm"])
-                    navigationController?.pushViewController(webmGalleryVC, animated: true)
-                } else {
-                    print("DEBUG: FilesListVC - Opening generic directory with FilesListVC")
-                    // For other directories, push FilesListVC to continue exploring
-                    let filesListVC = FilesListVC(directory: selectedURL)
-                    navigationController?.pushViewController(filesListVC, animated: true)
-                }
-            } else {
-                print("DEBUG: FilesListVC - Handling individual file selection")
-                // Handle individual file selection
-                let fileExtension = selectedURL.pathExtension.lowercased()
-                
-                if ["jpg", "jpeg", "png"].contains(fileExtension) {
-                    print("DEBUG: FilesListVC - Opening image file with ImageViewController")
-                    // Open image in ImageViewController
-                    let imageViewController = ImageViewController(imageURL: selectedURL)
-                    navigationController?.pushViewController(imageViewController, animated: true)
-                } else if fileExtension == "gif" {
-                    print("DEBUG: FilesListVC - Opening GIF file with urlWeb for animation support")
-                    // Open GIF in urlWeb for animation support
-                    let urlWebViewController = urlWeb()
-                    urlWebViewController.images = [selectedURL]
-                    urlWebViewController.currentIndex = 0
-                    navigationController?.pushViewController(urlWebViewController, animated: true)
-                } else if fileExtension == "webm" || fileExtension == "mp4" {
-                    print("DEBUG: FilesListVC - Opening local video with VLCKit (WebMViewController)")
-                    print("DEBUG: FilesListVC - Video URL: \(selectedURL.absoluteString)")
-                    // Use VLCKit-only player for local video files
-                    let vlcVC = WebMViewController()
-                    vlcVC.videoURL = selectedURL.absoluteString
-                    vlcVC.hideDownloadButton = true
-                    navigationController?.pushViewController(vlcVC, animated: true)
-                } else {
-                    print("DEBUG: FilesListVC - Unsupported file type: \(fileExtension)")
-                }
+
+        print("DEBUG: FilesListVC - Selected file: \(selectedURL.lastPathComponent)")
+        print("DEBUG: FilesListVC - File path: \(selectedURL.path)")
+        print("DEBUG: FilesListVC - File extension: \(selectedURL.pathExtension.lowercased())")
+        print("DEBUG: FilesListVC - File exists: \(FileManager.default.fileExists(atPath: selectedURL.path))")
+
+        let fileExtension = selectedURL.pathExtension.lowercased()
+
+        if ["jpg", "jpeg", "png"].contains(fileExtension) {
+            print("DEBUG: FilesListVC - Opening image file with ImageViewController")
+            // Open image in ImageViewController
+            let imageViewController = ImageViewController(imageURL: selectedURL)
+            navigationController?.pushViewController(imageViewController, animated: true)
+        } else if fileExtension == "gif" {
+            print("DEBUG: FilesListVC - Opening GIF file with urlWeb for animation support")
+            // Open GIF in urlWeb for animation support
+            let urlWebViewController = urlWeb()
+            urlWebViewController.images = [selectedURL]
+            urlWebViewController.currentIndex = 0
+            navigationController?.pushViewController(urlWebViewController, animated: true)
+        } else if fileExtension == "webm" || fileExtension == "mp4" {
+            print("DEBUG: FilesListVC - Opening local video with VLCKit (WebMViewController)")
+            print("DEBUG: FilesListVC - Video URL: \(selectedURL.absoluteString)")
+
+            // Get all video files for navigation
+            let videoFiles = files.filter { url in
+                let ext = url.pathExtension.lowercased()
+                return ext == "webm" || ext == "mp4"
             }
+
+            // Find the index of the selected video
+            let selectedIndex = videoFiles.firstIndex(of: selectedURL) ?? 0
+
+            // Use VLCKit-only player for local video files with navigation support
+            let vlcVC = WebMViewController()
+            vlcVC.videoURL = selectedURL.absoluteString
+            vlcVC.videoURLs = videoFiles
+            vlcVC.currentIndex = selectedIndex
+            vlcVC.hideDownloadButton = true
+            navigationController?.pushViewController(vlcVC, animated: true)
+        } else {
+            print("DEBUG: FilesListVC - Unsupported file type: \(fileExtension)")
         }
+    }
     
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         if isSelectionMode {
             selectedIndexPaths.remove(indexPath)
             updateDeleteButtonState()
-            
+
             // Update cell's selection state
             if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
                 cell.setSelectionMode(isSelectionMode, isSelected: false)
             }
+        }
+    }
+
+    /// Handles cell highlighting for touch feedback (matching ImageGalleryVC)
+    func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
+            cell.setHighlighted(true, animated: true)
+        }
+    }
+
+    /// Handles removing cell highlighting (matching ImageGalleryVC)
+    func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
+            cell.setHighlighted(false, animated: true)
         }
     }
     

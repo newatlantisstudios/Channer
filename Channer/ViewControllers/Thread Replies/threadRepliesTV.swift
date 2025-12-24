@@ -1794,56 +1794,87 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         if fileExtension == "webm" || fileExtension == "mp4" {
-            // Create urlWeb for all media types (both WebM and MP4)
-            // This uses our improved web playback that handles both formats
+            // Use WebMViewController for video playback (same as Downloaded view)
+            print("Debug: Opening video with WebMViewController")
+
+            // Get all video URLs from the thread for navigation
+            let videoURLs = threadRepliesImages.compactMap { urlString -> URL? in
+                guard let url = URL(string: urlString) else { return nil }
+                let ext = url.pathExtension.lowercased()
+                return (ext == "webm" || ext == "mp4") ? url : nil
+            }
+
+            // Find the index of the selected video
+            let selectedIndex = videoURLs.firstIndex(of: selectedImageURL) ?? 0
+
+            let vlcVC = WebMViewController()
+            vlcVC.videoURL = selectedImageURL.absoluteString
+            vlcVC.videoURLs = videoURLs
+            vlcVC.currentIndex = selectedIndex
+
+            // Handle navigation stack
+            if let navController = navigationController {
+                navController.pushViewController(vlcVC, animated: true)
+            } else {
+                let navController = UINavigationController(rootViewController: vlcVC)
+                navController.modalPresentationStyle = .fullScreen
+                present(navController, animated: true)
+            }
+        } else if fileExtension == "gif" {
+            // Use urlWeb for GIFs (WKWebView handles animation properly)
+            print("Debug: Opening GIF with urlWeb for animation support")
             let urlWebVC = urlWeb()
             urlWebVC.images = [selectedImageURL]
             urlWebVC.currentIndex = 0
             urlWebVC.enableSwipes = false
-            // Provide a proper Referer for 4chan media to avoid rate limits
-            if !boardAbv.isEmpty && !threadNumber.isEmpty {
-                urlWebVC.refererString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
-                print("Debug: Setting referer for media download: \(urlWebVC.refererString!)")
-            }
-            print("Debug: Navigating to urlWeb for media playback.")
-            
-            // Handle navigation stack
+
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
             } else {
-                // Fallback to modal presentation for iPhones
                 let navController = UINavigationController(rootViewController: urlWebVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         } else {
-            // Create urlWeb for images and other content types (jpg, png, etc.)
-            let urlWebVC = urlWeb()
-            
+            // Use ImageViewController for JPG/PNG images (same as Downloaded view)
+            // This provides proper zoom/pan functionality
+            print("Debug: Opening image with ImageViewController for extension: \(fileExtension)")
+
             // For PNG images, ensure we're using the correct URL with .png extension
+            var imageURL = selectedImageURL
             if fileExtension == "png" || selectedImageURLString.contains(".png") {
-                // Make sure the URL has .png extension and not .jpg
                 let correctedURLString = selectedImageURLString.replacingOccurrences(of: "s.jpg", with: ".png")
                 if let correctedURL = URL(string: correctedURLString) {
-                    urlWebVC.images = [correctedURL]
+                    imageURL = correctedURL
                     print("Debug: Using corrected PNG URL: \(correctedURLString)")
-                } else {
-                    urlWebVC.images = [selectedImageURL]
                 }
-            } else {
-                urlWebVC.images = [selectedImageURL]
             }
-            
-            urlWebVC.currentIndex = 0
-            urlWebVC.enableSwipes = false
-            print("Debug: Navigating to urlWeb for image display with extension: \(fileExtension)")
-            
+
+            // Get all image URLs from the thread for navigation (excluding videos and GIFs)
+            let imageURLs = threadRepliesImages.compactMap { urlString -> URL? in
+                guard let url = URL(string: urlString) else { return nil }
+                let ext = url.pathExtension.lowercased()
+                // Include jpg, jpeg, png - exclude webm, mp4, gif
+                return (ext == "jpg" || ext == "jpeg" || ext == "png") ? url : nil
+            }
+
+            // Find the index of the selected image
+            let selectedIndex = imageURLs.firstIndex(of: imageURL) ?? 0
+
+            let imageVC = ImageViewController(imageURL: imageURL)
+            imageVC.imageURLs = imageURLs
+            imageVC.currentIndex = selectedIndex
+            imageVC.enableSwipes = imageURLs.count > 1
+            // Provide referer for 4chan
+            if !boardAbv.isEmpty && !threadNumber.isEmpty {
+                imageVC.refererString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
+            }
+
             // Handle navigation stack
             if let navController = navigationController {
-                navController.pushViewController(urlWebVC, animated: true)
+                navController.pushViewController(imageVC, animated: true)
             } else {
-                // Fallback to modal presentation for iPhones
-                let navController = UINavigationController(rootViewController: urlWebVC)
+                let navController = UINavigationController(rootViewController: imageVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }

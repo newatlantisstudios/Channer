@@ -772,7 +772,24 @@ class boardTV: UITableViewController, UISearchBarDelegate {
                 print("Errors loading threads: \(errors)")
             }
     
-            self.threadData = newThreadData.sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
+            // Deduplicate threads since a thread can briefly appear on multiple pages while the board is updating
+            let dedupedThreads = newThreadData.reduce(into: [String: ThreadData]()) { result, thread in
+                if let existing = result[thread.number] {
+                    let existingReplies = existing.currentReplies ?? existing.replies
+                    let newReplies = thread.currentReplies ?? thread.replies
+                    let existingBump = existing.bumpIndex ?? Int.max
+                    let newBump = thread.bumpIndex ?? Int.max
+                    
+                    // Keep the version that is higher on the board (lower bump index) or has fresher reply data
+                    if newBump < existingBump || newReplies > existingReplies {
+                        result[thread.number] = thread
+                    }
+                } else {
+                    result[thread.number] = thread
+                }
+            }
+
+            self.threadData = Array(dedupedThreads.values).sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
             
             // Apply content filtering if enabled
             if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,

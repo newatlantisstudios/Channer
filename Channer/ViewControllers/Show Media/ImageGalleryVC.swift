@@ -932,7 +932,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let previousIndex = selectedIndex
         selectedIndex = indexPath.row
         updateMediaCounter()
-        
+
         // Update cell selection states
         if let previousCell = collectionView.cellForItem(at: IndexPath(row: previousIndex, section: 0)) as? MediaCell {
             previousCell.setSelected(false, animated: true)
@@ -940,39 +940,89 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         if let currentCell = collectionView.cellForItem(at: indexPath) as? MediaCell {
             currentCell.setSelected(true, animated: true)
         }
-        
-        // Get the original URL - let urlWeb handle format detection like thread view does
+
         let selectedURL = images[indexPath.row]
-        
+        let fileExtension = selectedURL.pathExtension.lowercased()
+
         print("ImageGalleryVC - selectedURL - " + selectedURL.absoluteString)
-        
-        // Pass original URLs directly to urlWeb like thread view does
-        // This matches thread view's approach: thread view passes unprocessed URLs from JSON
-        // and lets urlWeb handle format detection and playback
-        let urlWebVC = urlWeb()
-        urlWebVC.images = images // Pass all original URLs without processing
-        urlWebVC.currentIndex = indexPath.row // Set the current index to the selected item
-        urlWebVC.enableSwipes = true // Enable swipes to allow navigation between multiple items
-        // If the media comes from i.4cdn.org, set a board-level referer to reduce 429s
+        print("ImageGalleryVC - fileExtension - " + fileExtension)
+
+        // Derive referer from URL for 4chan
+        var refererString: String? = nil
         if let host = selectedURL.host, host == "i.4cdn.org" {
             let comps = selectedURL.pathComponents
             if comps.count > 1 {
                 let board = comps[1]
-                urlWebVC.refererString = "https://boards.4chan.org/\(board)/"
-                print("Creating URLWeb with board referer: \(urlWebVC.refererString!)")
+                refererString = "https://boards.4chan.org/\(board)/"
             }
         }
-        
-        print("Creating URLWeb view controller with \(images.count) original URLs (matching thread view approach)")
-        
-        // Add the urlWebVC to the navigation stack
-        if let navController = navigationController {
-            print("Pushing urlWebVC onto navigation stack from ImageGalleryVC - using thread view's approach with original URLs.")
-            navController.pushViewController(urlWebVC, animated: true)
+
+        if fileExtension == "webm" || fileExtension == "mp4" {
+            // Use WebMViewController for video playback (same as Downloaded view)
+            print("ImageGalleryVC - Opening video with WebMViewController")
+
+            // Get all video URLs for navigation
+            let videoURLs = images.filter { url in
+                let ext = url.pathExtension.lowercased()
+                return ext == "webm" || ext == "mp4"
+            }
+
+            // Find the index of the selected video in the filtered list
+            let selectedVideoIndex = videoURLs.firstIndex(of: selectedURL) ?? 0
+
+            let vlcVC = WebMViewController()
+            vlcVC.videoURL = selectedURL.absoluteString
+            vlcVC.videoURLs = videoURLs
+            vlcVC.currentIndex = selectedVideoIndex
+
+            if let navController = navigationController {
+                navController.pushViewController(vlcVC, animated: true)
+            } else {
+                let navController = UINavigationController(rootViewController: vlcVC)
+                present(navController, animated: true)
+            }
+        } else if fileExtension == "gif" {
+            // Use urlWeb for GIFs (WKWebView handles animation properly)
+            print("ImageGalleryVC - Opening GIF with urlWeb for animation support")
+
+            let urlWebVC = urlWeb()
+            urlWebVC.images = images
+            urlWebVC.currentIndex = indexPath.row
+            urlWebVC.enableSwipes = true
+            urlWebVC.refererString = refererString
+
+            if let navController = navigationController {
+                navController.pushViewController(urlWebVC, animated: true)
+            } else {
+                let navController = UINavigationController(rootViewController: urlWebVC)
+                present(navController, animated: true)
+            }
         } else {
-            print("Navigation controller is nil. Attempting modal presentation.")
-            let navController = UINavigationController(rootViewController: urlWebVC)
-            present(navController, animated: true)
+            // Use ImageViewController for JPG/PNG images (same as Downloaded view)
+            // This provides proper zoom/pan functionality
+            print("ImageGalleryVC - Opening image with ImageViewController")
+
+            // Get all image URLs for navigation (excluding videos and GIFs)
+            let imageURLs = images.filter { url in
+                let ext = url.pathExtension.lowercased()
+                return ext == "jpg" || ext == "jpeg" || ext == "png"
+            }
+
+            // Find the index of the selected image in the filtered list
+            let selectedImageIndex = imageURLs.firstIndex(of: selectedURL) ?? 0
+
+            let imageVC = ImageViewController(imageURL: selectedURL)
+            imageVC.imageURLs = imageURLs
+            imageVC.currentIndex = selectedImageIndex
+            imageVC.enableSwipes = imageURLs.count > 1
+            imageVC.refererString = refererString
+
+            if let navController = navigationController {
+                navController.pushViewController(imageVC, animated: true)
+            } else {
+                let navController = UINavigationController(rootViewController: imageVC)
+                present(navController, animated: true)
+            }
         }
     }
     

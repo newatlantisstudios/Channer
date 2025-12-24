@@ -435,8 +435,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // System images are already the correct size
         searchAction.setValue(UIImage(systemName: "magnifyingglass"), forKey: "image")
         
-        // Files action
-        let filesAction = UIAlertAction(title: "Files", style: .default) { [weak self] _ in
+        // Downloaded action
+        let filesAction = UIAlertAction(title: "Downloaded", style: .default) { [weak self] _ in
             self?.openFilesList()
         }
         let filesImage = UIImage(named: "files")?.withRenderingMode(.alwaysTemplate).resized(to: iconSize)

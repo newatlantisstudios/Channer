@@ -344,6 +344,29 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
+        // Use transition coordinator to handle interactive pop gesture cancellation
+        if let transitionCoordinator = transitionCoordinator {
+            transitionCoordinator.notifyWhenInteractionChanges { [weak self] context in
+                guard let self = self else { return }
+
+                if context.isCancelled {
+                    // Gesture was cancelled - restore navigation bar appearance
+                    let appearance = UINavigationBarAppearance()
+                    appearance.configureWithOpaqueBackground()
+                    appearance.backgroundColor = .black
+                    appearance.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+                    self.navigationController?.navigationBar.standardAppearance = appearance
+                    self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                    self.navigationController?.navigationBar.compactAppearance = appearance
+                    self.navigationController?.navigationBar.isTranslucent = false
+                    self.navigationController?.navigationBar.tintColor = .white
+
+                    // Reload content to restore video playback
+                    self.loadContent()
+                }
+            }
+        }
+
         // Reset navigation bar to default appearance when leaving this view controller
         let defaultAppearance = UINavigationBarAppearance()
         defaultAppearance.configureWithDefaultBackground()
@@ -352,21 +375,21 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
         navigationController?.navigationBar.tintColor = nil // Reset button color to default
-        
+
         // Remove notification observer
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
-        
+
         // Clean up temporary file if we downloaded one
         cleanupTemporaryFile()
-        
+
         // Clean up VLC player
         vlcPlayer?.stop()
         vlcPlayer?.delegate = nil
         vlcPlayer = nil
-        
+
         // Stop periodic audio checking
         stopPeriodicAudioChecking()
-        
+
         // Clean up hint timer
         hintTimer?.invalidate()
         hintTimer = nil

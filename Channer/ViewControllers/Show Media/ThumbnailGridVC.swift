@@ -286,7 +286,7 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
 
         if selectedURL.pathExtension.lowercased() == "webm" {
             print("DEBUG: ThumbnailGridVC - WebM file selected: \(selectedURL.absoluteString)")
-            
+
             // Simple header-based VP9 detection
             do {
                 let data = try Data(contentsOf: selectedURL, options: [.dataReadingMapped])
@@ -294,9 +294,9 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
                 let headerString = String(data: headerData, encoding: .ascii) ?? ""
                 let isVP9 = headerString.range(of: "VP90", options: .caseInsensitive) != nil ||
                            headerString.range(of: "vp09", options: .caseInsensitive) != nil
-                
+
                 print("DEBUG: ThumbnailGridVC - Header VP9 detection: \(isVP9)")
-                
+
                 if isVP9 {
                     print("DEBUG: ThumbnailGridVC - VP9 detected - may fail with VLCKit")
                     print("DEBUG: ThumbnailGridVC - Consider implementing fallback to WKWebView for VP9 files")
@@ -306,10 +306,21 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
             } catch {
                 print("DEBUG: ThumbnailGridVC - Could not read file header: \(error)")
             }
-            
-            // Play .webm video using WebMViewController
+
+            // Get all video files for navigation
+            let videoFiles = files.filter { url in
+                let ext = url.pathExtension.lowercased()
+                return ext == "webm" || ext == "mp4"
+            }
+
+            // Find the index of the selected video
+            let selectedIndex = videoFiles.firstIndex(of: selectedURL) ?? 0
+
+            // Play .webm video using WebMViewController with navigation support
             let webMViewController = WebMViewController()
             webMViewController.videoURL = selectedURL.absoluteString
+            webMViewController.videoURLs = videoFiles
+            webMViewController.currentIndex = selectedIndex
             webMViewController.hideDownloadButton = true
             vc = webMViewController
         } else if ["jpg", "jpeg", "png"].contains(selectedURL.pathExtension.lowercased()) {
@@ -328,11 +339,25 @@ class ThumbnailGridVC: UIViewController, UICollectionViewDataSource, UICollectio
         if isSelectionMode {
             selectedIndexPaths.remove(indexPath)
             updateDeleteButtonState()
-            
+
             // Update cell's selection state
             if let cell = collectionView.cellForItem(at: indexPath) as? WebMThumbnailCell {
                 cell.setSelectionMode(isSelectionMode, isSelected: false)
             }
+        }
+    }
+
+    /// Handles cell highlighting for touch feedback (matching ImageGalleryVC)
+    func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? WebMThumbnailCell {
+            cell.setHighlighted(true, animated: true)
+        }
+    }
+
+    /// Handles removing cell highlighting (matching ImageGalleryVC)
+    func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? WebMThumbnailCell {
+            cell.setHighlighted(false, animated: true)
         }
     }
     

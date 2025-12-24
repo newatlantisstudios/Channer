@@ -85,7 +85,7 @@ class WebMThumbnailCell: UICollectionViewCell {
     func setSelected(_ isSelected: Bool) {
         selectionIndicator.isHidden = !isSelected
     }
-    
+
     /// Shows or hides the selection mode UI elements
     /// - Parameters:
     ///   - isSelectionMode: Whether we're in selection mode
@@ -110,7 +110,56 @@ class WebMThumbnailCell: UICollectionViewCell {
             selectionIndicator.layer.borderWidth = 0
         }
     }
-    
+
+    /// Updates the cell's visual selection state with gallery-style feedback (matching ImageGalleryVC)
+    func setGallerySelected(_ selected: Bool, animated: Bool = true) {
+        let changes = {
+            if selected {
+                self.contentView.layer.borderWidth = 3
+                self.contentView.layer.borderColor = UIColor.systemBlue.cgColor
+                self.contentView.layer.cornerRadius = 8
+                self.contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.1)
+
+                // Add subtle shadow
+                self.contentView.layer.shadowColor = UIColor.systemBlue.cgColor
+                self.contentView.layer.shadowOffset = CGSize(width: 0, height: 2)
+                self.contentView.layer.shadowOpacity = 0.3
+                self.contentView.layer.shadowRadius = 4
+            } else {
+                self.contentView.layer.borderWidth = 0
+                self.contentView.layer.borderColor = nil
+                self.contentView.layer.cornerRadius = 4
+                self.contentView.backgroundColor = .clear
+                self.contentView.layer.shadowOpacity = 0
+            }
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
+    /// Adds hover/tap effect for better user feedback (matching ImageGalleryVC)
+    func setHighlighted(_ highlighted: Bool, animated: Bool = true) {
+        let changes = {
+            if highlighted {
+                self.contentView.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+                self.contentView.alpha = 0.8
+            } else {
+                self.contentView.transform = .identity
+                self.contentView.alpha = 1.0
+            }
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
     // MARK: - Reuse
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -118,6 +167,14 @@ class WebMThumbnailCell: UICollectionViewCell {
         selectionIndicator.isHidden = true
         selectionIndicator.layer.borderWidth = 0
         checkmarkImageView.isHidden = false
+
+        // Reset gallery-style selection state
+        contentView.layer.borderWidth = 0
+        contentView.layer.borderColor = nil
+        contentView.backgroundColor = .clear
+        contentView.layer.shadowOpacity = 0
+        contentView.transform = .identity
+        contentView.alpha = 1.0
     }
 }
 
@@ -256,7 +313,7 @@ class FileThumbnailCell: UICollectionViewCell {
     func setSelected(_ isSelected: Bool) {
         selectionIndicator.isHidden = !isSelected
     }
-    
+
     /// Shows or hides the selection mode UI elements
     /// - Parameters:
     ///   - isSelectionMode: Whether we're in selection mode
@@ -281,7 +338,56 @@ class FileThumbnailCell: UICollectionViewCell {
             selectionIndicator.layer.borderWidth = 0
         }
     }
-    
+
+    /// Updates the cell's visual selection state with gallery-style feedback (matching ImageGalleryVC)
+    func setGallerySelected(_ selected: Bool, animated: Bool = true) {
+        let changes = {
+            if selected {
+                self.contentView.layer.borderWidth = 3
+                self.contentView.layer.borderColor = UIColor.systemBlue.cgColor
+                self.contentView.layer.cornerRadius = 8
+                self.contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.1)
+
+                // Add subtle shadow
+                self.contentView.layer.shadowColor = UIColor.systemBlue.cgColor
+                self.contentView.layer.shadowOffset = CGSize(width: 0, height: 2)
+                self.contentView.layer.shadowOpacity = 0.3
+                self.contentView.layer.shadowRadius = 4
+            } else {
+                self.contentView.layer.borderWidth = 0
+                self.contentView.layer.borderColor = nil
+                self.contentView.layer.cornerRadius = 4
+                self.contentView.backgroundColor = .clear
+                self.contentView.layer.shadowOpacity = 0
+            }
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
+    /// Adds hover/tap effect for better user feedback (matching ImageGalleryVC)
+    func setHighlighted(_ highlighted: Bool, animated: Bool = true) {
+        let changes = {
+            if highlighted {
+                self.contentView.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+                self.contentView.alpha = 0.8
+            } else {
+                self.contentView.transform = .identity
+                self.contentView.alpha = 1.0
+            }
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
     // MARK: - Reuse
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -291,5 +397,13 @@ class FileThumbnailCell: UICollectionViewCell {
         selectionIndicator.isHidden = true
         selectionIndicator.layer.borderWidth = 0
         checkmarkImageView.isHidden = false
+
+        // Reset gallery-style selection state
+        contentView.layer.borderWidth = 0
+        contentView.layer.borderColor = nil
+        contentView.backgroundColor = .clear
+        contentView.layer.shadowOpacity = 0
+        contentView.transform = .identity
+        contentView.alpha = 1.0
     }
 }
