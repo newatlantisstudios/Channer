@@ -192,7 +192,7 @@ class SearchManager {
         }
     }
     
-    private func searchBoard(board: String, query: String, completion: @escaping ([ThreadData]) -> Void) {
+    func searchBoard(board: String, query: String, completion: @escaping ([ThreadData]) -> Void) {
         let catalogURL = "https://a.4cdn.org/\(board)/catalog.json"
         
         AF.request(catalogURL).responseData { response in
