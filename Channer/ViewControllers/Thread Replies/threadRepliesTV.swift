@@ -328,7 +328,45 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var imagePrefetcher: ImagePrefetcher?
     // Whether we have preloaded heights and first-screen images
     private var hasPreloadedContent = false
-    
+
+    // MARK: - Reply Quoting
+    /// Stores post numbers that the user wants to quote in their reply
+    private var pendingQuotes: [String] = []
+
+    /// Reference to the currently active compose view controller (kept strong to preserve state when minimized)
+    private var activeComposeVC: ComposeViewController?
+
+    /// Tracks whether the compose view is currently minimized
+    private var isComposeMinimized = false
+
+    /// Floating button that appears when there are pending quotes
+    private lazy var floatingReplyButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        button.layer.cornerRadius = 22
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowRadius = 4
+        button.layer.shadowOpacity = 0.3
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(floatingReplyButtonTapped), for: .touchUpInside)
+        button.isHidden = true
+        return button
+    }()
+
+    /// Button to clear pending quotes
+    private lazy var clearQuotesButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        button.tintColor = .white
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(clearQuotesTapped), for: .touchUpInside)
+        button.isHidden = true
+        return button
+    }()
+
     // MARK: - Initializer
     
     init() {
@@ -433,8 +471,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
         ])
+
+        // Setup floating reply button for multi-quote
+        setupFloatingReplyButton()
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
@@ -721,9 +762,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          style: .plain,
                                          target: self,
                                          action: #selector(showActionSheet))
-        
+
+        // Create the Reply button
+        let replyImage = UIImage(systemName: "square.and.pencil")
+        let replyButton = UIBarButtonItem(image: replyImage,
+                                          style: .plain,
+                                          target: self,
+                                          action: #selector(showComposeView))
+
         // Set the buttons in the navigation bar
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!]
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!, replyButton]
     }
     
     // MARK: - Search Bar Setup
@@ -787,6 +835,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
     
+    @objc private func showComposeView() {
+        showComposeViewWithQuote(quotePostNumber: nil)
+    }
+
+    private func showComposeViewWithQuote(quotePostNumber: Int?) {
+        guard let threadNum = Int(threadNumber) else { return }
+
+        var quoteText: String? = nil
+        if let postNum = quotePostNumber {
+            quoteText = ">>\(postNum)\n"
+        }
+
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNum, quoteText: quoteText)
+        composeVC.delegate = self
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
+    }
+
     @objc private func showActionSheet() {
         // Create an action sheet
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -2061,8 +2128,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func showCellActionSheet(for indexPath: IndexPath) {
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
-        // Watch for replies option
         let postNo = threadBoardReplyNumber[indexPath.row]
+
+        // Reply to this post option (immediate reply)
+        actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
+            self?.replyToPost(postNumber: postNo)
+        }))
+
+        // Quote post option (add to pending quotes for multi-reply)
+        let isAlreadyQuoted = pendingQuotes.contains(postNo)
+        let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
+        actionSheet.addAction(UIAlertAction(title: quoteTitle, style: .default, handler: { [weak self] _ in
+            self?.toggleQuote(postNumber: postNo)
+        }))
+
+        // Watch for replies option
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
         let watchTitle = isWatching ? "Stop Watching for Replies" : "Watch for Replies"
         actionSheet.addAction(UIAlertAction(title: watchTitle, style: .default, handler: { _ in
@@ -2146,6 +2226,172 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             toast.dismiss(animated: true)
         }
+    }
+
+    /// Opens the compose view controller to reply to a specific post
+    private func replyToPost(postNumber: String) {
+        guard let threadNo = Int(threadNumber) else { return }
+
+        let quoteText = ">>\(postNumber)"
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNo, quoteText: quoteText)
+        composeVC.delegate = self
+        activeComposeVC = composeVC
+
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .pageSheet
+        navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
+    }
+
+    // MARK: - Multi-Quote Reply Methods
+
+    /// Sets up the floating reply button UI
+    private func setupFloatingReplyButton() {
+        view.addSubview(floatingReplyButton)
+        view.addSubview(clearQuotesButton)
+
+        NSLayoutConstraint.activate([
+            floatingReplyButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            floatingReplyButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            floatingReplyButton.heightAnchor.constraint(equalToConstant: 44),
+
+            clearQuotesButton.leadingAnchor.constraint(equalTo: floatingReplyButton.trailingAnchor, constant: -20),
+            clearQuotesButton.topAnchor.constraint(equalTo: floatingReplyButton.topAnchor, constant: -8),
+            clearQuotesButton.widthAnchor.constraint(equalToConstant: 24),
+            clearQuotesButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+    }
+
+    /// Toggles a post number in the pending quotes list, or inserts directly if compose exists
+    private func toggleQuote(postNumber: String) {
+        // If compose view exists (visible or minimized), insert the quote directly
+        if let composeVC = activeComposeVC {
+            if let postNo = Int(postNumber) {
+                composeVC.insertQuote(postNo)
+                showToast(message: "Added >>\(postNumber) to reply")
+            }
+            return
+        }
+
+        // Otherwise, toggle in the pending quotes list
+        if let index = pendingQuotes.firstIndex(of: postNumber) {
+            pendingQuotes.remove(at: index)
+            showToast(message: "Removed quote >>\(postNumber)")
+        } else {
+            pendingQuotes.append(postNumber)
+            showToast(message: "Added quote >>\(postNumber)")
+        }
+        updateFloatingReplyButton()
+    }
+
+    /// Updates the floating reply button appearance and visibility
+    private func updateFloatingReplyButton() {
+        let hasQuotes = !pendingQuotes.isEmpty
+
+        if isComposeMinimized || hasQuotes {
+            // Show "Continue Reply" button
+            floatingReplyButton.setTitle("  Continue Reply  ", for: .normal)
+            floatingReplyButton.backgroundColor = .systemGreen
+            showFloatingButton(showClearButton: true)
+        } else {
+            // Hide the button
+            hideFloatingButton()
+        }
+    }
+
+    /// Shows the floating reply button with animation
+    private func showFloatingButton(showClearButton: Bool) {
+        if floatingReplyButton.isHidden {
+            floatingReplyButton.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+            floatingReplyButton.alpha = 0
+            floatingReplyButton.isHidden = false
+            clearQuotesButton.isHidden = !showClearButton
+
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5) {
+                self.floatingReplyButton.transform = .identity
+                self.floatingReplyButton.alpha = 1
+                self.clearQuotesButton.alpha = showClearButton ? 1 : 0
+            }
+        } else {
+            // Just update clear button visibility
+            clearQuotesButton.isHidden = !showClearButton
+            clearQuotesButton.alpha = showClearButton ? 1 : 0
+        }
+    }
+
+    /// Hides the floating reply button with animation
+    private func hideFloatingButton() {
+        guard !floatingReplyButton.isHidden else { return }
+
+        UIView.animate(withDuration: 0.2) {
+            self.floatingReplyButton.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+            self.floatingReplyButton.alpha = 0
+            self.clearQuotesButton.alpha = 0
+        } completion: { _ in
+            self.floatingReplyButton.isHidden = true
+            self.clearQuotesButton.isHidden = true
+            self.floatingReplyButton.transform = .identity
+        }
+    }
+
+    /// Called when the floating reply button is tapped
+    @objc private func floatingReplyButtonTapped() {
+        // Check if we're restoring a minimized compose view
+        if isComposeMinimized, let composeVC = activeComposeVC {
+            // Re-present the existing compose view
+            isComposeMinimized = false
+            let navController = UINavigationController(rootViewController: composeVC)
+            navController.modalPresentationStyle = .pageSheet
+            navController.isModalInPresentation = true
+            if let sheet = navController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+            }
+            present(navController, animated: true)
+            updateFloatingReplyButton()
+            return
+        }
+
+        // Otherwise, create a new compose view with pending quotes
+        guard !pendingQuotes.isEmpty, let threadNo = Int(threadNumber) else { return }
+
+        // Build quote text with all pending quotes
+        let quoteText = pendingQuotes.map { ">>\($0)" }.joined(separator: "\n")
+
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNo, quoteText: quoteText)
+        composeVC.delegate = self
+        activeComposeVC = composeVC
+
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .pageSheet
+        navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
+
+        // Clear pending quotes after opening compose
+        pendingQuotes.removeAll()
+        updateFloatingReplyButton()
+    }
+
+    /// Called when the clear quotes button is tapped
+    @objc private func clearQuotesTapped() {
+        // If there's a minimized compose, discard it
+        if isComposeMinimized {
+            activeComposeVC = nil
+            isComposeMinimized = false
+            showToast(message: "Discarded reply draft")
+        } else {
+            showToast(message: "Cleared all quotes")
+        }
+        pendingQuotes.removeAll()
+        updateFloatingReplyButton()
     }
 
     /// Shows filter options in an action sheet
@@ -3121,5 +3367,38 @@ extension threadRepliesTV {
                 }
             }
         )
+    }
+}
+
+// MARK: - ComposeViewControllerDelegate
+extension threadRepliesTV: ComposeViewControllerDelegate {
+    func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        // Clear reference to compose view
+        activeComposeVC = nil
+        isComposeMinimized = false
+
+        // Refresh the thread to show the new post
+        refresh()
+
+        // Show success message
+        let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        updateFloatingReplyButton()
+    }
+
+    func composeViewControllerDidCancel(_ controller: ComposeViewController) {
+        // Clear reference to compose view
+        activeComposeVC = nil
+        isComposeMinimized = false
+        updateFloatingReplyButton()
+    }
+
+    func composeViewControllerDidMinimize(_ controller: ComposeViewController) {
+        // Mark as minimized and show the continue button
+        isComposeMinimized = true
+        updateFloatingReplyButton()
     }
 }

@@ -46,7 +46,12 @@ class settings: UIViewController {
     private let keyboardShortcutsView = UIView()
     private let keyboardShortcutsLabel = UILabel()
     private let keyboardShortcutsToggle = UISwitch()
-    
+
+    private let passSettingsView = UIView()
+    private let passSettingsLabel = UILabel()
+    private let passSettingsButton = UIButton(type: .system)
+    private let passStatusIndicator = UIView()
+
     private let highQualityThumbnailsView = UIView()
     private let highQualityThumbnailsLabel = UILabel()
     private let highQualityThumbnailsToggle = UISwitch()
@@ -122,7 +127,12 @@ class settings: UIViewController {
             self.updateSelectedBoardLabel()
         }
     }
-    
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updatePassStatusIndicator()
+    }
+
     private func sortBoardsAlphabetically() {
         // Create array of tuples containing both board name and abbreviation
         let combinedBoards = zip(boardNames, boardAbv).map { ($0, $1) }
@@ -424,7 +434,37 @@ class settings: UIViewController {
         autoRefreshButton.translatesAutoresizingMaskIntoConstraints = false
         autoRefreshButton.addTarget(self, action: #selector(autoRefreshButtonTapped), for: .touchUpInside)
         autoRefreshView.addSubview(autoRefreshButton)
-        
+
+        // 4chan Pass Settings View
+        passSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        passSettingsView.layer.cornerRadius = 10
+        passSettingsView.clipsToBounds = true
+        passSettingsView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(passSettingsView)
+
+        // Pass Status Indicator (green/red dot)
+        passStatusIndicator.layer.cornerRadius = 5
+        passStatusIndicator.translatesAutoresizingMaskIntoConstraints = false
+        updatePassStatusIndicator()
+        passSettingsView.addSubview(passStatusIndicator)
+
+        // Pass Settings Label
+        passSettingsLabel.text = "4chan Pass"
+        passSettingsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        passSettingsLabel.textAlignment = .left
+        passSettingsLabel.numberOfLines = 1
+        passSettingsLabel.adjustsFontSizeToFitWidth = true
+        passSettingsLabel.minimumScaleFactor = 0.8
+        passSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
+        passSettingsView.addSubview(passSettingsLabel)
+
+        // Pass Settings Button
+        passSettingsButton.setTitle("Configure", for: .normal)
+        passSettingsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        passSettingsButton.translatesAutoresizingMaskIntoConstraints = false
+        passSettingsButton.addTarget(self, action: #selector(passSettingsButtonTapped), for: .touchUpInside)
+        passSettingsView.addSubview(passSettingsButton)
+
         // Keyboard Shortcuts View (iPad only)
         if UIDevice.current.userInterfaceIdiom == .pad {
             keyboardShortcutsView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -730,12 +770,29 @@ class settings: UIViewController {
         
         // Present the alert
         present(alertController, animated: true)
-        
+
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
+
+    @objc private func passSettingsButtonTapped() {
+        let passSettingsVC = PassSettingsViewController()
+        navigationController?.pushViewController(passSettingsVC, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    private func updatePassStatusIndicator() {
+        if PassAuthManager.shared.isAuthenticated {
+            passStatusIndicator.backgroundColor = .systemGreen
+        } else {
+            passStatusIndicator.backgroundColor = .systemRed
+        }
+    }
+
     @objc private func contentFilteringButtonTapped() {
         // Show content filtering options inline
         let alertController = UIAlertController(
@@ -1210,7 +1267,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Boards Display Mode View
-            boardsDisplayModeView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            boardsDisplayModeView.topAnchor.constraint(equalTo: passSettingsView.bottomAnchor, constant: 16),
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
@@ -1442,11 +1499,33 @@ class settings: UIViewController {
             autoRefreshLabel.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshLabel.leadingAnchor.constraint(equalTo: autoRefreshView.leadingAnchor, constant: 20),
             autoRefreshLabel.trailingAnchor.constraint(lessThanOrEqualTo: autoRefreshButton.leadingAnchor, constant: -15),
-            
+
             // Auto-refresh Button
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
-            
+
+            // Pass Settings View
+            passSettingsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            passSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            passSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            passSettingsView.heightAnchor.constraint(equalToConstant: 44),
+            passSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Pass Status Indicator
+            passStatusIndicator.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passStatusIndicator.leadingAnchor.constraint(equalTo: passSettingsView.leadingAnchor, constant: 16),
+            passStatusIndicator.widthAnchor.constraint(equalToConstant: 10),
+            passStatusIndicator.heightAnchor.constraint(equalToConstant: 10),
+
+            // Pass Settings Label
+            passSettingsLabel.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passSettingsLabel.leadingAnchor.constraint(equalTo: passStatusIndicator.trailingAnchor, constant: 10),
+            passSettingsLabel.trailingAnchor.constraint(lessThanOrEqualTo: passSettingsButton.leadingAnchor, constant: -15),
+
+            // Pass Settings Button
+            passSettingsButton.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passSettingsButton.trailingAnchor.constraint(equalTo: passSettingsView.trailingAnchor, constant: -20),
+
         ])
         
         // iPad-only constraints for keyboard shortcuts
