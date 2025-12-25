@@ -4,6 +4,7 @@ import Kingfisher
 import SwiftyJSON
 import SystemConfiguration
 import Foundation
+import UserNotifications
 
 // No need to import KeyboardShortcutManager as it's in the same project
 
@@ -367,6 +368,36 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         return button
     }()
 
+    // MARK: - New Posts Tracking
+    /// Tracks the number of posts before a refresh to detect new posts
+    private var previousPostCount: Int = 0
+    /// Index of the first new post after refresh (nil if no new posts)
+    private var firstNewPostIndex: Int?
+    /// Number of new posts detected after refresh
+    private var newPostCount: Int = 0
+    /// UserDefaults key for new post behavior setting
+    private let newPostBehaviorKey = "channer_new_post_behavior"
+
+    // MARK: - Jump to New Posts Button
+    /// Floating button shown when new posts are detected
+    private lazy var jumpToNewButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = ThemeManager.shared.cellBorderColor
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        button.layer.cornerRadius = 20
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowRadius = 4
+        button.layer.shadowOpacity = 0.3
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        button.addTarget(self, action: #selector(jumpToNewPostsTapped), for: .touchUpInside)
+        button.isHidden = true
+        button.alpha = 0
+        return button
+    }()
+
     // MARK: - Initializer
     
     init() {
@@ -457,11 +488,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         setupLoadingIndicator()
         setupRefreshStatusIndicator()
+        setupJumpToNewButton()
         setupNavigationItems()
         checkIfFavorited()
         loadInitialData()
         setupAutoRefreshTimer()
-        
+
         // Hover gesture support now handled by cells directly
         
         // Table constraints
@@ -735,7 +767,67 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             refreshProgressView.heightAnchor.constraint(equalToConstant: 2)
         ])
     }
-    
+
+    /// Sets up the floating "Jump to new posts" button
+    private func setupJumpToNewButton() {
+        view.addSubview(jumpToNewButton)
+
+        NSLayoutConstraint.activate([
+            jumpToNewButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            jumpToNewButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            jumpToNewButton.heightAnchor.constraint(equalToConstant: 40)
+        ])
+    }
+
+    /// Shows the jump to new posts button with animation
+    private func showJumpToNewButton(count: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let title = count == 1 ? "↓ 1 new post" : "↓ \(count) new posts"
+            self.jumpToNewButton.setTitle(title, for: .normal)
+            self.jumpToNewButton.isHidden = false
+
+            UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
+                self.jumpToNewButton.alpha = 1
+                self.jumpToNewButton.transform = .identity
+            }
+        }
+    }
+
+    /// Hides the jump to new posts button with animation
+    private func hideJumpToNewButton() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            UIView.animate(withDuration: 0.2, animations: {
+                self.jumpToNewButton.alpha = 0
+            }) { _ in
+                self.jumpToNewButton.isHidden = true
+            }
+        }
+    }
+
+    /// Action when jump to new posts button is tapped
+    @objc private func jumpToNewPostsTapped() {
+        guard let firstNewIndex = firstNewPostIndex, firstNewIndex < threadReplies.count else {
+            hideJumpToNewButton()
+            return
+        }
+
+        let indexPath = IndexPath(row: firstNewIndex, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+
+        // Hide the button after jumping
+        hideJumpToNewButton()
+
+        // Reset tracking
+        firstNewPostIndex = nil
+        newPostCount = 0
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
     // MARK: - Navigation Item Setup Methods
     /// Methods to configure navigation bar items and actions
     private func setupNavigationItems() {
@@ -2722,13 +2814,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             isLoading = false
             return
         }
-        
+
+        // Store previous post count before refresh
+        let previousCount = threadReplies.count
+
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
-        
+
         let request = AF.request(urlString)
         request.responseData { [weak self] response in
             guard let self = self else { return }
-            
+
             DispatchQueue.main.async {
                 switch response.result {
                 case .success(let data):
@@ -2737,10 +2832,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         self.processThreadData(json)
                         self.structureThreadReplies()
                         self.isLoading = false
-                        self.tableView.reloadData()
-                        
-                        // Restore scroll position after reload
-                        self.tableView.setContentOffset(scrollOffset, animated: false)
+
+                        // Calculate new posts
+                        let currentCount = self.threadReplies.count
+                        let newCount = currentCount - previousCount
+
+                        if newCount > 0 && previousCount > 0 {
+                            // We have new posts
+                            self.newPostCount = newCount
+                            self.firstNewPostIndex = previousCount
+
+                            // Update the refresh status to show new post count
+                            self.updateRefreshStatusWithNewPosts(newCount)
+
+                            // Handle new post behavior based on user setting
+                            self.handleNewPostsBehavior(
+                                newCount: newCount,
+                                firstNewIndex: previousCount,
+                                scrollOffset: scrollOffset
+                            )
+                        } else {
+                            // No new posts, just restore scroll position
+                            self.tableView.reloadData()
+                            self.tableView.setContentOffset(scrollOffset, animated: false)
+                        }
+
+                        // Check for watched post replies and send notifications
+                        self.checkWatchedPostsAndNotify()
+
                     } catch {
                         print("JSON parsing error: \(error)")
                         self.handleLoadError()
@@ -2749,6 +2868,102 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     print("Network error: \(error)")
                     self.handleLoadError()
                 }
+            }
+        }
+    }
+
+    /// Updates refresh status label to include new post count
+    private func updateRefreshStatusWithNewPosts(_ count: Int) {
+        guard !refreshStatusView.isHidden else { return }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+
+        var statusText = ""
+        if let lastRefresh = lastRefreshTime {
+            statusText = "Last refresh: \(formatter.string(from: lastRefresh))"
+        }
+
+        // Add new posts indicator
+        let postWord = count == 1 ? "post" : "posts"
+        statusText += " | +\(count) new \(postWord)"
+
+        if let nextRefresh = nextRefreshTime {
+            statusText += " | Next: \(formatter.string(from: nextRefresh))"
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusLabel.text = statusText
+        }
+    }
+
+    /// Handles new posts based on user behavior setting
+    /// - Parameters:
+    ///   - newCount: Number of new posts detected
+    ///   - firstNewIndex: Index of the first new post
+    ///   - scrollOffset: Original scroll position to restore if needed
+    private func handleNewPostsBehavior(newCount: Int, firstNewIndex: Int, scrollOffset: CGPoint) {
+        // Get user preference: 0 = Show button, 1 = Auto-scroll, 2 = Do nothing
+        let behavior = UserDefaults.standard.integer(forKey: newPostBehaviorKey)
+
+        tableView.reloadData()
+
+        switch behavior {
+        case 1: // Auto-scroll to new posts
+            let indexPath = IndexPath(row: firstNewIndex, section: 0)
+            tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+
+            // Provide haptic feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+        case 2: // Do nothing - preserve scroll position
+            tableView.setContentOffset(scrollOffset, animated: false)
+
+        default: // 0 or undefined - Show jump button
+            tableView.setContentOffset(scrollOffset, animated: false)
+            showJumpToNewButton(count: newCount)
+        }
+    }
+
+    /// Checks for new replies to watched posts and sends push notifications
+    private func checkWatchedPostsAndNotify() {
+        let newReplyCount = WatchedPostsManager.shared.checkForNewReplies(
+            threadNo: threadNumber,
+            boardAbv: boardAbv,
+            threadReplies: threadReplies,
+            replyNumbers: threadBoardReplyNumber
+        )
+
+        if newReplyCount > 0 {
+            // Send push notification for watched post replies
+            sendWatchedPostNotification(replyCount: newReplyCount)
+        }
+    }
+
+    /// Sends a local push notification when watched posts get new replies
+    private func sendWatchedPostNotification(replyCount: Int) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        guard notificationsEnabled else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watched Post Reply"
+        content.body = replyCount == 1
+            ? "A post you're watching in /\(boardAbv)/ received a reply"
+            : "\(replyCount) posts you're watching in /\(boardAbv)/ received replies"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": threadNumber,
+            "boardAbv": boardAbv,
+            "type": "watched_post_reply"
+        ]
+
+        let identifier = "watched-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending watched post notification: \(error.localizedDescription)")
             }
         }
     }
