@@ -828,76 +828,10 @@ class settings: UIViewController {
     }
 
     @objc private func contentFilteringButtonTapped() {
-        // Show content filtering options inline
-        let alertController = UIAlertController(
-            title: "Content Filtering",
-            message: "Manage content filters to hide unwanted posts",
-            preferredStyle: .actionSheet
-        )
-        
-        // Add toggle for overall filtering
-        var isFilteringEnabled = false
-        var keywordCount = 0
-        var posterCount = 0
-        var imageCount = 0
-        
-        // Get current state from ContentFilterManager
-        isFilteringEnabled = ContentFilterManager.shared.isFilteringEnabled()
-        let filters = ContentFilterManager.shared.getAllFilters()
-        keywordCount = filters.keywords.count
-        posterCount = filters.posters.count
-        imageCount = filters.images.count
-        
-        // Show current status
-        let statusMessage = """
-        Status: \(isFilteringEnabled ? "Enabled" : "Disabled")
-        Keyword Filters: \(keywordCount)
-        Poster ID Filters: \(posterCount)
-        Image Name Filters: \(imageCount)
-        """
-        
-        alertController.message = statusMessage
-        
-        // Add toggle action
-        let toggleTitle = isFilteringEnabled ? "Disable Content Filtering" : "Enable Content Filtering"
-        alertController.addAction(UIAlertAction(title: toggleTitle, style: .default) { _ in
-            let newState = !isFilteringEnabled
-            ContentFilterManager.shared.setFilteringEnabled(newState)
-            
-            // Show confirmation - we toggled from the original state
-            let message = isFilteringEnabled ? "Content filtering disabled" : "Content filtering enabled"
-            let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-            self.present(confirmToast, animated: true)
-            
-            // Dismiss after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                confirmToast.dismiss(animated: true)
-            }
-        })
-        
-        // Add option to add keyword filter
-        alertController.addAction(UIAlertAction(title: "Add Keyword Filter", style: .default) { _ in
-            self.showAddKeywordFilterAlert()
-        })
-        
-        // Add option to add poster filter
-        alertController.addAction(UIAlertAction(title: "Add Poster ID Filter", style: .default) { _ in
-            self.showAddPosterFilterAlert()
-        })
-        
-        // Add option to clear all filters
-        if keywordCount > 0 || posterCount > 0 || imageCount > 0 {
-            alertController.addAction(UIAlertAction(title: "Clear All Filters", style: .destructive) { _ in
-                self.showClearAllFiltersConfirmation()
-            })
-        }
-        
-        // Cancel action
-        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // Present the alert
-        present(alertController, animated: true)
-        
+        // Navigate to ContentFilterViewController
+        let contentFilterVC = ContentFilterViewController()
+        navigationController?.pushViewController(contentFilterVC, animated: true)
+
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()

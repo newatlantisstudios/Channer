@@ -12,6 +12,7 @@
 		15D70A1F707893C4092119E7 /* FavoritesManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FBA6566986468E56F4F3023 /* FavoritesManagerTests.swift */; };
 		170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170F90E622506E7C00F52BBD /* WebMViewController.swift */; };
 		171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */; };
+		171A75E42DD6F9FF00D75B34 /* AdvancedFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */; };
 		171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */; };
 		171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */; };
 		171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */; };
@@ -40,6 +41,8 @@
 		1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6462CEEEC7B00CE243D /* boardsCV.swift */; };
 		178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */; };
 		178E88F82CFA6EEA00810132 /* settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E88F72CFA6EE000810132 /* settings.swift */; };
+		17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CF001A2DDD000000000001 /* ContentFilterViewController.swift */; };
+		17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */; };
 		1797989A2CF7A37300486211 /* LocalAuthentication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 179798992CF7A37300486211 /* LocalAuthentication.framework */; };
 		17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; };
 		17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -112,6 +115,7 @@
 		108D0B6B7AC28F8A8AB0537A /* MockiCloudStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockiCloudStore.swift; path = Mocks/MockiCloudStore.swift; sourceTree = "<group>"; };
 		170F90E622506E7C00F52BBD /* WebMViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMViewController.swift; sourceTree = "<group>"; };
 		171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterManager.swift; sourceTree = "<group>"; };
+		171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilter.swift; sourceTree = "<group>"; };
 		171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCacheManager.swift; sourceTree = "<group>"; };
 		171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadDataHelper.swift; sourceTree = "<group>"; };
 		171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategorizedFavoritesViewController.swift; sourceTree = "<group>"; };
@@ -146,6 +150,8 @@
 		1781F6462CEEEC7B00CE243D /* boardsCV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsCV.swift; sourceTree = "<group>"; };
 		178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
 		178E88F72CFA6EE000810132 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = settings.swift; sourceTree = "<group>"; };
+		17CF001A2DDD000000000001 /* ContentFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterViewController.swift; sourceTree = "<group>"; };
+		17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterViewController.swift; sourceTree = "<group>"; };
 		179798992CF7A37300486211 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
 		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
 		1797989B2CF7CBBF00486211 /* Channer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Channer.entitlements; sourceTree = "<group>"; };
@@ -216,6 +222,7 @@
 			children = (
 				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
+				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
@@ -353,6 +360,8 @@
 				171A83472DDD36CC00D75B34 /* boardsTV.swift */,
 				171A83482DDD36CC00D75B34 /* boardsTVCell.swift */,
 				178E88F72CFA6EE000810132 /* settings.swift */,
+				17CF001A2DDD000000000001 /* ContentFilterViewController.swift */,
+				17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */,
 				171A76172DD83C6F00D75B34 /* SearchManager.swift */,
 				171A76182DD83C6F00D75B34 /* SearchViewController.swift */,
 				171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */,
@@ -617,6 +626,7 @@
 				171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */,
 				177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */,
 				171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */,
+				171A75E42DD6F9FF00D75B34 /* AdvancedFilter.swift in Sources */,
 				171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,
 				171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */,
 				171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
@@ -625,6 +635,8 @@
 				176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */,
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,
 				178E88F82CFA6EEA00810132 /* settings.swift in Sources */,
+				17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */,
+				17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */,
 				1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */,
 				171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */,
 				171A761A2DD83C6F00D75B34 /* SearchViewController.swift in Sources */,
