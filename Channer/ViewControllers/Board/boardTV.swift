@@ -717,9 +717,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             refreshControl?.endRefreshing()
             return
         }
-    
+
         isLoading = true
         loadingIndicator.startAnimating()
+
+        // Record board visit for statistics
+        StatisticsManager.shared.recordBoardVisit(boardAbv: boardAbv)
     
         let dispatchGroup = DispatchGroup()
         var newThreadData: [ThreadData] = []
