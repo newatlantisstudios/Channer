@@ -43,6 +43,9 @@ class settings: UIViewController {
     private let autoRefreshView = UIView()
     private let autoRefreshLabel = UILabel()
     private let autoRefreshButton = UIButton(type: .system)
+    private let newPostBehaviorView = UIView()
+    private let newPostBehaviorLabel = UILabel()
+    private let newPostBehaviorSegment = UISegmentedControl(items: ["Jump Button", "Auto-scroll", "Do Nothing"])
     private let keyboardShortcutsView = UIView()
     private let keyboardShortcutsLabel = UILabel()
     private let keyboardShortcutsToggle = UISwitch()
@@ -75,6 +78,7 @@ class settings: UIViewController {
     private let keyboardShortcutsEnabledKey = "keyboardShortcutsEnabled"
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
+    private let newPostBehaviorKey = "channer_new_post_behavior"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     private let preloadVideosKey = "channer_preload_videos_enabled"
     
@@ -464,6 +468,36 @@ class settings: UIViewController {
         passSettingsButton.translatesAutoresizingMaskIntoConstraints = false
         passSettingsButton.addTarget(self, action: #selector(passSettingsButtonTapped), for: .touchUpInside)
         passSettingsView.addSubview(passSettingsButton)
+
+        // New Post Behavior View
+        newPostBehaviorView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        newPostBehaviorView.layer.cornerRadius = 10
+        newPostBehaviorView.clipsToBounds = true
+        newPostBehaviorView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(newPostBehaviorView)
+
+        // New Post Behavior Label
+        newPostBehaviorLabel.text = "When New Posts Arrive"
+        newPostBehaviorLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        newPostBehaviorLabel.textAlignment = .left
+        newPostBehaviorLabel.numberOfLines = 1
+        newPostBehaviorLabel.adjustsFontSizeToFitWidth = true
+        newPostBehaviorLabel.minimumScaleFactor = 0.8
+        newPostBehaviorLabel.translatesAutoresizingMaskIntoConstraints = false
+        newPostBehaviorView.addSubview(newPostBehaviorLabel)
+
+        // New Post Behavior Segment Control
+        let savedBehavior = UserDefaults.standard.integer(forKey: newPostBehaviorKey)
+        newPostBehaviorSegment.selectedSegmentIndex = savedBehavior
+        newPostBehaviorSegment.translatesAutoresizingMaskIntoConstraints = false
+        newPostBehaviorSegment.addTarget(self, action: #selector(newPostBehaviorChanged), for: .valueChanged)
+        // Make segment control smaller on narrow screens
+        if UIScreen.main.bounds.width <= 375 {
+            newPostBehaviorSegment.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 10)], for: .normal)
+        } else {
+            newPostBehaviorSegment.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12)], for: .normal)
+        }
+        newPostBehaviorView.addSubview(newPostBehaviorSegment)
 
         // Keyboard Shortcuts View (iPad only)
         if UIDevice.current.userInterfaceIdiom == .pad {
@@ -1081,8 +1115,31 @@ class settings: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
-    
+
+    @objc private func newPostBehaviorChanged(_ sender: UISegmentedControl) {
+        UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: newPostBehaviorKey)
+        UserDefaults.standard.synchronize()
+
+        // Show confirmation with description of selected behavior
+        let titles = ["Jump Button", "Auto-scroll", "Do Nothing"]
+        let descriptions = [
+            "A floating button will appear to jump to new posts",
+            "The thread will automatically scroll to new posts",
+            "New posts will be loaded but scroll position preserved"
+        ]
+
+        let title = titles[sender.selectedSegmentIndex]
+        let message = descriptions[sender.selectedSegmentIndex]
+
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
         let alertController = UIAlertController(
             title: "\(type) Refresh Interval",
@@ -1267,7 +1324,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Boards Display Mode View
-            boardsDisplayModeView.topAnchor.constraint(equalTo: passSettingsView.bottomAnchor, constant: 16),
+            boardsDisplayModeView.topAnchor.constraint(equalTo: newPostBehaviorView.bottomAnchor, constant: 16),
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
@@ -1525,6 +1582,23 @@ class settings: UIViewController {
             // Pass Settings Button
             passSettingsButton.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
             passSettingsButton.trailingAnchor.constraint(equalTo: passSettingsView.trailingAnchor, constant: -20),
+
+            // New Post Behavior View
+            newPostBehaviorView.topAnchor.constraint(equalTo: passSettingsView.bottomAnchor, constant: 16),
+            newPostBehaviorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            newPostBehaviorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            newPostBehaviorView.heightAnchor.constraint(equalToConstant: 70),
+            newPostBehaviorView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // New Post Behavior Label
+            newPostBehaviorLabel.topAnchor.constraint(equalTo: newPostBehaviorView.topAnchor, constant: 10),
+            newPostBehaviorLabel.leadingAnchor.constraint(equalTo: newPostBehaviorView.leadingAnchor, constant: 20),
+            newPostBehaviorLabel.trailingAnchor.constraint(equalTo: newPostBehaviorView.trailingAnchor, constant: -20),
+
+            // New Post Behavior Segment Control
+            newPostBehaviorSegment.topAnchor.constraint(equalTo: newPostBehaviorLabel.bottomAnchor, constant: 8),
+            newPostBehaviorSegment.leadingAnchor.constraint(equalTo: newPostBehaviorView.leadingAnchor, constant: 16),
+            newPostBehaviorSegment.trailingAnchor.constraint(equalTo: newPostBehaviorView.trailingAnchor, constant: -16),
 
         ])
         
