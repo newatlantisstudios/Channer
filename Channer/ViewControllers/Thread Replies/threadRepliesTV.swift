@@ -818,14 +818,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             actionSheet.addAction(UIAlertAction(title: "Save for Offline Reading", style: .default, handler: { _ in
                 self.saveForOfflineReading()
             }))
-        } 
+        }
         // Add Remove from Offline Cache option if thread is cached
         else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
             actionSheet.addAction(UIAlertAction(title: "Remove from Offline Cache", style: .destructive, handler: { _ in
                 self.removeFromOfflineCache()
             }))
         }
-        
+
+        // Add Save All Images option
+        let validImageUrls = threadRepliesImages.compactMap { URL(string: $0) }.filter { url in
+            url.absoluteString != "https://i.4cdn.org/\(boardAbv)/" &&
+            BatchImageDownloadManager.supportedMediaExtensions.contains(url.pathExtension.lowercased())
+        }
+        if !validImageUrls.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Save All Images (\(validImageUrls.count))", style: .default, handler: { _ in
+                self.saveAllImages()
+            }))
+        }
+
         // Add a cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
@@ -847,25 +858,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     @objc private func showGallery() {
         print("Gallery button tapped.")
-        
+
         // Pass original URLs directly to gallery (same as thread view does)
         // This ensures videos play correctly in gallery just like in thread view
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
             if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
-            
+
             // Pass original URLs directly - no thumbnail conversion
             // This matches thread view behavior where original URLs are used
             print("Using original URL for gallery: \(imageUrlString)")
             return url
         }
-        
+
         print("Filtered image URLs for gallery: \(imageUrls)")
-        
+
         // Instantiate the gallery view controller with original URLs
         let galleryVC = ImageGalleryVC(images: imageUrls)
         print("GalleryVC instantiated with original URLs.")
-        
+
         // Navigate to the gallery
         if let navController = navigationController {
             print("Pushing galleryVC onto navigation stack.")
@@ -875,6 +886,204 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             let navController = UINavigationController(rootViewController: galleryVC)
             present(navController, animated: true)
         }
+    }
+
+    // MARK: - Save All Images
+    /// Batch downloads all images in the current thread
+    private func saveAllImages() {
+        // Collect all valid image URLs
+        let imageUrls = threadRepliesImages.compactMap { urlString -> URL? in
+            guard let url = URL(string: urlString) else { return nil }
+            // Skip placeholder URLs
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
+            // Only include supported media types
+            guard BatchImageDownloadManager.supportedMediaExtensions.contains(url.pathExtension.lowercased()) else { return nil }
+            return url
+        }
+
+        guard !imageUrls.isEmpty else {
+            showAlert(title: "No Images", message: "No images found to download.")
+            return
+        }
+
+        // Show confirmation dialog
+        let alertController = UIAlertController(
+            title: "Save All Images",
+            message: "Download \(imageUrls.count) images from this thread?",
+            preferredStyle: .alert
+        )
+
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alertController.addAction(UIAlertAction(title: "Download", style: .default) { [weak self] _ in
+            self?.startBatchDownload(imageUrls: imageUrls)
+        })
+
+        present(alertController, animated: true)
+    }
+
+    /// Starts the batch download process with progress UI
+    private func startBatchDownload(imageUrls: [URL]) {
+        // Create progress alert
+        let progressAlert = UIAlertController(
+            title: "Downloading Images",
+            message: "Preparing to download \(imageUrls.count) images...\n\n",
+            preferredStyle: .alert
+        )
+
+        // Add progress view
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        progressView.progress = 0
+
+        progressAlert.view.addSubview(progressView)
+        NSLayoutConstraint.activate([
+            progressView.leadingAnchor.constraint(equalTo: progressAlert.view.leadingAnchor, constant: 20),
+            progressView.trailingAnchor.constraint(equalTo: progressAlert.view.trailingAnchor, constant: -20),
+            progressView.bottomAnchor.constraint(equalTo: progressAlert.view.bottomAnchor, constant: -45)
+        ])
+
+        // Cancel action
+        progressAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+            BatchImageDownloadManager.shared.cancelDownload()
+        })
+
+        present(progressAlert, animated: true)
+
+        // Start download with async handling
+        Task {
+            await performBatchDownload(
+                imageUrls: imageUrls,
+                progressAlert: progressAlert,
+                progressView: progressView
+            )
+        }
+    }
+
+    /// Performs the batch download asynchronously
+    private func performBatchDownload(
+        imageUrls: [URL],
+        progressAlert: UIAlertController,
+        progressView: UIProgressView
+    ) async {
+        let saveDirectory = BatchImageDownloadManager.shared.getThreadImagesDirectory(
+            threadID: threadNumber,
+            boardAbv: boardAbv
+        )
+
+        var successCount = 0
+        var failureCount = 0
+        let totalCount = imageUrls.count
+
+        for (index, url) in imageUrls.enumerated() {
+            // Check if cancelled
+            if !BatchImageDownloadManager.shared.isDownloading && index > 0 {
+                break
+            }
+
+            // Update progress on main thread
+            await MainActor.run {
+                let progress = Float(index) / Float(totalCount)
+                progressView.setProgress(progress, animated: true)
+                progressAlert.message = "Downloading \(index + 1) of \(totalCount) images...\n\n"
+            }
+
+            // Download image
+            let success = await downloadImage(url: url, to: saveDirectory)
+            if success {
+                successCount += 1
+            } else {
+                failureCount += 1
+            }
+
+            // Small delay to avoid overwhelming the server
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        }
+
+        // Dismiss progress alert and show result
+        await MainActor.run {
+            progressAlert.dismiss(animated: true) {
+                self.showDownloadCompleteAlert(
+                    successCount: successCount,
+                    failureCount: failureCount,
+                    saveDirectory: saveDirectory
+                )
+            }
+        }
+    }
+
+    /// Downloads a single image to the specified directory
+    private func downloadImage(url: URL, to directory: URL) async -> Bool {
+        let filename = url.lastPathComponent
+        let destinationURL = directory.appendingPathComponent(filename)
+
+        // Skip if file already exists
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            print("DEBUG: saveAllImages - File already exists: \(filename)")
+            return true
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
+
+        // Add 4chan-specific headers
+        if let host = url.host, host == "i.4cdn.org" {
+            request.setValue("https://boards.4chan.org/\(boardAbv)/", forHTTPHeaderField: "Referer")
+            request.setValue("https://boards.4chan.org", forHTTPHeaderField: "Origin")
+        }
+
+        do {
+            let (tempURL, response) = try await URLSession.shared.download(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                print("DEBUG: saveAllImages - Bad response for \(filename)")
+                return false
+            }
+
+            try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+            print("DEBUG: saveAllImages - Downloaded: \(filename)")
+            return true
+
+        } catch {
+            print("DEBUG: saveAllImages - Error downloading \(filename): \(error)")
+            return false
+        }
+    }
+
+    /// Shows completion alert with download results
+    private func showDownloadCompleteAlert(successCount: Int, failureCount: Int, saveDirectory: URL) {
+        var message = "Successfully downloaded \(successCount) images."
+        if failureCount > 0 {
+            message += "\n\(failureCount) images failed to download."
+        }
+        message += "\n\nSaved to: BatchDownloads/\(boardAbv)_\(threadNumber)"
+
+        let alert = UIAlertController(
+            title: "Download Complete",
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+        // Add "Open in Files" action
+        alert.addAction(UIAlertAction(title: "Open in Files", style: .default) { _ in
+            // Open Files app to the download location
+            if let filesURL = URL(string: "shareddocuments://\(saveDirectory.path)") {
+                UIApplication.shared.open(filesURL, options: [:], completionHandler: nil)
+            }
+        })
+
+        present(alert, animated: true)
+    }
+
+    /// Helper to show simple alert
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     // MARK: - Table View Data Source Methods

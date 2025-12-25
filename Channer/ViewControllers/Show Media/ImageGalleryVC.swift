@@ -1040,6 +1040,152 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         }
     }
 
+    // MARK: - Context Menu Configuration
+    /// Provides context menu for collection view items
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        let imageURL = images[indexPath.row]
+
+        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: nil) { [weak self] _ in
+            guard let self = self else { return nil }
+
+            var actions: [UIMenuElement] = []
+
+            // Save Image action
+            let saveAction = UIAction(
+                title: "Save Image",
+                image: UIImage(systemName: "square.and.arrow.down")
+            ) { _ in
+                self.saveImage(at: indexPath)
+            }
+            actions.append(saveAction)
+
+            // Share action
+            let shareAction = UIAction(
+                title: "Share",
+                image: UIImage(systemName: "square.and.arrow.up")
+            ) { _ in
+                self.shareImage(at: indexPath)
+            }
+            actions.append(shareAction)
+
+            // Copy Image URL action
+            let copyURLAction = UIAction(
+                title: "Copy Image URL",
+                image: UIImage(systemName: "link")
+            ) { _ in
+                UIPasteboard.general.string = imageURL.absoluteString
+            }
+            actions.append(copyURLAction)
+
+            // Reverse Image Search submenu
+            let reverseSearchMenu = ReverseImageSearchManager.shared.createSearchMenu(for: imageURL)
+            actions.append(reverseSearchMenu)
+
+            return UIMenu(title: "", children: actions)
+        }
+    }
+
+    /// Saves the image at the given index path to Photos
+    private func saveImage(at indexPath: IndexPath) {
+        let imageURL = images[indexPath.row]
+
+        // Get the cell to access the image
+        if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell,
+           let image = cell.imageView?.image {
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            showToast("Image saved to Photos")
+        } else {
+            // Download and save if not already loaded
+            downloadAndSaveImage(url: imageURL)
+        }
+    }
+
+    /// Downloads and saves an image from URL
+    private func downloadAndSaveImage(url: URL) {
+        Task {
+            do {
+                var request = URLRequest(url: url)
+                request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+
+                // Add 4chan-specific headers
+                if let host = url.host, host == "i.4cdn.org" {
+                    let pathComponents = url.pathComponents
+                    if pathComponents.count > 1 {
+                        let board = pathComponents[1]
+                        request.setValue("https://boards.4chan.org/\(board)/", forHTTPHeaderField: "Referer")
+                    }
+                }
+
+                let (data, _) = try await URLSession.shared.data(for: request)
+                if let image = UIImage(data: data) {
+                    await MainActor.run {
+                        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                        self.showToast("Image saved to Photos")
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.showToast("Failed to save image")
+                }
+            }
+        }
+    }
+
+    /// Shares the image at the given index path
+    private func shareImage(at indexPath: IndexPath) {
+        let imageURL = images[indexPath.row]
+        var itemsToShare: [Any] = [imageURL]
+
+        // Add the image if loaded
+        if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell,
+           let image = cell.imageView?.image {
+            itemsToShare.insert(image, at: 0)
+        }
+
+        let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
+
+        // iPad support
+        if let popover = activityVC.popoverPresentationController {
+            if let cell = collectionView.cellForItem(at: indexPath) {
+                popover.sourceView = cell
+                popover.sourceRect = cell.bounds
+            }
+        }
+
+        present(activityVC, animated: true)
+    }
+
+    /// Shows a toast message
+    private func showToast(_ message: String) {
+        let toastLabel = UILabel()
+        toastLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        toastLabel.textColor = .white
+        toastLabel.font = .systemFont(ofSize: 14)
+        toastLabel.textAlignment = .center
+        toastLabel.text = "  \(message)  "
+        toastLabel.alpha = 0
+        toastLabel.layer.cornerRadius = 10
+        toastLabel.clipsToBounds = true
+        toastLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(toastLabel)
+        NSLayoutConstraint.activate([
+            toastLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toastLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
+            toastLabel.heightAnchor.constraint(equalToConstant: 35)
+        ])
+
+        UIView.animate(withDuration: 0.3, animations: {
+            toastLabel.alpha = 1
+        }) { _ in
+            UIView.animate(withDuration: 0.3, delay: 1.5, options: [], animations: {
+                toastLabel.alpha = 0
+            }) { _ in
+                toastLabel.removeFromSuperview()
+            }
+        }
+    }
+
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Returns the size for the item at the given index path.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
