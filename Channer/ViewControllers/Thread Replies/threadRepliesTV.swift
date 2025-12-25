@@ -288,6 +288,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var threadRepliesImages = [String]()
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
+
+    // Post metadata for advanced filtering
+    var postMetadataList = [PostMetadata]()
     
     // Storage for thread view
     private var threadRepliesOld = [NSAttributedString]()
@@ -1238,6 +1241,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
         originalTexts.removeAll()
+        postMetadataList.removeAll()
         
         // Get original reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
@@ -1298,29 +1302,50 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Extract the board reply number
         let replyNumber = String(describing: post["no"])
         threadBoardReplyNumber.append(replyNumber)
-        
-        // Extract the image URL
+
+        // Extract the image URL and related data
         let imageTimestamp = post["tim"].stringValue
         let imageExtension = post["ext"].stringValue
-        let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
-        threadRepliesImages.append(imageURL)
-        
+        let imageName = post["filename"].stringValue
+        let imageURL = imageTimestamp.isEmpty ? "" : "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
+        threadRepliesImages.append(imageURL.isEmpty ? "https://i.4cdn.org/\(boardAbv)/" : imageURL)
+
         // Debug logging for PNG images
         if imageExtension == ".png" {
             print("PNG Image found in post #\(replyNumber): \(imageURL)")
         }
-        
+
         // Extract and process the comment text
         let comment = post["com"].stringValue
-        
+
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
-        //print("Raw comment: \(comment)")
-        
+
         // Format the comment text with spoiler visibility
         let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
-        //print("Formatted comment: \(formattedComment)")
         threadReplies.append(formattedComment)
+
+        // Extract additional metadata for advanced filtering
+        let posterId = post["id"].stringValue  // Poster ID (if available on board)
+        let tripCode = post["trip"].stringValue  // Trip code
+        let countryCode = post["country"].stringValue  // Country code (e.g., "US")
+        let countryName = post["country_name"].stringValue  // Country name
+        let timestamp = post["time"].int  // Unix timestamp
+
+        // Create PostMetadata for advanced filtering
+        let metadata = PostMetadata(
+            postNumber: replyNumber,
+            comment: comment,
+            posterId: posterId.isEmpty ? nil : posterId,
+            tripCode: tripCode.isEmpty ? nil : tripCode,
+            countryCode: countryCode.isEmpty ? nil : countryCode,
+            countryName: countryName.isEmpty ? nil : countryName,
+            timestamp: timestamp,
+            imageUrl: imageURL.isEmpty ? nil : imageURL,
+            imageExtension: imageExtension.isEmpty ? nil : imageExtension,
+            imageName: imageName.isEmpty ? nil : imageName
+        )
+        postMetadataList.append(metadata)
     }
     
     // MARK: - Favorite Handling Methods
@@ -2173,27 +2198,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }))
         
         // Add toggle for filtering globally
-        var isEnabled = false
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
-            isEnabled = isFilteringEnabled
-        }
-        
+        let isEnabled = ContentFilterManager.shared.isFilteringEnabled()
+
         let toggleTitle = isEnabled ? "Disable All Filtering" : "Enable All Filtering"
-        
+
         filterAlert.addAction(UIAlertAction(title: toggleTitle, style: .default, handler: { _ in
-            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
-                _ = manager.perform(NSSelectorFromString("setFilteringEnabled:"), with: !isEnabled)
-            }
+            ContentFilterManager.shared.setFilteringEnabled(!isEnabled)
             self.applyContentFiltering() // Apply/unapply filters based on new setting
-            
+
             // Show confirmation
             let message = isEnabled ? "Content filtering disabled" : "Content filtering enabled"
             let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
             self.present(confirmToast, animated: true)
-            
+
             // Dismiss after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 confirmToast.dismiss(animated: true)
@@ -2248,32 +2265,28 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Add action to add the filter
         alert.addAction(UIAlertAction(title: "Add Filter", style: .default) { _ in
             guard let filterText = alert.textFields?.first?.text, !filterText.isEmpty else { return }
-            
+
             // Add filter based on selected type
             let filterType = filterTypes[segmentedControl.selectedSegmentIndex]
-            
-            // Add to the appropriate filter collection
+
+            // Add to the appropriate filter collection using ContentFilterManager
             var added = false
-            
-            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
-                
-                switch filterType {
-                case "Keyword":
-                    added = manager.perform(NSSelectorFromString("addKeywordFilter:"), with: filterText) != nil
-                case "Poster ID":
-                    added = manager.perform(NSSelectorFromString("addPosterFilter:"), with: filterText) != nil
-                case "Image Name":
-                    added = manager.perform(NSSelectorFromString("addImageFilter:"), with: filterText) != nil
-                default:
-                    break
-                }
+
+            switch filterType {
+            case "Keyword":
+                added = ContentFilterManager.shared.addKeywordFilter(filterText)
+            case "Poster ID":
+                added = ContentFilterManager.shared.addPosterFilter(filterText)
+            case "Image Name":
+                added = ContentFilterManager.shared.addImageFilter(filterText)
+            default:
+                break
             }
-            
+
             if added {
                 // Apply filtering to current view
                 self.applyContentFiltering()
-                
+
                 // Show confirmation
                 let confirmToast = UIAlertController(
                     title: nil,
@@ -2596,77 +2609,78 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     /// Applies content filtering to the loaded posts
+    /// Uses both legacy filters and advanced filters (regex, file type, country, trip code, time-based)
     private func applyContentFiltering() {
         // Clear existing filters before reapplying
         filteredReplyIndices.removeAll()
-        
-        // Check if content filtering is enabled
-        var isFilteringEnabled = false
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
-            isFilteringEnabled = isEnabled
-        }
-        
-        if !isFilteringEnabled {
+
+        let filterManager = ContentFilterManager.shared
+
+        // Check if any filtering is enabled
+        let legacyEnabled = filterManager.isFilteringEnabled()
+        let advancedEnabled = filterManager.isAdvancedFilteringEnabled()
+
+        if !legacyEnabled && !advancedEnabled {
             debugReloadData(context: "Search filter update")
             return
         }
-        
-        // Get filters from ContentFilterManager
-        var keywordFilters: [String] = []
-        var posterFilters: [String] = []
-        var imageFilters: [String] = []
-        
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]) {
-            keywordFilters = getAllFilters.keywords
-            posterFilters = getAllFilters.posters
-            imageFilters = getAllFilters.images
-        }
-        
+
+        // Get legacy filters
+        let legacyFilters = filterManager.getAllFilters()
+        let hasLegacyFilters = !legacyFilters.keywords.isEmpty || !legacyFilters.posters.isEmpty || !legacyFilters.images.isEmpty
+
+        // Get advanced filters
+        let advancedFilters = filterManager.getEnabledAdvancedFilters()
+        let hasAdvancedFilters = !advancedFilters.isEmpty
+
         // If no filters, skip filtering
-        if keywordFilters.isEmpty && posterFilters.isEmpty && imageFilters.isEmpty {
+        if !hasLegacyFilters && !hasAdvancedFilters {
             debugReloadData(context: "Search filter update")
             return
         }
-        
-        // Apply filters to each reply
-        for (index, reply) in threadReplies.enumerated() {
-            let plainText = reply.string.lowercased()
-            let posterId = threadBoardReplyNumber[index]
-            let imageUrl = threadRepliesImages[index].lowercased()
-            
-            // Check keyword filters
-            for filter in keywordFilters {
-                if plainText.contains(filter.lowercased()) {
-                    filteredReplyIndices.insert(index)
-                    break
+
+        // Apply filters to each reply using PostMetadata
+        for (index, _) in threadReplies.enumerated() {
+            // Use PostMetadata if available, otherwise create basic metadata
+            let metadata: PostMetadata
+            if index < postMetadataList.count {
+                metadata = postMetadataList[index]
+            } else {
+                // Fallback for older data without metadata
+                let comment = threadReplies[index].string
+                let imageUrl = index < threadRepliesImages.count ? threadRepliesImages[index] : nil
+                let posterId = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
+
+                // Extract extension from URL
+                var imageExt: String? = nil
+                if let url = imageUrl {
+                    if url.hasSuffix(".webm") { imageExt = ".webm" }
+                    else if url.hasSuffix(".mp4") { imageExt = ".mp4" }
+                    else if url.hasSuffix(".gif") { imageExt = ".gif" }
+                    else if url.hasSuffix(".png") { imageExt = ".png" }
+                    else if url.hasSuffix(".jpg") || url.hasSuffix(".jpeg") { imageExt = ".jpg" }
                 }
+
+                metadata = PostMetadata(
+                    postNumber: posterId ?? "",
+                    comment: comment,
+                    posterId: nil,
+                    tripCode: nil,
+                    countryCode: nil,
+                    countryName: nil,
+                    timestamp: nil,
+                    imageUrl: imageUrl,
+                    imageExtension: imageExt,
+                    imageName: nil
+                )
             }
-            
-            // Check poster ID filters if not already filtered
-            if !filteredReplyIndices.contains(index) {
-                for filter in posterFilters {
-                    if posterId.contains(filter) {
-                        filteredReplyIndices.insert(index)
-                        break
-                    }
-                }
-            }
-            
-            // Check image filename filters if not already filtered
-            if !filteredReplyIndices.contains(index) && !imageUrl.isEmpty {
-                for filter in imageFilters {
-                    if imageUrl.contains(filter.lowercased()) {
-                        filteredReplyIndices.insert(index)
-                        break
-                    }
-                }
+
+            // Check if post should be filtered using the centralized filter manager
+            if filterManager.shouldFilter(post: metadata) {
+                filteredReplyIndices.insert(index)
             }
         }
-        
+
         // Reload table with filtered content
         debugReloadData(context: "Search filter update")
     }
@@ -2684,6 +2698,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
         filteredReplyIndices.removeAll() // Clear filters on refresh
+        postMetadataList.removeAll() // Clear metadata on refresh
         replyCount = 0
         loadInitialData()
     }

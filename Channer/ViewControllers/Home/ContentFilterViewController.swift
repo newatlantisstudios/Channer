@@ -195,19 +195,21 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
     
     // MARK: - UITableViewDataSource
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 4 // Master switch section + 3 filter types
+        return 5 // Master switch section + Advanced filters + 3 filter types
     }
-    
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0:
-            return 1 // Master switch row
+            return 2 // Master switch row + Advanced filters link
         case 1:
             return keywordFilters.count
         case 2:
             return posterFilters.count
         case 3:
             return imageFilters.count
+        case 4:
+            return 1 // Statistics row
         default:
             return 0
         }
@@ -215,47 +217,83 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "FilterCell", for: indexPath)
-        
+
         cell.accessoryType = .none
+        cell.accessoryView = nil
         cell.selectionStyle = .default
-        
+        cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
+        cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
+
         switch indexPath.section {
         case 0:
-            // Master filter switch
-            cell.textLabel?.text = "Enable Content Filtering"
-            cell.selectionStyle = .none
-            
-            // Create switch for the cell
-            let filterSwitch = UISwitch()
-            filterSwitch.isOn = contentFilterManager.isFilteringEnabled()
-            filterSwitch.addTarget(self, action: #selector(toggleFilteringEnabled(_:)), for: .valueChanged)
-            cell.accessoryView = filterSwitch
-            
+            if indexPath.row == 0 {
+                // Master filter switch
+                cell.textLabel?.text = "Enable Content Filtering"
+                cell.selectionStyle = .none
+
+                // Create switch for the cell
+                let filterSwitch = UISwitch()
+                filterSwitch.isOn = contentFilterManager.isFilteringEnabled()
+                filterSwitch.addTarget(self, action: #selector(toggleFilteringEnabled(_:)), for: .valueChanged)
+                cell.accessoryView = filterSwitch
+            } else {
+                // Advanced Filters link
+                cell.textLabel?.text = "Advanced Filters"
+                cell.accessoryType = .disclosureIndicator
+
+                // Show count of advanced filters
+                let advancedCount = contentFilterManager.getAdvancedFilters().count
+                if advancedCount > 0 {
+                    let badge = UILabel()
+                    badge.text = "\(advancedCount)"
+                    badge.font = UIFont.systemFont(ofSize: 14)
+                    badge.textColor = .white
+                    badge.backgroundColor = .systemBlue
+                    badge.textAlignment = .center
+                    badge.layer.cornerRadius = 10
+                    badge.clipsToBounds = true
+                    badge.frame = CGSize(width: 24, height: 20).applying(.identity) as! CGRect
+                    badge.sizeToFit()
+                    badge.frame.size.width = max(badge.frame.size.width + 12, 24)
+                    badge.frame.size.height = 20
+                }
+            }
+
         case 1:
             // Keyword filters
             if indexPath.row < keywordFilters.count {
                 cell.textLabel?.text = keywordFilters[indexPath.row]
             }
             cell.accessoryType = .detailDisclosureButton
-            
+
         case 2:
             // Poster ID filters
             if indexPath.row < posterFilters.count {
                 cell.textLabel?.text = posterFilters[indexPath.row]
             }
             cell.accessoryType = .detailDisclosureButton
-            
+
         case 3:
             // Image name filters
             if indexPath.row < imageFilters.count {
                 cell.textLabel?.text = imageFilters[indexPath.row]
             }
             cell.accessoryType = .detailDisclosureButton
-            
+
+        case 4:
+            // Statistics
+            let stats = contentFilterManager.getFilterStatistics()
+            let legacyFilters = contentFilterManager.getAllFilters()
+            let legacyCount = legacyFilters.keywords.count + legacyFilters.posters.count + legacyFilters.images.count
+
+            cell.textLabel?.text = "Total Filters: \(legacyCount + stats.total) (\(stats.enabled) enabled)"
+            cell.textLabel?.textColor = ThemeManager.shared.secondaryTextColor
+            cell.selectionStyle = .none
+
         default:
             break
         }
-        
+
         return cell
     }
     
@@ -269,21 +307,25 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
             return "Poster ID Filters"
         case 3:
             return "Image Name Filters"
+        case 4:
+            return "Statistics"
         default:
             return nil
         }
     }
-    
+
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch section {
         case 0:
-            return "Toggle to enable or disable all content filtering globally."
+            return "Toggle to enable or disable all content filtering globally. Use Advanced Filters for regex, file type, country, trip code, and time-based filtering."
         case 1:
             return "Filters posts containing specific text or keywords."
         case 2:
             return "Filters posts from specific poster IDs."
         case 3:
             return "Filters posts containing images with specific filenames."
+        case 4:
+            return nil
         default:
             return nil
         }
@@ -292,9 +334,19 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
     // MARK: - UITableViewDelegate
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        
-        // Skip master switch row
+
+        // Handle global settings section
         if indexPath.section == 0 {
+            if indexPath.row == 1 {
+                // Navigate to Advanced Filters
+                let advancedVC = AdvancedFilterViewController()
+                navigationController?.pushViewController(advancedVC, animated: true)
+            }
+            return
+        }
+
+        // Skip statistics section
+        if indexPath.section == 4 {
             return
         }
         
