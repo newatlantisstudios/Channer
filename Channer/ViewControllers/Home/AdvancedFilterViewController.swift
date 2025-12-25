@@ -5,7 +5,7 @@ import UIKit
 class AdvancedFilterViewController: UIViewController {
 
     // MARK: - Properties
-    private let tableView = UITableView(style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let emptyStateLabel = UILabel()
     private let contentFilterManager = ContentFilterManager.shared
 
@@ -419,7 +419,14 @@ extension AdvancedFilterViewController: UITableViewDataSource {
             return cell
         }
 
-        let cell = tableView.dequeueReusableCell(withIdentifier: "FilterCell", for: indexPath)
+        // Use subtitle style to show hit count in detailTextLabel
+        let cell: UITableViewCell
+        if let dequeuedCell = tableView.dequeueReusableCell(withIdentifier: "FilterCell") {
+            cell = dequeuedCell
+        } else {
+            cell = UITableViewCell(style: .subtitle, reuseIdentifier: "FilterCell")
+        }
+
         let sectionFilters = filters(for: section)
 
         guard indexPath.row < sectionFilters.count else {
@@ -444,6 +451,8 @@ extension AdvancedFilterViewController: UITableViewDataSource {
         if filter.hitCount > 0 {
             cell.detailTextLabel?.text = "Matched \(filter.hitCount) times"
             cell.detailTextLabel?.textColor = ThemeManager.shared.secondaryTextColor
+        } else {
+            cell.detailTextLabel?.text = nil
         }
 
         cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
@@ -561,7 +570,7 @@ class SwitchTableViewCell: UITableViewCell {
 
 class CountryPickerViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate {
 
-    private let tableView = UITableView(style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let searchBar = UISearchBar()
     private var filteredCountries: [(code: String, name: String)] = CountryCodes.common
     private var selectedMode: FilterMode = .blacklist

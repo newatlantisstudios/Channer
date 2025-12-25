@@ -3,7 +3,7 @@ import UIKit
 class ContentFilterViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
     // MARK: - Properties
-    private let tableView = UITableView(style: .grouped)
+    private let tableView = UITableView(frame: .zero, style: .grouped)
     private let emptyStateLabel = UILabel()
     private let headerView = UIView()
     private let filterEnabledSwitch = UISwitch()
@@ -92,8 +92,9 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
     }
     
     private func updateEmptyState() {
-        let hasAnyFilters = !keywordFilters.isEmpty || !posterFilters.isEmpty || !imageFilters.isEmpty
-        emptyStateLabel.isHidden = hasAnyFilters
+        // Always hide empty state since we now have permanent sections
+        // (Global Settings, Advanced Filters link, Statistics)
+        emptyStateLabel.isHidden = true
     }
     
     // MARK: - Actions
@@ -239,23 +240,32 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
             } else {
                 // Advanced Filters link
                 cell.textLabel?.text = "Advanced Filters"
-                cell.accessoryType = .disclosureIndicator
 
-                // Show count of advanced filters
+                // Show count of advanced filters with badge
                 let advancedCount = contentFilterManager.getAdvancedFilters().count
                 if advancedCount > 0 {
                     let badge = UILabel()
                     badge.text = "\(advancedCount)"
-                    badge.font = UIFont.systemFont(ofSize: 14)
+                    badge.font = UIFont.boldSystemFont(ofSize: 12)
                     badge.textColor = .white
                     badge.backgroundColor = .systemBlue
                     badge.textAlignment = .center
                     badge.layer.cornerRadius = 10
                     badge.clipsToBounds = true
-                    badge.frame = CGSize(width: 24, height: 20).applying(.identity) as! CGRect
                     badge.sizeToFit()
-                    badge.frame.size.width = max(badge.frame.size.width + 12, 24)
-                    badge.frame.size.height = 20
+                    let badgeWidth = max(badge.frame.size.width + 12, 24)
+                    badge.frame = CGRect(x: 0, y: 0, width: badgeWidth, height: 20)
+
+                    let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+                    chevron.tintColor = .tertiaryLabel
+
+                    let stackView = UIStackView(arrangedSubviews: [badge, chevron])
+                    stackView.spacing = 8
+                    stackView.alignment = .center
+                    stackView.sizeToFit()
+                    cell.accessoryView = stackView
+                } else {
+                    cell.accessoryType = .disclosureIndicator
                 }
             }
 
@@ -405,7 +415,7 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
     func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
         // Called when the detail disclosure button is tapped
         // Reuse the selection handler for simplicity
-        tableView(tableView, didSelectRowAt: indexPath)
+        self.tableView(tableView, didSelectRowAt: indexPath)
     }
     
     // MARK: - Filter Management
