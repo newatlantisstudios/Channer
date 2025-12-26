@@ -25,6 +25,7 @@ class settings: UIViewController {
     private let notificationsToggle = UISwitch()
     private let offlineReadingView = UIView()
     private let offlineReadingLabel = UILabel()
+    private let offlineReadingSubtitleLabel = UILabel()
     private let offlineReadingToggle = UISwitch()
     private let iCloudSyncView = UIView()
     private let iCloudSyncLabel = UILabel()
@@ -263,6 +264,15 @@ class settings: UIViewController {
         offlineReadingLabel.minimumScaleFactor = 0.8
         offlineReadingLabel.translatesAutoresizingMaskIntoConstraints = false
         offlineReadingView.addSubview(offlineReadingLabel)
+
+        // Offline Reading Subtitle Label
+        offlineReadingSubtitleLabel.text = "Caches favorites for offline access"
+        offlineReadingSubtitleLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        offlineReadingSubtitleLabel.textColor = .secondaryLabel
+        offlineReadingSubtitleLabel.textAlignment = .left
+        offlineReadingSubtitleLabel.numberOfLines = 1
+        offlineReadingSubtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        offlineReadingView.addSubview(offlineReadingSubtitleLabel)
         
         // Offline Reading Toggle
         let isOfflineReadingEnabled = UserDefaults.standard.bool(forKey: offlineReadingEnabledKey)
@@ -1430,14 +1440,19 @@ class settings: UIViewController {
             offlineReadingView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
             offlineReadingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             offlineReadingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            offlineReadingView.heightAnchor.constraint(equalToConstant: 44),
+            offlineReadingView.heightAnchor.constraint(equalToConstant: 60),
             offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-            
+
             // Offline Reading Label
-            offlineReadingLabel.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            offlineReadingLabel.topAnchor.constraint(equalTo: offlineReadingView.topAnchor, constant: 10),
             offlineReadingLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
             offlineReadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
-            
+
+            // Offline Reading Subtitle Label
+            offlineReadingSubtitleLabel.topAnchor.constraint(equalTo: offlineReadingLabel.bottomAnchor, constant: 2),
+            offlineReadingSubtitleLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
+            offlineReadingSubtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
+
             // Offline Reading Toggle
             offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
             offlineReadingToggle.trailingAnchor.constraint(equalTo: offlineReadingView.trailingAnchor, constant: -30),
