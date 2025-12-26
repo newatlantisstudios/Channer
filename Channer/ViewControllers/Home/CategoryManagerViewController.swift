@@ -346,6 +346,7 @@ class CategoryCell: UITableViewCell {
 
     private func setupUI() {
         backgroundColor = ThemeManager.shared.cellBackgroundColor
+        selectionStyle = .none
         accessoryType = .disclosureIndicator
 
         // Icon container (colored background)

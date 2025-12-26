@@ -104,12 +104,14 @@ class boardTVCell: UITableViewCell {
     // MARK: - Initializers
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
             super.init(style: style, reuseIdentifier: reuseIdentifier)
+            selectionStyle = .none
             setupCell()
             setupConstraints()
         }
 
         required init?(coder aDecoder: NSCoder) {
             super.init(coder: aDecoder)
+            selectionStyle = .none
             setupCell()
             setupConstraints()
         }

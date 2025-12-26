@@ -221,7 +221,7 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
 
         cell.accessoryType = .none
         cell.accessoryView = nil
-        cell.selectionStyle = .default
+        cell.selectionStyle = .none
         cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
         cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
 
@@ -230,7 +230,6 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
             if indexPath.row == 0 {
                 // Master filter switch
                 cell.textLabel?.text = "Enable Content Filtering"
-                cell.selectionStyle = .none
 
                 // Create switch for the cell
                 let filterSwitch = UISwitch()
@@ -298,7 +297,6 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
 
             cell.textLabel?.text = "Total Filters: \(legacyCount + stats.total) (\(stats.enabled) enabled)"
             cell.textLabel?.textColor = ThemeManager.shared.secondaryTextColor
-            cell.selectionStyle = .none
 
         default:
             break
