@@ -223,7 +223,25 @@ class boardsTV: UITableViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
+
+        // Check if display mode has changed and we need to switch to Grid view
+        let currentDisplayMode = UserDefaults.standard.integer(forKey: "channer_boards_display_mode")
+        print("DEBUG boardsTV viewDidAppear: Current display mode = \(currentDisplayMode) (0=Grid, 1=List)")
+
+        // If mode is Grid (0) but we're showing List (boardsTV), switch to boardsCV
+        if currentDisplayMode == 0, navigationController?.viewControllers.first === self {
+            print("DEBUG boardsTV: Switching to Grid view (boardsCV)")
+            let gridVC = boardsCV(collectionViewLayout: UICollectionViewFlowLayout())
+            gridVC.title = self.title
+            // Replace this view controller with the grid view controller
+            var viewControllers = navigationController?.viewControllers ?? []
+            if let index = viewControllers.firstIndex(of: self) {
+                viewControllers[index] = gridVC
+                navigationController?.setViewControllers(viewControllers, animated: false)
+            }
+            return
+        }
+
         // Check if we should navigate to the startup board
         let shouldLaunchWithStartupBoard = UserDefaults.standard.bool(forKey: "channer_launch_with_startup_board")
         
@@ -449,6 +467,7 @@ class boardsTV: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier, for: indexPath) as? boardsTVCell else {
             let fallbackCell = UITableViewCell(style: .subtitle, reuseIdentifier: "FallbackCell")
+            fallbackCell.selectionStyle = .none
             fallbackCell.textLabel?.text = boardNames[indexPath.row]
             fallbackCell.detailTextLabel?.text = "/" + boardsAbv[indexPath.row] + "/"
             return fallbackCell

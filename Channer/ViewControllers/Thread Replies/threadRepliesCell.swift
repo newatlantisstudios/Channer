@@ -144,6 +144,7 @@ class threadRepliesCell: UITableViewCell {
     // MARK: - Initializer
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .none
         setupSubviews()
         setupConstraints()
         setupPointerInteraction()

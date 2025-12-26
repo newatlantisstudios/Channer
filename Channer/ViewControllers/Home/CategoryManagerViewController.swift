@@ -126,14 +126,14 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         let colorStackView = UIStackView()
         colorStackView.axis = .horizontal
         colorStackView.distribution = .fillEqually
-        colorStackView.spacing = 8
+        colorStackView.spacing = 6
         colorStackView.translatesAutoresizingMaskIntoConstraints = false
 
         var colorButtons: [UIButton] = []
         for (index, color) in colors.enumerated() {
             let button = UIButton()
             button.backgroundColor = UIColor(hex: color.hex)
-            button.layer.cornerRadius = 16
+            button.layer.cornerRadius = 14
             button.layer.borderWidth = index == selectedColorIndex ? 3 : 0
             button.layer.borderColor = UIColor.label.cgColor
             button.tag = index
@@ -141,8 +141,8 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
             colorStackView.addArrangedSubview(button)
             colorButtons.append(button)
 
-            button.widthAnchor.constraint(equalToConstant: 32).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            button.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 28).isActive = true
         }
         colorPickerContainer.addSubview(colorStackView)
 
@@ -157,7 +157,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         let iconStackView = UIStackView()
         iconStackView.axis = .horizontal
         iconStackView.distribution = .fillEqually
-        iconStackView.spacing = 8
+        iconStackView.spacing = 6
         iconStackView.translatesAutoresizingMaskIntoConstraints = false
 
         var iconButtons: [UIButton] = []
@@ -166,26 +166,26 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
             button.setImage(UIImage(systemName: icon), for: .normal)
             button.tintColor = index == selectedIconIndex ? .systemBlue : .secondaryLabel
             button.backgroundColor = index == selectedIconIndex ? .systemBlue.withAlphaComponent(0.15) : .clear
-            button.layer.cornerRadius = 16
+            button.layer.cornerRadius = 14
             button.tag = index
             button.addTarget(self, action: #selector(iconButtonTapped(_:)), for: .touchUpInside)
             iconStackView.addArrangedSubview(button)
             iconButtons.append(button)
 
-            button.widthAnchor.constraint(equalToConstant: 32).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            button.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 28).isActive = true
         }
         colorPickerContainer.addSubview(iconStackView)
 
         NSLayoutConstraint.activate([
             colorLabel.topAnchor.constraint(equalTo: colorPickerContainer.topAnchor, constant: 8),
-            colorLabel.leadingAnchor.constraint(equalTo: colorPickerContainer.leadingAnchor),
+            colorLabel.leadingAnchor.constraint(equalTo: colorStackView.leadingAnchor),
 
             colorStackView.topAnchor.constraint(equalTo: colorLabel.bottomAnchor, constant: 8),
             colorStackView.centerXAnchor.constraint(equalTo: colorPickerContainer.centerXAnchor),
 
             iconLabel.topAnchor.constraint(equalTo: colorStackView.bottomAnchor, constant: 16),
-            iconLabel.leadingAnchor.constraint(equalTo: colorPickerContainer.leadingAnchor),
+            iconLabel.leadingAnchor.constraint(equalTo: iconStackView.leadingAnchor),
 
             iconStackView.topAnchor.constraint(equalTo: iconLabel.bottomAnchor, constant: 8),
             iconStackView.centerXAnchor.constraint(equalTo: colorPickerContainer.centerXAnchor),
@@ -346,6 +346,7 @@ class CategoryCell: UITableViewCell {
 
     private func setupUI() {
         backgroundColor = ThemeManager.shared.cellBackgroundColor
+        selectionStyle = .none
         accessoryType = .disclosureIndicator
 
         // Icon container (colored background)

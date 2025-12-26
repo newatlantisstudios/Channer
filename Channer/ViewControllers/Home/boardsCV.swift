@@ -226,7 +226,25 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
+
+        // Check if display mode has changed and we need to switch to List view
+        let currentDisplayMode = UserDefaults.standard.integer(forKey: "channer_boards_display_mode")
+        print("DEBUG boardsCV viewDidAppear: Current display mode = \(currentDisplayMode) (0=Grid, 1=List)")
+
+        // If mode is List (1) but we're showing Grid (boardsCV), switch to boardsTV
+        if currentDisplayMode == 1, navigationController?.viewControllers.first === self {
+            print("DEBUG boardsCV: Switching to List view (boardsTV)")
+            let listVC = boardsTV()
+            listVC.title = self.title
+            // Replace this view controller with the list view controller
+            var viewControllers = navigationController?.viewControllers ?? []
+            if let index = viewControllers.firstIndex(of: self) {
+                viewControllers[index] = listVC
+                navigationController?.setViewControllers(viewControllers, animated: false)
+            }
+            return
+        }
+
         // Check if we should navigate to the startup board
         let shouldLaunchWithStartupBoard = UserDefaults.standard.bool(forKey: "channer_launch_with_startup_board")
         

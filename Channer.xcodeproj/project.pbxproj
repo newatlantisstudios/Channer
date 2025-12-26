@@ -64,6 +64,7 @@
 		17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; };
 		17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		398C079F757502D0249990B4 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA66EA9C6A1157602363084 /* TestData.swift */; };
+		3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */; };
 		3F948296C1FCC681B15A3958 /* ThreadCacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */; };
 		41EBC7A30119EB0BE471464F /* ContentFilterManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC381610AE01474F79CCF131 /* ContentFilterManagerTests.swift */; };
 		4B777D3D1563F3F2B0ED5C80 /* DownloadItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB08F7BEAA7D678B23601FE5 /* DownloadItem.swift */; };
@@ -183,6 +184,7 @@
 		17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsDashboardViewController.swift; sourceTree = "<group>"; };
 		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
+		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
 		3C335E2377BA19B313347A8C /* TestDataFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestDataFactory.swift; path = Helpers/TestDataFactory.swift; sourceTree = "<group>"; };
 		4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyPostsManager.swift; sourceTree = "<group>"; };
@@ -259,6 +261,7 @@
 				17PASSAUTH1234567890123456 /* PassAuthManager.swift */,
 				17POSTING1234567890123456 /* PostingManager.swift */,
 				4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */,
+				2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -717,6 +720,7 @@
 				17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */,
 				17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */,
 				79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */,
+				3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

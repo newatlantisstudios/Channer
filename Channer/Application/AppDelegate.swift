@@ -4,6 +4,7 @@ import Alamofire
 import SwiftyJSON
 import Kingfisher
 import Combine
+import BackgroundTasks
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -133,13 +134,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // Migrate content filters from old format to new ContentFilterManager
         migrateContentFilters()
-        
+
+        // Register background tasks with BGTaskScheduler (iOS 13+)
+        // Must be called before app finishes launching
+        BackgroundTaskManager.shared.registerTasks()
+
         setupAppearance()
         setupMainWindow()
         setupNotifications(application)
         setupBackgroundRefresh(application)
-        
+
         return true
+    }
+
+    /// Called when the application enters the background
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Schedule background tasks for thread refresh and watched posts checking
+        BackgroundTaskManager.shared.scheduleAllTasks()
     }
     
     /// Called when the application is about to enter the foreground
@@ -147,16 +158,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - Background Refresh
     private func setupBackgroundRefresh(_ application: UIApplication) {
-        // Set minimum background fetch interval
-        // Note: This is deprecated in iOS 13+ but we're using it for compatibility
+        // Set minimum background fetch interval for legacy API
+        // This is deprecated in iOS 13+ but kept as a fallback
+        // Primary background refresh is now handled by BackgroundTaskManager using BGTaskScheduler
         application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
     }
-    
-    // Background fetch handler
-    @available(iOS, deprecated: 13.0, message: "Use BGProcessingTask instead")
+
+    // Legacy background fetch handler (iOS 12 and earlier)
+    // Primary background refresh is now handled by BackgroundTaskManager using BGTaskScheduler
+    @available(iOS, deprecated: 13.0, message: "Use BGTaskScheduler via BackgroundTaskManager instead")
     func application(_ application: UIApplication,
                      performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        print("Background fetch started")
+        print("Legacy background fetch started")
 
         // Check if notifications are enabled
         let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
