@@ -293,10 +293,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             // Proceed with opening files list
             let filesVC = FilesListVC()
             self.navigationController?.pushViewController(filesVC, animated: true)
-            
+
         }
     }
-    
+
     /// Navigates to the settings view, where the user can configure app preferences such as the default board.
     /// Navigates to the settings view, where the user can configure app preferences such as the default board.
     @objc private func openSettings() {
@@ -441,10 +441,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         }
         let filesImage = UIImage(named: "files")?.withRenderingMode(.alwaysTemplate).resized(to: iconSize)
         filesAction.setValue(filesImage, forKey: "image")
-        
+
         // Cancel action
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        
+
         // Add actions to alert controller
         alertController.addAction(historyAction)
         alertController.addAction(favoritesAction)
