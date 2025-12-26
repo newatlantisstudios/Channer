@@ -1314,46 +1314,35 @@ class settings: UIViewController {
     @objc private func boardsDisplayModeChanged(_ sender: UISegmentedControl) {
         // Store the user's preference
         let boardsDisplayModeKey = "channer_boards_display_mode"
+
+        print("DEBUG settings: boardsDisplayModeChanged called")
+        print("DEBUG settings: Previous value = \(UserDefaults.standard.integer(forKey: boardsDisplayModeKey))")
+        print("DEBUG settings: New value = \(sender.selectedSegmentIndex)")
+
         UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: boardsDisplayModeKey)
         UserDefaults.standard.synchronize() // Force save immediately
-        
-        // Debug logging
-        print("DEBUG: Boards display mode changed to: \(sender.selectedSegmentIndex)")
-        print("DEBUG: UserDefaults value after change: \(UserDefaults.standard.object(forKey: boardsDisplayModeKey) ?? "nil")")
-        
+
+        // Verify the save
+        let savedValue = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)
+        print("DEBUG settings: Value after save = \(savedValue)")
+        print("DEBUG settings: Save successful = \(savedValue == sender.selectedSegmentIndex)")
+
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
-        
-        // Show message about applying changes
+
+        // Determine the display mode name
+        let modeName = sender.selectedSegmentIndex == 0 ? "Grid" : "List"
+
+        // Show confirmation message
         let alert = UIAlertController(
-            title: "Display Mode Changed",
-            message: "Would you like to apply the new display mode now?",
+            title: "Display Mode Applied",
+            message: "\(modeName) mode has been applied. The change will take effect when you return to the boards screen.",
             preferredStyle: .alert
         )
-        
-        // Add action to return to home screen
-        alert.addAction(UIAlertAction(title: "Yes", style: .default) { [weak self] _ in
-            // Debug one more time before navigation
-            print("DEBUG: Before navigation - UserDefaults value: \(UserDefaults.standard.object(forKey: boardsDisplayModeKey) ?? "nil")")
-            
-            // Navigate all the way back to the root view controller to apply the change
-            if let appDelegate = UIApplication.shared.delegate as? AppDelegate,
-               let window = appDelegate.window {
-                // Force recreate the window's root view controller to reflect the display mode change
-                let oldRootVC = window.rootViewController
-                window.rootViewController = nil
-                window.rootViewController = appDelegate.createRootNavigationController()
-                print("DEBUG: Forced recreation of root view controller")
-            } else {
-                // Fall back to standard navigation
-                self?.navigationController?.popToRootViewController(animated: true)
-            }
-        })
-        
-        // Add cancel action
-        alert.addAction(UIAlertAction(title: "Later", style: .cancel))
-        
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
         present(alert, animated: true)
     }
     
