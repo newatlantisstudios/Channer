@@ -448,6 +448,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         completionHandler()
     }
     
+    // MARK: - Background Download Session Handler
+    /// Handles events for background URL session downloads
+    func application(_ application: UIApplication,
+                     handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        if identifier == "com.channer.backgroundDownload" {
+            DownloadManagerService.shared.handleBackgroundSessionCompletion(handler: completionHandler)
+            print("DEBUG: Handling background download session events")
+        } else {
+            completionHandler()
+        }
+    }
+
     // MARK: - Navigation Helper
     private func navigateToThread(boardAbv: String, threadNumber: String) {
         // Get the current navigation controller

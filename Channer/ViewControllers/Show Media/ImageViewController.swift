@@ -1,8 +1,11 @@
 import UIKit
 import Kingfisher
+import ImageIO
+import UniformTypeIdentifiers
 
 /// A view controller that displays an image with zooming and panning capabilities.
 /// Supports both local file URLs and remote HTTP/HTTPS URLs.
+/// Enhanced with double-tap zoom, context menus, and HEIC/AVIF support.
 class ImageViewController: UIViewController, UIScrollViewDelegate {
 
     // MARK: - Properties
@@ -16,6 +19,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     private var hasInitializedZoomScale = false
     /// Activity indicator for loading remote images
     private var activityIndicator: UIActivityIndicatorView!
+    /// Flag to track if currently zoomed in (for double-tap toggle)
+    private var isZoomedIn = false
 
     /// Array of image URLs for navigation (optional)
     var imageURLs: [URL] = []
@@ -25,6 +30,9 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     var enableSwipes: Bool = true
     /// Optional referer string for remote image loading
     var refererString: String?
+
+    /// Supported image formats including modern formats
+    static let supportedImageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "bmp", "tiff", "ico"]
 
     // MARK: - Initializers
     /// Initializes the view controller with the given image URL.
@@ -53,20 +61,242 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         setupImageView()
         setupActivityIndicator()
         setupSwipeGestures()
+        setupDoubleTapGesture()
+        setupLongPressGesture()
+        setupNavigationBarItems()
 
         loadImage()
+    }
+
+    // MARK: - Navigation Bar Setup
+    /// Sets up navigation bar items including share/actions button
+    private func setupNavigationBarItems() {
+        // Create action menu button
+        let menuButton = UIBarButtonItem(
+            image: UIImage(systemName: "ellipsis.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(showActionsMenu)
+        )
+        menuButton.tintColor = .white
+
+        navigationItem.rightBarButtonItem = menuButton
+    }
+
+    /// Shows actions menu for the current image
+    @objc private func showActionsMenu() {
+        let alertController = UIAlertController(
+            title: nil,
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        // Save Image action
+        alertController.addAction(UIAlertAction(
+            title: "Save Image",
+            style: .default,
+            image: UIImage(systemName: "square.and.arrow.down")
+        ) { [weak self] _ in
+            self?.saveImageToPhotos()
+        })
+
+        // Share action
+        alertController.addAction(UIAlertAction(
+            title: "Share",
+            style: .default,
+            image: UIImage(systemName: "square.and.arrow.up")
+        ) { [weak self] _ in
+            self?.shareImage()
+        })
+
+        // Copy Image action
+        alertController.addAction(UIAlertAction(
+            title: "Copy Image",
+            style: .default,
+            image: UIImage(systemName: "doc.on.doc")
+        ) { [weak self] _ in
+            self?.copyImageToClipboard()
+        })
+
+        // Reverse Image Search submenu
+        alertController.addAction(UIAlertAction(
+            title: "Reverse Image Search",
+            style: .default,
+            image: UIImage(systemName: "magnifyingglass")
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            ReverseImageSearchManager.shared.showSearchOptions(for: self.imageURL, from: self)
+        })
+
+        // Copy URL action
+        alertController.addAction(UIAlertAction(
+            title: "Copy Image URL",
+            style: .default,
+            image: UIImage(systemName: "link")
+        ) { [weak self] _ in
+            UIPasteboard.general.string = self?.imageURL.absoluteString
+            self?.showToast("URL copied to clipboard")
+        })
+
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        // iPad support
+        if let popover = alertController.popoverPresentationController {
+            popover.barButtonItem = navigationItem.rightBarButtonItem
+        }
+
+        present(alertController, animated: true)
+    }
+
+    // MARK: - Double-Tap Zoom
+    /// Sets up double-tap gesture for zoom toggle
+    private func setupDoubleTapGesture() {
+        let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        doubleTapGesture.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTapGesture)
+    }
+
+    /// Handles double-tap gesture to toggle zoom
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        guard imageView.image != nil else { return }
+
+        if isZoomedIn {
+            // Zoom out to minimum scale
+            UIView.animate(withDuration: 0.3) {
+                self.scrollView.zoomScale = self.scrollView.minimumZoomScale
+            }
+            isZoomedIn = false
+        } else {
+            // Zoom in to the tapped point
+            let tapPoint = gesture.location(in: imageView)
+            let zoomScale = min(scrollView.maximumZoomScale, scrollView.minimumZoomScale * 3)
+
+            // Calculate zoom rect centered on tap point
+            let zoomWidth = scrollView.bounds.width / zoomScale
+            let zoomHeight = scrollView.bounds.height / zoomScale
+            let zoomRect = CGRect(
+                x: tapPoint.x - zoomWidth / 2,
+                y: tapPoint.y - zoomHeight / 2,
+                width: zoomWidth,
+                height: zoomHeight
+            )
+
+            UIView.animate(withDuration: 0.3) {
+                self.scrollView.zoom(to: zoomRect, animated: false)
+            }
+            isZoomedIn = true
+        }
+    }
+
+    // MARK: - Long Press Context Menu
+    /// Sets up long press gesture for context menu
+    private func setupLongPressGesture() {
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        longPressGesture.minimumPressDuration = 0.5
+        scrollView.addGestureRecognizer(longPressGesture)
+    }
+
+    /// Handles long press gesture to show context menu
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        showActionsMenu()
+    }
+
+    // MARK: - Image Actions
+    /// Saves the current image to the photo library
+    private func saveImageToPhotos() {
+        guard let image = imageView.image else {
+            showToast("No image to save")
+            return
+        }
+
+        UIImageWriteToSavedPhotosAlbum(image, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
+    }
+
+    @objc private func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if let error = error {
+            showToast("Error saving image: \(error.localizedDescription)")
+        } else {
+            showToast("Image saved to Photos")
+        }
+    }
+
+    /// Shares the current image
+    private func shareImage() {
+        var itemsToShare: [Any] = []
+
+        if let image = imageView.image {
+            itemsToShare.append(image)
+        }
+        itemsToShare.append(imageURL)
+
+        let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
+
+        // iPad support
+        if let popover = activityVC.popoverPresentationController {
+            popover.barButtonItem = navigationItem.rightBarButtonItem
+        }
+
+        present(activityVC, animated: true)
+    }
+
+    /// Copies the current image to clipboard
+    private func copyImageToClipboard() {
+        guard let image = imageView.image else {
+            showToast("No image to copy")
+            return
+        }
+
+        UIPasteboard.general.image = image
+        showToast("Image copied to clipboard")
+    }
+
+    /// Shows a toast message
+    private func showToast(_ message: String) {
+        let toastLabel = UILabel()
+        toastLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        toastLabel.textColor = .white
+        toastLabel.font = .systemFont(ofSize: 14)
+        toastLabel.textAlignment = .center
+        toastLabel.text = message
+        toastLabel.alpha = 0
+        toastLabel.layer.cornerRadius = 10
+        toastLabel.clipsToBounds = true
+        toastLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(toastLabel)
+        NSLayoutConstraint.activate([
+            toastLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toastLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -50),
+            toastLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            toastLabel.heightAnchor.constraint(equalToConstant: 35)
+        ])
+
+        // Add padding
+        toastLabel.layer.sublayerTransform = CATransform3DMakeTranslation(10, 0, 0)
+
+        UIView.animate(withDuration: 0.3, animations: {
+            toastLabel.alpha = 1
+        }) { _ in
+            UIView.animate(withDuration: 0.3, delay: 1.5, options: [], animations: {
+                toastLabel.alpha = 0
+            }) { _ in
+                toastLabel.removeFromSuperview()
+            }
+        }
     }
 
     /// Loads the image from either local file or remote URL
     private func loadImage() {
         hasInitializedZoomScale = false
+        isZoomedIn = false  // Reset zoom state when loading new image
 
         if imageURL.isFileURL {
-            // Local file
+            // Local file - with HEIC/AVIF support
             print("DEBUG: ImageViewController - Loading local file: \(imageURL.path)")
             print("DEBUG: ImageViewController - File exists: \(FileManager.default.fileExists(atPath: imageURL.path))")
 
-            if let image = UIImage(contentsOfFile: imageURL.path) {
+            if let image = loadLocalImage(from: imageURL) {
                 print("DEBUG: ImageViewController - Successfully loaded image, size: \(image.size)")
                 displayImage(image)
             } else {
@@ -79,7 +309,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
             var options: KingfisherOptionsInfo = [
                 .transition(.fade(0.2)),
-                .cacheOriginalImage
+                .cacheOriginalImage,
+                .backgroundDecode  // Decode images in background for better performance
             ]
 
             // Add referer header if provided
@@ -102,9 +333,56 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
                     self.displayImage(value.image)
                 case .failure(let error):
                     print("DEBUG: ImageViewController - Failed to load remote image: \(error)")
+                    // Show error state
+                    self.showErrorState(error: error)
                 }
             }
         }
+    }
+
+    /// Loads a local image with support for HEIC/AVIF formats
+    private func loadLocalImage(from url: URL) -> UIImage? {
+        let ext = url.pathExtension.lowercased()
+
+        // Try standard UIImage first
+        if let image = UIImage(contentsOfFile: url.path) {
+            return image
+        }
+
+        // For HEIC/AVIF, try using ImageIO for better support
+        if ext == "heic" || ext == "heif" || ext == "avif" {
+            guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                return nil
+            }
+
+            let options: [CFString: Any] = [
+                kCGImageSourceShouldCache: true,
+                kCGImageSourceShouldAllowFloat: true
+            ]
+
+            guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, options as CFDictionary) else {
+                return nil
+            }
+
+            return UIImage(cgImage: cgImage)
+        }
+
+        return nil
+    }
+
+    /// Shows an error state when image loading fails
+    private func showErrorState(error: Error) {
+        let errorLabel = UILabel()
+        errorLabel.text = "Failed to load image"
+        errorLabel.textColor = .gray
+        errorLabel.textAlignment = .center
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(errorLabel)
+        NSLayoutConstraint.activate([
+            errorLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            errorLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
     }
 
     /// Displays the loaded image and updates scroll view
@@ -207,8 +485,11 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         scrollView.backgroundColor = .black
         scrollView.delegate = self
         scrollView.minimumZoomScale = 1.0
-        scrollView.maximumZoomScale = 3.0
+        scrollView.maximumZoomScale = 5.0  // Increased for better zoom capability
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.bouncesZoom = true
         view.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
@@ -267,8 +548,20 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         return imageView
     }
     
-    /// Tells the delegate that the scroll view’s zoom factor changed.
+    /// Tells the delegate that the scroll view's zoom factor changed.
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         alignImageToTop()
+
+        // Update zoom state based on current scale
+        let tolerance: CGFloat = 0.01
+        isZoomedIn = abs(scrollView.zoomScale - scrollView.minimumZoomScale) > tolerance
+    }
+}
+
+// MARK: - UIAlertAction Extension for Images
+extension UIAlertAction {
+    convenience init(title: String?, style: UIAlertAction.Style, image: UIImage?, handler: ((UIAlertAction) -> Void)? = nil) {
+        self.init(title: title, style: style, handler: handler)
+        self.setValue(image, forKey: "image")
     }
 }

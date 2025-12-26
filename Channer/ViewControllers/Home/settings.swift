@@ -417,7 +417,7 @@ class settings: UIViewController {
         contentFilteringButton.translatesAutoresizingMaskIntoConstraints = false
         contentFilteringButton.addTarget(self, action: #selector(contentFilteringButtonTapped), for: .touchUpInside)
         contentFilteringView.addSubview(contentFilteringButton)
-        
+
         // Auto-refresh View
         autoRefreshView.backgroundColor = UIColor.secondarySystemGroupedBackground
         autoRefreshView.layer.cornerRadius = 10
@@ -863,7 +863,7 @@ class settings: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
+
     // MARK: - Content Filtering Helper Methods
     
     private func showAddKeywordFilterAlert() {
@@ -1514,7 +1514,7 @@ class settings: UIViewController {
             // Content Filtering Button
             contentFilteringButton.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
             contentFilteringButton.trailingAnchor.constraint(equalTo: contentFilteringView.trailingAnchor, constant: -20),
-            
+
             // Auto-refresh View
             autoRefreshView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
             autoRefreshView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),

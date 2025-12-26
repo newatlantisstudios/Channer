@@ -94,8 +94,20 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         cancelButton = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelButtonTapped))
         deleteButton = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(deleteSelectedItems))
         deleteButton.isEnabled = false
-        
-        navigationItem.rightBarButtonItem = selectButton
+
+        let downloadManagerButton = UIBarButtonItem(
+            image: UIImage(systemName: "arrow.down.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(openDownloadManager)
+        )
+
+        navigationItem.rightBarButtonItems = [selectButton, downloadManagerButton]
+    }
+
+    @objc private func openDownloadManager() {
+        let downloadManagerVC = DownloadManagerViewController()
+        navigationController?.pushViewController(downloadManagerVC, animated: true)
     }
     
     // MARK: - Selection Mode Actions

@@ -986,14 +986,49 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             actionSheet.addAction(UIAlertAction(title: "Save for Offline Reading", style: .default, handler: { _ in
                 self.saveForOfflineReading()
             }))
-        } 
+        }
         // Add Remove from Offline Cache option if thread is cached
         else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
             actionSheet.addAction(UIAlertAction(title: "Remove from Offline Cache", style: .destructive, handler: { _ in
                 self.removeFromOfflineCache()
             }))
         }
-        
+
+        // Add Save All Media options
+        let allMediaUrls = threadRepliesImages.compactMap { URL(string: $0) }.filter { url in
+            url.absoluteString != "https://i.4cdn.org/\(boardAbv)/" &&
+            BatchImageDownloadManager.supportedMediaExtensions.contains(url.pathExtension.lowercased())
+        }
+
+        let imageOnlyUrls = allMediaUrls.filter { url in
+            BatchImageDownloadManager.supportedImageExtensions.contains(url.pathExtension.lowercased())
+        }
+
+        let videoOnlyUrls = allMediaUrls.filter { url in
+            BatchImageDownloadManager.supportedVideoExtensions.contains(url.pathExtension.lowercased())
+        }
+
+        // Save All Images option
+        if !imageOnlyUrls.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Save All Images (\(imageOnlyUrls.count))", style: .default, handler: { _ in
+                self.saveAllMedia(urls: imageOnlyUrls, mediaType: .images)
+            }))
+        }
+
+        // Save All Videos option
+        if !videoOnlyUrls.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Save All Videos (\(videoOnlyUrls.count))", style: .default, handler: { _ in
+                self.saveAllMedia(urls: videoOnlyUrls, mediaType: .videos)
+            }))
+        }
+
+        // Save All Media option (only show if there are both images AND videos)
+        if !imageOnlyUrls.isEmpty && !videoOnlyUrls.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Save All Media (\(allMediaUrls.count))", style: .default, handler: { _ in
+                self.saveAllMedia(urls: allMediaUrls, mediaType: .all)
+            }))
+        }
+
         // Add a cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
         
@@ -1015,25 +1050,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     @objc private func showGallery() {
         print("Gallery button tapped.")
-        
+
         // Pass original URLs directly to gallery (same as thread view does)
         // This ensures videos play correctly in gallery just like in thread view
         let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
             guard let url = URL(string: imageUrlString) else { return nil }
             if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
-            
+
             // Pass original URLs directly - no thumbnail conversion
             // This matches thread view behavior where original URLs are used
             print("Using original URL for gallery: \(imageUrlString)")
             return url
         }
-        
+
         print("Filtered image URLs for gallery: \(imageUrls)")
-        
+
         // Instantiate the gallery view controller with original URLs
         let galleryVC = ImageGalleryVC(images: imageUrls)
         print("GalleryVC instantiated with original URLs.")
-        
+
         // Navigate to the gallery
         if let navController = navigationController {
             print("Pushing galleryVC onto navigation stack.")
@@ -1043,6 +1078,83 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             let navController = UINavigationController(rootViewController: galleryVC)
             present(navController, animated: true)
         }
+    }
+
+    // MARK: - Save All Media
+
+    /// Media download type for UI messaging
+    private enum MediaDownloadType: String {
+        case images = "Images"
+        case videos = "Videos"
+        case all = "Media"
+
+        var singularName: String {
+            switch self {
+            case .images: return "image"
+            case .videos: return "video"
+            case .all: return "file"
+            }
+        }
+    }
+
+    /// Batch downloads media of specified type from the current thread
+    private func saveAllMedia(urls: [URL], mediaType: MediaDownloadType) {
+        guard !urls.isEmpty else {
+            showAlert(title: "No \(mediaType.rawValue)", message: "No \(mediaType.rawValue.lowercased()) found to download.")
+            return
+        }
+
+        // Show confirmation dialog
+        let itemName = urls.count == 1 ? mediaType.singularName : "\(mediaType.singularName)s"
+        let alertController = UIAlertController(
+            title: "Save All \(mediaType.rawValue)",
+            message: "Download \(urls.count) \(itemName) from this thread?",
+            preferredStyle: .alert
+        )
+
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alertController.addAction(UIAlertAction(title: "Download", style: .default) { [weak self] _ in
+            self?.startBatchDownloadWithManager(urls: urls, mediaType: mediaType)
+        })
+
+        present(alertController, animated: true)
+    }
+
+    /// Starts the batch download using DownloadManagerService
+    private func startBatchDownloadWithManager(urls: [URL], mediaType: MediaDownloadType) {
+        // Queue downloads with the download manager service
+        let addedItems = DownloadManagerService.shared.queueBatchDownload(
+            urls: urls,
+            boardAbv: boardAbv,
+            threadNumber: threadNumber
+        )
+
+        // Show confirmation
+        let itemName = addedItems.count == 1 ? mediaType.singularName : "\(mediaType.singularName)s"
+        let message = "\(addedItems.count) \(itemName) added to download queue.\n\nDownloads will continue in the background."
+
+        let alert = UIAlertController(
+            title: "Downloads Queued",
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+        alert.addAction(UIAlertAction(title: "View Downloads", style: .default) { [weak self] _ in
+            let downloadVC = DownloadManagerViewController()
+            self?.navigationController?.pushViewController(downloadVC, animated: true)
+        })
+
+        present(alert, animated: true)
+    }
+
+    /// Helper to show simple alert
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     // MARK: - Table View Data Source Methods
