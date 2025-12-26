@@ -24,6 +24,7 @@ open Channer.xcworkspace
 ./build-advanced.sh -c        # Clean build
 ./build-advanced.sh -r        # Release build
 ./build-advanced.sh -d        # Device build (not simulator)
+./build-advanced.sh -v        # Verbose build (no xcbeautify)
 ```
 
 ## Testing
@@ -71,7 +72,7 @@ Located in `Utilities/` except where noted:
 - **SearchManager** (`ViewControllers/Home/SearchManager.swift`): Thread search with history
 - **ICloudSyncManager** / **ConflictResolutionManager**: iCloud sync with conflict resolution
 - **NotificationManager**: Push notifications for thread updates
-- **WatchedPostsManager**: Tracks posts user is monitoring for replies
+- **WatchedPostsManager**: Watch individual posts for replies
 - **StatisticsManager**: Tracks browsing analytics (boards visited, threads read, time spent)
 - **ThreadCacheManager**: Offline thread caching
 
@@ -96,7 +97,7 @@ Some models are defined inline within view controller files:
 - Videos start **muted by default**
 
 ### Thread Safety
-`FavoritesManager` and `NotificationManager` handle concurrent access. When modifying managers:
+`FavoritesManager`, `NotificationManager`, and `WatchedPostsManager` handle concurrent access. When modifying managers:
 - Use serial queues, locks, or actors for synchronization
 - iCloud sync callbacks arrive on background threads
 - Test with `DispatchQueue.concurrentPerform` (see existing tests)

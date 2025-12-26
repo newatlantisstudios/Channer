@@ -46,10 +46,18 @@ class settings: UIViewController {
     private let statisticsView = UIView()
     private let statisticsLabel = UILabel()
     private let statisticsButton = UIButton(type: .system)
+    private let newPostBehaviorView = UIView()
+    private let newPostBehaviorLabel = UILabel()
+    private let newPostBehaviorSegment = UISegmentedControl(items: ["Jump Button", "Auto-scroll", "Do Nothing"])
     private let keyboardShortcutsView = UIView()
     private let keyboardShortcutsLabel = UILabel()
     private let keyboardShortcutsToggle = UISwitch()
-    
+
+    private let passSettingsView = UIView()
+    private let passSettingsLabel = UILabel()
+    private let passSettingsButton = UIButton(type: .system)
+    private let passStatusIndicator = UIView()
+
     private let highQualityThumbnailsView = UIView()
     private let highQualityThumbnailsLabel = UILabel()
     private let highQualityThumbnailsToggle = UISwitch()
@@ -73,6 +81,7 @@ class settings: UIViewController {
     private let keyboardShortcutsEnabledKey = "keyboardShortcutsEnabled"
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
+    private let newPostBehaviorKey = "channer_new_post_behavior"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     private let preloadVideosKey = "channer_preload_videos_enabled"
     
@@ -125,7 +134,12 @@ class settings: UIViewController {
             self.updateSelectedBoardLabel()
         }
     }
-    
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updatePassStatusIndicator()
+    }
+
     private func sortBoardsAlphabetically() {
         // Create array of tuples containing both board name and abbreviation
         let combinedBoards = zip(boardNames, boardAbv).map { ($0, $1) }
@@ -452,6 +466,66 @@ class settings: UIViewController {
         statisticsButton.addTarget(self, action: #selector(statisticsButtonTapped), for: .touchUpInside)
         statisticsView.addSubview(statisticsButton)
 
+        // 4chan Pass Settings View
+        passSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        passSettingsView.layer.cornerRadius = 10
+        passSettingsView.clipsToBounds = true
+        passSettingsView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(passSettingsView)
+
+        // Pass Status Indicator (green/red dot)
+        passStatusIndicator.layer.cornerRadius = 5
+        passStatusIndicator.translatesAutoresizingMaskIntoConstraints = false
+        updatePassStatusIndicator()
+        passSettingsView.addSubview(passStatusIndicator)
+
+        // Pass Settings Label
+        passSettingsLabel.text = "4chan Pass"
+        passSettingsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        passSettingsLabel.textAlignment = .left
+        passSettingsLabel.numberOfLines = 1
+        passSettingsLabel.adjustsFontSizeToFitWidth = true
+        passSettingsLabel.minimumScaleFactor = 0.8
+        passSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
+        passSettingsView.addSubview(passSettingsLabel)
+
+        // Pass Settings Button
+        passSettingsButton.setTitle("Configure", for: .normal)
+        passSettingsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        passSettingsButton.translatesAutoresizingMaskIntoConstraints = false
+        passSettingsButton.addTarget(self, action: #selector(passSettingsButtonTapped), for: .touchUpInside)
+        passSettingsView.addSubview(passSettingsButton)
+
+        // New Post Behavior View
+        newPostBehaviorView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        newPostBehaviorView.layer.cornerRadius = 10
+        newPostBehaviorView.clipsToBounds = true
+        newPostBehaviorView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(newPostBehaviorView)
+
+        // New Post Behavior Label
+        newPostBehaviorLabel.text = "When New Posts Arrive"
+        newPostBehaviorLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        newPostBehaviorLabel.textAlignment = .left
+        newPostBehaviorLabel.numberOfLines = 1
+        newPostBehaviorLabel.adjustsFontSizeToFitWidth = true
+        newPostBehaviorLabel.minimumScaleFactor = 0.8
+        newPostBehaviorLabel.translatesAutoresizingMaskIntoConstraints = false
+        newPostBehaviorView.addSubview(newPostBehaviorLabel)
+
+        // New Post Behavior Segment Control
+        let savedBehavior = UserDefaults.standard.integer(forKey: newPostBehaviorKey)
+        newPostBehaviorSegment.selectedSegmentIndex = savedBehavior
+        newPostBehaviorSegment.translatesAutoresizingMaskIntoConstraints = false
+        newPostBehaviorSegment.addTarget(self, action: #selector(newPostBehaviorChanged), for: .valueChanged)
+        // Make segment control smaller on narrow screens
+        if UIScreen.main.bounds.width <= 375 {
+            newPostBehaviorSegment.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 10)], for: .normal)
+        } else {
+            newPostBehaviorSegment.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12)], for: .normal)
+        }
+        newPostBehaviorView.addSubview(newPostBehaviorSegment)
+
         // Keyboard Shortcuts View (iPad only)
         if UIDevice.current.userInterfaceIdiom == .pad {
             keyboardShortcutsView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -757,83 +831,34 @@ class settings: UIViewController {
         
         // Present the alert
         present(alertController, animated: true)
-        
+
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
-    @objc private func contentFilteringButtonTapped() {
-        // Show content filtering options inline
-        let alertController = UIAlertController(
-            title: "Content Filtering",
-            message: "Manage content filters to hide unwanted posts",
-            preferredStyle: .actionSheet
-        )
-        
-        // Add toggle for overall filtering
-        var isFilteringEnabled = false
-        var keywordCount = 0
-        var posterCount = 0
-        var imageCount = 0
-        
-        // Get current state from ContentFilterManager
-        isFilteringEnabled = ContentFilterManager.shared.isFilteringEnabled()
-        let filters = ContentFilterManager.shared.getAllFilters()
-        keywordCount = filters.keywords.count
-        posterCount = filters.posters.count
-        imageCount = filters.images.count
-        
-        // Show current status
-        let statusMessage = """
-        Status: \(isFilteringEnabled ? "Enabled" : "Disabled")
-        Keyword Filters: \(keywordCount)
-        Poster ID Filters: \(posterCount)
-        Image Name Filters: \(imageCount)
-        """
-        
-        alertController.message = statusMessage
-        
-        // Add toggle action
-        let toggleTitle = isFilteringEnabled ? "Disable Content Filtering" : "Enable Content Filtering"
-        alertController.addAction(UIAlertAction(title: toggleTitle, style: .default) { _ in
-            let newState = !isFilteringEnabled
-            ContentFilterManager.shared.setFilteringEnabled(newState)
-            
-            // Show confirmation - we toggled from the original state
-            let message = isFilteringEnabled ? "Content filtering disabled" : "Content filtering enabled"
-            let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-            self.present(confirmToast, animated: true)
-            
-            // Dismiss after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                confirmToast.dismiss(animated: true)
-            }
-        })
-        
-        // Add option to add keyword filter
-        alertController.addAction(UIAlertAction(title: "Add Keyword Filter", style: .default) { _ in
-            self.showAddKeywordFilterAlert()
-        })
-        
-        // Add option to add poster filter
-        alertController.addAction(UIAlertAction(title: "Add Poster ID Filter", style: .default) { _ in
-            self.showAddPosterFilterAlert()
-        })
-        
-        // Add option to clear all filters
-        if keywordCount > 0 || posterCount > 0 || imageCount > 0 {
-            alertController.addAction(UIAlertAction(title: "Clear All Filters", style: .destructive) { _ in
-                self.showClearAllFiltersConfirmation()
-            })
+
+    @objc private func passSettingsButtonTapped() {
+        let passSettingsVC = PassSettingsViewController()
+        navigationController?.pushViewController(passSettingsVC, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    private func updatePassStatusIndicator() {
+        if PassAuthManager.shared.isAuthenticated {
+            passStatusIndicator.backgroundColor = .systemGreen
+        } else {
+            passStatusIndicator.backgroundColor = .systemRed
         }
-        
-        // Cancel action
-        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // Present the alert
-        present(alertController, animated: true)
-        
+    }
+
+    @objc private func contentFilteringButtonTapped() {
+        // Navigate to ContentFilterViewController
+        let contentFilterVC = ContentFilterViewController()
+        navigationController?.pushViewController(contentFilterVC, animated: true)
+
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
@@ -1060,8 +1085,31 @@ class settings: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
-    
+
+    @objc private func newPostBehaviorChanged(_ sender: UISegmentedControl) {
+        UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: newPostBehaviorKey)
+        UserDefaults.standard.synchronize()
+
+        // Show confirmation with description of selected behavior
+        let titles = ["Jump Button", "Auto-scroll", "Do Nothing"]
+        let descriptions = [
+            "A floating button will appear to jump to new posts",
+            "The thread will automatically scroll to new posts",
+            "New posts will be loaded but scroll position preserved"
+        ]
+
+        let title = titles[sender.selectedSegmentIndex]
+        let message = descriptions[sender.selectedSegmentIndex]
+
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
         let alertController = UIAlertController(
             title: "\(type) Refresh Interval",
@@ -1246,7 +1294,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Boards Display Mode View
-            boardsDisplayModeView.topAnchor.constraint(equalTo: statisticsView.bottomAnchor, constant: 16),
+            boardsDisplayModeView.topAnchor.constraint(equalTo: newPostBehaviorView.bottomAnchor, constant: 16),
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
@@ -1478,7 +1526,7 @@ class settings: UIViewController {
             autoRefreshLabel.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshLabel.leadingAnchor.constraint(equalTo: autoRefreshView.leadingAnchor, constant: 20),
             autoRefreshLabel.trailingAnchor.constraint(lessThanOrEqualTo: autoRefreshButton.leadingAnchor, constant: -15),
-            
+
             // Auto-refresh Button
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
@@ -1498,6 +1546,45 @@ class settings: UIViewController {
             // Statistics Button
             statisticsButton.centerYAnchor.constraint(equalTo: statisticsView.centerYAnchor),
             statisticsButton.trailingAnchor.constraint(equalTo: statisticsView.trailingAnchor, constant: -20),
+
+            // Pass Settings View
+            passSettingsView.topAnchor.constraint(equalTo: statisticsView.bottomAnchor, constant: 16),
+            passSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            passSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            passSettingsView.heightAnchor.constraint(equalToConstant: 44),
+            passSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Pass Status Indicator
+            passStatusIndicator.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passStatusIndicator.leadingAnchor.constraint(equalTo: passSettingsView.leadingAnchor, constant: 16),
+            passStatusIndicator.widthAnchor.constraint(equalToConstant: 10),
+            passStatusIndicator.heightAnchor.constraint(equalToConstant: 10),
+
+            // Pass Settings Label
+            passSettingsLabel.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passSettingsLabel.leadingAnchor.constraint(equalTo: passStatusIndicator.trailingAnchor, constant: 10),
+            passSettingsLabel.trailingAnchor.constraint(lessThanOrEqualTo: passSettingsButton.leadingAnchor, constant: -15),
+
+            // Pass Settings Button
+            passSettingsButton.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
+            passSettingsButton.trailingAnchor.constraint(equalTo: passSettingsView.trailingAnchor, constant: -20),
+
+            // New Post Behavior View
+            newPostBehaviorView.topAnchor.constraint(equalTo: passSettingsView.bottomAnchor, constant: 16),
+            newPostBehaviorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            newPostBehaviorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            newPostBehaviorView.heightAnchor.constraint(equalToConstant: 70),
+            newPostBehaviorView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // New Post Behavior Label
+            newPostBehaviorLabel.topAnchor.constraint(equalTo: newPostBehaviorView.topAnchor, constant: 10),
+            newPostBehaviorLabel.leadingAnchor.constraint(equalTo: newPostBehaviorView.leadingAnchor, constant: 20),
+            newPostBehaviorLabel.trailingAnchor.constraint(equalTo: newPostBehaviorView.trailingAnchor, constant: -20),
+
+            // New Post Behavior Segment Control
+            newPostBehaviorSegment.topAnchor.constraint(equalTo: newPostBehaviorLabel.bottomAnchor, constant: 8),
+            newPostBehaviorSegment.leadingAnchor.constraint(equalTo: newPostBehaviorView.leadingAnchor, constant: 16),
+            newPostBehaviorSegment.trailingAnchor.constraint(equalTo: newPostBehaviorView.trailingAnchor, constant: -16),
 
         ])
         

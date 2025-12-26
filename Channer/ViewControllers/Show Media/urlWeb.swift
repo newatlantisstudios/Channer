@@ -1234,6 +1234,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     private func stateDescription(_ state: VLCMediaPlayerState) -> String {
         switch state {
         case .stopped: return "STOPPED"
+        case .stopping: return "STOPPING"
         case .opening: return "OPENING"
         case .buffering: return "BUFFERING"
         case .playing: return "PLAYING"
