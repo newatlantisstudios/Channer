@@ -173,11 +173,7 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
             customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
             boardReplyCount.textColor = ThemeManager.shared.primaryTextColor
-            
-            // Update thread button appearance for dark/light mode
-            thread.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
-            thread.tintColor = .systemBlue
-            
+
             // When trait collection changes, we also need to update attributed text
             if let attributedText = replyText.attributedText {
                 replyText.attributedText = updateAttributedTextColors(attributedText)
@@ -225,7 +221,7 @@ class threadRepliesCell: UITableViewCell {
         contentView.addSubview(replyText)
         contentView.addSubview(replyTextNoImage)
         contentView.addSubview(boardReplyCount)
-        contentView.addSubview(thread)
+        // Reply bubble button removed - feature moved to long press menu
         contentView.addSubview(filterBadge)
     }
 
@@ -249,11 +245,6 @@ class threadRepliesCell: UITableViewCell {
 
             boardReplyCount.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
             boardReplyCount.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
-
-            thread.widthAnchor.constraint(equalToConstant: 40),
-            thread.heightAnchor.constraint(equalToConstant: 40),
-            thread.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -sideInset),
-            thread.bottomAnchor.constraint(equalTo: customBackgroundView.bottomAnchor, constant: -sideInset),
 
             // Filter badge constraints
             filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
@@ -292,15 +283,12 @@ class threadRepliesCell: UITableViewCell {
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
         replyTextNoImage.isHidden = withImage
-        
+
         if withImage {
             print("threadRepliesCell - Image constraints - width: 120, height: 120")
             print("threadRepliesCell - Final image frame after constraints: \(threadImage.frame)")
         }
-        
-        // Add visual feedback for the thread reply button
-        thread.showsTouchWhenHighlighted = true
-        
+
         NSLayoutConstraint.deactivate(replyTextWithImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageConstraints)
 

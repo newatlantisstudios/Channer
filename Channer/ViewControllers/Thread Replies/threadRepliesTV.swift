@@ -1275,16 +1275,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
             }
             
-            // Configure reply button visibility
-            if let replies = threadBoardReplies[boardNumber], !replies.isEmpty {
-                //print("Debug: Found \(replies.count) replies for boardNumber \(boardNumber), showing thread button")
-                cell.thread.isHidden = false
-                cell.thread.tag = actualIndex
-                cell.thread.addTarget(self, action: #selector(showThread), for: .touchUpInside)
-            } else {
-                //print("Debug: No replies for boardNumber \(boardNumber), hiding thread button")
-                cell.thread.isHidden = true
-            }
+            // Reply button removed - feature moved to long press menu
         }
         
         // Avoid forcing synchronous layout here to keep scrolling smooth
@@ -2252,44 +2243,44 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         debugReloadData(context: "Search filter update")
     }
-    @objc private func showThread(sender: UIButton) {
-        print("🔴showThread")
-        let tag = sender.tag
-        
+    /// Shows thread replies for the post at the given index (called from long press menu)
+    private func showThreadForIndex(_ index: Int) {
+        print("🔴showThreadForIndex")
+
         // Create thread data for the new view
         var threadRepliesNew: [NSAttributedString] = []
         var threadBoardReplyNumberNew: [String] = []
         var threadRepliesImagesNew: [String] = []
-        
-        // Get the board number that was clicked
-        let selectedBoardNumber = threadBoardReplyNumber[tag]
-        
+
+        // Get the board number that was selected
+        let selectedBoardNumber = threadBoardReplyNumber[index]
+
         // Start with the original post
-        if let index = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
-            threadRepliesNew.append(threadReplies[index])
-            threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
-            threadRepliesImagesNew.append(threadRepliesImages[index])
+        if let postIndex = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
+            threadRepliesNew.append(threadReplies[postIndex])
+            threadBoardReplyNumberNew.append(threadBoardReplyNumber[postIndex])
+            threadRepliesImagesNew.append(threadRepliesImages[postIndex])
         }
-        
+
         // Use a Set to deduplicate replies
         var uniqueReplies = Set<String>()
-        
+
         // Add only replies to this post (not the whole thread)
         if let replies = threadBoardReplies[selectedBoardNumber] {
             for replyNumber in replies {
                 // Add to the set to prevent duplicates
                 if uniqueReplies.insert(replyNumber).inserted,
-                   let index = threadBoardReplyNumber.firstIndex(of: replyNumber) {
-                    threadRepliesNew.append(threadReplies[index])
-                    threadBoardReplyNumberNew.append(threadBoardReplyNumber[index])
-                    threadRepliesImagesNew.append(threadRepliesImages[index])
+                   let replyIndex = threadBoardReplyNumber.firstIndex(of: replyNumber) {
+                    threadRepliesNew.append(threadReplies[replyIndex])
+                    threadBoardReplyNumberNew.append(threadBoardReplyNumber[replyIndex])
+                    threadRepliesImagesNew.append(threadRepliesImages[replyIndex])
                 }
             }
         }
-        
+
         // Create and configure new threadRepliesTV instance
         let newThreadVC = threadRepliesTV()
-        
+
         // Set the data and prevent full thread load
         newThreadVC.threadReplies = threadRepliesNew
         newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
@@ -2298,7 +2289,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         newThreadVC.boardAbv = self.boardAbv
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
-        
+
         // Transfer any filtered indices that are also in this view
         let filteredIndicesInNew = Set(filteredReplyIndices.compactMap { originalIndex in
             if let originalNumber = threadBoardReplyNumber.indices.contains(originalIndex) ? threadBoardReplyNumber[originalIndex] : nil,
@@ -2308,14 +2299,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return nil
         })
         newThreadVC.filteredReplyIndices = filteredIndicesInNew
-        
+
         print("Selected post: \(selectedBoardNumber)")
         print("Filtered replies: \(Array(uniqueReplies))")
         print("New threadReplies count: \(threadRepliesNew.count)")
-        
+
         // Set the title to show which post is being viewed
         newThreadVC.title = "\(selectedBoardNumber)"
-        
+
         // Adapt behavior based on device type
         if let navController = navigationController {
             navController.pushViewController(newThreadVC, animated: true)
@@ -2325,7 +2316,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             navController.modalPresentationStyle = .fullScreen
             present(navController, animated: true)
         }
-        
+    }
+
+    @objc private func showThread(sender: UIButton) {
+        showThreadForIndex(sender.tag)
     }
     
     @objc private func completeThread() {
@@ -2364,6 +2358,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         let postNo = threadBoardReplyNumber[indexPath.row]
+
+        // View replies option (only show if post has replies)
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let replyCount = replies.count
+            let title = replyCount == 1 ? "View 1 Reply" : "View \(replyCount) Replies"
+            actionSheet.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
+                self?.showThreadForIndex(indexPath.row)
+            }))
+        }
 
         // Reply to this post option (immediate reply)
         actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in

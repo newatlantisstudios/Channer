@@ -151,7 +151,11 @@ class threadRepliesCV: UICollectionViewController {
         
         // Memory optimization
         collectionView?.remembersLastFocusedIndexPath = false
-        
+
+        // Add long press gesture for cell actions
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        collectionView?.addGestureRecognizer(longPressGesture)
+
         let fileManager = FileManager.default
         let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         
@@ -348,16 +352,9 @@ class threadRepliesCV: UICollectionViewController {
     }
     
     private func configureCell(_ cell: threadReplyCell, at indexPath: IndexPath) {
-        // Configure thread button visibility
-        let hasThread = threadBoardReplies[threadBoardReplyNumber[indexPath.row]]?.isEmpty == false
-        let isFullThread = threadRepliesOld.isEmpty
-        cell.thread.isHidden = !(hasThread && isFullThread)
-        
-        if !cell.thread.isHidden {
-            cell.thread.tag = indexPath.row
-            cell.thread.addTarget(self, action: #selector(showThread), for: .touchUpInside)
-        }
-        
+        // Reply button hidden - feature moved to long press menu
+        cell.thread.isHidden = true
+
         // Set reply counts
         cell.boardReplyCount.text = threadBoardReplyNumber[indexPath.row]
         cell.threadReplyCount.text = String(indexPath.row + 1)
@@ -562,6 +559,75 @@ class threadRepliesCV: UICollectionViewController {
         let navController = UINavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
+    }
+
+    // MARK: - Long Press Handling
+
+    /// Handle long press on a collection view cell
+    @objc private func handleLongPress(gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+
+        let point = gesture.location(in: collectionView)
+        if let indexPath = collectionView?.indexPathForItem(at: point) {
+            showCellActionSheet(for: indexPath)
+        }
+    }
+
+    /// Shows action sheet for a long-pressed cell
+    private func showCellActionSheet(for indexPath: IndexPath) {
+        guard indexPath.row < threadBoardReplyNumber.count else { return }
+
+        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        let postNo = threadBoardReplyNumber[indexPath.row]
+
+        // View replies option (only show if post has replies)
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let replyCount = replies.count
+            let title = replyCount == 1 ? "View 1 Reply" : "View \(replyCount) Replies"
+            actionSheet.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
+                self?.showThreadForIndex(indexPath.row)
+            }))
+        }
+
+        // Reply to this post option
+        if let postNumber = Int(postNo) {
+            actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
+                self?.showComposeView(quotePostNumber: postNumber)
+            }))
+        }
+
+        // Cancel action
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        // Configure popover for iPad
+        if let popover = actionSheet.popoverPresentationController {
+            if let cell = collectionView?.cellForItem(at: indexPath) {
+                popover.sourceView = cell
+                popover.sourceRect = cell.bounds
+            } else {
+                popover.sourceView = view
+                popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            }
+            popover.permittedArrowDirections = [.up, .down]
+        }
+
+        present(actionSheet, animated: true)
+    }
+
+    /// Shows thread replies for the post at the given index (called from long press menu)
+    private func showThreadForIndex(_ index: Int) {
+        guard index < threadBoardReplyNumber.count else { return }
+
+        let storyBoard = UIStoryboard(name: "iPad", bundle: nil)
+        let replyVC = storyBoard.instantiateViewController(withIdentifier: "threadReplyVC") as! threadRepliesCV
+        replyVC.replyNumber = threadBoardRepliesArray(indexPath: index).first ?? ""
+        replyVC.threadNumber = threadNumber
+        replyVC.boardAbv = boardAbv
+        replyVC.forBoardThread = true
+        replyVC.isReply = true
+        replyVC.modalPresentationStyle = .fullScreen
+
+        present(replyVC, animated: true, completion: nil)
     }
 }
 
