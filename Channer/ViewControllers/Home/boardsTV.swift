@@ -103,21 +103,28 @@ class boardsTV: UITableViewController {
     }
 
     // MARK: - View Lifecycle
-    
+
     /// Sorts the boards alphabetically by name while maintaining name-abbreviation pairs
     private func sortBoardsAlphabetically() {
         // Create array of tuples with board name and abbreviation
         let combinedBoards = zip(boardNames, boardsAbv).map { ($0, $1) }
-        
+
         // Sort the combined array by board name
         let sortedBoards = combinedBoards.sorted { $0.0 < $1.0 }
-        
+
         // Update the original arrays with sorted values
         boardNames = sortedBoards.map { $0.0 }
         boardsAbv = sortedBoards.map { $0.1 }
-        
+
         // Print confirmation
         print("Boards sorted alphabetically")
+    }
+
+    /// Filters out hidden boards from the display
+    private func filterHiddenBoards() {
+        let filtered = HiddenBoardsManager.shared.filterHiddenBoards(boardNames: boardNames, boardCodes: boardsAbv)
+        boardNames = filtered.names
+        boardsAbv = filtered.codes
     }
     
     /// Called after the controller's view is loaded into memory.
@@ -134,6 +141,15 @@ class boardsTV: UITableViewController {
         boardNames = BoardsService.shared.boardNames
         boardsAbv = BoardsService.shared.boardAbv
         sortBoardsAlphabetically()
+        filterHiddenBoards()
+
+        // Register for hidden boards changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hiddenBoardsDidChange),
+            name: HiddenBoardsManager.hiddenBoardsChangedNotification,
+            object: nil
+        )
         
         // Set theme background color for automatic light/dark mode support
         view.backgroundColor = ThemeManager.shared.backgroundColor
@@ -213,8 +229,19 @@ class boardsTV: UITableViewController {
             self.boardNames = BoardsService.shared.boardNames
             self.boardsAbv = BoardsService.shared.boardAbv
             self.sortBoardsAlphabetically()
+            self.filterHiddenBoards()
             self.tableView.reloadData()
         }
+    }
+
+    /// Called when hidden boards settings change
+    @objc private func hiddenBoardsDidChange() {
+        // Reload boards from service and reapply filters
+        boardNames = BoardsService.shared.boardNames
+        boardsAbv = BoardsService.shared.boardAbv
+        sortBoardsAlphabetically()
+        filterHiddenBoards()
+        tableView.reloadData()
     }
     
     deinit {
