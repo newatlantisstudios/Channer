@@ -13,7 +13,6 @@ class settings: UIViewController {
     // UI Components
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    private let headerLabel = UILabel()
     private let selectedBoardView = UIView()
     private let selectedBoardLabel = UILabel()
     private let selectBoardButton = UIButton(type: .system)
@@ -25,6 +24,7 @@ class settings: UIViewController {
     private let notificationsToggle = UISwitch()
     private let offlineReadingView = UIView()
     private let offlineReadingLabel = UILabel()
+    private let offlineReadingSubtitleLabel = UILabel()
     private let offlineReadingToggle = UISwitch()
     private let iCloudSyncView = UIView()
     private let iCloudSyncLabel = UILabel()
@@ -167,21 +167,15 @@ class settings: UIViewController {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
         
-        // Header Label
-        headerLabel.text = "Choose Your Start Up Board"
-        headerLabel.font = UIFont.systemFont(ofSize: 22, weight: .bold)
-        headerLabel.textAlignment = .center
-        headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(headerLabel)
-        
-        // Selected Board View
-        selectedBoardView.backgroundColor = UIColor.systemGray5
-        selectedBoardView.layer.cornerRadius = 12
+        // Selected Board View (Startup Board selector)
+        selectedBoardView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        selectedBoardView.layer.cornerRadius = 10
+        selectedBoardView.clipsToBounds = true
         selectedBoardView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(selectedBoardView)
-        
+
         // Selected Board Label
-        selectedBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        selectedBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         selectedBoardLabel.textAlignment = .left
         selectedBoardLabel.translatesAutoresizingMaskIntoConstraints = false
         updateSelectedBoardLabel()
@@ -263,6 +257,15 @@ class settings: UIViewController {
         offlineReadingLabel.minimumScaleFactor = 0.8
         offlineReadingLabel.translatesAutoresizingMaskIntoConstraints = false
         offlineReadingView.addSubview(offlineReadingLabel)
+
+        // Offline Reading Subtitle Label
+        offlineReadingSubtitleLabel.text = "Caches favorites for offline access"
+        offlineReadingSubtitleLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        offlineReadingSubtitleLabel.textColor = .secondaryLabel
+        offlineReadingSubtitleLabel.textAlignment = .left
+        offlineReadingSubtitleLabel.numberOfLines = 1
+        offlineReadingSubtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        offlineReadingView.addSubview(offlineReadingSubtitleLabel)
         
         // Offline Reading Toggle
         let isOfflineReadingEnabled = UserDefaults.standard.bool(forKey: offlineReadingEnabledKey)
@@ -1361,28 +1364,40 @@ class settings: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            // Header Label
-            headerLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            headerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            headerLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            
-            // Selected Board View
-            selectedBoardView.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 16),
+            // Selected Board View (Startup Board selector)
+            selectedBoardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             selectedBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             selectedBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            selectedBoardView.heightAnchor.constraint(equalToConstant: 50),
-            
+            selectedBoardView.heightAnchor.constraint(equalToConstant: 44),
+            selectedBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
             // Selected Board Label
             selectedBoardLabel.centerYAnchor.constraint(equalTo: selectedBoardView.centerYAnchor),
-            selectedBoardLabel.leadingAnchor.constraint(equalTo: selectedBoardView.leadingAnchor, constant: 16),
-            selectedBoardLabel.trailingAnchor.constraint(equalTo: selectBoardButton.leadingAnchor, constant: -8),
-            
+            selectedBoardLabel.leadingAnchor.constraint(equalTo: selectedBoardView.leadingAnchor, constant: 20),
+            selectedBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: selectBoardButton.leadingAnchor, constant: -15),
+
             // Select Board Button
             selectBoardButton.centerYAnchor.constraint(equalTo: selectedBoardView.centerYAnchor),
-            selectBoardButton.trailingAnchor.constraint(equalTo: selectedBoardView.trailingAnchor, constant: -16),
-            
+            selectBoardButton.trailingAnchor.constraint(equalTo: selectedBoardView.trailingAnchor, constant: -20),
+
+            // Launch With Startup Board View
+            launchWithStartupBoardView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
+            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
+            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Launch With Startup Board Label
+            launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardLabel.leadingAnchor.constraint(equalTo: launchWithStartupBoardView.leadingAnchor, constant: 20),
+            launchWithStartupBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: launchWithStartupBoardToggle.leadingAnchor, constant: -15),
+
+            // Launch With Startup Board Toggle
+            launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
+
             // FaceID View
-            faceIDView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
+            faceIDView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
             faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             faceIDView.heightAnchor.constraint(equalToConstant: 44),
@@ -1419,14 +1434,19 @@ class settings: UIViewController {
             offlineReadingView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
             offlineReadingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             offlineReadingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            offlineReadingView.heightAnchor.constraint(equalToConstant: 44),
+            offlineReadingView.heightAnchor.constraint(equalToConstant: 60),
             offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-            
+
             // Offline Reading Label
-            offlineReadingLabel.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            offlineReadingLabel.topAnchor.constraint(equalTo: offlineReadingView.topAnchor, constant: 10),
             offlineReadingLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
             offlineReadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
-            
+
+            // Offline Reading Subtitle Label
+            offlineReadingSubtitleLabel.topAnchor.constraint(equalTo: offlineReadingLabel.bottomAnchor, constant: 2),
+            offlineReadingSubtitleLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
+            offlineReadingSubtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
+
             // Offline Reading Toggle
             offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
             offlineReadingToggle.trailingAnchor.constraint(equalTo: offlineReadingView.trailingAnchor, constant: -30),
@@ -1455,25 +1475,9 @@ class settings: UIViewController {
             // Force Sync Button
             iCloudForceSync.centerYAnchor.constraint(equalTo: iCloudSyncStatusLabel.centerYAnchor),
             iCloudForceSync.trailingAnchor.constraint(equalTo: iCloudSyncView.trailingAnchor, constant: -30),
-            
-            // Launch With Startup Board View
-            launchWithStartupBoardView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
-            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
-            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-            
-            // Launch With Startup Board Label
-            launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
-            launchWithStartupBoardLabel.leadingAnchor.constraint(equalTo: launchWithStartupBoardView.leadingAnchor, constant: 20),
-            launchWithStartupBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: launchWithStartupBoardToggle.leadingAnchor, constant: -15),
-            
-            // Launch With Startup Board Toggle
-            launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
-            launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
-            
+
             // Theme Settings View
-            themeSettingsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
+            themeSettingsView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
             themeSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: 44),
@@ -1611,9 +1615,9 @@ class settings: UIViewController {
     private func updateSelectedBoardLabel() {
         if let savedDefault = UserDefaults.standard.string(forKey: userDefaultsKey),
            let index = boardAbv.firstIndex(of: savedDefault) {
-            selectedBoardLabel.text = "\(boardNames[index]) (/\(savedDefault)/)"
+            selectedBoardLabel.text = "Startup Board: /\(savedDefault)/ - \(boardNames[index])"
         } else {
-            selectedBoardLabel.text = "No default board selected"
+            selectedBoardLabel.text = "Startup Board: None Selected"
         }
     }
     
@@ -1796,18 +1800,19 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "BoardCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         let names = isSearching ? filteredBoardNames : boardNames
         let abvs = isSearching ? filteredBoardAbv : boardAbv
-        
+
         if indexPath.row < names.count && indexPath.row < abvs.count {
             let boardName = names[indexPath.row]
             let boardCode = abvs[indexPath.row]
-            
+
             var content = cell.defaultContentConfiguration()
             content.text = "\(boardName) (/\(boardCode)/)"
             cell.contentConfiguration = content
-            
+
             // Add checkmark for current selection
             if boardCode == currentSelection {
                 cell.accessoryType = .checkmark
@@ -1815,7 +1820,7 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
                 cell.accessoryType = .none
             }
         }
-        
+
         return cell
     }
     
@@ -1951,39 +1956,40 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "OfflineThreadCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         if indexPath.row < threadInfo.count {
             let thread = threadInfo[indexPath.row]
-            
+
             // Configure cell
             var content = cell.defaultContentConfiguration()
             content.text = "/\(thread.boardAbv)/ - Thread #\(thread.number)"
-            
+
             // Get the first line of the comment for a subtitle
             var commentPlainText = thread.comment
                 .replacingOccurrences(of: "<br>", with: "\n")
                 .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-            
+
             // Truncate to first line only
             if let newlineIndex = commentPlainText.firstIndex(of: "\n") {
                 commentPlainText = String(commentPlainText[..<newlineIndex])
             }
-            
+
             // Truncate long comments
             if commentPlainText.count > 100 {
                 commentPlainText = String(commentPlainText.prefix(100)) + "..."
             }
-            
+
             content.secondaryText = commentPlainText
             content.secondaryTextProperties.color = .gray
             content.secondaryTextProperties.font = UIFont.systemFont(ofSize: 14)
-            
+
             cell.contentConfiguration = content
         }
-        
+
         return cell
     }
-    
+
     // MARK: - UITableViewDelegate
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)

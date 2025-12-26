@@ -247,6 +247,7 @@ extension SearchViewController: UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "SearchCell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "SearchCell")
+        cell.selectionStyle = .none
         cell.textLabel?.numberOfLines = 0 // Allow multiline text
         cell.detailTextLabel?.textColor = .systemGray
         

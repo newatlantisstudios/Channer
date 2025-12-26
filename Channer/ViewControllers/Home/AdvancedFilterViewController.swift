@@ -426,6 +426,7 @@ extension AdvancedFilterViewController: UITableViewDataSource {
         } else {
             cell = UITableViewCell(style: .subtitle, reuseIdentifier: "FilterCell")
         }
+        cell.selectionStyle = .none
 
         let sectionFilters = filters(for: section)
 
@@ -647,6 +648,7 @@ class CountryPickerViewController: UIViewController, UITableViewDataSource, UITa
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CountryCell", for: indexPath)
+        cell.selectionStyle = .none
         let country = filteredCountries[indexPath.row]
 
         let flag = CountryCodes.flag(for: country.code)

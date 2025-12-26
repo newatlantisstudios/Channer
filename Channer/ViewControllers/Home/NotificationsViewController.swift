@@ -125,9 +125,10 @@ class NotificationsViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "NotificationCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         let notification = notifications[indexPath.row]
-        
+
         // Configure cell
         cell.backgroundColor = ThemeManager.shared.backgroundColor
         cell.contentView.backgroundColor = ThemeManager.shared.backgroundColor
