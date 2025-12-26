@@ -170,64 +170,91 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication,
                      performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         print("Legacy background fetch started")
-        
+
         // Check if notifications are enabled
         let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
         if !notificationsEnabled {
             completionHandler(.noData)
             return
         }
-        
-        // Only refresh favorites if there are any
+
+        let dispatchGroup = DispatchGroup()
+        var hasAnyUpdates = false
+
+        // Check favorited threads for updates
         let favorites = FavoritesManager.shared.loadFavorites()
-        if favorites.isEmpty {
-            completionHandler(.noData)
-            return
+        if !favorites.isEmpty {
+            dispatchGroup.enter()
+            checkForThreadUpdates(favorites) { hasNewData in
+                if hasNewData { hasAnyUpdates = true }
+                dispatchGroup.leave()
+            }
         }
-        
-        checkForThreadUpdates(favorites) { hasNewData in
-            completionHandler(hasNewData ? .newData : .noData)
+
+        // Check watched posts for replies
+        let watchedPosts = WatchedPostsManager.shared.getWatchedPosts()
+        if !watchedPosts.isEmpty {
+            dispatchGroup.enter()
+            checkWatchedPostsForReplies(watchedPosts) { hasNewReplies in
+                if hasNewReplies { hasAnyUpdates = true }
+                dispatchGroup.leave()
+            }
+        }
+
+        dispatchGroup.notify(queue: .main) {
+            completionHandler(hasAnyUpdates ? .newData : .noData)
         }
     }
     
     private func checkForThreadUpdates(_ favorites: [ThreadData], completion: @escaping (Bool) -> Void) {
         let dispatchGroup = DispatchGroup()
         var hasUpdates = false
-        
+
         for favorite in favorites {
             dispatchGroup.enter()
-            
+
             let url = "https://a.4cdn.org/\(favorite.boardAbv)/thread/\(favorite.number).json"
-            
+
             AF.request(url).responseData { response in
                 defer { dispatchGroup.leave() }
-                
+
                 switch response.result {
                 case .success(let data):
                     if let json = try? JSON(data: data),
                        let firstPost = json["posts"].array?.first {
                         // Get the current reply count
                         let currentReplies = firstPost["replies"].intValue
-                        
+
                         // Check if there are new replies
                         let storedReplies = favorite.replies
                         if currentReplies > storedReplies {
                             // We have new replies
                             hasUpdates = true
-                            
+
                             // Calculate number of new replies
                             let newReplies = currentReplies - storedReplies
-                            
+
                             // Update the thread in favorites with new reply count and set hasNewReplies flag
                             var updatedThread = favorite
                             updatedThread.currentReplies = currentReplies
                             updatedThread.hasNewReplies = true
                             FavoritesManager.shared.updateFavorite(thread: updatedThread)
-                            
+
+                            // Get thread title from first post
+                            let threadTitle = firstPost["sub"].string
+
+                            // Add in-app notification
+                            NotificationManager.shared.addThreadUpdateNotification(
+                                boardAbv: favorite.boardAbv,
+                                threadNo: favorite.number,
+                                threadTitle: threadTitle,
+                                newReplyCount: newReplies
+                            )
+
                             // Update the app badge count
                             self.updateApplicationBadgeCount()
-                            
-                            // Send a notification if there are new replies
+
+                            // Send a push notification if there are new replies
                             self.sendThreadUpdateNotification(
                                 threadNumber: favorite.number,
                                 boardAbv: favorite.boardAbv,
@@ -241,9 +268,90 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 }
             }
         }
-        
+
         dispatchGroup.notify(queue: .main) {
             completion(hasUpdates)
+        }
+    }
+
+    private func checkWatchedPostsForReplies(_ watchedPosts: [WatchedPost], completion: @escaping (Bool) -> Void) {
+        let dispatchGroup = DispatchGroup()
+        var hasNewReplies = false
+
+        // Group watched posts by thread to minimize API calls
+        var postsByThread: [String: [WatchedPost]] = [:]
+        for post in watchedPosts {
+            let key = "\(post.boardAbv)/\(post.threadNo)"
+            if postsByThread[key] == nil {
+                postsByThread[key] = []
+            }
+            postsByThread[key]?.append(post)
+        }
+
+        for (_, posts) in postsByThread {
+            guard let firstPost = posts.first else { continue }
+
+            dispatchGroup.enter()
+
+            let url = "https://a.4cdn.org/\(firstPost.boardAbv)/thread/\(firstPost.threadNo).json"
+
+            AF.request(url).responseData { response in
+                defer { dispatchGroup.leave() }
+
+                switch response.result {
+                case .success(let data):
+                    if let json = try? JSON(data: data),
+                       let postsArray = json["posts"].array {
+                        // Convert to format expected by WatchedPostsManager
+                        var threadReplies: [NSAttributedString] = []
+                        var replyNumbers: [String] = []
+
+                        for postJson in postsArray {
+                            let postNo = String(postJson["no"].intValue)
+                            let postText = postJson["com"].stringValue
+                            replyNumbers.append(postNo)
+                            threadReplies.append(NSAttributedString(string: postText))
+                        }
+
+                        // Check for new replies (this creates notifications internally)
+                        let newCount = WatchedPostsManager.shared.checkForNewReplies(
+                            threadNo: firstPost.threadNo,
+                            boardAbv: firstPost.boardAbv,
+                            threadReplies: threadReplies,
+                            replyNumbers: replyNumbers
+                        )
+
+                        if newCount > 0 {
+                            hasNewReplies = true
+
+                            // Send push notification for replies to user's posts
+                            for post in posts {
+                                let isUserPost = MyPostsManager.shared.isUserPost(
+                                    postNo: post.postNo,
+                                    threadNo: post.threadNo,
+                                    boardAbv: post.boardAbv
+                                )
+
+                                if isUserPost {
+                                    self.sendReplyNotification(
+                                        postNo: post.postNo,
+                                        threadNo: post.threadNo,
+                                        boardAbv: post.boardAbv
+                                    )
+                                }
+                            }
+
+                            self.updateApplicationBadgeCount()
+                        }
+                    }
+                case .failure:
+                    break
+                }
+            }
+        }
+
+        dispatchGroup.notify(queue: .main) {
+            completion(hasNewReplies)
         }
     }
     
@@ -270,24 +378,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if !notificationsEnabled {
             return
         }
-        
+
         let content = UNMutableNotificationContent()
         content.title = "Thread Update"
         content.body = "Thread /\(boardAbv)/\(threadNumber) has \(newReplies) new \(newReplies == 1 ? "reply" : "replies")"
         content.sound = UNNotificationSound.default
-        
+
         // Add thread information to the notification userInfo
         content.userInfo = [
             "threadNumber": threadNumber,
-            "boardAbv": boardAbv
+            "boardAbv": boardAbv,
+            "notificationType": "threadUpdate"
         ]
-        
+
         // Create a unique identifier for this notification
         let identifier = "thread-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
-        
+
         // Create the request
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-        
+
         // Add the request to the notification center
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
@@ -297,7 +406,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
     }
-    
+
+    private func sendReplyNotification(postNo: String, threadNo: String, boardAbv: String) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        if !notificationsEnabled {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Reply to Your Post"
+        content.body = "Someone replied to your post >>\(postNo) in /\(boardAbv)/\(threadNo)"
+        content.sound = UNNotificationSound.default
+
+        // Add thread information to the notification userInfo
+        content.userInfo = [
+            "threadNumber": threadNo,
+            "boardAbv": boardAbv,
+            "postNo": postNo,
+            "notificationType": "myPostReply"
+        ]
+
+        // Create a unique identifier for this notification
+        let identifier = "reply-\(boardAbv)-\(threadNo)-\(postNo)-\(Date().timeIntervalSince1970)"
+
+        // Create the request
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        // Add the request to the notification center
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending reply notification: \(error.localizedDescription)")
+            } else {
+                print("Reply notification scheduled for post \(postNo)")
+            }
+        }
+    }
+
     // MARK: - Badge Management
     private func updateApplicationBadgeCount() {
         // Only update if notifications are enabled
@@ -306,15 +450,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             UIApplication.shared.applicationIconBadgeNumber = 0
             return
         }
-        
-        // Count the number of threads with new replies
-        let favorites = FavoritesManager.shared.loadFavorites()
-        let threadsWithNewReplies = favorites.filter { $0.hasNewReplies }
-        let badgeCount = threadsWithNewReplies.count
-        
+
+        // Use NotificationManager's unread count for badge
+        let notificationBadgeCount = NotificationManager.shared.getUnreadCount()
+
         // Update the application badge
         DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = badgeCount
+            UIApplication.shared.applicationIconBadgeNumber = notificationBadgeCount
         }
     }
     

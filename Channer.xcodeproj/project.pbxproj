@@ -71,6 +71,7 @@
 		5655ABED6489BBB2B80A4C6F /* DownloadManagerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */; };
 		66C8421B5C76147DE06BEEAB /* MockAuthenticationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6A30E14407AFCD5A0CC09B /* MockAuthenticationContext.swift */; };
 		66E0AD70DA724EB9F4668E2B /* MockAlamofireSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013F035BAC40E84B14F84DFB /* MockAlamofireSession.swift */; };
+		79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */; };
 		943C1B0FE8E2F861AF0D5E8D /* ThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7F196FC7ADB74431A026D5 /* ThemeManagerTests.swift */; };
 		9857759C52EA1EFB8C79A9D8 /* XCTestCase+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */; };
 		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
@@ -186,6 +187,7 @@
 		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
 		3C335E2377BA19B313347A8C /* TestDataFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestDataFactory.swift; path = Helpers/TestDataFactory.swift; sourceTree = "<group>"; };
+		4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyPostsManager.swift; sourceTree = "<group>"; };
 		4D48D859953D3D65A9888B85 /* DownloadManagerViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadManagerViewController.swift; path = Channer/ViewControllers/Downloads/DownloadManagerViewController.swift; sourceTree = "<group>"; };
 		5B7F196FC7ADB74431A026D5 /* ThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThemeManagerTests.swift; path = Managers/ThemeManagerTests.swift; sourceTree = "<group>"; };
 		6FBA6566986468E56F4F3023 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FavoritesManagerTests.swift; path = Managers/FavoritesManagerTests.swift; sourceTree = "<group>"; };
@@ -258,6 +260,7 @@
 				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
 				17PASSAUTH1234567890123456 /* PassAuthManager.swift */,
 				17POSTING1234567890123456 /* PostingManager.swift */,
+				4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */,
 				2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */,
 			);
 			path = Utilities;
@@ -716,6 +719,7 @@
 				17PASSSETTINGSBUILD123456 /* PassSettingsViewController.swift in Sources */,
 				17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */,
 				17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */,
+				79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */,
 				3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

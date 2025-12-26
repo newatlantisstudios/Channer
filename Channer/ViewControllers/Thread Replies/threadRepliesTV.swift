@@ -3725,6 +3725,16 @@ extension threadRepliesTV: ComposeViewControllerDelegate {
         activeComposeVC = nil
         isComposeMinimized = false
 
+        // Track user's post for reply notifications
+        if let postNo = postNumber {
+            MyPostsManager.shared.addUserPost(
+                boardAbv: boardAbv,
+                threadNo: threadNumber,
+                postNo: String(postNo),
+                postText: ""
+            )
+        }
+
         // Refresh the thread to show the new post
         refresh()
 

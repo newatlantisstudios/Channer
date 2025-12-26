@@ -1,5 +1,12 @@
 import Foundation
 
+/// Represents different types of notifications
+enum NotificationType: String, Codable {
+    case threadUpdate       // New posts in favorited threads
+    case watchedPostReply   // Reply to a watched post
+    case myPostReply        // Reply to user's own post
+}
+
 /// Represents a reply notification with tracking metadata
 struct ReplyNotification: Codable, Identifiable {
     let id: String
@@ -10,8 +17,13 @@ struct ReplyNotification: Codable, Identifiable {
     let replyText: String
     let timestamp: Date
     var isRead: Bool
-    
-    init(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String) {
+    let notificationType: NotificationType
+    let threadTitle: String?
+    let newReplyCount: Int?
+
+    /// Full initializer with all fields
+    init(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String,
+         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil) {
         self.id = UUID().uuidString
         self.boardAbv = boardAbv
         self.threadNo = threadNo
@@ -20,6 +32,26 @@ struct ReplyNotification: Codable, Identifiable {
         self.replyText = replyText
         self.timestamp = Date()
         self.isRead = false
+        self.notificationType = notificationType
+        self.threadTitle = threadTitle
+        self.newReplyCount = newReplyCount
+    }
+
+    /// Backward-compatible decoding with defaults for missing fields
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        boardAbv = try container.decode(String.self, forKey: .boardAbv)
+        threadNo = try container.decode(String.self, forKey: .threadNo)
+        replyNo = try container.decode(String.self, forKey: .replyNo)
+        replyToNo = try container.decode(String.self, forKey: .replyToNo)
+        replyText = try container.decode(String.self, forKey: .replyText)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        isRead = try container.decode(Bool.self, forKey: .isRead)
+        // Defaults for backward compatibility
+        notificationType = try container.decodeIfPresent(NotificationType.self, forKey: .notificationType) ?? .watchedPostReply
+        threadTitle = try container.decodeIfPresent(String.self, forKey: .threadTitle)
+        newReplyCount = try container.decodeIfPresent(Int.self, forKey: .newReplyCount)
     }
 }
 
@@ -150,7 +182,75 @@ class NotificationManager {
         }
         return getNotifications().filter { !$0.isRead }.count
     }
-    
+
+    // MARK: - Filtering & Grouping
+
+    /// Gets notifications filtered by type
+    /// - Parameter type: The notification type to filter by
+    /// - Returns: Array of notifications of the specified type
+    func getNotifications(ofType type: NotificationType) -> [ReplyNotification] {
+        return getNotifications().filter { $0.notificationType == type }
+    }
+
+    /// Gets notifications grouped by type for sectioned display
+    /// - Returns: Dictionary with notification type as key and array of notifications as value
+    func getNotificationsGroupedByType() -> [NotificationType: [ReplyNotification]] {
+        let allNotifications = getNotifications()
+        var grouped: [NotificationType: [ReplyNotification]] = [:]
+
+        for type in [NotificationType.myPostReply, .threadUpdate, .watchedPostReply] {
+            let filtered = allNotifications.filter { $0.notificationType == type }
+            if !filtered.isEmpty {
+                grouped[type] = filtered
+            }
+        }
+
+        return grouped
+    }
+
+    // MARK: - Convenience Methods
+
+    /// Adds a thread update notification
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNo: Thread number
+    ///   - threadTitle: Optional thread title/subject
+    ///   - newReplyCount: Number of new replies
+    func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int) {
+        let notification = ReplyNotification(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            replyNo: "",
+            replyToNo: "",
+            replyText: "\(newReplyCount) new \(newReplyCount == 1 ? "reply" : "replies")",
+            notificationType: .threadUpdate,
+            threadTitle: threadTitle,
+            newReplyCount: newReplyCount
+        )
+        addNotification(notification)
+    }
+
+    /// Adds a notification for a reply to the user's own post
+    /// - Parameters:
+    ///   - boardAbv: Board abbreviation
+    ///   - threadNo: Thread number
+    ///   - replyNo: The post number of the reply
+    ///   - replyToNo: The user's post number being replied to
+    ///   - replyText: Preview of the reply text
+    ///   - threadTitle: Optional thread title/subject
+    func addMyPostReplyNotification(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String, threadTitle: String? = nil) {
+        let notification = ReplyNotification(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            replyNo: replyNo,
+            replyToNo: replyToNo,
+            replyText: replyText,
+            notificationType: .myPostReply,
+            threadTitle: threadTitle
+        )
+        addNotification(notification)
+    }
+
     // MARK: - Private Methods
     
     private func saveNotifications(_ notifications: [ReplyNotification]) {
