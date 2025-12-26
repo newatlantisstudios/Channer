@@ -497,6 +497,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         loadInitialData()
         setupAutoRefreshTimer()
 
+        // Start tracking thread view for statistics
+        StatisticsManager.shared.startThreadView(threadNumber: threadNumber, boardAbv: boardAbv)
+
         // Hover gesture support now handled by cells directly
         
         // Table constraints
@@ -518,10 +521,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
         
         // Clean up hover interactions when view disappears
-        
+
         // Stop auto-refresh timer when view disappears
         stopAutoRefreshTimer()
-        
+
+        // End tracking thread view for statistics
+        StatisticsManager.shared.endCurrentThreadView()
+
         /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.

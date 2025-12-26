@@ -43,6 +43,9 @@ class settings: UIViewController {
     private let autoRefreshView = UIView()
     private let autoRefreshLabel = UILabel()
     private let autoRefreshButton = UIButton(type: .system)
+    private let statisticsView = UIView()
+    private let statisticsLabel = UILabel()
+    private let statisticsButton = UIButton(type: .system)
     private let newPostBehaviorView = UIView()
     private let newPostBehaviorLabel = UILabel()
     private let newPostBehaviorSegment = UISegmentedControl(items: ["Jump Button", "Auto-scroll", "Do Nothing"])
@@ -438,6 +441,30 @@ class settings: UIViewController {
         autoRefreshButton.translatesAutoresizingMaskIntoConstraints = false
         autoRefreshButton.addTarget(self, action: #selector(autoRefreshButtonTapped), for: .touchUpInside)
         autoRefreshView.addSubview(autoRefreshButton)
+
+        // Statistics View
+        statisticsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        statisticsView.layer.cornerRadius = 10
+        statisticsView.clipsToBounds = true
+        statisticsView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(statisticsView)
+
+        // Statistics Label
+        statisticsLabel.text = "Statistics & Analytics"
+        statisticsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        statisticsLabel.textAlignment = .left
+        statisticsLabel.numberOfLines = 1
+        statisticsLabel.adjustsFontSizeToFitWidth = true
+        statisticsLabel.minimumScaleFactor = 0.8
+        statisticsLabel.translatesAutoresizingMaskIntoConstraints = false
+        statisticsView.addSubview(statisticsLabel)
+
+        // Statistics Button
+        statisticsButton.setTitle("View", for: .normal)
+        statisticsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        statisticsButton.translatesAutoresizingMaskIntoConstraints = false
+        statisticsButton.addTarget(self, action: #selector(statisticsButtonTapped), for: .touchUpInside)
+        statisticsView.addSubview(statisticsButton)
 
         // 4chan Pass Settings View
         passSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -996,7 +1023,16 @@ class settings: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
-    
+
+    @objc private func statisticsButtonTapped() {
+        let statisticsVC = StatisticsDashboardViewController()
+        navigationController?.pushViewController(statisticsVC, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     @objc private func keyboardShortcutsToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: keyboardShortcutsEnabledKey)
         UserDefaults.standard.synchronize() // Force save immediately
@@ -1495,8 +1531,24 @@ class settings: UIViewController {
             autoRefreshButton.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
             autoRefreshButton.trailingAnchor.constraint(equalTo: autoRefreshView.trailingAnchor, constant: -20),
 
+            // Statistics View
+            statisticsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            statisticsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            statisticsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            statisticsView.heightAnchor.constraint(equalToConstant: 44),
+            statisticsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Statistics Label
+            statisticsLabel.centerYAnchor.constraint(equalTo: statisticsView.centerYAnchor),
+            statisticsLabel.leadingAnchor.constraint(equalTo: statisticsView.leadingAnchor, constant: 20),
+            statisticsLabel.trailingAnchor.constraint(lessThanOrEqualTo: statisticsButton.leadingAnchor, constant: -15),
+
+            // Statistics Button
+            statisticsButton.centerYAnchor.constraint(equalTo: statisticsView.centerYAnchor),
+            statisticsButton.trailingAnchor.constraint(equalTo: statisticsView.trailingAnchor, constant: -20),
+
             // Pass Settings View
-            passSettingsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
+            passSettingsView.topAnchor.constraint(equalTo: statisticsView.bottomAnchor, constant: 16),
             passSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             passSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             passSettingsView.heightAnchor.constraint(equalToConstant: 44),
