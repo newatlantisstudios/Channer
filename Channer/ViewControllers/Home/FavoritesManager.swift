@@ -361,6 +361,15 @@ class FavoritesManager {
     func getCategory(by id: String) -> BookmarkCategory? {
         return categories.first { $0.id == id }
     }
+
+    func setDefaultCategory(id: String) {
+        guard let index = categories.firstIndex(where: { $0.id == id }), index > 0 else {
+            return // Already default or not found
+        }
+        let category = categories.remove(at: index)
+        categories.insert(category, at: 0)
+        saveCategories()
+    }
     
     // MARK: - Enhanced Favorite Management
     func addFavorite(_ favorite: ThreadData, to categoryId: String? = nil) {

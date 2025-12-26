@@ -289,7 +289,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        return "Tap a category to edit. Swipe left to delete (except the default category)."
+        return "Tap to edit. Long press for more options including Set as Default. Swipe left to delete."
     }
 
     // MARK: - UITableViewDelegate
@@ -298,25 +298,105 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
     }
 
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        // Don't allow deletion of the first (default) category
-        return indexPath.row > 0
+        // Allow editing (deletion) for all categories
+        return true
     }
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete && indexPath.row > 0 {
+        if editingStyle == .delete {
             let category = categories[indexPath.row]
+            let isDefault = indexPath.row == 0
 
-            let alert = UIAlertController(
-                title: "Delete Category",
-                message: "Threads in this category will be moved to the default category.",
-                preferredStyle: .alert
-            )
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-                self?.favoritesManager.deleteCategory(id: category.id)
+            if isDefault {
+                // Deleting the default category - need to select a new default first
+                if categories.count <= 1 {
+                    // Can't delete the only category
+                    let alert = UIAlertController(
+                        title: "Cannot Delete",
+                        message: "You must have at least one category.",
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    present(alert, animated: true)
+                    return
+                }
+
+                showNewDefaultPicker(deletingCategory: category)
+            } else {
+                // Regular category deletion
+                let alert = UIAlertController(
+                    title: "Delete Category",
+                    message: "Threads in this category will be moved to the default category.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+                    self?.favoritesManager.deleteCategory(id: category.id)
+                    self?.loadCategories()
+                })
+                present(alert, animated: true)
+            }
+        }
+    }
+
+    private func showNewDefaultPicker(deletingCategory: BookmarkCategory) {
+        let alert = UIAlertController(
+            title: "Select New Default",
+            message: "Choose which category should become the new default before deleting \"\(deletingCategory.name)\".",
+            preferredStyle: .actionSheet
+        )
+
+        // Add all other categories as options
+        for category in categories where category.id != deletingCategory.id {
+            alert.addAction(UIAlertAction(title: category.name, style: .default) { [weak self] _ in
+                // Set new default first, then delete the old one
+                self?.favoritesManager.setDefaultCategory(id: category.id)
+                self?.favoritesManager.deleteCategory(id: deletingCategory.id)
                 self?.loadCategories()
             })
-            present(alert, animated: true)
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        // For iPad
+        if let popoverController = alert.popoverPresentationController {
+            popoverController.sourceView = tableView
+            popoverController.sourceRect = tableView.rectForRow(at: IndexPath(row: 0, section: 0))
+        }
+
+        present(alert, animated: true)
+    }
+
+    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        let category = categories[indexPath.row]
+        let isDefault = indexPath.row == 0
+
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            var actions: [UIMenuElement] = []
+
+            // Edit action
+            let editAction = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { _ in
+                self?.showCategoryEditor(category: category)
+            }
+            actions.append(editAction)
+
+            // Set as Default action (only for non-default categories)
+            if !isDefault {
+                let setDefaultAction = UIAction(title: "Set as Default", image: UIImage(systemName: "star")) { _ in
+                    self?.favoritesManager.setDefaultCategory(id: category.id)
+                    self?.loadCategories()
+                }
+                actions.append(setDefaultAction)
+            }
+
+            // Delete action
+            let deleteAction = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
+                // Simulate the swipe delete behavior
+                self?.tableView(tableView, commit: .delete, forRowAt: indexPath)
+            }
+            actions.append(deleteAction)
+
+            return UIMenu(title: "", children: actions)
         }
     }
 
