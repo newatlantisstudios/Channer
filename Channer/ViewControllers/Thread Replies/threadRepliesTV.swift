@@ -555,9 +555,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Restore navigation bar appearance from theme when returning from media viewers
         // Media viewers (WebMViewController, ImageViewController, urlWeb) set black nav bar
-        // and reset to "default" which doesn't match the app's theme
+        // Use configureWithOpaqueBackground to match the global AppDelegate configuration
         let appearance = UINavigationBarAppearance()
-        appearance.configureWithDefaultBackground()
+        appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = ThemeManager.shared.backgroundColor
         appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
 

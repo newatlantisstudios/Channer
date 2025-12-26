@@ -24,6 +24,26 @@ class SearchViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+
+        // Configure navigation bar appearance to match theme
+        // This prevents color flash when navigating to/from this view
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = ThemeManager.shared.backgroundColor
+        appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
+
+        if let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: { _ in
+                self.navigationController?.navigationBar.standardAppearance = appearance
+                self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
+                self.navigationController?.navigationBar.compactAppearance = appearance
+            }, completion: nil)
+        } else {
+            navigationController?.navigationBar.standardAppearance = appearance
+            navigationController?.navigationBar.scrollEdgeAppearance = appearance
+            navigationController?.navigationBar.compactAppearance = appearance
+        }
+
         // Focus on search immediately
         searchController.searchBar.becomeFirstResponder()
     }
