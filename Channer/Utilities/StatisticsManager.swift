@@ -347,7 +347,7 @@ class StatisticsManager {
 
         for case let fileURL as URL in enumerator {
             if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                totalSize += Int64(fileSize)
+                totalSize += Int64(fileSize ?? 0)
             }
         }
 

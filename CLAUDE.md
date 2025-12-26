@@ -24,7 +24,6 @@ open Channer.xcworkspace
 ./build-advanced.sh -c        # Clean build
 ./build-advanced.sh -r        # Release build
 ./build-advanced.sh -d        # Device build (not simulator)
-./test-build.sh               # Quick build check (returns exit code)
 ```
 
 ## Testing
@@ -64,13 +63,16 @@ boardsCV (boards list)
 ```
 
 ### Key Singleton Managers
-- **ThemeManager**: App-wide theming (6 built-in + custom themes via `ThemeEditorViewController`)
-- **FavoritesManager**: Thread bookmarks with categorization
-- **HistoryManager**: Visited thread tracking
+Located in `Utilities/` except where noted:
+- **ThemeManager** (`ViewControllers/ThemeManager.swift`): App-wide theming (6 built-in + custom themes via `ThemeEditorViewController`)
+- **FavoritesManager** (`ViewControllers/Home/FavoritesManager.swift`): Thread bookmarks with categorization
+- **HistoryManager** (`ViewControllers/Home/HistoryManager.swift`): Visited thread tracking
 - **ContentFilterManager**: Keyword/poster/image filtering (uses `ThreadDataHelper`)
-- **SearchManager**: Thread search with history
+- **SearchManager** (`ViewControllers/Home/SearchManager.swift`): Thread search with history
 - **ICloudSyncManager** / **ConflictResolutionManager**: iCloud sync with conflict resolution
 - **NotificationManager**: Push notifications for thread updates
+- **WatchedPostsManager**: Tracks posts user is monitoring for replies
+- **StatisticsManager**: Tracks browsing analytics (boards visited, threads read, time spent)
 - **ThreadCacheManager**: Offline thread caching
 
 ### Data Models Location
@@ -114,3 +116,5 @@ GitHub Actions (`.github/workflows/Xcode_build_PR.yml`):
 - Builds for iPhone 16 Simulator
 - Posts build errors to PR comments
 - Build logs uploaded with 7-day retention
+
+**Note**: The workflow file still references CocoaPods (`pod install`) but the project has migrated to Swift Package Manager. The workflow may need updating.
