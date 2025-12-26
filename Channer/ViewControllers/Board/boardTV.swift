@@ -290,8 +290,13 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             let resizedClearAllImage = clearAllImage?.resized(to: CGSize(width: 22, height: 22))
             let clearAllButton = UIBarButtonItem(image: resizedClearAllImage, style: .plain, target: self, action: #selector(clearAllHistory))
 
-            // Add "Clear All" button to the right side
-            navigationItem.rightBarButtonItem = clearAllButton
+            // Add "Clear All" button to existing right bar buttons (which includes sort button)
+            if var rightButtons = navigationItem.rightBarButtonItems {
+                rightButtons.insert(clearAllButton, at: 0)
+                navigationItem.rightBarButtonItems = rightButtons
+            } else {
+                navigationItem.rightBarButtonItem = clearAllButton
+            }
 
             // Verify and remove invalid history
             HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
@@ -389,9 +394,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     // Home button removed in favor of standard navigation back button
     
     private func setupSortButton() {
-        // Adds a sort button to the navigation bar, unless in history view.
-        guard !isHistoryView else { return }
-
+        // Adds a sort button to the navigation bar.
         var buttons: [UIBarButtonItem] = []
 
         // Add sort button
@@ -656,34 +659,64 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     @objc private func sortButtonTapped() {
         // Presents sorting options when the sort button is tapped.
         let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
-        
-        // Add sorting actions
-        let bumpOrderAction = UIAlertAction(title: "Bump Order", style: .default) { _ in
-            self.sortThreads(by: .bumpOrder)
+
+        if isHistoryView {
+            // History-specific sort options
+            let visitedOrderAction = UIAlertAction(title: "Most Recently Visited", style: .default) { _ in
+                self.sortThreads(by: .visitedOrder)
+            }
+            let oldestVisitedAction = UIAlertAction(title: "Oldest Visited", style: .default) { _ in
+                // Sort by visited order but reversed (oldest first)
+                let historyThreads = HistoryManager.shared.getHistoryThreads()
+                self.filteredThreadData.sort { thread1, thread2 in
+                    let index1 = historyThreads.firstIndex(where: { $0.number == thread1.number && $0.boardAbv == thread1.boardAbv }) ?? 0
+                    let index2 = historyThreads.firstIndex(where: { $0.number == thread2.number && $0.boardAbv == thread2.boardAbv }) ?? 0
+                    return index1 < index2  // Lower index = older visited
+                }
+                self.tableView.reloadData()
+            }
+            let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
+                self.sortThreads(by: .replyCount)
+            }
+            let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
+                self.sortThreads(by: .newestCreation)
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+
+            alertController.addAction(visitedOrderAction)
+            alertController.addAction(oldestVisitedAction)
+            alertController.addAction(replyCountAction)
+            alertController.addAction(newestCreationAction)
+            alertController.addAction(cancelAction)
+        } else {
+            // Standard board/favorites sort options
+            let bumpOrderAction = UIAlertAction(title: "Bump Order", style: .default) { _ in
+                self.sortThreads(by: .bumpOrder)
+            }
+            let lastReplyAction = UIAlertAction(title: "Last Reply", style: .default) { _ in
+                self.sortThreads(by: .lastReply)
+            }
+            let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
+                self.sortThreads(by: .replyCount)
+            }
+            let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
+                self.sortThreads(by: .newestCreation)
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+
+            alertController.addAction(bumpOrderAction)
+            alertController.addAction(lastReplyAction)
+            alertController.addAction(replyCountAction)
+            alertController.addAction(newestCreationAction)
+            alertController.addAction(cancelAction)
         }
-        let lastReplyAction = UIAlertAction(title: "Last Reply", style: .default) { _ in
-            self.sortThreads(by: .lastReply)
-        }
-        let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
-            self.sortThreads(by: .replyCount)
-        }
-        let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
-            self.sortThreads(by: .newestCreation)
-        }
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-        
-        alertController.addAction(bumpOrderAction)
-        alertController.addAction(lastReplyAction)
-        alertController.addAction(replyCountAction)
-        alertController.addAction(newestCreationAction)
-        alertController.addAction(cancelAction)
-        
+
         // iPad-specific popover configuration
         if let popoverController = alertController.popoverPresentationController {
             popoverController.barButtonItem = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
             popoverController.permittedArrowDirections = .up
         }
-        
+
         // Present the alert controller
         present(alertController, animated: true, completion: nil)
     }
@@ -1239,6 +1272,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         case newestCreation
         case bumpOrder
         case lastReply
+        case visitedOrder  // For history view - most recently visited first
     }
     
     private func sortThreads(by option: SortOption) {
@@ -1260,13 +1294,22 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             }
         case .lastReply:
             // Sort by last reply time, most recent first
-            filteredThreadData.sort { 
+            filteredThreadData.sort {
                 // If lastReplyTime is available, use it
                 if let time1 = $0.lastReplyTime, let time2 = $1.lastReplyTime {
                     return time1 > time2  // Most recent replies first
                 }
                 // Fall back to reply count if last reply time not available
                 return $0.replies > $1.replies
+            }
+        case .visitedOrder:
+            // Restore original history order (most recently visited last in history array)
+            // History is stored in insertion order, so we reverse to show most recent first
+            let historyThreads = HistoryManager.shared.getHistoryThreads()
+            filteredThreadData.sort { thread1, thread2 in
+                let index1 = historyThreads.firstIndex(where: { $0.number == thread1.number && $0.boardAbv == thread1.boardAbv }) ?? 0
+                let index2 = historyThreads.firstIndex(where: { $0.number == thread2.number && $0.boardAbv == thread2.boardAbv }) ?? 0
+                return index1 > index2  // Higher index = more recently visited
             }
         }
         tableView.reloadData()

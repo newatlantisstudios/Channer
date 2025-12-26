@@ -449,6 +449,7 @@ class boardsTV: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier, for: indexPath) as? boardsTVCell else {
             let fallbackCell = UITableViewCell(style: .subtitle, reuseIdentifier: "FallbackCell")
+            fallbackCell.selectionStyle = .none
             fallbackCell.textLabel?.text = boardNames[indexPath.row]
             fallbackCell.detailTextLabel?.text = "/" + boardsAbv[indexPath.row] + "/"
             return fallbackCell

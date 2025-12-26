@@ -1807,18 +1807,19 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "BoardCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         let names = isSearching ? filteredBoardNames : boardNames
         let abvs = isSearching ? filteredBoardAbv : boardAbv
-        
+
         if indexPath.row < names.count && indexPath.row < abvs.count {
             let boardName = names[indexPath.row]
             let boardCode = abvs[indexPath.row]
-            
+
             var content = cell.defaultContentConfiguration()
             content.text = "\(boardName) (/\(boardCode)/)"
             cell.contentConfiguration = content
-            
+
             // Add checkmark for current selection
             if boardCode == currentSelection {
                 cell.accessoryType = .checkmark
@@ -1826,7 +1827,7 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
                 cell.accessoryType = .none
             }
         }
-        
+
         return cell
     }
     
@@ -1962,39 +1963,40 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "OfflineThreadCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         if indexPath.row < threadInfo.count {
             let thread = threadInfo[indexPath.row]
-            
+
             // Configure cell
             var content = cell.defaultContentConfiguration()
             content.text = "/\(thread.boardAbv)/ - Thread #\(thread.number)"
-            
+
             // Get the first line of the comment for a subtitle
             var commentPlainText = thread.comment
                 .replacingOccurrences(of: "<br>", with: "\n")
                 .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-            
+
             // Truncate to first line only
             if let newlineIndex = commentPlainText.firstIndex(of: "\n") {
                 commentPlainText = String(commentPlainText[..<newlineIndex])
             }
-            
+
             // Truncate long comments
             if commentPlainText.count > 100 {
                 commentPlainText = String(commentPlainText.prefix(100)) + "..."
             }
-            
+
             content.secondaryText = commentPlainText
             content.secondaryTextProperties.color = .gray
             content.secondaryTextProperties.font = UIFont.systemFont(ofSize: 14)
-            
+
             cell.contentConfiguration = content
         }
-        
+
         return cell
     }
-    
+
     // MARK: - UITableViewDelegate
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)

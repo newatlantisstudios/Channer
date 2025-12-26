@@ -20,11 +20,7 @@ class boardsTVCell: UITableViewCell {
     private func setupViews() {
         // Cell appearance
         backgroundColor = ThemeManager.shared.backgroundColor
-        selectedBackgroundView = {
-            let view = UIView()
-            view.backgroundColor = ThemeManager.shared.cellBorderColor
-            return view
-        }()
+        selectionStyle = .none
         
         // Board name label
         boardNameLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)

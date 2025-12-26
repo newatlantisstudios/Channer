@@ -92,7 +92,8 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "OfflineThreadCell", for: indexPath)
-        
+        cell.selectionStyle = .none
+
         if indexPath.row < threadInfo.count {
             let thread = threadInfo[indexPath.row]
             
