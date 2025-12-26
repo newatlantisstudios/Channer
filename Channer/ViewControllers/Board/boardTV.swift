@@ -391,16 +391,28 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private func setupSortButton() {
         // Adds a sort button to the navigation bar, unless in history view.
         guard !isHistoryView else { return }
-        
+
+        var buttons: [UIBarButtonItem] = []
+
+        // Add sort button
         let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
         let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
+        buttons.append(sortButton)
+
+        // Add new thread button for regular board view (not favorites or history)
+        if !isFavoritesView && !isHistoryView {
+            let newThreadImage = UIImage(systemName: "plus.square")
+            let newThreadButton = UIBarButtonItem(image: newThreadImage, style: .plain, target: self, action: #selector(showNewThreadCompose))
+            buttons.append(newThreadButton)
+        }
+
         // Check if there are existing right bar button items
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
-            rightBarButtonItems.append(sortButton)
+            rightBarButtonItems.append(contentsOf: buttons)
             navigationItem.rightBarButtonItems = rightBarButtonItems
         } else {
-            navigationItem.rightBarButtonItems = [sortButton]
+            navigationItem.rightBarButtonItems = buttons
         }
     }
     
@@ -675,7 +687,15 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         // Present the alert controller
         present(alertController, animated: true, completion: nil)
     }
-    
+
+    @objc private func showNewThreadCompose() {
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
+        composeVC.delegate = self
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
+    }
+
     @objc private func handleLongPress(gestureRecognizer: UILongPressGestureRecognizer) {
         // Handles long-press gesture on history items to delete them.
         guard isHistoryView else { return }
@@ -717,9 +737,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             refreshControl?.endRefreshing()
             return
         }
-    
+
         isLoading = true
         loadingIndicator.startAnimating()
+
+        // Record board visit for statistics
+        StatisticsManager.shared.recordBoardVisit(boardAbv: boardAbv)
     
         let dispatchGroup = DispatchGroup()
         var newThreadData: [ThreadData] = []
@@ -1327,5 +1350,27 @@ extension boardTV {
             $0.comment.localizedCaseInsensitiveContains(searchText)
         }
         tableView.reloadData()
+    }
+}
+
+// MARK: - ComposeViewControllerDelegate
+extension boardTV: ComposeViewControllerDelegate {
+    func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        // Refresh the board to show the new thread
+        loadThreads()
+
+        // Show success message
+        let message = postNumber != nil ? "Thread #\(postNumber!) created successfully" : "Thread created successfully"
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    func composeViewControllerDidCancel(_ controller: ComposeViewController) {
+        // No action needed
+    }
+
+    func composeViewControllerDidMinimize(_ controller: ComposeViewController) {
+        // No action needed for board view
     }
 }

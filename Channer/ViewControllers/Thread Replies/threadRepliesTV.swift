@@ -4,6 +4,7 @@ import Kingfisher
 import SwiftyJSON
 import SystemConfiguration
 import Foundation
+import UserNotifications
 
 // No need to import KeyboardShortcutManager as it's in the same project
 
@@ -288,6 +289,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var threadRepliesImages = [String]()
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
+
+    // Post metadata for advanced filtering
+    var postMetadataList = [PostMetadata]()
     
     // Storage for thread view
     private var threadRepliesOld = [NSAttributedString]()
@@ -328,7 +332,75 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var imagePrefetcher: ImagePrefetcher?
     // Whether we have preloaded heights and first-screen images
     private var hasPreloadedContent = false
-    
+
+    // MARK: - Reply Quoting
+    /// Stores post numbers that the user wants to quote in their reply
+    private var pendingQuotes: [String] = []
+
+    /// Reference to the currently active compose view controller (kept strong to preserve state when minimized)
+    private var activeComposeVC: ComposeViewController?
+
+    /// Tracks whether the compose view is currently minimized
+    private var isComposeMinimized = false
+
+    /// Floating button that appears when there are pending quotes
+    private lazy var floatingReplyButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        button.layer.cornerRadius = 22
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowRadius = 4
+        button.layer.shadowOpacity = 0.3
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(floatingReplyButtonTapped), for: .touchUpInside)
+        button.isHidden = true
+        return button
+    }()
+
+    /// Button to clear pending quotes
+    private lazy var clearQuotesButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        button.tintColor = .white
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(clearQuotesTapped), for: .touchUpInside)
+        button.isHidden = true
+        return button
+    }()
+
+    // MARK: - New Posts Tracking
+    /// Tracks the number of posts before a refresh to detect new posts
+    private var previousPostCount: Int = 0
+    /// Index of the first new post after refresh (nil if no new posts)
+    private var firstNewPostIndex: Int?
+    /// Number of new posts detected after refresh
+    private var newPostCount: Int = 0
+    /// UserDefaults key for new post behavior setting
+    private let newPostBehaviorKey = "channer_new_post_behavior"
+
+    // MARK: - Jump to New Posts Button
+    /// Floating button shown when new posts are detected
+    private lazy var jumpToNewButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.backgroundColor = ThemeManager.shared.cellBorderColor
+        button.setTitleColor(.white, for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        button.layer.cornerRadius = 20
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowRadius = 4
+        button.layer.shadowOpacity = 0.3
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        button.addTarget(self, action: #selector(jumpToNewPostsTapped), for: .touchUpInside)
+        button.isHidden = true
+        button.alpha = 0
+        return button
+    }()
+
     // MARK: - Initializer
     
     init() {
@@ -419,11 +491,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         setupLoadingIndicator()
         setupRefreshStatusIndicator()
+        setupJumpToNewButton()
         setupNavigationItems()
         checkIfFavorited()
         loadInitialData()
         setupAutoRefreshTimer()
-        
+
+        // Start tracking thread view for statistics
+        StatisticsManager.shared.startThreadView(threadNumber: threadNumber, boardAbv: boardAbv)
+
         // Hover gesture support now handled by cells directly
         
         // Table constraints
@@ -433,8 +509,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
         ])
+
+        // Setup floating reply button for multi-quote
+        setupFloatingReplyButton()
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
@@ -442,10 +521,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
         
         // Clean up hover interactions when view disappears
-        
+
         // Stop auto-refresh timer when view disappears
         stopAutoRefreshTimer()
-        
+
+        // End tracking thread view for statistics
+        StatisticsManager.shared.endCurrentThreadView()
+
         /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
@@ -694,7 +776,67 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             refreshProgressView.heightAnchor.constraint(equalToConstant: 2)
         ])
     }
-    
+
+    /// Sets up the floating "Jump to new posts" button
+    private func setupJumpToNewButton() {
+        view.addSubview(jumpToNewButton)
+
+        NSLayoutConstraint.activate([
+            jumpToNewButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            jumpToNewButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            jumpToNewButton.heightAnchor.constraint(equalToConstant: 40)
+        ])
+    }
+
+    /// Shows the jump to new posts button with animation
+    private func showJumpToNewButton(count: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let title = count == 1 ? "↓ 1 new post" : "↓ \(count) new posts"
+            self.jumpToNewButton.setTitle(title, for: .normal)
+            self.jumpToNewButton.isHidden = false
+
+            UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut) {
+                self.jumpToNewButton.alpha = 1
+                self.jumpToNewButton.transform = .identity
+            }
+        }
+    }
+
+    /// Hides the jump to new posts button with animation
+    private func hideJumpToNewButton() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            UIView.animate(withDuration: 0.2, animations: {
+                self.jumpToNewButton.alpha = 0
+            }) { _ in
+                self.jumpToNewButton.isHidden = true
+            }
+        }
+    }
+
+    /// Action when jump to new posts button is tapped
+    @objc private func jumpToNewPostsTapped() {
+        guard let firstNewIndex = firstNewPostIndex, firstNewIndex < threadReplies.count else {
+            hideJumpToNewButton()
+            return
+        }
+
+        let indexPath = IndexPath(row: firstNewIndex, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+
+        // Hide the button after jumping
+        hideJumpToNewButton()
+
+        // Reset tracking
+        firstNewPostIndex = nil
+        newPostCount = 0
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
     // MARK: - Navigation Item Setup Methods
     /// Methods to configure navigation bar items and actions
     private func setupNavigationItems() {
@@ -721,9 +863,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          style: .plain,
                                          target: self,
                                          action: #selector(showActionSheet))
-        
+
+        // Create the Reply button
+        let replyImage = UIImage(systemName: "square.and.pencil")
+        let replyButton = UIBarButtonItem(image: replyImage,
+                                          style: .plain,
+                                          target: self,
+                                          action: #selector(showComposeView))
+
         // Set the buttons in the navigation bar
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!]
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!, replyButton]
     }
     
     // MARK: - Search Bar Setup
@@ -787,6 +936,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
     
+    @objc private func showComposeView() {
+        showComposeViewWithQuote(quotePostNumber: nil)
+    }
+
+    private func showComposeViewWithQuote(quotePostNumber: Int?) {
+        guard let threadNum = Int(threadNumber) else { return }
+
+        var quoteText: String? = nil
+        if let postNum = quotePostNumber {
+            quoteText = ">>\(postNum)\n"
+        }
+
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNum, quoteText: quoteText)
+        composeVC.delegate = self
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
+    }
+
     @objc private func showActionSheet() {
         // Create an action sheet
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -1350,6 +1518,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
         originalTexts.removeAll()
+        postMetadataList.removeAll()
         
         // Get original reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
@@ -1410,29 +1579,50 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Extract the board reply number
         let replyNumber = String(describing: post["no"])
         threadBoardReplyNumber.append(replyNumber)
-        
-        // Extract the image URL
+
+        // Extract the image URL and related data
         let imageTimestamp = post["tim"].stringValue
         let imageExtension = post["ext"].stringValue
-        let imageURL = "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
-        threadRepliesImages.append(imageURL)
-        
+        let imageName = post["filename"].stringValue
+        let imageURL = imageTimestamp.isEmpty ? "" : "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
+        threadRepliesImages.append(imageURL.isEmpty ? "https://i.4cdn.org/\(boardAbv)/" : imageURL)
+
         // Debug logging for PNG images
         if imageExtension == ".png" {
             print("PNG Image found in post #\(replyNumber): \(imageURL)")
         }
-        
+
         // Extract and process the comment text
         let comment = post["com"].stringValue
-        
+
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
-        //print("Raw comment: \(comment)")
-        
+
         // Format the comment text with spoiler visibility
         let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
-        //print("Formatted comment: \(formattedComment)")
         threadReplies.append(formattedComment)
+
+        // Extract additional metadata for advanced filtering
+        let posterId = post["id"].stringValue  // Poster ID (if available on board)
+        let tripCode = post["trip"].stringValue  // Trip code
+        let countryCode = post["country"].stringValue  // Country code (e.g., "US")
+        let countryName = post["country_name"].stringValue  // Country name
+        let timestamp = post["time"].int  // Unix timestamp
+
+        // Create PostMetadata for advanced filtering
+        let metadata = PostMetadata(
+            postNumber: replyNumber,
+            comment: comment,
+            posterId: posterId.isEmpty ? nil : posterId,
+            tripCode: tripCode.isEmpty ? nil : tripCode,
+            countryCode: countryCode.isEmpty ? nil : countryCode,
+            countryName: countryName.isEmpty ? nil : countryName,
+            timestamp: timestamp,
+            imageUrl: imageURL.isEmpty ? nil : imageURL,
+            imageExtension: imageExtension.isEmpty ? nil : imageExtension,
+            imageName: imageName.isEmpty ? nil : imageName
+        )
+        postMetadataList.append(metadata)
     }
     
     // MARK: - Favorite Handling Methods
@@ -2173,8 +2363,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func showCellActionSheet(for indexPath: IndexPath) {
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
-        // Watch for replies option
         let postNo = threadBoardReplyNumber[indexPath.row]
+
+        // Reply to this post option (immediate reply)
+        actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
+            self?.replyToPost(postNumber: postNo)
+        }))
+
+        // Quote post option (add to pending quotes for multi-reply)
+        let isAlreadyQuoted = pendingQuotes.contains(postNo)
+        let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
+        actionSheet.addAction(UIAlertAction(title: quoteTitle, style: .default, handler: { [weak self] _ in
+            self?.toggleQuote(postNumber: postNo)
+        }))
+
+        // Watch for replies option
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
         let watchTitle = isWatching ? "Stop Watching for Replies" : "Watch for Replies"
         actionSheet.addAction(UIAlertAction(title: watchTitle, style: .default, handler: { _ in
@@ -2260,6 +2463,172 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
 
+    /// Opens the compose view controller to reply to a specific post
+    private func replyToPost(postNumber: String) {
+        guard let threadNo = Int(threadNumber) else { return }
+
+        let quoteText = ">>\(postNumber)"
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNo, quoteText: quoteText)
+        composeVC.delegate = self
+        activeComposeVC = composeVC
+
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .pageSheet
+        navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
+    }
+
+    // MARK: - Multi-Quote Reply Methods
+
+    /// Sets up the floating reply button UI
+    private func setupFloatingReplyButton() {
+        view.addSubview(floatingReplyButton)
+        view.addSubview(clearQuotesButton)
+
+        NSLayoutConstraint.activate([
+            floatingReplyButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            floatingReplyButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            floatingReplyButton.heightAnchor.constraint(equalToConstant: 44),
+
+            clearQuotesButton.leadingAnchor.constraint(equalTo: floatingReplyButton.trailingAnchor, constant: -20),
+            clearQuotesButton.topAnchor.constraint(equalTo: floatingReplyButton.topAnchor, constant: -8),
+            clearQuotesButton.widthAnchor.constraint(equalToConstant: 24),
+            clearQuotesButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+    }
+
+    /// Toggles a post number in the pending quotes list, or inserts directly if compose exists
+    private func toggleQuote(postNumber: String) {
+        // If compose view exists (visible or minimized), insert the quote directly
+        if let composeVC = activeComposeVC {
+            if let postNo = Int(postNumber) {
+                composeVC.insertQuote(postNo)
+                showToast(message: "Added >>\(postNumber) to reply")
+            }
+            return
+        }
+
+        // Otherwise, toggle in the pending quotes list
+        if let index = pendingQuotes.firstIndex(of: postNumber) {
+            pendingQuotes.remove(at: index)
+            showToast(message: "Removed quote >>\(postNumber)")
+        } else {
+            pendingQuotes.append(postNumber)
+            showToast(message: "Added quote >>\(postNumber)")
+        }
+        updateFloatingReplyButton()
+    }
+
+    /// Updates the floating reply button appearance and visibility
+    private func updateFloatingReplyButton() {
+        let hasQuotes = !pendingQuotes.isEmpty
+
+        if isComposeMinimized || hasQuotes {
+            // Show "Continue Reply" button
+            floatingReplyButton.setTitle("  Continue Reply  ", for: .normal)
+            floatingReplyButton.backgroundColor = .systemGreen
+            showFloatingButton(showClearButton: true)
+        } else {
+            // Hide the button
+            hideFloatingButton()
+        }
+    }
+
+    /// Shows the floating reply button with animation
+    private func showFloatingButton(showClearButton: Bool) {
+        if floatingReplyButton.isHidden {
+            floatingReplyButton.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+            floatingReplyButton.alpha = 0
+            floatingReplyButton.isHidden = false
+            clearQuotesButton.isHidden = !showClearButton
+
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5) {
+                self.floatingReplyButton.transform = .identity
+                self.floatingReplyButton.alpha = 1
+                self.clearQuotesButton.alpha = showClearButton ? 1 : 0
+            }
+        } else {
+            // Just update clear button visibility
+            clearQuotesButton.isHidden = !showClearButton
+            clearQuotesButton.alpha = showClearButton ? 1 : 0
+        }
+    }
+
+    /// Hides the floating reply button with animation
+    private func hideFloatingButton() {
+        guard !floatingReplyButton.isHidden else { return }
+
+        UIView.animate(withDuration: 0.2) {
+            self.floatingReplyButton.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+            self.floatingReplyButton.alpha = 0
+            self.clearQuotesButton.alpha = 0
+        } completion: { _ in
+            self.floatingReplyButton.isHidden = true
+            self.clearQuotesButton.isHidden = true
+            self.floatingReplyButton.transform = .identity
+        }
+    }
+
+    /// Called when the floating reply button is tapped
+    @objc private func floatingReplyButtonTapped() {
+        // Check if we're restoring a minimized compose view
+        if isComposeMinimized, let composeVC = activeComposeVC {
+            // Re-present the existing compose view
+            isComposeMinimized = false
+            let navController = UINavigationController(rootViewController: composeVC)
+            navController.modalPresentationStyle = .pageSheet
+            navController.isModalInPresentation = true
+            if let sheet = navController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+            }
+            present(navController, animated: true)
+            updateFloatingReplyButton()
+            return
+        }
+
+        // Otherwise, create a new compose view with pending quotes
+        guard !pendingQuotes.isEmpty, let threadNo = Int(threadNumber) else { return }
+
+        // Build quote text with all pending quotes
+        let quoteText = pendingQuotes.map { ">>\($0)" }.joined(separator: "\n")
+
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNo, quoteText: quoteText)
+        composeVC.delegate = self
+        activeComposeVC = composeVC
+
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .pageSheet
+        navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
+
+        // Clear pending quotes after opening compose
+        pendingQuotes.removeAll()
+        updateFloatingReplyButton()
+    }
+
+    /// Called when the clear quotes button is tapped
+    @objc private func clearQuotesTapped() {
+        // If there's a minimized compose, discard it
+        if isComposeMinimized {
+            activeComposeVC = nil
+            isComposeMinimized = false
+            showToast(message: "Discarded reply draft")
+        } else {
+            showToast(message: "Cleared all quotes")
+        }
+        pendingQuotes.removeAll()
+        updateFloatingReplyButton()
+    }
+
     /// Shows filter options in an action sheet
     @objc private func showFilterOptions() {
         let filterAlert = UIAlertController(title: "Filter Options", message: "Select filter action", preferredStyle: .alert)
@@ -2285,27 +2654,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }))
         
         // Add toggle for filtering globally
-        var isEnabled = false
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
-            isEnabled = isFilteringEnabled
-        }
-        
+        let isEnabled = ContentFilterManager.shared.isFilteringEnabled()
+
         let toggleTitle = isEnabled ? "Disable All Filtering" : "Enable All Filtering"
-        
+
         filterAlert.addAction(UIAlertAction(title: toggleTitle, style: .default, handler: { _ in
-            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
-                _ = manager.perform(NSSelectorFromString("setFilteringEnabled:"), with: !isEnabled)
-            }
+            ContentFilterManager.shared.setFilteringEnabled(!isEnabled)
             self.applyContentFiltering() // Apply/unapply filters based on new setting
-            
+
             // Show confirmation
             let message = isEnabled ? "Content filtering disabled" : "Content filtering enabled"
             let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
             self.present(confirmToast, animated: true)
-            
+
             // Dismiss after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 confirmToast.dismiss(animated: true)
@@ -2360,32 +2721,28 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Add action to add the filter
         alert.addAction(UIAlertAction(title: "Add Filter", style: .default) { _ in
             guard let filterText = alert.textFields?.first?.text, !filterText.isEmpty else { return }
-            
+
             // Add filter based on selected type
             let filterType = filterTypes[segmentedControl.selectedSegmentIndex]
-            
-            // Add to the appropriate filter collection
+
+            // Add to the appropriate filter collection using ContentFilterManager
             var added = false
-            
-            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject {
-                
-                switch filterType {
-                case "Keyword":
-                    added = manager.perform(NSSelectorFromString("addKeywordFilter:"), with: filterText) != nil
-                case "Poster ID":
-                    added = manager.perform(NSSelectorFromString("addPosterFilter:"), with: filterText) != nil
-                case "Image Name":
-                    added = manager.perform(NSSelectorFromString("addImageFilter:"), with: filterText) != nil
-                default:
-                    break
-                }
+
+            switch filterType {
+            case "Keyword":
+                added = ContentFilterManager.shared.addKeywordFilter(filterText)
+            case "Poster ID":
+                added = ContentFilterManager.shared.addPosterFilter(filterText)
+            case "Image Name":
+                added = ContentFilterManager.shared.addImageFilter(filterText)
+            default:
+                break
             }
-            
+
             if added {
                 // Apply filtering to current view
                 self.applyContentFiltering()
-                
+
                 // Show confirmation
                 let confirmToast = UIAlertController(
                     title: nil,
@@ -2588,13 +2945,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             isLoading = false
             return
         }
-        
+
+        // Store previous post count before refresh
+        let previousCount = threadReplies.count
+
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
-        
+
         let request = AF.request(urlString)
         request.responseData { [weak self] response in
             guard let self = self else { return }
-            
+
             DispatchQueue.main.async {
                 switch response.result {
                 case .success(let data):
@@ -2603,10 +2963,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         self.processThreadData(json)
                         self.structureThreadReplies()
                         self.isLoading = false
-                        self.tableView.reloadData()
-                        
-                        // Restore scroll position after reload
-                        self.tableView.setContentOffset(scrollOffset, animated: false)
+
+                        // Calculate new posts
+                        let currentCount = self.threadReplies.count
+                        let newCount = currentCount - previousCount
+
+                        if newCount > 0 && previousCount > 0 {
+                            // We have new posts
+                            self.newPostCount = newCount
+                            self.firstNewPostIndex = previousCount
+
+                            // Update the refresh status to show new post count
+                            self.updateRefreshStatusWithNewPosts(newCount)
+
+                            // Handle new post behavior based on user setting
+                            self.handleNewPostsBehavior(
+                                newCount: newCount,
+                                firstNewIndex: previousCount,
+                                scrollOffset: scrollOffset
+                            )
+                        } else {
+                            // No new posts, just restore scroll position
+                            self.tableView.reloadData()
+                            self.tableView.setContentOffset(scrollOffset, animated: false)
+                        }
+
+                        // Check for watched post replies and send notifications
+                        self.checkWatchedPostsAndNotify()
+
                     } catch {
                         print("JSON parsing error: \(error)")
                         self.handleLoadError()
@@ -2615,6 +2999,102 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     print("Network error: \(error)")
                     self.handleLoadError()
                 }
+            }
+        }
+    }
+
+    /// Updates refresh status label to include new post count
+    private func updateRefreshStatusWithNewPosts(_ count: Int) {
+        guard !refreshStatusView.isHidden else { return }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+
+        var statusText = ""
+        if let lastRefresh = lastRefreshTime {
+            statusText = "Last refresh: \(formatter.string(from: lastRefresh))"
+        }
+
+        // Add new posts indicator
+        let postWord = count == 1 ? "post" : "posts"
+        statusText += " | +\(count) new \(postWord)"
+
+        if let nextRefresh = nextRefreshTime {
+            statusText += " | Next: \(formatter.string(from: nextRefresh))"
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshStatusLabel.text = statusText
+        }
+    }
+
+    /// Handles new posts based on user behavior setting
+    /// - Parameters:
+    ///   - newCount: Number of new posts detected
+    ///   - firstNewIndex: Index of the first new post
+    ///   - scrollOffset: Original scroll position to restore if needed
+    private func handleNewPostsBehavior(newCount: Int, firstNewIndex: Int, scrollOffset: CGPoint) {
+        // Get user preference: 0 = Show button, 1 = Auto-scroll, 2 = Do nothing
+        let behavior = UserDefaults.standard.integer(forKey: newPostBehaviorKey)
+
+        tableView.reloadData()
+
+        switch behavior {
+        case 1: // Auto-scroll to new posts
+            let indexPath = IndexPath(row: firstNewIndex, section: 0)
+            tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+
+            // Provide haptic feedback
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+        case 2: // Do nothing - preserve scroll position
+            tableView.setContentOffset(scrollOffset, animated: false)
+
+        default: // 0 or undefined - Show jump button
+            tableView.setContentOffset(scrollOffset, animated: false)
+            showJumpToNewButton(count: newCount)
+        }
+    }
+
+    /// Checks for new replies to watched posts and sends push notifications
+    private func checkWatchedPostsAndNotify() {
+        let newReplyCount = WatchedPostsManager.shared.checkForNewReplies(
+            threadNo: threadNumber,
+            boardAbv: boardAbv,
+            threadReplies: threadReplies,
+            replyNumbers: threadBoardReplyNumber
+        )
+
+        if newReplyCount > 0 {
+            // Send push notification for watched post replies
+            sendWatchedPostNotification(replyCount: newReplyCount)
+        }
+    }
+
+    /// Sends a local push notification when watched posts get new replies
+    private func sendWatchedPostNotification(replyCount: Int) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        guard notificationsEnabled else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watched Post Reply"
+        content.body = replyCount == 1
+            ? "A post you're watching in /\(boardAbv)/ received a reply"
+            : "\(replyCount) posts you're watching in /\(boardAbv)/ received replies"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": threadNumber,
+            "boardAbv": boardAbv,
+            "type": "watched_post_reply"
+        ]
+
+        let identifier = "watched-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending watched post notification: \(error.localizedDescription)")
             }
         }
     }
@@ -2708,77 +3188,78 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     /// Applies content filtering to the loaded posts
+    /// Uses both legacy filters and advanced filters (regex, file type, country, trip code, time-based)
     private func applyContentFiltering() {
         // Clear existing filters before reapplying
         filteredReplyIndices.removeAll()
-        
-        // Check if content filtering is enabled
-        var isFilteringEnabled = false
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool {
-            isFilteringEnabled = isEnabled
-        }
-        
-        if !isFilteringEnabled {
+
+        let filterManager = ContentFilterManager.shared
+
+        // Check if any filtering is enabled
+        let legacyEnabled = filterManager.isFilteringEnabled()
+        let advancedEnabled = filterManager.isAdvancedFilteringEnabled()
+
+        if !legacyEnabled && !advancedEnabled {
             debugReloadData(context: "Search filter update")
             return
         }
-        
-        // Get filters from ContentFilterManager
-        var keywordFilters: [String] = []
-        var posterFilters: [String] = []
-        var imageFilters: [String] = []
-        
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]) {
-            keywordFilters = getAllFilters.keywords
-            posterFilters = getAllFilters.posters
-            imageFilters = getAllFilters.images
-        }
-        
+
+        // Get legacy filters
+        let legacyFilters = filterManager.getAllFilters()
+        let hasLegacyFilters = !legacyFilters.keywords.isEmpty || !legacyFilters.posters.isEmpty || !legacyFilters.images.isEmpty
+
+        // Get advanced filters
+        let advancedFilters = filterManager.getEnabledAdvancedFilters()
+        let hasAdvancedFilters = !advancedFilters.isEmpty
+
         // If no filters, skip filtering
-        if keywordFilters.isEmpty && posterFilters.isEmpty && imageFilters.isEmpty {
+        if !hasLegacyFilters && !hasAdvancedFilters {
             debugReloadData(context: "Search filter update")
             return
         }
-        
-        // Apply filters to each reply
-        for (index, reply) in threadReplies.enumerated() {
-            let plainText = reply.string.lowercased()
-            let posterId = threadBoardReplyNumber[index]
-            let imageUrl = threadRepliesImages[index].lowercased()
-            
-            // Check keyword filters
-            for filter in keywordFilters {
-                if plainText.contains(filter.lowercased()) {
-                    filteredReplyIndices.insert(index)
-                    break
+
+        // Apply filters to each reply using PostMetadata
+        for (index, _) in threadReplies.enumerated() {
+            // Use PostMetadata if available, otherwise create basic metadata
+            let metadata: PostMetadata
+            if index < postMetadataList.count {
+                metadata = postMetadataList[index]
+            } else {
+                // Fallback for older data without metadata
+                let comment = threadReplies[index].string
+                let imageUrl = index < threadRepliesImages.count ? threadRepliesImages[index] : nil
+                let posterId = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
+
+                // Extract extension from URL
+                var imageExt: String? = nil
+                if let url = imageUrl {
+                    if url.hasSuffix(".webm") { imageExt = ".webm" }
+                    else if url.hasSuffix(".mp4") { imageExt = ".mp4" }
+                    else if url.hasSuffix(".gif") { imageExt = ".gif" }
+                    else if url.hasSuffix(".png") { imageExt = ".png" }
+                    else if url.hasSuffix(".jpg") || url.hasSuffix(".jpeg") { imageExt = ".jpg" }
                 }
+
+                metadata = PostMetadata(
+                    postNumber: posterId ?? "",
+                    comment: comment,
+                    posterId: nil,
+                    tripCode: nil,
+                    countryCode: nil,
+                    countryName: nil,
+                    timestamp: nil,
+                    imageUrl: imageUrl,
+                    imageExtension: imageExt,
+                    imageName: nil
+                )
             }
-            
-            // Check poster ID filters if not already filtered
-            if !filteredReplyIndices.contains(index) {
-                for filter in posterFilters {
-                    if posterId.contains(filter) {
-                        filteredReplyIndices.insert(index)
-                        break
-                    }
-                }
-            }
-            
-            // Check image filename filters if not already filtered
-            if !filteredReplyIndices.contains(index) && !imageUrl.isEmpty {
-                for filter in imageFilters {
-                    if imageUrl.contains(filter.lowercased()) {
-                        filteredReplyIndices.insert(index)
-                        break
-                    }
-                }
+
+            // Check if post should be filtered using the centralized filter manager
+            if filterManager.shouldFilter(post: metadata) {
+                filteredReplyIndices.insert(index)
             }
         }
-        
+
         // Reload table with filtered content
         debugReloadData(context: "Search filter update")
     }
@@ -2796,6 +3277,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
         filteredReplyIndices.removeAll() // Clear filters on refresh
+        postMetadataList.removeAll() // Clear metadata on refresh
         replyCount = 0
         loadInitialData()
     }
@@ -3233,5 +3715,38 @@ extension threadRepliesTV {
                 }
             }
         )
+    }
+}
+
+// MARK: - ComposeViewControllerDelegate
+extension threadRepliesTV: ComposeViewControllerDelegate {
+    func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        // Clear reference to compose view
+        activeComposeVC = nil
+        isComposeMinimized = false
+
+        // Refresh the thread to show the new post
+        refresh()
+
+        // Show success message
+        let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        updateFloatingReplyButton()
+    }
+
+    func composeViewControllerDidCancel(_ controller: ComposeViewController) {
+        // Clear reference to compose view
+        activeComposeVC = nil
+        isComposeMinimized = false
+        updateFloatingReplyButton()
+    }
+
+    func composeViewControllerDidMinimize(_ controller: ComposeViewController) {
+        // Mark as minimized and show the continue button
+        isComposeMinimized = true
+        updateFloatingReplyButton()
     }
 }

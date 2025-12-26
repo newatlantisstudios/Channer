@@ -24,7 +24,7 @@ open Channer.xcworkspace
 ./build-advanced.sh -c        # Clean build
 ./build-advanced.sh -r        # Release build
 ./build-advanced.sh -d        # Device build (not simulator)
-./test-build.sh               # Quick build check (returns exit code)
+./build-advanced.sh -v        # Verbose build (no xcbeautify)
 ```
 
 ## Testing
@@ -64,13 +64,16 @@ boardsCV (boards list)
 ```
 
 ### Key Singleton Managers
-- **ThemeManager**: App-wide theming (6 built-in + custom themes via `ThemeEditorViewController`)
-- **FavoritesManager**: Thread bookmarks with categorization
-- **HistoryManager**: Visited thread tracking
+Located in `Utilities/` except where noted:
+- **ThemeManager** (`ViewControllers/ThemeManager.swift`): App-wide theming (6 built-in + custom themes via `ThemeEditorViewController`)
+- **FavoritesManager** (`ViewControllers/Home/FavoritesManager.swift`): Thread bookmarks with categorization
+- **HistoryManager** (`ViewControllers/Home/HistoryManager.swift`): Visited thread tracking
 - **ContentFilterManager**: Keyword/poster/image filtering (uses `ThreadDataHelper`)
-- **SearchManager**: Thread search with history
+- **SearchManager** (`ViewControllers/Home/SearchManager.swift`): Thread search with history
 - **ICloudSyncManager** / **ConflictResolutionManager**: iCloud sync with conflict resolution
 - **NotificationManager**: Push notifications for thread updates
+- **WatchedPostsManager**: Watch individual posts for replies
+- **StatisticsManager**: Tracks browsing analytics (boards visited, threads read, time spent)
 - **ThreadCacheManager**: Offline thread caching
 
 ### Data Models Location
@@ -94,7 +97,7 @@ Some models are defined inline within view controller files:
 - Videos start **muted by default**
 
 ### Thread Safety
-`FavoritesManager` and `NotificationManager` handle concurrent access. When modifying managers:
+`FavoritesManager`, `NotificationManager`, and `WatchedPostsManager` handle concurrent access. When modifying managers:
 - Use serial queues, locks, or actors for synchronization
 - iCloud sync callbacks arrive on background threads
 - Test with `DispatchQueue.concurrentPerform` (see existing tests)
@@ -114,3 +117,5 @@ GitHub Actions (`.github/workflows/Xcode_build_PR.yml`):
 - Builds for iPhone 16 Simulator
 - Posts build errors to PR comments
 - Build logs uploaded with 7-day retention
+
+**Note**: The workflow file still references CocoaPods (`pod install`) but the project has migrated to Swift Package Manager. The workflow may need updating.

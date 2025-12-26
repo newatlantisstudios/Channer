@@ -116,9 +116,12 @@ class threadRepliesCV: UICollectionViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         collectionView?.backgroundColor = ThemeManager.shared.appBackgroundColor
-        
+
+        // Setup navigation items
+        setupNavigationItems()
+
         //register cell
         //collectionView?.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "threadReplyCell")
         
@@ -527,5 +530,52 @@ class threadRepliesCV: UICollectionViewController {
     
     @IBAction func closeButton(_ sender: Any) {
         dismiss(animated: true, completion: nil)
+    }
+
+    // MARK: - Navigation Items
+
+    private func setupNavigationItems() {
+        // Create the Reply button
+        let replyImage = UIImage(systemName: "square.and.pencil")
+        let replyButton = UIBarButtonItem(image: replyImage,
+                                          style: .plain,
+                                          target: self,
+                                          action: #selector(showComposeView))
+
+        navigationItem.rightBarButtonItems = [replyButton]
+    }
+
+    @objc private func showComposeView() {
+        showComposeView(quotePostNumber: nil)
+    }
+
+    private func showComposeView(quotePostNumber: Int?) {
+        guard let threadNum = Int(threadNumber) else { return }
+
+        var quoteText: String? = nil
+        if let postNum = quotePostNumber {
+            quoteText = ">>\(postNum)\n"
+        }
+
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNum, quoteText: quoteText)
+        composeVC.delegate = self
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
+    }
+}
+
+// MARK: - ComposeViewControllerDelegate
+extension threadRepliesCV: ComposeViewControllerDelegate {
+    func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        // Show success message
+        let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    func composeViewControllerDidCancel(_ controller: ComposeViewController) {
+        // No action needed
     }
 }
