@@ -568,6 +568,16 @@ class threadRepliesCV: UICollectionViewController {
 // MARK: - ComposeViewControllerDelegate
 extension threadRepliesCV: ComposeViewControllerDelegate {
     func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        // Track user's post for reply notifications
+        if let postNo = postNumber {
+            MyPostsManager.shared.addUserPost(
+                boardAbv: boardAbv,
+                threadNo: threadNumber,
+                postNo: String(postNo),
+                postText: ""
+            )
+        }
+
         // Show success message
         let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"
         let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)

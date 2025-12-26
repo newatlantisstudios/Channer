@@ -146,13 +146,22 @@ class WatchedPostsManager {
                 if replyText.contains(">>\(watchedPost.postNo)") {
                     // Check if we've already notified about this reply
                     if !watchedPost.knownReplies.contains(replyNo) {
+                        // Determine notification type based on whether this is the user's own post
+                        let isUserOwnPost = MyPostsManager.shared.isUserPost(
+                            postNo: watchedPost.postNo,
+                            threadNo: threadNo,
+                            boardAbv: boardAbv
+                        )
+                        let notificationType: NotificationType = isUserOwnPost ? .myPostReply : .watchedPostReply
+
                         // New reply found! Create notification
                         let notification = ReplyNotification(
                             boardAbv: boardAbv,
                             threadNo: threadNo,
                             replyNo: replyNo,
                             replyToNo: watchedPost.postNo,
-                            replyText: String(replyText.prefix(150))
+                            replyText: String(replyText.prefix(150)),
+                            notificationType: notificationType
                         )
                         NotificationManager.shared.addNotification(notification)
 

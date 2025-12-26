@@ -41,28 +41,28 @@
 		1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6462CEEEC7B00CE243D /* boardsCV.swift */; };
 		178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */; };
 		178E88F82CFA6EEA00810132 /* settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E88F72CFA6EE000810132 /* settings.swift */; };
-		17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CF001A2DDD000000000001 /* ContentFilterViewController.swift */; };
-		17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */; };
 		1797989A2CF7A37300486211 /* LocalAuthentication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 179798992CF7A37300486211 /* LocalAuthentication.framework */; };
 		179B6B962CDDEC9A0099D980 /* FilesListVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179B6B952CDDEC960099D980 /* FilesListVC.swift */; };
 		179B6B982CDDF0780099D980 /* ImageGalleryVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */; };
 		17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */; };
+		17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */; };
 		17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */; };
+		17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CF001A2DDD000000000001 /* ContentFilterViewController.swift */; };
+		17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17COMPOSE123456789012345 /* ComposeViewController.swift */; };
 		17DD68422249B84100641BCA /* urlWeb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DD68412249B84100641BCA /* urlWeb.swift */; };
 		17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */; };
-		17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; };
-		17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */; };
+		17KEYCHAINBUILD123456789 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17KEYCHAIN1234567890123456 /* KeychainHelper.swift */; };
+		17PASSAUTHBUILD123456789 /* PassAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSAUTH1234567890123456 /* PassAuthManager.swift */; };
+		17PASSSETTINGSBUILD123456 /* PassSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */; };
+		17POSTDATABUILD123456789 /* PostData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTDATA1234567890123456 /* PostData.swift */; };
+		17POSTINGBUILD1234567890 /* PostingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTING1234567890123456 /* PostingManager.swift */; };
+		17POSTRESULTBUILD12345678 /* PostResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTRESULT123456789012 /* PostResult.swift */; };
 		17STAT0012DE9000000000001 /* StatisticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17STAT0012DE9000000000002 /* StatisticsManager.swift */; };
 		17STAT0012DE9000000000003 /* ChartViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17STAT0012DE9000000000004 /* ChartViews.swift */; };
 		17STAT0012DE9000000000005 /* StatisticsDashboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */; };
-		17KEYCHAINBUILD123456789 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17KEYCHAIN1234567890123456 /* KeychainHelper.swift */; };
-		17PASSAUTHBUILD123456789 /* PassAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSAUTH1234567890123456 /* PassAuthManager.swift */; };
-		17POSTINGBUILD1234567890 /* PostingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTING1234567890123456 /* PostingManager.swift */; };
-		17POSTDATABUILD123456789 /* PostData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTDATA1234567890123456 /* PostData.swift */; };
-		17POSTRESULTBUILD12345678 /* PostResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTRESULT123456789012 /* PostResult.swift */; };
-		17PASSSETTINGSBUILD123456 /* PassSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */; };
-		17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17COMPOSE123456789012345 /* ComposeViewController.swift */; };
-		17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */; };
+		17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; };
+		17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		398C079F757502D0249990B4 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA66EA9C6A1157602363084 /* TestData.swift */; };
 		3F948296C1FCC681B15A3958 /* ThreadCacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */; };
 		41EBC7A30119EB0BE471464F /* ContentFilterManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC381610AE01474F79CCF131 /* ContentFilterManagerTests.swift */; };
@@ -70,6 +70,7 @@
 		5655ABED6489BBB2B80A4C6F /* DownloadManagerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */; };
 		66C8421B5C76147DE06BEEAB /* MockAuthenticationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6A30E14407AFCD5A0CC09B /* MockAuthenticationContext.swift */; };
 		66E0AD70DA724EB9F4668E2B /* MockAlamofireSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013F035BAC40E84B14F84DFB /* MockAlamofireSession.swift */; };
+		79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */; };
 		943C1B0FE8E2F861AF0D5E8D /* ThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7F196FC7ADB74431A026D5 /* ThemeManagerTests.swift */; };
 		9857759C52EA1EFB8C79A9D8 /* XCTestCase+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */; };
 		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
@@ -159,31 +160,32 @@
 		1781F6462CEEEC7B00CE243D /* boardsCV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsCV.swift; sourceTree = "<group>"; };
 		178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
 		178E88F72CFA6EE000810132 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = settings.swift; sourceTree = "<group>"; };
-		17CF001A2DDD000000000001 /* ContentFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterViewController.swift; sourceTree = "<group>"; };
-		17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterViewController.swift; sourceTree = "<group>"; };
 		179798992CF7A37300486211 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
 		1797989B2CF7CBBF00486211 /* Channer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Channer.entitlements; sourceTree = "<group>"; };
 		179B6B952CDDEC960099D980 /* FilesListVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesListVC.swift; sourceTree = "<group>"; };
 		179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGalleryVC.swift; sourceTree = "<group>"; };
 		17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardsService.swift; sourceTree = "<group>"; };
+		17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterViewController.swift; sourceTree = "<group>"; };
 		17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFormatter.swift; sourceTree = "<group>"; };
+		17CF001A2DDD000000000001 /* ContentFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterViewController.swift; sourceTree = "<group>"; };
+		17COMPOSE123456789012345 /* ComposeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeViewController.swift; sourceTree = "<group>"; };
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
-		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
+		17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerHelper.swift; sourceTree = "<group>"; };
+		17KEYCHAIN1234567890123456 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		17PASSAUTH1234567890123456 /* PassAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassAuthManager.swift; sourceTree = "<group>"; };
+		17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassSettingsViewController.swift; sourceTree = "<group>"; };
+		17POSTDATA1234567890123456 /* PostData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostData.swift; sourceTree = "<group>"; };
+		17POSTING1234567890123456 /* PostingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostingManager.swift; sourceTree = "<group>"; };
+		17POSTRESULT123456789012 /* PostResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostResult.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000002 /* StatisticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsManager.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000004 /* ChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartViews.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsDashboardViewController.swift; sourceTree = "<group>"; };
-		17KEYCHAIN1234567890123456 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		17PASSAUTH1234567890123456 /* PassAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassAuthManager.swift; sourceTree = "<group>"; };
-		17POSTING1234567890123456 /* PostingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostingManager.swift; sourceTree = "<group>"; };
-		17POSTDATA1234567890123456 /* PostData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostData.swift; sourceTree = "<group>"; };
-		17POSTRESULT123456789012 /* PostResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostResult.swift; sourceTree = "<group>"; };
-		17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassSettingsViewController.swift; sourceTree = "<group>"; };
-		17COMPOSE123456789012345 /* ComposeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeViewController.swift; sourceTree = "<group>"; };
-		17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerHelper.swift; sourceTree = "<group>"; };
+		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
 		3C335E2377BA19B313347A8C /* TestDataFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestDataFactory.swift; path = Helpers/TestDataFactory.swift; sourceTree = "<group>"; };
+		4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyPostsManager.swift; sourceTree = "<group>"; };
 		4D48D859953D3D65A9888B85 /* DownloadManagerViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadManagerViewController.swift; path = Channer/ViewControllers/Downloads/DownloadManagerViewController.swift; sourceTree = "<group>"; };
 		5B7F196FC7ADB74431A026D5 /* ThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThemeManagerTests.swift; path = Managers/ThemeManagerTests.swift; sourceTree = "<group>"; };
 		6FBA6566986468E56F4F3023 /* FavoritesManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FavoritesManagerTests.swift; path = Managers/FavoritesManagerTests.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
 				17PASSAUTH1234567890123456 /* PassAuthManager.swift */,
 				17POSTING1234567890123456 /* PostingManager.swift */,
+				4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -268,15 +271,6 @@
 				176EC6452245F145009F2A8D /* Assets.xcassets */,
 			);
 			path = Application;
-			sourceTree = "<group>";
-		};
-		17POSTINGGROUP12345678901 /* Posting */ = {
-			isa = PBXGroup;
-			children = (
-				17COMPOSE123456789012345 /* ComposeViewController.swift */,
-				17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */,
-			);
-			path = Posting;
 			sourceTree = "<group>";
 		};
 		1731C6C12CD15FCD00764AED /* ViewControllers */ = {
@@ -312,15 +306,6 @@
 			path = "Thread Replies";
 			sourceTree = "<group>";
 		};
-		17MODELSGROUP1234567890123 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				17POSTDATA1234567890123456 /* PostData.swift */,
-				17POSTRESULT123456789012 /* PostResult.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
 		1731C6EF2CD163A400764AED /* Channer */ = {
 			isa = PBXGroup;
 			children = (
@@ -332,22 +317,6 @@
 				17STAT0012DE9000000000007 /* Views */,
 			);
 			path = Channer;
-			sourceTree = "<group>";
-		};
-		17STAT0012DE9000000000007 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				17STAT0012DE9000000000008 /* Charts */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		17STAT0012DE9000000000008 /* Charts */ = {
-			isa = PBXGroup;
-			children = (
-				17STAT0012DE9000000000004 /* ChartViews.swift */,
-			);
-			path = Charts;
 			sourceTree = "<group>";
 		};
 		176EC6322245F144009F2A8D = {
@@ -435,6 +404,40 @@
 				17DD68412249B84100641BCA /* urlWeb.swift */,
 			);
 			path = "Show Media";
+			sourceTree = "<group>";
+		};
+		17MODELSGROUP1234567890123 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				17POSTDATA1234567890123456 /* PostData.swift */,
+				17POSTRESULT123456789012 /* PostResult.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		17POSTINGGROUP12345678901 /* Posting */ = {
+			isa = PBXGroup;
+			children = (
+				17COMPOSE123456789012345 /* ComposeViewController.swift */,
+				17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */,
+			);
+			path = Posting;
+			sourceTree = "<group>";
+		};
+		17STAT0012DE9000000000007 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				17STAT0012DE9000000000008 /* Charts */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		17STAT0012DE9000000000008 /* Charts */ = {
+			isa = PBXGroup;
+			children = (
+				17STAT0012DE9000000000004 /* ChartViews.swift */,
+			);
+			path = Charts;
 			sourceTree = "<group>";
 		};
 		331D674C0D11070FD99F1ECA /* Helpers */ = {
@@ -713,6 +716,7 @@
 				17PASSSETTINGSBUILD123456 /* PassSettingsViewController.swift in Sources */,
 				17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */,
 				17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */,
+				79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
