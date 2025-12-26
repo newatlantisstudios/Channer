@@ -165,7 +165,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
             let button = UIButton()
             button.setImage(UIImage(systemName: icon), for: .normal)
             button.tintColor = index == selectedIconIndex ? .systemBlue : .secondaryLabel
-            button.backgroundColor = index == selectedIconIndex ? .systemBlue.withAlphaComponent(0.15) : .clear
+            button.backgroundColor = index == selectedIconIndex ? .white : .clear
             button.layer.cornerRadius = 14
             button.tag = index
             button.addTarget(self, action: #selector(iconButtonTapped(_:)), for: .touchUpInside)
@@ -257,7 +257,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         // Update selection
         for button in iconButtons {
             button.tintColor = button.tag == sender.tag ? .systemBlue : .secondaryLabel
-            button.backgroundColor = button.tag == sender.tag ? .systemBlue.withAlphaComponent(0.15) : .clear
+            button.backgroundColor = button.tag == sender.tag ? .white : .clear
         }
         objc_setAssociatedObject(alert, "selectedIconIndex", sender.tag, .OBJC_ASSOCIATION_RETAIN)
     }
