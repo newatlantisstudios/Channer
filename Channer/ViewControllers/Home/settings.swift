@@ -13,7 +13,6 @@ class settings: UIViewController {
     // UI Components
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    private let headerLabel = UILabel()
     private let selectedBoardView = UIView()
     private let selectedBoardLabel = UILabel()
     private let selectBoardButton = UIButton(type: .system)
@@ -167,21 +166,15 @@ class settings: UIViewController {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
         
-        // Header Label
-        headerLabel.text = "Choose Your Start Up Board"
-        headerLabel.font = UIFont.systemFont(ofSize: 22, weight: .bold)
-        headerLabel.textAlignment = .center
-        headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(headerLabel)
-        
-        // Selected Board View
-        selectedBoardView.backgroundColor = UIColor.systemGray5
-        selectedBoardView.layer.cornerRadius = 12
+        // Selected Board View (Startup Board selector)
+        selectedBoardView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        selectedBoardView.layer.cornerRadius = 10
+        selectedBoardView.clipsToBounds = true
         selectedBoardView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(selectedBoardView)
-        
+
         // Selected Board Label
-        selectedBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        selectedBoardLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
         selectedBoardLabel.textAlignment = .left
         selectedBoardLabel.translatesAutoresizingMaskIntoConstraints = false
         updateSelectedBoardLabel()
@@ -1372,28 +1365,40 @@ class settings: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            // Header Label
-            headerLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            headerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            headerLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            
-            // Selected Board View
-            selectedBoardView.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 16),
+            // Selected Board View (Startup Board selector)
+            selectedBoardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             selectedBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             selectedBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            selectedBoardView.heightAnchor.constraint(equalToConstant: 50),
-            
+            selectedBoardView.heightAnchor.constraint(equalToConstant: 44),
+            selectedBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
             // Selected Board Label
             selectedBoardLabel.centerYAnchor.constraint(equalTo: selectedBoardView.centerYAnchor),
-            selectedBoardLabel.leadingAnchor.constraint(equalTo: selectedBoardView.leadingAnchor, constant: 16),
-            selectedBoardLabel.trailingAnchor.constraint(equalTo: selectBoardButton.leadingAnchor, constant: -8),
-            
+            selectedBoardLabel.leadingAnchor.constraint(equalTo: selectedBoardView.leadingAnchor, constant: 20),
+            selectedBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: selectBoardButton.leadingAnchor, constant: -15),
+
             // Select Board Button
             selectBoardButton.centerYAnchor.constraint(equalTo: selectedBoardView.centerYAnchor),
-            selectBoardButton.trailingAnchor.constraint(equalTo: selectedBoardView.trailingAnchor, constant: -16),
-            
+            selectBoardButton.trailingAnchor.constraint(equalTo: selectedBoardView.trailingAnchor, constant: -20),
+
+            // Launch With Startup Board View
+            launchWithStartupBoardView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
+            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
+            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Launch With Startup Board Label
+            launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardLabel.leadingAnchor.constraint(equalTo: launchWithStartupBoardView.leadingAnchor, constant: 20),
+            launchWithStartupBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: launchWithStartupBoardToggle.leadingAnchor, constant: -15),
+
+            // Launch With Startup Board Toggle
+            launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
+            launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
+
             // FaceID View
-            faceIDView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
+            faceIDView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
             faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             faceIDView.heightAnchor.constraint(equalToConstant: 44),
@@ -1466,25 +1471,9 @@ class settings: UIViewController {
             // Force Sync Button
             iCloudForceSync.centerYAnchor.constraint(equalTo: iCloudSyncStatusLabel.centerYAnchor),
             iCloudForceSync.trailingAnchor.constraint(equalTo: iCloudSyncView.trailingAnchor, constant: -30),
-            
-            // Launch With Startup Board View
-            launchWithStartupBoardView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
-            launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
-            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-            
-            // Launch With Startup Board Label
-            launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
-            launchWithStartupBoardLabel.leadingAnchor.constraint(equalTo: launchWithStartupBoardView.leadingAnchor, constant: 20),
-            launchWithStartupBoardLabel.trailingAnchor.constraint(lessThanOrEqualTo: launchWithStartupBoardToggle.leadingAnchor, constant: -15),
-            
-            // Launch With Startup Board Toggle
-            launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
-            launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
-            
+
             // Theme Settings View
-            themeSettingsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
+            themeSettingsView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
             themeSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: 44),
@@ -1622,9 +1611,9 @@ class settings: UIViewController {
     private func updateSelectedBoardLabel() {
         if let savedDefault = UserDefaults.standard.string(forKey: userDefaultsKey),
            let index = boardAbv.firstIndex(of: savedDefault) {
-            selectedBoardLabel.text = "\(boardNames[index]) (/\(savedDefault)/)"
+            selectedBoardLabel.text = "Startup Board: /\(savedDefault)/ - \(boardNames[index])"
         } else {
-            selectedBoardLabel.text = "No default board selected"
+            selectedBoardLabel.text = "Startup Board: None Selected"
         }
     }
     
