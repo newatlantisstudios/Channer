@@ -36,6 +36,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.newatlantisstudios.channer.threadRefresh</string>
+		<string>com.newatlantisstudios.channer.watchedPostsCheck</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
