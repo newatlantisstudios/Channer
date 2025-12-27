@@ -7,6 +7,14 @@ class threadRepliesCell: UITableViewCell {
     private var hoveredImageView: UIImageView?
     private var pointerInteraction: UIPointerInteraction?
 
+    // MARK: - Spoiler Handling
+    /// The post number for this cell (used for spoiler state tracking)
+    var postNumber: String = ""
+    /// Delegate for handling spoiler tap events
+    weak var spoilerDelegate: SpoilerTapHandler?
+    /// Tap gesture for spoiler reveal
+    private var spoilerTapGesture: UITapGestureRecognizer?
+
     // MARK: - UI Components
     let threadImage: UIButton = {
         let button = UIButton()
@@ -148,12 +156,13 @@ class threadRepliesCell: UITableViewCell {
         setupSubviews()
         setupConstraints()
         setupPointerInteraction()
+        setupSpoilerTapGesture()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     // Prepare for reuse to clean up resources
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -162,6 +171,48 @@ class threadRepliesCell: UITableViewCell {
         threadImage.kf.cancelImageDownloadTask()
         threadImage.setImage(nil, for: .normal)
         imageURL = nil
+        postNumber = ""
+        spoilerDelegate = nil
+    }
+
+    // MARK: - Spoiler Tap Gesture Setup
+    private func setupSpoilerTapGesture() {
+        // Add tap gesture for replyText
+        let tapGesture1 = UITapGestureRecognizer(target: self, action: #selector(handleSpoilerTap(_:)))
+        tapGesture1.delegate = self
+        replyText.addGestureRecognizer(tapGesture1)
+
+        // Add tap gesture for replyTextNoImage
+        let tapGesture2 = UITapGestureRecognizer(target: self, action: #selector(handleSpoilerTap(_:)))
+        tapGesture2.delegate = self
+        replyTextNoImage.addGestureRecognizer(tapGesture2)
+    }
+
+    @objc private func handleSpoilerTap(_ gesture: UITapGestureRecognizer) {
+        guard let textView = gesture.view as? UITextView,
+              let attributedText = textView.attributedText else { return }
+
+        let location = gesture.location(in: textView)
+        let layoutManager = textView.layoutManager
+        let textContainer = textView.textContainer
+
+        // Get character index at tap location
+        var fraction: CGFloat = 0
+        let characterIndex = layoutManager.characterIndex(
+            for: location,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: &fraction
+        )
+
+        guard characterIndex < attributedText.length else { return }
+
+        // Check if tapped on a spoiler
+        if let isSpoiler = attributedText.attribute(.isSpoiler, at: characterIndex, effectiveRange: nil) as? Bool,
+           isSpoiler,
+           let spoilerIndex = attributedText.attribute(.spoilerIndex, at: characterIndex, effectiveRange: nil) as? Int {
+            // Notify delegate about spoiler tap
+            spoilerDelegate?.didTapSpoiler(at: spoilerIndex, in: postNumber)
+        }
     }
     
     // Update UI when trait collection changes (light/dark mode)
@@ -529,23 +580,61 @@ extension threadRepliesCell: UIPointerInteractionDelegate {
             deviceCornerRadius = 39.0 // Default for modern iOS devices
         }
         previewParams.visiblePath = UIBezierPath(roundedRect: targetRect, cornerRadius: deviceCornerRadius)
-        
+
         let preview = UITargetedPreview(view: threadImage, parameters: previewParams)
-        
+
         return UIPointerStyle(effect: .highlight(preview), shape: nil)
     }
-    
+
     func pointerInteraction(_ interaction: UIPointerInteraction, willEnter region: UIPointerRegion, animator: UIPointerInteractionAnimating) {
         guard !threadImage.isHidden, let window = window else { return }
-        
+
         // Get the center of the threadImage in window coordinates
         let imageCenter = threadImage.convert(CGPoint(x: threadImage.bounds.midX, y: threadImage.bounds.midY), to: window)
-        
+
         // Show hover preview at this location
         showHoverPreview(at: imageCenter)
     }
-    
+
     func pointerInteraction(_ interaction: UIPointerInteraction, willExit region: UIPointerRegion, animator: UIPointerInteractionAnimating) {
         removeHoverPreview()
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+extension threadRepliesCell: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow simultaneous recognition to not interfere with text selection
+        return true
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // For our spoiler tap gesture, check if we're tapping on a spoiler
+        guard let textView = gestureRecognizer.view as? UITextView,
+              let attributedText = textView.attributedText else {
+            return true
+        }
+
+        let location = gestureRecognizer.location(in: textView)
+        let layoutManager = textView.layoutManager
+        let textContainer = textView.textContainer
+
+        var fraction: CGFloat = 0
+        let characterIndex = layoutManager.characterIndex(
+            for: location,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: &fraction
+        )
+
+        guard characterIndex < attributedText.length else { return true }
+
+        // Only begin if tapping on a spoiler
+        if let isSpoiler = attributedText.attribute(.isSpoiler, at: characterIndex, effectiveRange: nil) as? Bool,
+           isSpoiler {
+            return true
+        }
+
+        // Otherwise, let other gestures handle it
+        return false
     }
 }
