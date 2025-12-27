@@ -396,11 +396,13 @@ class NotificationCell: UITableViewCell {
             iconImageView.image = UIImage(systemName: "eye.fill")
         }
 
-        // Header - thread title or board/thread info
+        // Header - thread title with board info, or just board/thread info as fallback
+        let boardThreadInfo = "/\(notification.boardAbv)/ - No. \(notification.threadNo)"
         if let threadTitle = notification.threadTitle, !threadTitle.isEmpty {
-            headerLabel.text = threadTitle
+            // Show title with board info prefix for context
+            headerLabel.text = "\(boardThreadInfo): \(threadTitle)"
         } else {
-            headerLabel.text = "/\(notification.boardAbv)/ - Thread \(notification.threadNo)"
+            headerLabel.text = boardThreadInfo
         }
         headerLabel.textColor = notification.isRead ? .systemGray : ThemeManager.shared.primaryTextColor
 

@@ -240,8 +240,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             updatedThread.hasNewReplies = true
                             FavoritesManager.shared.updateFavorite(thread: updatedThread)
 
-                            // Get thread title from first post
-                            let threadTitle = firstPost["sub"].string
+                            // Get thread title - try API response first, then fall back to stored favorite data
+                            var threadTitle: String? = firstPost["sub"].string
+
+                            // If no subject from API, use stored title from favorite
+                            if threadTitle == nil || threadTitle?.isEmpty == true {
+                                threadTitle = favorite.title.isEmpty ? nil : favorite.title
+                            }
+
+                            // If still no title, create one from the comment (first 50 chars)
+                            if threadTitle == nil || threadTitle?.isEmpty == true {
+                                let comment = favorite.comment
+                                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                                    .replacingOccurrences(of: "&quot;", with: "\"")
+                                    .replacingOccurrences(of: "&amp;", with: "&")
+                                    .replacingOccurrences(of: "&lt;", with: "<")
+                                    .replacingOccurrences(of: "&gt;", with: ">")
+                                    .replacingOccurrences(of: "&#039;", with: "'")
+                                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !comment.isEmpty {
+                                    threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
+                                }
+                            }
 
                             // Add in-app notification
                             NotificationManager.shared.addThreadUpdateNotification(
