@@ -533,107 +533,123 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         prefetchQueue.maxConcurrentOperationCount = 2
     }
     
+    // Custom styled container for search bar (matches thread cell design)
+    private var searchBarStyledContainer: UIView?
+
     private func setupSearchBar() {
-        // Sets up the search bar for searching threads.
+        // Sets up the search bar for searching threads with styling matching thread cells.
         print("Setting up search bar for boardTV")
-        
-        // Configure search bar first
+
+        // Configure search bar
         searchBar.delegate = self
         searchBar.placeholder = "Title or Comment"
-        searchBar.searchBarStyle = .default  // Changed from .minimal to .default for better visibility
+        searchBar.searchBarStyle = .minimal
         searchBar.showsCancelButton = false
-        
-        // Style the search text field directly
-        searchBar.searchTextField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+
+        // Make search bar background transparent (styled container will provide the background)
+        searchBar.backgroundImage = UIImage()
+        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
+        searchBar.backgroundColor = .clear
+        searchBar.barTintColor = .clear
+        searchBar.tintColor = ThemeManager.shared.primaryTextColor
+
+        // Style the search text field to be transparent (styled container provides background)
+        searchBar.searchTextField.backgroundColor = .clear
         searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
         searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
-        searchBar.searchTextField.layer.cornerRadius = 8
-        searchBar.searchTextField.layer.borderWidth = 1
-        searchBar.searchTextField.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        searchBar.searchTextField.layer.cornerRadius = 0
+        searchBar.searchTextField.layer.borderWidth = 0
         searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
             string: "Title or Comment",
             attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
         )
-        
-        // Style the search bar
-        searchBar.tintColor = ThemeManager.shared.primaryTextColor
-        searchBar.barTintColor = ThemeManager.shared.backgroundColor
-        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
-        
-        // Remove borders and background images
-        searchBar.backgroundImage = UIImage()
-        searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
-        searchBar.layer.borderWidth = 0
-        searchBar.layer.borderColor = UIColor.clear.cgColor
-        
-        // Style the search field
-        if let searchField = searchBar.value(forKey: "searchField") as? UITextField {
-            searchField.backgroundColor = ThemeManager.shared.cellBackgroundColor
-            searchField.textColor = ThemeManager.shared.primaryTextColor
-            searchField.tintColor = ThemeManager.shared.primaryTextColor
-            searchField.layer.cornerRadius = 8
-            searchField.clipsToBounds = true
-            searchField.font = UIFont.systemFont(ofSize: 16)
-            
-            // Style the placeholder
-            if let placeholderLabel = searchField.value(forKey: "placeholderLabel") as? UILabel {
-                placeholderLabel.textColor = ThemeManager.shared.secondaryTextColor
-                placeholderLabel.font = UIFont.systemFont(ofSize: 16)
-            }
-        }
-        
-        // Set search bar directly as table header
-        searchBar.frame = CGRect(x: 0, y: 0, width: tableView.frame.width, height: 56)
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Create container view with proper sizing
-        let searchBarContainer = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: 56))
+
+        // Create main container for table header
+        let headerHeight: CGFloat = 70
+        let searchBarContainer = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: headerHeight))
         searchBarContainer.backgroundColor = ThemeManager.shared.backgroundColor
-        searchBarContainer.addSubview(searchBar)
-        
-        // Use auto layout for search bar within container
+
+        // Create styled container that matches thread cell design
+        let styledContainer = UIView()
+        styledContainer.translatesAutoresizingMaskIntoConstraints = false
+        styledContainer.backgroundColor = ThemeManager.shared.cellBackgroundColor
+
+        // Match thread cell corner radius (proportionally scaled for search bar height)
+        let cornerRadius: CGFloat = 22.0
+        styledContainer.layer.cornerRadius = cornerRadius
+        styledContainer.layer.cornerCurve = .continuous
+
+        // Match thread cell border
+        styledContainer.layer.borderWidth = 6.0
+        styledContainer.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+
+        // Match thread cell shadow
+        styledContainer.layer.shadowColor = UIColor.black.cgColor
+        styledContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
+        styledContainer.layer.shadowOpacity = 0.15
+        styledContainer.layer.shadowRadius = 6
+        styledContainer.layer.masksToBounds = false
+
+        // Store reference for later updates
+        searchBarStyledContainer = styledContainer
+
+        // Add views to hierarchy
+        searchBarContainer.addSubview(styledContainer)
+        styledContainer.addSubview(searchBar)
+
+        // Layout styled container with padding
+        let horizontalPadding: CGFloat = 16
+        let verticalPadding: CGFloat = 8
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: searchBarContainer.topAnchor),
-            searchBar.leadingAnchor.constraint(equalTo: searchBarContainer.leadingAnchor),
-            searchBar.trailingAnchor.constraint(equalTo: searchBarContainer.trailingAnchor),
-            searchBar.bottomAnchor.constraint(equalTo: searchBarContainer.bottomAnchor)
+            styledContainer.topAnchor.constraint(equalTo: searchBarContainer.topAnchor, constant: verticalPadding),
+            styledContainer.leadingAnchor.constraint(equalTo: searchBarContainer.leadingAnchor, constant: horizontalPadding),
+            styledContainer.trailingAnchor.constraint(equalTo: searchBarContainer.trailingAnchor, constant: -horizontalPadding),
+            styledContainer.bottomAnchor.constraint(equalTo: searchBarContainer.bottomAnchor, constant: -verticalPadding)
         ])
-        
+
+        // Layout search bar inside styled container
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: styledContainer.topAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: styledContainer.leadingAnchor, constant: 8),
+            searchBar.trailingAnchor.constraint(equalTo: styledContainer.trailingAnchor, constant: -8),
+            searchBar.bottomAnchor.constraint(equalTo: styledContainer.bottomAnchor)
+        ])
+
         // Set container as table header
         tableView.tableHeaderView = searchBarContainer
-        searchBar.sizeToFit()
-        
+
         // Update appearance
         updateSearchBarAppearance()
     }
     
     private func updateSearchBarAppearance() {
-        // Update container background
+        // Update main container background
         if let container = tableView.tableHeaderView {
             container.backgroundColor = ThemeManager.shared.backgroundColor
         }
-        
+
+        // Update styled container (matches thread cell design)
+        if let styledContainer = searchBarStyledContainer {
+            styledContainer.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            styledContainer.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        }
+
         // Update search bar colors
         searchBar.tintColor = ThemeManager.shared.primaryTextColor
-        searchBar.barTintColor = ThemeManager.shared.backgroundColor
-        searchBar.backgroundColor = ThemeManager.shared.backgroundColor
+        searchBar.backgroundColor = .clear
+        searchBar.barTintColor = .clear
         searchBar.backgroundImage = UIImage()
         searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
-        
-        // Remove borders
-        searchBar.layer.borderWidth = 0
-        searchBar.layer.borderColor = UIColor.clear.cgColor
-        
-        // Update search text field directly
-        searchBar.searchTextField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+
+        // Update search text field (transparent, styled container provides background)
+        searchBar.searchTextField.backgroundColor = .clear
         searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
         searchBar.searchTextField.tintColor = ThemeManager.shared.primaryTextColor
         searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
-        searchBar.searchTextField.layer.cornerRadius = 8
-        searchBar.searchTextField.layer.borderWidth = 1
-        searchBar.searchTextField.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
-        searchBar.searchTextField.clipsToBounds = true
-        
+        searchBar.searchTextField.layer.cornerRadius = 0
+        searchBar.searchTextField.layer.borderWidth = 0
+
         // Update placeholder
         searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
             string: searchBar.placeholder ?? "Title or Comment",
