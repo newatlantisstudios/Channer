@@ -140,7 +140,7 @@ extension threadRepliesTV {
 /// Main view controller for displaying thread replies
 /// Supports search, filtering, favorites, gallery mode, and offline caching
 /// Includes keyboard shortcuts for iPad and optimized scrolling performance
-class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate, SpoilerTapHandler {
     
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -432,6 +432,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // Set the current board for enhanced text formatting
+        TextFormatter.currentBoard = boardAbv
 
         // Register for keyboard shortcuts notifications
         NotificationCenter.default.addObserver(self, 
@@ -1209,13 +1212,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         let cell = tableView.dequeueReusableCell(withIdentifier: cellIdentifier, for: indexPath) as! threadRepliesCell
-        
+
         // Set up the reply button's target-action
         //cell.reply.tag = actualIndex
         //cell.reply.addTarget(self, action: #selector(replyButtonTapped(_:)), for: .touchUpInside)
-        
+
         // Set the text view delegate to self
         cell.replyTextDelegate = self
+
+        // Set post number and spoiler delegate for tap-to-reveal functionality
+        if actualIndex < threadBoardReplyNumber.count {
+            cell.postNumber = threadBoardReplyNumber[actualIndex]
+        }
+        cell.spoilerDelegate = self
         
         // Add visual indicator for hover functionality
         if #available(iOS 13.4, *) {
@@ -1594,8 +1603,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
 
-        // Format the comment text with spoiler visibility
-        let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers)
+        // Format the comment text with spoiler visibility and post number for tap-to-reveal
+        let formattedComment = TextFormatter.formatText(comment, showSpoilers: showSpoilers, postNumber: replyNumber)
         threadReplies.append(formattedComment)
 
         // Extract additional metadata for advanced filtering
@@ -1764,17 +1773,40 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         showSpoilers.toggle()
         spoilerButton?.image = UIImage(named: showSpoilers ? "hide" : "show")
         print("Spoiler visibility toggled. Current state: \(showSpoilers)")
-        
+
         // Reprocess all replies with updated spoiler state
         for (index, originalText) in originalTexts.enumerated() {
-            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers)
+            // Get post number for tap-to-reveal spoiler tracking
+            let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : ""
+            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers, postNumber: postNumber)
             threadReplies[index] = updatedText
         }
-        
+
         // Reload the table view
         debugReloadData(context: "Search filter update")
     }
-    
+
+    // MARK: - SpoilerTapHandler Protocol
+    /// Handles tap-to-reveal for individual spoilers
+    func didTapSpoiler(at index: Int, in postNumber: String) {
+        print("Spoiler tapped: index \(index) in post \(postNumber)")
+
+        // Toggle the spoiler state using EnhancedTextFormatter
+        EnhancedTextFormatter.shared.toggleSpoiler(postNumber: postNumber, index: index)
+
+        // Find the cell index for this post and reformat
+        if let postIndex = threadBoardReplyNumber.firstIndex(of: postNumber),
+           postIndex < originalTexts.count {
+            // Reformat just this post with updated spoiler state
+            let updatedText = TextFormatter.formatText(originalTexts[postIndex], showSpoilers: showSpoilers, postNumber: postNumber)
+            threadReplies[postIndex] = updatedText
+
+            // Reload just the affected cell
+            let indexPath = IndexPath(row: postIndex, section: 0)
+            tableView.reloadRows(at: [indexPath], with: .none)
+        }
+    }
+
     private func formatComment(_ comment: String, preserveOriginal: Bool = false) -> NSAttributedString {
         // Save original text if needed
         if preserveOriginal {

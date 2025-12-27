@@ -3,15 +3,36 @@ import Foundation
 
 // MARK: - TextFormatter Class
 /// A utility class for formatting text with special styling like spoilers and quotes.
+/// Now with enhanced features including:
+/// - Improved greentext styling with theme support
+/// - Tap-to-reveal spoilers
+/// - Code syntax highlighting for programming boards
+/// - Math/LaTeX rendering for /sci/
+/// - Inline link previews for YouTube/Twitter/external links
 class TextFormatter {
+
+    // MARK: - Board Context
+    /// Current board abbreviation for board-specific rendering
+    static var currentBoard: String = ""
 
     // MARK: - Formatting Function
     /// Formats the given text into an `NSAttributedString` with styling for spoilers, quotes, and quote links.
     /// - Parameters:
     ///   - text: The raw text to format.
     ///   - showSpoilers: A Boolean value indicating whether to reveal spoilers.
+    ///   - postNumber: Optional post number for spoiler state tracking.
     /// - Returns: An `NSAttributedString` with the formatted text.
-    static func formatText(_ text: String, showSpoilers: Bool = false) -> NSAttributedString {
+    static func formatText(_ text: String, showSpoilers: Bool = false, postNumber: String = "") -> NSAttributedString {
+        // Use enhanced formatter for boards that benefit from it
+        if shouldUseEnhancedFormatting() {
+            return EnhancedTextFormatter.shared.formatText(
+                text,
+                boardAbv: currentBoard,
+                postNumber: postNumber,
+                showAllSpoilers: showSpoilers
+            )
+        }
+
         // Decode HTML entities and remove unnecessary tags, but keep <s>, </s>, <span class="quote">, </span>, <a href=... class="quotelink">, and </a>
         let processedText = text
             .replacingOccurrences(of: "<br>", with: "\n")
@@ -26,23 +47,47 @@ class TextFormatter {
         var isQuotelink = false
         var quotelinkPostNumber: String?
 
-        // Define text attributes
-        // Define text attributes - use system colors instead of ThemeManager to avoid circular dependencies
+        // Define text attributes using ThemeManager for consistent theming
         let normalAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.label,
+            .foregroundColor: ThemeManager.shared.primaryTextColor,
             .font: UIFont.systemFont(ofSize: 14)
         ]
 
+        // Enhanced greentext with theme support
         let greenAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor(red: 0.47, green: 0.6, blue: 0.13, alpha: 1.0),
+            .foregroundColor: ThemeManager.shared.greentextColor,
             .font: UIFont.systemFont(ofSize: 14)
         ]
+
+        // Enhanced spoiler attributes
+        let spoilerBgColor = UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(white: 0.15, alpha: 1.0)
+                : UIColor(white: 0.1, alpha: 1.0)
+        }
+
+        let spoilerTextColor = UIColor { traitCollection in
+            if showSpoilers {
+                return traitCollection.userInterfaceStyle == .dark
+                    ? UIColor.white
+                    : UIColor(white: 0.9, alpha: 1.0)
+            } else {
+                return UIColor.clear
+            }
+        }
 
         let spoilerAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: showSpoilers ? UIColor.white : UIColor.clear,
-            .backgroundColor: showSpoilers ? UIColor.darkGray : UIColor.black,
+            .foregroundColor: spoilerTextColor,
+            .backgroundColor: spoilerBgColor,
             .font: UIFont.systemFont(ofSize: 14)
         ]
+
+        // Enhanced quotelink with better visibility
+        let quotelinkColor = UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+                : UIColor.systemBlue
+        }
 
         // Process tokens and build the attributed string
         for token in tokens {
@@ -63,27 +108,67 @@ class TextFormatter {
                 quotelinkPostNumber = nil
             case .lineBreak:
                 attributedText.append(NSAttributedString(string: "\n"))
-            case .text(let text):
-                let attributes: [NSAttributedString.Key: Any]
+            case .text(let textContent):
+                var attributes: [NSAttributedString.Key: Any]
+                var processedContent = decodeHTMLEntities(textContent)
+
                 if isSpoiler {
                     attributes = spoilerAttributes
                 } else if isQuote {
                     attributes = greenAttributes
+                    // Bold the > character for better visual distinction
+                    if processedContent.hasPrefix(">") {
+                        let arrowAttrs: [NSAttributedString.Key: Any] = [
+                            .foregroundColor: ThemeManager.shared.greentextColor,
+                            .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+                        ]
+                        attributedText.append(NSAttributedString(string: ">", attributes: arrowAttrs))
+                        processedContent = String(processedContent.dropFirst())
+                    }
                 } else if isQuotelink, let postNumber = quotelinkPostNumber {
                     attributes = [
-                        .foregroundColor: UIColor.blue,
+                        .foregroundColor: quotelinkColor,
                         .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .font: UIFont.systemFont(ofSize: 14),
-                        .link: URL(string: "post://\(postNumber)")! // Custom URL scheme
+                        .font: UIFont.systemFont(ofSize: 14, weight: .medium),
+                        .link: URL(string: "post://\(postNumber)")!
                     ]
                 } else {
+                    // Check for external links in regular text
+                    let links = LinkPreviewManager.shared.extractLinks(from: processedContent)
+                    if !links.isEmpty {
+                        let linkedText = LinkPreviewManager.shared.applyLinkStyling(
+                            to: processedContent,
+                            links: links,
+                            baseAttributes: normalAttributes
+                        )
+                        attributedText.append(linkedText)
+                        continue
+                    }
                     attributes = normalAttributes
                 }
-                attributedText.append(NSAttributedString(string: text, attributes: attributes))
+                attributedText.append(NSAttributedString(string: processedContent, attributes: attributes))
             }
         }
 
         return attributedText
+    }
+
+    /// Determines if enhanced formatting should be used based on current board
+    private static func shouldUseEnhancedFormatting() -> Bool {
+        return ProgrammingBoards.isProgrammingBoard(currentBoard) ||
+               MathBoards.isMathBoard(currentBoard)
+    }
+
+    /// Decodes common HTML entities
+    private static func decodeHTMLEntities(_ text: String) -> String {
+        return text
+            .replacingOccurrences(of: "&#039;", with: "'")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&#44;", with: ",")
+            .replacingOccurrences(of: "&nbsp;", with: " ")
     }
 
     // MARK: - Token Types
