@@ -95,22 +95,33 @@ class HistoryManager {
     }
     
     // MARK: - Validation Methods
-    /// Verifies each thread in the history and removes invalid ones.
-    /// - Parameter completion: Closure called with the array of valid `ThreadData` objects.
+    /// Verifies each thread in the history, updates stats with fresh data, and removes invalid ones.
+    /// - Parameter completion: Closure called with the array of valid `ThreadData` objects with updated stats.
     func verifyAndRemoveInvalidHistory(completion: @escaping ([ThreadData]) -> Void) {
         let dispatchGroup = DispatchGroup()
         var validHistory: [ThreadData] = []
+        let serialQueue = DispatchQueue(label: "com.channer.historyValidation")
 
         for thread in history {
             dispatchGroup.enter()
             let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
-            
+
             AF.request(url).responseData { response in
                 defer { dispatchGroup.leave() }
                 switch response.result {
                 case .success(let data):
-                    if let json = try? JSON(data: data), let _ = json["posts"].array?.first {
-                        validHistory.append(thread)
+                    if let json = try? JSON(data: data), let firstPost = json["posts"].array?.first {
+                        // Update thread with fresh stats from API
+                        let freshReplies = firstPost["replies"].intValue
+                        let freshImages = firstPost["images"].intValue
+                        let freshStats = "\(freshReplies)/\(freshImages)"
+
+                        var updatedThread = thread
+                        updatedThread.stats = freshStats
+
+                        serialQueue.sync {
+                            validHistory.append(updatedThread)
+                        }
                     } else {
                         self.removeThreadFromHistory(thread)
                     }
@@ -121,6 +132,9 @@ class HistoryManager {
         }
 
         dispatchGroup.notify(queue: .main) {
+            // Update stored history with fresh stats
+            self.history = validHistory
+            self.saveHistory()
             completion(validHistory)
         }
     }
