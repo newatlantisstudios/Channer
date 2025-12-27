@@ -21,8 +21,15 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
 
         // Setup Navigation Bar
         title = "Manage Categories"
+
+        // Create checkmark button with white background and black checkmark
+        let paletteConfig = UIImage.SymbolConfiguration(paletteColors: [.black, .white])
+        let sizeConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        let checkmarkConfig = paletteConfig.applying(sizeConfig)
+        let checkmarkImage = UIImage(systemName: "checkmark.circle.fill", withConfiguration: checkmarkConfig)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .done,
+            image: checkmarkImage,
+            style: .plain,
             target: self,
             action: #selector(dismissView)
         )
