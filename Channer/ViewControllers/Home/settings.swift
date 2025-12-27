@@ -76,7 +76,12 @@ class settings: UIViewController {
     private let preloadVideosView = UIView()
     private let preloadVideosLabel = UILabel()
     private let preloadVideosToggle = UISwitch()
-    
+
+    // Debug UI
+    private let debugView = UIView()
+    private let debugLabel = UILabel()
+    private let debugButton = UIButton(type: .system)
+
     // Constants
     private let userDefaultsKey = "defaultBoard"
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
@@ -613,7 +618,10 @@ class settings: UIViewController {
         
         // Setup Preload Videos view
         setupPreloadVideosView()
-        
+
+        // Setup Debug view
+        setupDebugView()
+
         setupConstraints()
     }
     
@@ -1318,7 +1326,42 @@ class settings: UIViewController {
             preloadVideosToggle.trailingAnchor.constraint(equalTo: preloadVideosView.trailingAnchor, constant: -30),
         ])
     }
-    
+
+    private func setupDebugView() {
+        // Set up the debug view
+        debugView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        debugView.layer.cornerRadius = 10
+        debugView.clipsToBounds = true
+        debugView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Set up the debug label
+        debugLabel.text = "Debug Tools"
+        debugLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        debugLabel.textAlignment = .left
+        debugLabel.numberOfLines = 1
+        debugLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        // Set up the debug button
+        debugButton.setTitle("Open", for: .normal)
+        debugButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        debugButton.translatesAutoresizingMaskIntoConstraints = false
+        debugButton.addTarget(self, action: #selector(debugButtonTapped), for: .touchUpInside)
+
+        // Add views to view hierarchy
+        contentView.addSubview(debugView)
+        debugView.addSubview(debugLabel)
+        debugView.addSubview(debugButton)
+    }
+
+    @objc private func debugButtonTapped() {
+        let debugVC = DebugViewController()
+        navigationController?.pushViewController(debugVC, animated: true)
+
+        // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     private func setupBoardsDisplayModeView() {
         // Create the boards display mode view
         self.boardsDisplayModeView = {
@@ -1677,23 +1720,48 @@ class settings: UIViewController {
                 keyboardShortcutsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
                 keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
                 keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
-                
+
                 // Keyboard Shortcuts Label
                 keyboardShortcutsLabel.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
                 keyboardShortcutsLabel.leadingAnchor.constraint(equalTo: keyboardShortcutsView.leadingAnchor, constant: 20),
                 keyboardShortcutsLabel.trailingAnchor.constraint(lessThanOrEqualTo: keyboardShortcutsToggle.leadingAnchor, constant: -15),
-                
+
                 // Keyboard Shortcuts Toggle
                 keyboardShortcutsToggle.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
                 keyboardShortcutsToggle.trailingAnchor.constraint(equalTo: keyboardShortcutsView.trailingAnchor, constant: -20),
-                
+
+                // Debug View (after keyboard shortcuts on iPad)
+                debugView.topAnchor.constraint(equalTo: keyboardShortcutsView.bottomAnchor, constant: 16),
+                debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+                debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+                debugView.heightAnchor.constraint(equalToConstant: 44),
+
+                debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
+                debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),
+
+                debugButton.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
+                debugButton.trailingAnchor.constraint(equalTo: debugView.trailingAnchor, constant: -20),
+
                 // Bottom constraint for scroll content size
-                keyboardShortcutsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+                debugView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
             ])
         } else {
-            // For iPhone, set bottom constraint to preload videos view
+            // For iPhone, debug view goes after preload videos view
             NSLayoutConstraint.activate([
-                preloadVideosView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+                // Debug View
+                debugView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+                debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+                debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+                debugView.heightAnchor.constraint(equalToConstant: 44),
+
+                debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
+                debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),
+
+                debugButton.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
+                debugButton.trailingAnchor.constraint(equalTo: debugView.trailingAnchor, constant: -20),
+
+                // Bottom constraint for scroll content size
+                debugView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
             ])
         }
     }
