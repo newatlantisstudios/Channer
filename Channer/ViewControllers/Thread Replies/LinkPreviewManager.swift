@@ -80,10 +80,6 @@ class LinkPreviewManager {
         )
     }()
 
-    // MARK: - Cache
-    private var previewCache: [URL: LPLinkMetadata] = [:]
-    private let cacheQueue = DispatchQueue(label: "com.channer.linkpreview.cache")
-
     // MARK: - Initialization
     private init() {}
 
