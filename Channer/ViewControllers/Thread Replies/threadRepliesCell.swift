@@ -602,8 +602,8 @@ extension threadRepliesCell: UIPointerInteractionDelegate {
 }
 
 // MARK: - UIGestureRecognizerDelegate
-extension threadRepliesCell: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+extension threadRepliesCell {
+    override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         // Allow simultaneous recognition to not interfere with text selection
         return true
     }

@@ -539,11 +539,11 @@ class MathRenderer {
             }
             container.layer.cornerRadius = 8
             container.layer.borderWidth = 1
-            container.layer.borderColor = UIColor { traitCollection in
+            container.layer.borderColor = (UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
-                    ? UIColor(white: 0.3, alpha: 1.0).cgColor
-                    : UIColor(red: 0.8, green: 0.8, blue: 0.9, alpha: 1.0).cgColor
-            }
+                    ? UIColor(white: 0.3, alpha: 1.0)
+                    : UIColor(red: 0.8, green: 0.8, blue: 0.9, alpha: 1.0)
+            }).cgColor
 
             let label = UILabel()
             label.attributedText = render(latex, isDisplay: true, fontSize: 18)

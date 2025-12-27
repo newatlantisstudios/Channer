@@ -525,7 +525,7 @@ class SpoilerTextView: UITextView {
 
         // Get the character index at the tap location
         guard let textPosition = closestPosition(to: location),
-              let range = tokenizer.rangeEnclosingPosition(textPosition, with: .character, inDirection: .init(rawValue: UITextLayoutDirection.left.rawValue)!),
+              let range = tokenizer.rangeEnclosingPosition(textPosition, with: .character, inDirection: .layout(.left)),
               let nsRange = convertToNSRange(range) else {
             return
         }
@@ -551,7 +551,7 @@ extension SpoilerTextView: UIGestureRecognizerDelegate {
         let location = gestureRecognizer.location(in: self)
 
         guard let textPosition = closestPosition(to: location),
-              let range = tokenizer.rangeEnclosingPosition(textPosition, with: .character, inDirection: .init(rawValue: UITextLayoutDirection.left.rawValue)!),
+              let range = tokenizer.rangeEnclosingPosition(textPosition, with: .character, inDirection: .layout(.left)),
               let nsRange = convertToNSRange(range),
               nsRange.location < attributedText.length else {
             return true
