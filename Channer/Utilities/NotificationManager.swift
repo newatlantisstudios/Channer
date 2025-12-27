@@ -216,13 +216,14 @@ class NotificationManager {
     ///   - threadNo: Thread number
     ///   - threadTitle: Optional thread title/subject
     ///   - newReplyCount: Number of new replies
-    func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int) {
+    ///   - replyPreview: Preview text of the latest reply
+    func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int, replyPreview: String) {
         let notification = ReplyNotification(
             boardAbv: boardAbv,
             threadNo: threadNo,
             replyNo: "",
             replyToNo: "",
-            replyText: "\(newReplyCount) new \(newReplyCount == 1 ? "reply" : "replies")",
+            replyText: replyPreview,
             notificationType: .threadUpdate,
             threadTitle: threadTitle,
             newReplyCount: newReplyCount

@@ -55,6 +55,8 @@
 		17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17COMPOSE123456789012345 /* ComposeViewController.swift */; };
 		17DD68422249B84100641BCA /* urlWeb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DD68412249B84100641BCA /* urlWeb.swift */; };
 		17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */; };
+		17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */; };
+		17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */; };
 		17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */; };
 		17KEYCHAINBUILD123456789 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17KEYCHAIN1234567890123456 /* KeychainHelper.swift */; };
 		17PASSAUTHBUILD123456789 /* PassAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSAUTH1234567890123456 /* PassAuthManager.swift */; };
@@ -71,8 +73,6 @@
 		3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */; };
 		3F948296C1FCC681B15A3958 /* ThreadCacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */; };
 		41EBC7A30119EB0BE471464F /* ContentFilterManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC381610AE01474F79CCF131 /* ContentFilterManagerTests.swift */; };
-		17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */; };
-		17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */; };
 		4B777D3D1563F3F2B0ED5C80 /* DownloadItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB08F7BEAA7D678B23601FE5 /* DownloadItem.swift */; };
 		5655ABED6489BBB2B80A4C6F /* DownloadManagerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */; };
 		66C8421B5C76147DE06BEEAB /* MockAuthenticationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6A30E14407AFCD5A0CC09B /* MockAuthenticationContext.swift */; };
@@ -92,6 +92,7 @@
 		C10E6AA11F575138A9187F35 /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FBBB14E76514DD70F5D6CC5 /* TestHelpers.swift */; };
 		D473796E4673EA858757625F /* HistoryManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F22EE2CADB754B09D9DCBA /* HistoryManagerTests.swift */; };
 		D7CBE663CD6B64C84519B644 /* MockFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC297AAB893B7F131F3E266D /* MockFileManager.swift */; };
+		EFC932FCD2334941542906FA /* DebugViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E7E5B1790BDC60E3BB87F9 /* DebugViewController.swift */; };
 		F18EAFB93C6F55EE34E23ADF /* DownloadManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D48D859953D3D65A9888B85 /* DownloadManagerViewController.swift */; };
 		F373148E1239639ACD55DCC1 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */; };
 /* End PBXBuildFile section */
@@ -130,6 +131,7 @@
 /* Begin PBXFileReference section */
 		013F035BAC40E84B14F84DFB /* MockAlamofireSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockAlamofireSession.swift; path = Mocks/MockAlamofireSession.swift; sourceTree = "<group>"; };
 		108D0B6B7AC28F8A8AB0537A /* MockiCloudStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockiCloudStore.swift; path = Mocks/MockiCloudStore.swift; sourceTree = "<group>"; };
+		16E7E5B1790BDC60E3BB87F9 /* DebugViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DebugViewController.swift; sourceTree = "<group>"; };
 		170F90E622506E7C00F52BBD /* WebMViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMViewController.swift; sourceTree = "<group>"; };
 		171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterManager.swift; sourceTree = "<group>"; };
 		171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilter.swift; sourceTree = "<group>"; };
@@ -182,6 +184,8 @@
 		17COMPOSE123456789012345 /* ComposeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeViewController.swift; sourceTree = "<group>"; };
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsManager.swift; sourceTree = "<group>"; };
+		17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsViewController.swift; sourceTree = "<group>"; };
 		17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerHelper.swift; sourceTree = "<group>"; };
 		17KEYCHAIN1234567890123456 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		17PASSAUTH1234567890123456 /* PassAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassAuthManager.swift; sourceTree = "<group>"; };
@@ -193,8 +197,6 @@
 		17STAT0012DE9000000000004 /* ChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartViews.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsDashboardViewController.swift; sourceTree = "<group>"; };
 		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
-		17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsManager.swift; sourceTree = "<group>"; };
-		17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsViewController.swift; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
 		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
@@ -410,6 +412,7 @@
 				1776B0A72CE3079E00B304E7 /* HistoryManager.swift */,
 				179B6B952CDDEC960099D980 /* FilesListVC.swift */,
 				17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */,
+				16E7E5B1790BDC60E3BB87F9 /* DebugViewController.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -745,6 +748,7 @@
 				17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */,
 				79D4827A7F01690CE0DE7CC8 /* MyPostsManager.swift in Sources */,
 				3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */,
+				EFC932FCD2334941542906FA /* DebugViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
