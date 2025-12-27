@@ -416,6 +416,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Lifecycle methods to set up the view
     override func loadView() {
         super.loadView()
+
+        // Set background color early to prevent black flash during navigation transitions
+        // This ensures there's no transparent gap when the navbar background is resizing
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+
         // Set up loading indicator immediately when view is created
         view.addSubview(loadingIndicator)
         NSLayoutConstraint.activate([
@@ -424,10 +429,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         ])
         loadingIndicator.startAnimating()
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         // Register for keyboard shortcuts notifications
         NotificationCenter.default.addObserver(self, 
                                              selector: #selector(keyboardShortcutsToggled(_:)), 
@@ -591,10 +596,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Restart auto-refresh timer when view appears
         setupAutoRefreshTimer()
     }
-    
+
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
-        
+
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
             updateSearchBarAppearance()
         }
