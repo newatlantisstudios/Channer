@@ -466,9 +466,53 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 172
         tableView.prefetchDataSource = self
-        
+
         // Register the custom cell
         tableView.register(boardTVCell.self, forCellReuseIdentifier: "boardTVCell")
+
+        // Setup pull-to-refresh
+        setupRefreshControl()
+    }
+
+    private func setupRefreshControl() {
+        // Configures pull-to-refresh for the table view.
+        let refresh = UIRefreshControl()
+        refresh.tintColor = ThemeManager.shared.primaryTextColor
+        refresh.addTarget(self, action: #selector(handlePullToRefresh), for: .valueChanged)
+        refreshControl = refresh
+    }
+
+    @objc private func handlePullToRefresh() {
+        // Handles pull-to-refresh action based on view type.
+        if isFavoritesView {
+            // Refresh favorites data
+            FavoritesManager.shared.verifyAndRemoveInvalidFavorites { [weak self] updatedFavorites in
+                guard let self = self else { return }
+                self.threadData = updatedFavorites
+                self.filteredThreadData = updatedFavorites
+
+                FavoritesManager.shared.updateCurrentReplies {
+                    DispatchQueue.main.async {
+                        self.refreshControl?.endRefreshing()
+                        self.tableView.reloadData()
+                    }
+                }
+            }
+        } else if isHistoryView {
+            // Refresh history data
+            HistoryManager.shared.verifyAndRemoveInvalidHistory { [weak self] updatedHistory in
+                guard let self = self else { return }
+                self.threadData = updatedHistory
+                self.filteredThreadData = updatedHistory
+                DispatchQueue.main.async {
+                    self.refreshControl?.endRefreshing()
+                    self.tableView.reloadData()
+                }
+            }
+        } else {
+            // Refresh board threads
+            loadThreads()
+        }
     }
     
     private func setupLoadingIndicator() {
