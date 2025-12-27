@@ -449,8 +449,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             "notificationType": "threadUpdate"
         ]
 
-        // Create a unique identifier for this notification
-        let identifier = "thread-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        // Use stable identifier so iOS deduplicates notifications for the same thread
+        let identifier = "thread-\(boardAbv)-\(threadNumber)"
 
         // Create the request
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
@@ -484,8 +484,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             "notificationType": "myPostReply"
         ]
 
-        // Create a unique identifier for this notification
-        let identifier = "reply-\(boardAbv)-\(threadNo)-\(postNo)-\(Date().timeIntervalSince1970)"
+        // Use stable identifier so iOS deduplicates notifications for the same post
+        let identifier = "reply-\(boardAbv)-\(threadNo)-\(postNo)"
 
         // Create the request
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
