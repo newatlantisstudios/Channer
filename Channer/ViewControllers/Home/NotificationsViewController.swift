@@ -22,7 +22,7 @@ class NotificationsViewController: UITableViewController {
 
         // Add navigation bar buttons
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "Close",
+            image: UIImage(systemName: "xmark"),
             style: .plain,
             target: self,
             action: #selector(close)
@@ -30,7 +30,7 @@ class NotificationsViewController: UITableViewController {
 
         // Add actions button
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Actions",
+            image: UIImage(systemName: "ellipsis.circle"),
             style: .plain,
             target: self,
             action: #selector(showActions)
