@@ -275,12 +275,8 @@ class boardTVCell: UITableViewCell {
     
     func configure(with thread: ThreadData, isHistoryView: Bool, isFavoritesView: Bool, isFiltered: Bool = false) {
             // Configure topicStats visibility and content
-            if isHistoryView {
-                topicStats.isHidden = true
-            } else {
-                topicStats.isHidden = false
-                topicStats.text = thread.stats
-            }
+            topicStats.isHidden = false
+            topicStats.text = thread.stats
 
             // Configure background border for favorites
             if isFavoritesView && thread.hasNewReplies {
