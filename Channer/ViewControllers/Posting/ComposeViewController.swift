@@ -43,6 +43,12 @@ class ComposeViewController: UIViewController {
     private let spoilerSwitch = UISwitch()
     private let spoilerLabel = UILabel()
 
+    // Filename UI
+    private let filenameContainerView = UIView()
+    private let filenameLabel = UILabel()
+    private let filenameField = UITextField()
+    private let randomizeButton = UIButton(type: .system)
+
     private let postButton = UIButton(type: .system)
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
 
@@ -240,10 +246,75 @@ class ComposeViewController: UIViewController {
         spoilerSwitch.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(spoilerSwitch)
 
+        // Filename section
+        setupFilenameSection()
+
         // Activity indicator
         activityIndicator.hidesWhenStopped = true
         activityIndicator.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(activityIndicator)
+    }
+
+    private func setupFilenameSection() {
+        // Container view (hidden by default)
+        filenameContainerView.isHidden = true
+        filenameContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(filenameContainerView)
+
+        // Filename label
+        filenameLabel.text = "Filename:"
+        filenameLabel.font = UIFont.systemFont(ofSize: 14)
+        filenameLabel.textColor = ThemeManager.shared.secondaryTextColor
+        filenameLabel.translatesAutoresizingMaskIntoConstraints = false
+        filenameContainerView.addSubview(filenameLabel)
+
+        // Filename text field
+        filenameField.font = UIFont.systemFont(ofSize: 14)
+        filenameField.textColor = ThemeManager.shared.primaryTextColor
+        filenameField.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        filenameField.layer.cornerRadius = 6
+        filenameField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 8, height: 0))
+        filenameField.leftViewMode = .always
+        filenameField.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 8, height: 0))
+        filenameField.rightViewMode = .always
+        filenameField.placeholder = "Enter filename"
+        filenameField.returnKeyType = .done
+        filenameField.delegate = self
+        filenameField.addTarget(self, action: #selector(filenameFieldChanged), for: .editingChanged)
+        filenameField.translatesAutoresizingMaskIntoConstraints = false
+        filenameContainerView.addSubview(filenameField)
+
+        // Randomize button
+        randomizeButton.setImage(UIImage(systemName: "shuffle"), for: .normal)
+        randomizeButton.setTitle(" Random", for: .normal)
+        randomizeButton.titleLabel?.font = UIFont.systemFont(ofSize: 12)
+        randomizeButton.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        randomizeButton.layer.cornerRadius = 6
+        randomizeButton.addTarget(self, action: #selector(randomizeFilenameTapped), for: .touchUpInside)
+        randomizeButton.translatesAutoresizingMaskIntoConstraints = false
+        filenameContainerView.addSubview(randomizeButton)
+
+        // Constraints for filename section
+        NSLayoutConstraint.activate([
+            filenameContainerView.topAnchor.constraint(equalTo: imagePreviewView.bottomAnchor, constant: 12),
+            filenameContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            filenameContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            filenameContainerView.heightAnchor.constraint(equalToConstant: 36),
+
+            filenameLabel.leadingAnchor.constraint(equalTo: filenameContainerView.leadingAnchor),
+            filenameLabel.centerYAnchor.constraint(equalTo: filenameContainerView.centerYAnchor),
+            filenameLabel.widthAnchor.constraint(equalToConstant: 70),
+
+            filenameField.leadingAnchor.constraint(equalTo: filenameLabel.trailingAnchor, constant: 8),
+            filenameField.centerYAnchor.constraint(equalTo: filenameContainerView.centerYAnchor),
+            filenameField.heightAnchor.constraint(equalToConstant: 32),
+
+            randomizeButton.leadingAnchor.constraint(equalTo: filenameField.trailingAnchor, constant: 8),
+            randomizeButton.trailingAnchor.constraint(equalTo: filenameContainerView.trailingAnchor),
+            randomizeButton.centerYAnchor.constraint(equalTo: filenameContainerView.centerYAnchor),
+            randomizeButton.widthAnchor.constraint(equalToConstant: 80),
+            randomizeButton.heightAnchor.constraint(equalToConstant: 32)
+        ])
     }
 
     private func setupConstraints() {
@@ -309,8 +380,9 @@ class ComposeViewController: UIViewController {
             spoilerSwitch.centerYAnchor.constraint(equalTo: spoilerLabel.centerYAnchor),
             spoilerSwitch.leadingAnchor.constraint(equalTo: spoilerLabel.trailingAnchor, constant: 8),
 
-            // Bottom spacing
-            imagePreviewView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -120),
+            // Bottom spacing (filenameContainerView is placed below the spoiler switch in setupFilenameSection)
+            filenameContainerView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -16),
+            imagePreviewView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -70),
             imageButton.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -16),
 
             // Activity indicator
@@ -463,9 +535,50 @@ class ComposeViewController: UIViewController {
         spoilerLabel.isHidden = true
         spoilerSwitch.isHidden = true
         spoilerSwitch.isOn = false
+        filenameContainerView.isHidden = true
+        filenameField.text = ""
+    }
+
+    @objc private func randomizeFilenameTapped() {
+        let randomName = generateRandomFilename()
+        filenameField.text = randomName
+        updateSelectedImageFilename()
+    }
+
+    @objc private func filenameFieldChanged() {
+        updateSelectedImageFilename()
     }
 
     // MARK: - Helpers
+
+    /// Generate a random filename (8 characters alphanumeric)
+    private func generateRandomFilename() -> String {
+        let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return String((0..<8).map { _ in characters.randomElement()! })
+    }
+
+    /// Update the selectedImage with the current filename from the text field
+    private func updateSelectedImageFilename() {
+        guard let image = selectedImage else { return }
+
+        let newName = filenameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !newName.isEmpty else { return }
+
+        // Get the original extension
+        let originalFilename = image.filename
+        let ext = (originalFilename as NSString).pathExtension
+
+        // Create new filename with original extension
+        let newFilename = ext.isEmpty ? newName : "\(newName).\(ext)"
+
+        // Create updated SelectedImage with new filename
+        selectedImage = SelectedImage(
+            data: image.data,
+            filename: newFilename,
+            mimeType: image.mimeType,
+            thumbnail: image.thumbnail
+        )
+    }
 
     private func handleImageSelection(_ image: SelectedImage?) {
         selectedImage = image
@@ -476,11 +589,19 @@ class ComposeViewController: UIViewController {
             removeImageButton.isHidden = false
             spoilerLabel.isHidden = false
             spoilerSwitch.isHidden = false
+            filenameContainerView.isHidden = false
+
+            // Set the filename field with the current filename (without extension)
+            let filenameWithExt = image.filename
+            let nameWithoutExt = (filenameWithExt as NSString).deletingPathExtension
+            filenameField.text = nameWithoutExt
         } else {
             imagePreviewView.isHidden = true
             removeImageButton.isHidden = true
             spoilerLabel.isHidden = true
             spoilerSwitch.isHidden = true
+            filenameContainerView.isHidden = true
+            filenameField.text = ""
         }
     }
 
@@ -548,6 +669,9 @@ extension ComposeViewController: UITextFieldDelegate {
             }
         } else if textField == subjectField {
             commentTextView.becomeFirstResponder()
+        } else if textField == filenameField {
+            // Dismiss keyboard when done is pressed on filename field
+            textField.resignFirstResponder()
         }
         return true
     }
