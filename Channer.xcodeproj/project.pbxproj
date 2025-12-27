@@ -67,6 +67,8 @@
 		3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */; };
 		3F948296C1FCC681B15A3958 /* ThreadCacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */; };
 		41EBC7A30119EB0BE471464F /* ContentFilterManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC381610AE01474F79CCF131 /* ContentFilterManagerTests.swift */; };
+		17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */; };
+		17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */; };
 		4B777D3D1563F3F2B0ED5C80 /* DownloadItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB08F7BEAA7D678B23601FE5 /* DownloadItem.swift */; };
 		5655ABED6489BBB2B80A4C6F /* DownloadManagerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */; };
 		66C8421B5C76147DE06BEEAB /* MockAuthenticationContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6A30E14407AFCD5A0CC09B /* MockAuthenticationContext.swift */; };
@@ -183,6 +185,8 @@
 		17STAT0012DE9000000000004 /* ChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartViews.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsDashboardViewController.swift; sourceTree = "<group>"; };
 		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
+		17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsManager.swift; sourceTree = "<group>"; };
+		17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsViewController.swift; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
 		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
@@ -250,6 +254,7 @@
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
 				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
+				17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */,
 				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
 				9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */,
 				9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
@@ -389,6 +394,7 @@
 				1781F6452CEEEC7B00CE243D /* boardCVCell.swift */,
 				1781F6462CEEEC7B00CE243D /* boardsCV.swift */,
 				178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */,
+				17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */,
 				1776B0A72CE3079E00B304E7 /* HistoryManager.swift */,
 				179B6B952CDDEC960099D980 /* FilesListVC.swift */,
 				17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */,
@@ -674,6 +680,8 @@
 				177BC7F12CDEC27C000FE370 /* WebMThumbnailCell.swift in Sources */,
 				171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */,
 				171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */,
+				17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */,
+				17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */,
 				9C2E301682B7B21B349D7F28 /* BatchImageDownloadManager.swift in Sources */,
 				9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */,
 				9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */,
