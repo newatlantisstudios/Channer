@@ -21,8 +21,15 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
 
         // Setup Navigation Bar
         title = "Manage Categories"
+
+        // Create checkmark button with white background and black checkmark
+        let paletteConfig = UIImage.SymbolConfiguration(paletteColors: [.black, .white])
+        let sizeConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        let checkmarkConfig = paletteConfig.applying(sizeConfig)
+        let checkmarkImage = UIImage(systemName: "checkmark.circle.fill", withConfiguration: checkmarkConfig)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .done,
+            image: checkmarkImage,
+            style: .plain,
             target: self,
             action: #selector(dismissView)
         )
@@ -165,7 +172,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
             let button = UIButton()
             button.setImage(UIImage(systemName: icon), for: .normal)
             button.tintColor = index == selectedIconIndex ? .systemBlue : .secondaryLabel
-            button.backgroundColor = index == selectedIconIndex ? .systemBlue.withAlphaComponent(0.15) : .clear
+            button.backgroundColor = index == selectedIconIndex ? .white : .clear
             button.layer.cornerRadius = 14
             button.tag = index
             button.addTarget(self, action: #selector(iconButtonTapped(_:)), for: .touchUpInside)
@@ -257,7 +264,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         // Update selection
         for button in iconButtons {
             button.tintColor = button.tag == sender.tag ? .systemBlue : .secondaryLabel
-            button.backgroundColor = button.tag == sender.tag ? .systemBlue.withAlphaComponent(0.15) : .clear
+            button.backgroundColor = button.tag == sender.tag ? .white : .clear
         }
         objc_setAssociatedObject(alert, "selectedIconIndex", sender.tag, .OBJC_ASSOCIATION_RETAIN)
     }
