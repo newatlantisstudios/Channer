@@ -263,12 +263,50 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 }
                             }
 
+                            // Get the latest reply preview from the posts array
+                            var replyPreview = ""
+                            if let posts = json["posts"].array, posts.count > 1 {
+                                // Get the last post (most recent reply)
+                                let latestPost = posts[posts.count - 1]
+                                let hasImage = latestPost["tim"].exists()
+
+                                // Extract and clean the comment text
+                                if let comment = latestPost["com"].string, !comment.isEmpty {
+                                    let cleanedComment = comment
+                                        .replacingOccurrences(of: "<br>", with: " ")
+                                        .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                                        .replacingOccurrences(of: "&quot;", with: "\"")
+                                        .replacingOccurrences(of: "&amp;", with: "&")
+                                        .replacingOccurrences(of: "&lt;", with: "<")
+                                        .replacingOccurrences(of: "&gt;", with: ">")
+                                        .replacingOccurrences(of: "&#039;", with: "'")
+                                        .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                                    if hasImage && cleanedComment.isEmpty {
+                                        replyPreview = "New image reply"
+                                    } else if hasImage {
+                                        // Has both image and text
+                                        let preview = String(cleanedComment.prefix(100))
+                                        replyPreview = "📷 " + preview + (cleanedComment.count > 100 ? "..." : "")
+                                    } else {
+                                        // Text only
+                                        replyPreview = String(cleanedComment.prefix(100)) + (cleanedComment.count > 100 ? "..." : "")
+                                    }
+                                } else if hasImage {
+                                    replyPreview = "New image reply"
+                                } else {
+                                    replyPreview = "New reply"
+                                }
+                            }
+
                             // Add in-app notification
                             NotificationManager.shared.addThreadUpdateNotification(
                                 boardAbv: favorite.boardAbv,
                                 threadNo: favorite.number,
                                 threadTitle: threadTitle,
-                                newReplyCount: newReplies
+                                newReplyCount: newReplies,
+                                replyPreview: replyPreview
                             )
 
                             // Update the app badge count
