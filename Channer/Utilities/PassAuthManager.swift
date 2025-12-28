@@ -28,7 +28,38 @@ class PassAuthManager {
         let message: String?
     }
 
-    private init() {}
+    private init() {
+        setupiCloudObserver()
+        // Try to restore pass_id from iCloud if not available locally
+        restorePassFromiCloud()
+    }
+
+    // MARK: - iCloud Sync
+
+    private func setupiCloudObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudDataChanged),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
+    }
+
+    @objc private func iCloudDataChanged() {
+        // Restore pass credentials when iCloud sync completes
+        restorePassFromiCloud()
+    }
+
+    private func restorePassFromiCloud() {
+        // Only restore if we don't have a local pass_id
+        guard getPassIdCookie() == nil else { return }
+
+        if let cloudPassId = ICloudSyncManager.shared.loadPassCredentials() {
+            UserDefaults.standard.set(cloudPassId, forKey: passIdCookieKey)
+            UserDefaults.standard.set(true, forKey: passEnabledKey)
+            print("Restored pass_id from iCloud")
+        }
+    }
 
     // MARK: - Credential Management
 
@@ -66,6 +97,9 @@ class PassAuthManager {
         KeychainHelper.shared.delete(keychainPINKey)
         UserDefaults.standard.removeObject(forKey: passIdCookieKey)
         UserDefaults.standard.set(false, forKey: passEnabledKey)
+
+        // Clear from iCloud
+        ICloudSyncManager.shared.clearPassCredentials()
 
         // Clear cookies from shared cookie storage
         if let cookies = HTTPCookieStorage.shared.cookies(for: URL(string: "https://sys.4chan.org")!) {
@@ -236,8 +270,10 @@ class PassAuthManager {
                 UserDefaults.standard.set(cookie.value, forKey: passIdCookieKey)
                 // Also add to shared cookie storage for future requests
                 HTTPCookieStorage.shared.setCookie(cookie)
+                // Sync to iCloud for cross-device access
+                ICloudSyncManager.shared.savePassCredentials(passId: cookie.value)
                 foundPassId = true
-                print("  -> Saved pass_id cookie")
+                print("  -> Saved pass_id cookie (synced to iCloud)")
             } else if cookie.name == "pass_enabled" {
                 UserDefaults.standard.set(cookie.value == "1", forKey: passEnabledKey)
                 HTTPCookieStorage.shared.setCookie(cookie)
