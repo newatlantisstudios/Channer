@@ -21,8 +21,13 @@ class ICloudSyncManager {
         "channer_offline_reading_enabled",
         "channer_launch_with_startup_board",
         "channer_boards_auto_refresh_interval",
-        "channer_threads_auto_refresh_interval"
+        "channer_threads_auto_refresh_interval",
+        "channer_hidden_boards"
     ]
+
+    // Keys for complex data sync (Codable objects)
+    private let statisticsKey = "channer_user_statistics"
+    private let passCredentialsKey = "channer_pass_credentials"
     
     // Last sync date tracking
     private(set) var lastSyncDate: Date? {
@@ -268,36 +273,99 @@ class ICloudSyncManager {
     /// Migrates local data to iCloud if needed
     func migrateLocalDataToiCloud() {
         guard isICloudAvailable && isSyncEnabled else { return }
-        
+
         // Check if we've already migrated
         let hasMigrated = UserDefaults.standard.bool(forKey: "HasMigratedToiCloud")
         if hasMigrated { return }
-        
+
         // Migrate favorites
         if let localFavoritesData = UserDefaults.standard.data(forKey: "favorites"),
            iCloudStore.data(forKey: "favorites") == nil {
             iCloudStore.set(localFavoritesData, forKey: "favorites")
         }
-        
+
         // Migrate history
         if let localHistoryData = UserDefaults.standard.data(forKey: "threadHistory"),
            iCloudStore.data(forKey: "threadHistory") == nil {
             iCloudStore.set(localHistoryData, forKey: "threadHistory")
         }
-        
+
         // Migrate categories
         if let localCategoriesData = UserDefaults.standard.data(forKey: "bookmarkCategories"),
            iCloudStore.data(forKey: "bookmarkCategories") == nil {
             iCloudStore.set(localCategoriesData, forKey: "bookmarkCategories")
         }
-        
+
+        // Migrate statistics
+        if let localStatisticsData = UserDefaults.standard.data(forKey: statisticsKey),
+           iCloudStore.data(forKey: statisticsKey) == nil {
+            iCloudStore.set(localStatisticsData, forKey: statisticsKey)
+        }
+
+        // Migrate hidden boards
+        if let localHiddenBoards = UserDefaults.standard.array(forKey: "channer_hidden_boards"),
+           iCloudStore.array(forKey: "channer_hidden_boards") == nil {
+            iCloudStore.set(localHiddenBoards, forKey: "channer_hidden_boards")
+        }
+
+        // Migrate pass credentials (pass_id cookie)
+        if let localPassId = UserDefaults.standard.string(forKey: "channer_pass_id_cookie"),
+           iCloudStore.string(forKey: passCredentialsKey) == nil {
+            iCloudStore.set(localPassId, forKey: passCredentialsKey)
+        }
+
         // Mark as migrated
         UserDefaults.standard.set(true, forKey: "HasMigratedToiCloud")
         iCloudStore.synchronize()
     }
     
+    // MARK: - Statistics Sync
+
+    /// Saves statistics to iCloud
+    func saveStatistics(_ data: Data) {
+        guard isICloudAvailable && isSyncEnabled else {
+            UserDefaults.standard.set(data, forKey: statisticsKey)
+            return
+        }
+        iCloudStore.set(data, forKey: statisticsKey)
+        UserDefaults.standard.set(data, forKey: statisticsKey)
+        iCloudStore.synchronize()
+    }
+
+    /// Loads statistics from iCloud (or local fallback)
+    func loadStatistics() -> Data? {
+        if isICloudAvailable && isSyncEnabled {
+            if let cloudData = iCloudStore.data(forKey: statisticsKey) {
+                return cloudData
+            }
+        }
+        return UserDefaults.standard.data(forKey: statisticsKey)
+    }
+
+    // MARK: - Pass Credentials Sync
+
+    /// Saves pass_id cookie to iCloud for sync across devices
+    func savePassCredentials(passId: String) {
+        guard isICloudAvailable && isSyncEnabled else { return }
+        iCloudStore.set(passId, forKey: passCredentialsKey)
+        iCloudStore.synchronize()
+    }
+
+    /// Loads pass_id cookie from iCloud
+    func loadPassCredentials() -> String? {
+        guard isICloudAvailable && isSyncEnabled else { return nil }
+        return iCloudStore.string(forKey: passCredentialsKey)
+    }
+
+    /// Clears pass credentials from iCloud
+    func clearPassCredentials() {
+        guard isICloudAvailable && isSyncEnabled else { return }
+        iCloudStore.removeObject(forKey: passCredentialsKey)
+        iCloudStore.synchronize()
+    }
+
     // MARK: - Conflict Resolution
-    
+
     /// Merges local and iCloud data for favorites
     func mergeFavorites(local: [ThreadData], cloud: [ThreadData]) -> [ThreadData] {
         var merged = cloud

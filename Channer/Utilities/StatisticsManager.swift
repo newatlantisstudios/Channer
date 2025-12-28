@@ -104,6 +104,10 @@ class StatisticsManager {
         statistics = UserStatistics()
         loadStatistics()
         setupObservers()
+        // Migrate local data to iCloud if needed and sync is enabled
+        if UserDefaults.standard.bool(forKey: "channer_icloud_sync_enabled") {
+            ICloudSyncManager.shared.migrateLocalDataToiCloud()
+        }
     }
 
     // MARK: - Setup
@@ -122,6 +126,22 @@ class StatisticsManager {
             name: UIApplication.didBecomeActiveNotification,
             object: nil
         )
+
+        // Listen for iCloud sync completion to reload data
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudDataChanged),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
+    }
+
+    @objc private func iCloudDataChanged() {
+        // Reload statistics when iCloud sync completes
+        loadStatistics()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: StatisticsManager.statisticsUpdatedNotification, object: nil)
+        }
     }
 
     @objc private func appWillResignActive() {
@@ -136,7 +156,8 @@ class StatisticsManager {
 
     // MARK: - Persistence
     private func loadStatistics() {
-        if let data = UserDefaults.standard.data(forKey: statisticsKey),
+        // Try to load from iCloud first, then fall back to local storage
+        if let data = ICloudSyncManager.shared.loadStatistics(),
            let loadedStats = try? JSONDecoder().decode(UserStatistics.self, from: data) {
             statistics = loadedStats
             print("Loaded statistics: \(statistics.totalThreadsViewed) threads viewed, \(statistics.totalBoardsVisited) boards visited")
@@ -151,7 +172,8 @@ class StatisticsManager {
             guard let self = self else { return }
             self.statistics.lastUpdated = Date()
             if let data = try? JSONEncoder().encode(self.statistics) {
-                UserDefaults.standard.set(data, forKey: self.statisticsKey)
+                // Save to both iCloud and local storage
+                ICloudSyncManager.shared.saveStatistics(data)
             }
         }
     }
