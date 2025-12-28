@@ -77,10 +77,12 @@ class settings: UIViewController {
     private let preloadVideosLabel = UILabel()
     private let preloadVideosToggle = UISwitch()
 
-    // Debug UI
+    // Debug UI (only in Debug builds)
+    #if DEBUG
     private let debugView = UIView()
     private let debugLabel = UILabel()
     private let debugButton = UIButton(type: .system)
+    #endif
 
     // Constants
     private let userDefaultsKey = "defaultBoard"
@@ -619,8 +621,10 @@ class settings: UIViewController {
         // Setup Preload Videos view
         setupPreloadVideosView()
 
-        // Setup Debug view
+        #if DEBUG
+        // Setup Debug view (only in Debug builds)
         setupDebugView()
+        #endif
 
         setupConstraints()
     }
@@ -1327,6 +1331,7 @@ class settings: UIViewController {
         ])
     }
 
+    #if DEBUG
     private func setupDebugView() {
         // Set up the debug view
         debugView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -1361,6 +1366,7 @@ class settings: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
+    #endif
 
     private func setupBoardsDisplayModeView() {
         // Create the boards display mode view
@@ -1729,8 +1735,11 @@ class settings: UIViewController {
                 // Keyboard Shortcuts Toggle
                 keyboardShortcutsToggle.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
                 keyboardShortcutsToggle.trailingAnchor.constraint(equalTo: keyboardShortcutsView.trailingAnchor, constant: -20),
+            ])
 
-                // Debug View (after keyboard shortcuts on iPad)
+            #if DEBUG
+            // Debug View (after keyboard shortcuts on iPad)
+            NSLayoutConstraint.activate([
                 debugView.topAnchor.constraint(equalTo: keyboardShortcutsView.bottomAnchor, constant: 16),
                 debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -1745,7 +1754,14 @@ class settings: UIViewController {
                 // Bottom constraint for scroll content size
                 debugView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
             ])
+            #else
+            // Bottom constraint for scroll content size (Release build)
+            NSLayoutConstraint.activate([
+                keyboardShortcutsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            ])
+            #endif
         } else {
+            #if DEBUG
             // For iPhone, debug view goes after preload videos view
             NSLayoutConstraint.activate([
                 // Debug View
@@ -1763,6 +1779,12 @@ class settings: UIViewController {
                 // Bottom constraint for scroll content size
                 debugView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
             ])
+            #else
+            // Bottom constraint for scroll content size (Release build)
+            NSLayoutConstraint.activate([
+                preloadVideosView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            ])
+            #endif
         }
     }
     
