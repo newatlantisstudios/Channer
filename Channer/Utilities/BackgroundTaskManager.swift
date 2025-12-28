@@ -316,7 +316,8 @@ class BackgroundTaskManager {
             "boardAbv": boardAbv
         ]
 
-        let identifier = "thread-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        // Use stable identifier so iOS deduplicates notifications for the same thread
+        let identifier = "thread-\(boardAbv)-\(threadNumber)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
         UNUserNotificationCenter.current().add(request) { error in
@@ -340,7 +341,8 @@ class BackgroundTaskManager {
             "isWatchedPostReply": true
         ]
 
-        let identifier = "watched-\(boardAbv)-\(threadNo)-\(Date().timeIntervalSince1970)"
+        // Use stable identifier so iOS deduplicates notifications for the same thread
+        let identifier = "watched-\(boardAbv)-\(threadNo)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
         UNUserNotificationCenter.current().add(request) { error in

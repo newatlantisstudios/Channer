@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 
 class DebugViewController: UIViewController {
 
@@ -15,6 +16,10 @@ class DebugViewController: UIViewController {
     private let clearNotificationsView = UIView()
     private let clearNotificationsLabel = UILabel()
     private let clearNotificationsButton = UIButton(type: .system)
+
+    private let testDuplicateView = UIView()
+    private let testDuplicateLabel = UILabel()
+    private let testDuplicateButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -79,6 +84,24 @@ class DebugViewController: UIViewController {
         clearNotificationsButton.addTarget(self, action: #selector(clearNotificationsTapped), for: .touchUpInside)
         clearNotificationsView.addSubview(clearNotificationsButton)
 
+        // Test Duplicate Notifications View (PR #38 test)
+        testDuplicateView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        testDuplicateView.layer.cornerRadius = 10
+        testDuplicateView.clipsToBounds = true
+        testDuplicateView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(testDuplicateView)
+
+        testDuplicateLabel.text = "Test Duplicate Push (PR #38)"
+        testDuplicateLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        testDuplicateLabel.translatesAutoresizingMaskIntoConstraints = false
+        testDuplicateView.addSubview(testDuplicateLabel)
+
+        testDuplicateButton.setTitle("Send 3x", for: .normal)
+        testDuplicateButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        testDuplicateButton.translatesAutoresizingMaskIntoConstraints = false
+        testDuplicateButton.addTarget(self, action: #selector(testDuplicateNotificationsTapped), for: .touchUpInside)
+        testDuplicateView.addSubview(testDuplicateButton)
+
         setupConstraints()
     }
 
@@ -125,8 +148,20 @@ class DebugViewController: UIViewController {
             clearNotificationsButton.trailingAnchor.constraint(equalTo: clearNotificationsView.trailingAnchor, constant: -16),
             clearNotificationsButton.centerYAnchor.constraint(equalTo: clearNotificationsView.centerYAnchor),
 
+            // Test Duplicate View
+            testDuplicateView.topAnchor.constraint(equalTo: clearNotificationsView.bottomAnchor, constant: 2),
+            testDuplicateView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            testDuplicateView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            testDuplicateView.heightAnchor.constraint(equalToConstant: 44),
+
+            testDuplicateLabel.leadingAnchor.constraint(equalTo: testDuplicateView.leadingAnchor, constant: 16),
+            testDuplicateLabel.centerYAnchor.constraint(equalTo: testDuplicateView.centerYAnchor),
+
+            testDuplicateButton.trailingAnchor.constraint(equalTo: testDuplicateView.trailingAnchor, constant: -16),
+            testDuplicateButton.centerYAnchor.constraint(equalTo: testDuplicateView.centerYAnchor),
+
             // Bottom constraint for scroll content size
-            clearNotificationsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+            testDuplicateView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
         ])
     }
 
@@ -186,5 +221,76 @@ class DebugViewController: UIViewController {
         })
 
         present(alert, animated: true)
+    }
+
+    @objc private func testDuplicateNotificationsTapped() {
+        // Test PR #38: Send 3 iOS push notifications with the same stable identifier
+        // If the fix works, only 1 notification should appear in notification center
+
+        // Use stable identifier (same format as the fix in PR #38)
+        let testBoard = "g"
+        let testThread = "12345678"
+        let identifier = "thread-\(testBoard)-\(testThread)"
+
+        // First, remove any existing notification with this identifier
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+
+        // Send 3 notifications with delays to ensure proper deduplication test
+        for i in 1...3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i - 1) * 0.5) { [weak self] in
+                let content = UNMutableNotificationContent()
+                content.title = "Test Thread Update"
+                content.body = "Notification #\(i) - Only the last one should remain in notification center"
+                content.sound = .default
+
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+                UNUserNotificationCenter.current().add(request) { error in
+                    if let error = error {
+                        print("Debug: Failed to send test notification #\(i): \(error)")
+                    } else {
+                        print("Debug: Sent test notification #\(i) with identifier: \(identifier)")
+                    }
+                }
+
+                // After the last notification, check the notification center count
+                if i == 3 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self?.checkNotificationCount(identifier: identifier)
+                    }
+                }
+            }
+        }
+
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        // Show explanation
+        let alert = UIAlertController(
+            title: "Sending 3 Notifications",
+            message: "Sending 3 notifications with 0.5s delays using identifier:\n\(identifier)\n\nYou may see 3 banners, but check the notification center - there should be only 1.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func checkNotificationCount(identifier: String) {
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] notifications in
+            let matchingCount = notifications.filter { $0.request.identifier == identifier }.count
+            let totalCount = notifications.count
+
+            DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: "Notification Center Check",
+                    message: "Notifications with identifier '\(identifier)': \(matchingCount)\nTotal notifications: \(totalCount)\n\nExpected: 1 (deduplication working)",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self?.present(alert, animated: true)
+            }
+        }
     }
 }

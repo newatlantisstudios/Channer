@@ -3129,7 +3129,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             "type": "watched_post_reply"
         ]
 
-        let identifier = "watched-\(boardAbv)-\(threadNumber)-\(Date().timeIntervalSince1970)"
+        // Use stable identifier so iOS deduplicates notifications for the same thread
+        let identifier = "watched-\(boardAbv)-\(threadNumber)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
 
         UNUserNotificationCenter.current().add(request) { error in
