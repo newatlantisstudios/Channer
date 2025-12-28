@@ -256,6 +256,7 @@ class NotificationsViewController: UITableViewController {
         let threadVC = threadRepliesTV()
         threadVC.boardAbv = notification.boardAbv
         threadVC.threadNumber = notification.threadNo
+        threadVC.scrollToPostNumber = notification.replyNo
         threadVC.title = "/\(notification.boardAbv)/ - Thread \(notification.threadNo)"
 
         // Dismiss and navigate

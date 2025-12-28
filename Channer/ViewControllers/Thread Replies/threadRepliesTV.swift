@@ -244,6 +244,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var onViewReady: (() -> Void)?
     var boardAbv = ""
     var threadNumber = ""
+    /// Post number to scroll to after thread loads (used for notification navigation)
+    var scrollToPostNumber: String?
     let cellIdentifier = "threadRepliesCell"
     private var showSpoilers = false
     private var spoilerButton: UIBarButtonItem?
@@ -845,6 +847,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         generator.impactOccurred()
     }
 
+    /// Scrolls to a specific post if scrollToPostNumber is set
+    /// Called after thread data is loaded to navigate to a specific reply (e.g., from notifications)
+    private func scrollToPostIfNeeded() {
+        guard let postNumber = scrollToPostNumber else { return }
+
+        // Find the index of the post in the thread
+        if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
+            let indexPath = IndexPath(row: index, section: 0)
+
+            // Use a slight delay to ensure the table view layout is complete
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self = self else { return }
+                self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+
+                // Briefly highlight the cell to draw attention
+                if let cell = self.tableView.cellForRow(at: indexPath) {
+                    UIView.animate(withDuration: 0.3, animations: {
+                        cell.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.3)
+                    }) { _ in
+                        UIView.animate(withDuration: 0.5, delay: 0.5) {
+                            cell.backgroundColor = ThemeManager.shared.backgroundColor
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clear the scroll target after use
+        scrollToPostNumber = nil
+    }
+
     // MARK: - Navigation Item Setup Methods
     /// Methods to configure navigation bar items and actions
     private func setupNavigationItems() {
@@ -1378,6 +1411,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                             self.isLoading = false
                             self.loadingIndicator.stopAnimating()
                             self.tableView.reloadData()
+                            self.scrollToPostIfNeeded()
                             self.onViewReady?()
                         }
                     } catch {
@@ -1427,6 +1461,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     self.isLoading = false
                     self.loadingIndicator.stopAnimating()
                     self.debugReloadData(context: "Preload complete")
+                    self.scrollToPostIfNeeded()
                     self.onViewReady?()
                 }
             } catch {
@@ -1470,6 +1505,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     guard let self = self else { return }
                     self.isLoading = false
                     self.tableView.reloadData()
+                    self.scrollToPostIfNeeded()
                 }
             } catch {
                 print("JSON parsing error: \(error)")
