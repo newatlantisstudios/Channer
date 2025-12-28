@@ -93,7 +93,6 @@ class BoardsService {
                     // cache
                     UserDefaults.standard.set(cachePayload, forKey: self.cachedBoardsKey)
                     UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: self.cachedBoardsDateKey)
-                    UserDefaults.standard.synchronize()
                     completion?()
                 }
             } catch {

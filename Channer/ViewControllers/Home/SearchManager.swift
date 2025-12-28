@@ -132,7 +132,6 @@ class SearchManager {
         if let encoded = try? JSONEncoder().encode(searchHistory) {
             if isICloudAvailable() {
                 iCloudStore.set(encoded, forKey: searchHistoryKey)
-                iCloudStore.synchronize()
             } else {
                 UserDefaults.standard.set(encoded, forKey: searchHistoryKey)
             }
@@ -157,7 +156,6 @@ class SearchManager {
         if let encoded = try? JSONEncoder().encode(savedSearches) {
             if isICloudAvailable() {
                 iCloudStore.set(encoded, forKey: savedSearchesKey)
-                iCloudStore.synchronize()
             } else {
                 UserDefaults.standard.set(encoded, forKey: savedSearchesKey)
             }

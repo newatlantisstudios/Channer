@@ -35,9 +35,15 @@ class FavoritesManager {
     // MARK: - Category Properties
     private var categories: [BookmarkCategory] = []
 
+    // MARK: - Performance: In-memory cache for favorites
+    private var favoritesCache: [ThreadData]?
+    private var favoriteNumbersCache: Set<String>?
+
     init() {
         loadCategories()
         setupiCloudObserver()
+        // Pre-load favorites cache
+        _ = loadFavorites()
         // Migrate local data to iCloud if needed and sync is enabled
         if UserDefaults.standard.bool(forKey: "channer_icloud_sync_enabled") {
             ICloudSyncManager.shared.migrateLocalDataToiCloud()
@@ -55,37 +61,50 @@ class FavoritesManager {
     }
     
     @objc private func iCloudDataChanged() {
-        // Reload data when iCloud sync completes
+        // Invalidate cache and reload data when iCloud sync completes
+        invalidateCache()
         loadCategories()
         NotificationCenter.default.post(name: Notification.Name("FavoritesUpdated"), object: nil)
+    }
+
+    /// Invalidates the in-memory cache, forcing next load to read from storage
+    private func invalidateCache() {
+        favoritesCache = nil
+        favoriteNumbersCache = nil
     }
     
     // MARK: - Persistence Methods
     func loadFavorites() -> [ThreadData] {
-        print("=== loadFavorites called ===")
-        
+        // Performance: Return cached favorites if available
+        if let cached = favoritesCache {
+            return cached
+        }
+
+        print("=== loadFavorites called (cache miss) ===")
+
         // Load from iCloud/local storage using the sync manager
         let cloudFavorites = ICloudSyncManager.shared.load([ThreadData].self, forKey: favoritesKey) ?? []
-        
+
         print("Loaded \(cloudFavorites.count) favorites")
-        for (index, favorite) in cloudFavorites.enumerated() {
-            print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
-        }
-        
+
+        // Update cache
+        favoritesCache = cloudFavorites
+        favoriteNumbersCache = Set(cloudFavorites.map { $0.number })
+
         return cloudFavorites
     }
 
     func saveFavorites(_ favorites: [ThreadData]) {
         print("=== saveFavorites called ===")
         print("Saving \(favorites.count) favorites")
-        
-        for (index, favorite) in favorites.enumerated() {
-            print("Favorite \(index): Thread \(favorite.number) - Category: \(favorite.categoryId ?? "nil")")
-        }
-        
+
+        // Update cache immediately for fast reads
+        favoritesCache = favorites
+        favoriteNumbersCache = Set(favorites.map { $0.number })
+
         // Save using the sync manager
         let success = ICloudSyncManager.shared.save(favorites, forKey: favoritesKey)
-        
+
         if success {
             print("Favorites successfully saved.")
         } else {
@@ -140,6 +159,11 @@ class FavoritesManager {
     }
     
     func isFavorited(threadNumber: String) -> Bool {
+        // Performance: Use Set cache for O(1) lookup
+        if let cachedNumbers = favoriteNumbersCache {
+            return cachedNumbers.contains(threadNumber)
+        }
+        // Fallback: load and check (will populate cache)
         return loadFavorites().contains { $0.number == threadNumber }
     }
     

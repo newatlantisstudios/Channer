@@ -148,7 +148,6 @@ class ICloudSyncManager {
         do {
             let encoded = try JSONEncoder().encode(object)
             iCloudStore.set(encoded, forKey: key)
-            iCloudStore.synchronize()
             return true
         } catch {
             print("Failed to encode data for iCloud: \(error)")
@@ -223,10 +222,8 @@ class ICloudSyncManager {
     /// Syncs settings from iCloud to local
     private func syncFromiCloud() {
         guard isICloudAvailable && isSyncEnabled else { return }
-        
+
         syncQueue.async {
-            self.iCloudStore.synchronize()
-            
             for key in self.settingsKeys {
                 if let iCloudValue = self.iCloudStore.object(forKey: key) {
                     // Special handling for theme data
@@ -264,8 +261,6 @@ class ICloudSyncManager {
                 iCloudStore.set(localValue, forKey: key)
             }
         }
-        
-        iCloudStore.synchronize()
     }
     
     // MARK: - Data Migration
@@ -316,9 +311,8 @@ class ICloudSyncManager {
 
         // Mark as migrated
         UserDefaults.standard.set(true, forKey: "HasMigratedToiCloud")
-        iCloudStore.synchronize()
     }
-    
+
     // MARK: - Statistics Sync
 
     /// Saves statistics to iCloud
@@ -329,7 +323,6 @@ class ICloudSyncManager {
         }
         iCloudStore.set(data, forKey: statisticsKey)
         UserDefaults.standard.set(data, forKey: statisticsKey)
-        iCloudStore.synchronize()
     }
 
     /// Loads statistics from iCloud (or local fallback)
@@ -348,7 +341,6 @@ class ICloudSyncManager {
     func savePassCredentials(passId: String) {
         guard isICloudAvailable && isSyncEnabled else { return }
         iCloudStore.set(passId, forKey: passCredentialsKey)
-        iCloudStore.synchronize()
     }
 
     /// Loads pass_id cookie from iCloud
@@ -361,7 +353,6 @@ class ICloudSyncManager {
     func clearPassCredentials() {
         guard isICloudAvailable && isSyncEnabled else { return }
         iCloudStore.removeObject(forKey: passCredentialsKey)
-        iCloudStore.synchronize()
     }
 
     // MARK: - Conflict Resolution

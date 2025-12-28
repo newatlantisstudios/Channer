@@ -144,12 +144,10 @@ class HiddenBoardsManager {
     private func saveHiddenBoards() {
         let boardsArray = Array(hiddenBoardCodes)
         UserDefaults.standard.set(boardsArray, forKey: hiddenBoardsKey)
-        UserDefaults.standard.synchronize()
 
         // Also sync to iCloud if available
         if ICloudSyncManager.shared.isICloudAvailable {
             NSUbiquitousKeyValueStore.default.set(boardsArray, forKey: hiddenBoardsKey)
-            NSUbiquitousKeyValueStore.default.synchronize()
         }
     }
 

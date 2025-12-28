@@ -644,8 +644,7 @@ class settings: UIViewController {
                         // Authentication successful, allow the change
                         sender.isOn = false
                         UserDefaults.standard.set(false, forKey: self?.faceIDEnabledKey ?? "")
-                        UserDefaults.standard.synchronize()
-                        print("FaceID toggle changed to: false after authentication, UserDefaults synchronized")
+                        print("FaceID toggle changed to: false after authentication")
                     } else {
                         // Authentication failed, keep toggle on
                         sender.isOn = true
@@ -660,8 +659,7 @@ class settings: UIViewController {
         } else {
             // Turning ON FaceID or no change needed, proceed normally
             UserDefaults.standard.set(sender.isOn, forKey: faceIDEnabledKey)
-            UserDefaults.standard.synchronize()
-            print("FaceID toggle changed to: \(sender.isOn), UserDefaults synchronized")
+            print("FaceID toggle changed to: \(sender.isOn)")
             
             // Provide haptic feedback
             let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -697,8 +695,7 @@ class settings: UIViewController {
     
     @objc private func notificationsToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: notificationsEnabledKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        print("Notifications toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        print("Notifications toggle changed to: \(sender.isOn)")
         
         // Request notification permission if being turned on
         if sender.isOn {
@@ -729,12 +726,11 @@ class settings: UIViewController {
     
     @objc private func offlineReadingToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: offlineReadingEnabledKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        
+
         // Update ThreadCacheManager's setting as well
         ThreadCacheManager.shared.setOfflineReadingEnabled(sender.isOn)
-        
-        print("Offline Reading toggle changed to: \(sender.isOn), UserDefaults synchronized")
+
+        print("Offline Reading toggle changed to: \(sender.isOn)")
         
         if sender.isOn {
             // Show loading alert
@@ -787,8 +783,7 @@ class settings: UIViewController {
     
     @objc private func launchWithStartupBoardToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: launchWithStartupBoardKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        print("Launch with startup board toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        print("Launch with startup board toggle changed to: \(sender.isOn)")
         
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -797,8 +792,7 @@ class settings: UIViewController {
     
     @objc private func iCloudSyncToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: iCloudSyncEnabledKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        print("iCloud Sync toggle changed to: \(sender.isOn), UserDefaults synchronized")
+        print("iCloud Sync toggle changed to: \(sender.isOn)")
         
         // Update iCloud sync status immediately
         updateiCloudStatusLabel()
@@ -1118,7 +1112,6 @@ class settings: UIViewController {
 
     @objc private func keyboardShortcutsToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: keyboardShortcutsEnabledKey)
-        UserDefaults.standard.synchronize() // Force save immediately
         // Toggle notification for keyboard shortcuts across the app
         NotificationCenter.default.post(name: NSNotification.Name("KeyboardShortcutsToggled"), object: nil, userInfo: ["enabled": sender.isOn])
         
@@ -1137,8 +1130,7 @@ class settings: UIViewController {
     
     @objc private func highQualityThumbnailsToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: highQualityThumbnailsKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        
+
         // Show confirmation alert
         let title = sender.isOn ? "High-Quality Thumbnails Enabled" : "High-Quality Thumbnails Disabled"
         let message = sender.isOn ? "Thread thumbnails will now display in high quality. This may use more bandwidth." : "Thread thumbnails will now display in standard quality."
@@ -1154,8 +1146,7 @@ class settings: UIViewController {
     
     @objc private func preloadVideosToggleChanged(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: preloadVideosKey)
-        UserDefaults.standard.synchronize() // Force save immediately
-        
+
         // Show confirmation alert
         let title = sender.isOn ? "Video Preloading Enabled" : "Video Preloading Disabled"
         let message = sender.isOn ? "Videos in galleries will automatically load and play. This may use more data." : "Videos in galleries will not automatically load."
@@ -1171,7 +1162,6 @@ class settings: UIViewController {
 
     @objc private func newPostBehaviorChanged(_ sender: UISegmentedControl) {
         UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: newPostBehaviorKey)
-        UserDefaults.standard.synchronize()
 
         // Show confirmation with description of selected behavior
         let titles = ["Jump Button", "Auto-scroll", "Do Nothing"]
@@ -1440,7 +1430,6 @@ class settings: UIViewController {
         print("DEBUG settings: New value = \(sender.selectedSegmentIndex)")
 
         UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: boardsDisplayModeKey)
-        UserDefaults.standard.synchronize() // Force save immediately
 
         // Verify the save
         let savedValue = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)

@@ -216,7 +216,6 @@ class ThreadCacheManager {
             if isICloudAvailable() {
                 print("Saving cached threads to iCloud")
                 iCloudStore.set(encodedData, forKey: threadCacheKey)
-                iCloudStore.synchronize()
             } else {
                 print("Saving cached threads to local storage")
                 UserDefaults.standard.set(encodedData, forKey: threadCacheKey)

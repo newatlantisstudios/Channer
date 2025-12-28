@@ -56,7 +56,6 @@ class ContentFilterManager {
     /// Sets whether content filtering is enabled
     func setFilteringEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: filterEnabledKey)
-        UserDefaults.standard.synchronize()
     }
 
     /// Gets all active legacy filters
@@ -76,7 +75,6 @@ class ContentFilterManager {
         guard !filters.contains(text) else { return false }
         filters.append(text)
         UserDefaults.standard.set(filters, forKey: keywordFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -87,7 +85,6 @@ class ContentFilterManager {
         guard let index = filters.firstIndex(of: text) else { return false }
         filters.remove(at: index)
         UserDefaults.standard.set(filters, forKey: keywordFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -98,7 +95,6 @@ class ContentFilterManager {
         guard !filters.contains(text) else { return false }
         filters.append(text)
         UserDefaults.standard.set(filters, forKey: posterFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -109,7 +105,6 @@ class ContentFilterManager {
         guard let index = filters.firstIndex(of: text) else { return false }
         filters.remove(at: index)
         UserDefaults.standard.set(filters, forKey: posterFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -120,7 +115,6 @@ class ContentFilterManager {
         guard !filters.contains(text) else { return false }
         filters.append(text)
         UserDefaults.standard.set(filters, forKey: imageFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -131,7 +125,6 @@ class ContentFilterManager {
         guard let index = filters.firstIndex(of: text) else { return false }
         filters.remove(at: index)
         UserDefaults.standard.set(filters, forKey: imageFiltersKey)
-        UserDefaults.standard.synchronize()
         return true
     }
 
@@ -139,17 +132,14 @@ class ContentFilterManager {
 
     func syncKeywordsFromICloud(_ keywords: [String]) {
         UserDefaults.standard.set(keywords, forKey: keywordFiltersKey)
-        UserDefaults.standard.synchronize()
     }
 
     func syncPostersFromICloud(_ posters: [String]) {
         UserDefaults.standard.set(posters, forKey: posterFiltersKey)
-        UserDefaults.standard.synchronize()
     }
 
     func syncImagesFromICloud(_ images: [String]) {
         UserDefaults.standard.set(images, forKey: imageFiltersKey)
-        UserDefaults.standard.synchronize()
     }
 
     // MARK: - Advanced Filtering Methods
@@ -162,7 +152,6 @@ class ContentFilterManager {
     /// Sets whether advanced filtering is enabled
     func setAdvancedFilteringEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: advancedFilterEnabledKey)
-        UserDefaults.standard.synchronize()
     }
 
     /// Gets all advanced filters
@@ -374,7 +363,6 @@ class ContentFilterManager {
         do {
             let data = try JSONEncoder().encode(advancedFilters)
             UserDefaults.standard.set(data, forKey: advancedFiltersKey)
-            UserDefaults.standard.synchronize()
         } catch {
             print("Failed to encode advanced filters: \(error)")
         }

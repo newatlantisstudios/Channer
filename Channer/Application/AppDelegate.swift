@@ -70,42 +70,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let faceIDKey = "channer_faceID_authentication_enabled"
         if UserDefaults.standard.object(forKey: faceIDKey) == nil {
             UserDefaults.standard.set(true, forKey: faceIDKey)
-            UserDefaults.standard.synchronize()
         }
-        
+
         // Set default value for keyboard shortcuts if it doesn't exist
         let keyboardShortcutsKey = "keyboardShortcutsEnabled"
         if UserDefaults.standard.object(forKey: keyboardShortcutsKey) == nil {
             UserDefaults.standard.set(true, forKey: keyboardShortcutsKey)
-            UserDefaults.standard.synchronize()
         }
-        
+
         // Set default value for notification preferences if it doesn't exist
         let notificationsEnabledKey = "channer_notifications_enabled"
         if UserDefaults.standard.object(forKey: notificationsEnabledKey) == nil {
             UserDefaults.standard.set(true, forKey: notificationsEnabledKey)
-            UserDefaults.standard.synchronize()
         }
-        
+
         // Set default value for offline reading if it doesn't exist
         let offlineReadingEnabledKey = "channer_offline_reading_enabled"
         if UserDefaults.standard.object(forKey: offlineReadingEnabledKey) == nil {
             UserDefaults.standard.set(false, forKey: offlineReadingEnabledKey)
-            UserDefaults.standard.synchronize()
         }
-        
+
         // Set default value for launch with startup board if it doesn't exist
         let launchWithStartupBoardKey = "channer_launch_with_startup_board"
         if UserDefaults.standard.object(forKey: launchWithStartupBoardKey) == nil {
             UserDefaults.standard.set(false, forKey: launchWithStartupBoardKey)
-            UserDefaults.standard.synchronize()
         }
-        
+
         // Set default value for boards display mode if it doesn't exist
         let boardsDisplayModeKey = "channer_boards_display_mode"
         if UserDefaults.standard.object(forKey: boardsDisplayModeKey) == nil {
             UserDefaults.standard.set(0, forKey: boardsDisplayModeKey) // Default to grid view (0)
-            UserDefaults.standard.synchronize()
             print("Initialized boards display mode to grid view (0)")
         } else {
             let mode = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)
@@ -128,7 +122,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if let currentTheme = UserDefaults.standard.string(forKey: themeKey), currentTheme == "oled_black" {
             // Convert to Dark Purple theme instead
             UserDefaults.standard.set("dark_purple", forKey: themeKey)
-            UserDefaults.standard.synchronize()
             print("Converted user from removed OLED Black theme to Dark Purple theme")
         }
         
@@ -629,10 +622,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             
             print("Migrated \(oldFilters.count) content filters to new ContentFilterManager")
-            
+
             // Mark as migrated
             UserDefaults.standard.set(true, forKey: migrationKey)
-            UserDefaults.standard.synchronize()
         }
     }
     
