@@ -249,14 +249,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     let cellIdentifier = "threadRepliesCell"
     private var showSpoilers = false
     private var spoilerButton: UIBarButtonItem?
-    private var favoriteButton: UIBarButtonItem?
     private var originalTexts: [String] = []
     private var isLoading = true {
         didSet {
             updateLoadingUI()
         }
     }
-    private var isThreadFavorited = false
     private var favorites: [String: [String: Any]] = [:] // Store favorites as [threadNumber: threadData]
     
     // MARK: - Search Properties
@@ -883,22 +881,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Navigation Item Setup Methods
     /// Methods to configure navigation bar items and actions
     private func setupNavigationItems() {
-        // Create the Favorites button with resized image
-        let favoriteImage = (isThreadFavorited ? UIImage(named: "favoriteFilled") : UIImage(named: "favorite"))?.withRenderingMode(.alwaysTemplate)
-        let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
-        favoriteButton = UIBarButtonItem(image: resizedFavoriteImage,
-                                         style: .plain,
-                                         target: self,
-                                         action: #selector(toggleFavorite))
-        
-        // Create the Gallery button with resized image
-        let galleryImage = UIImage(named: "gallery")?.withRenderingMode(.alwaysTemplate)
-        let resizedGalleryImage = galleryImage?.resized(to: CGSize(width: 22, height: 22))
-        let galleryButton = UIBarButtonItem(image: resizedGalleryImage,
-                                            style: .plain,
-                                            target: self,
-                                            action: #selector(showGallery))
-        
         // Create the More button with resized image
         let moreImage = UIImage(named: "more")?.withRenderingMode(.alwaysTemplate)
         let resizedMoreImage = moreImage?.resized(to: CGSize(width: 22, height: 22))
@@ -907,15 +889,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          target: self,
                                          action: #selector(showActionSheet))
 
-        // Create the Reply button
-        let replyImage = UIImage(systemName: "square.and.pencil")
-        let replyButton = UIBarButtonItem(image: replyImage,
-                                          style: .plain,
-                                          target: self,
-                                          action: #selector(showComposeView))
-
-        // Set the buttons in the navigation bar
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton!, replyButton]
+        // Set the more button in the navigation bar
+        navigationItem.rightBarButtonItems = [moreButton]
     }
     
     // MARK: - Search Bar Setup
@@ -1075,7 +1050,24 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func showActionSheet() {
         // Create an action sheet
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        
+
+        // Add Reply action
+        actionSheet.addAction(UIAlertAction(title: "Reply", style: .default, handler: { _ in
+            self.showComposeView()
+        }))
+
+        // Add Favorite action with dynamic title based on current state
+        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
+        let favoriteTitle = isFavorited ? "Remove from Favorites" : "Add to Favorites"
+        actionSheet.addAction(UIAlertAction(title: favoriteTitle, style: .default, handler: { _ in
+            self.toggleFavorite()
+        }))
+
+        // Add Gallery action
+        actionSheet.addAction(UIAlertAction(title: "Gallery", style: .default, handler: { _ in
+            self.showGallery()
+        }))
+
         // Add actions for additional navigation options
         actionSheet.addAction(UIAlertAction(title: "Refresh", style: .default, handler: { _ in
             self.refresh()
@@ -1778,10 +1770,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func updateFavoriteButton() {
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
-        let favoriteImage = UIImage(named: isFavorited ? "favoriteFilled" : "favorite")?.withRenderingMode(.alwaysTemplate)
-        let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
-        favoriteButton?.image = resizedFavoriteImage
+        // Favorite button is now in the more menu, state is checked dynamically when menu opens
     }
     
     private func addFavorite() {
@@ -1825,17 +1814,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func checkIfFavorited() {
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
-        
-        // Update the favorite button's image
-        let favoriteImageName = isFavorited ? "favoriteFilled" : "favorite"
-        if let favoriteButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(toggleFavorite) }) {
-            let favoriteImage = UIImage(named: favoriteImageName)?.withRenderingMode(.alwaysTemplate)
-            let resizedFavoriteImage = favoriteImage?.resized(to: CGSize(width: 22, height: 22))
-            favoriteButton.image = resizedFavoriteImage
-        } else {
-            print("Favorite button not found in rightBarButtonItems")
-        }
+        // Favorite state is now checked dynamically when the more menu opens
     }
     
     private func showCategorySelectionForFavorite() {
@@ -1873,12 +1852,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // For iPad, set the popover presentation controller
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = favoriteButton
+            if let moreButton = navigationItem.rightBarButtonItems?.first {
+                popover.barButtonItem = moreButton
+            } else {
+                popover.sourceView = self.view
+                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
         }
-        
+
         present(alert, animated: true)
     }
-    
+
     // MARK: - Spoiler Handling Methods
     /// Methods to handle spoiler visibility in comments
     @objc private func toggleSpoilers() {
