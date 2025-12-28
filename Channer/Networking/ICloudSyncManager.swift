@@ -117,10 +117,7 @@ class ICloudSyncManager {
         
         isSyncing = true
         updateSyncStatus("Syncing...")
-        
-        // Force synchronize
-        keyValueStore.synchronize()
-        
+
         // Complete sync after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.completeSync()
@@ -217,8 +214,6 @@ class ICloudSyncManager {
                 print("Migrated \(key) to iCloud")
             }
         }
-        
-        keyValueStore.synchronize()
     }
     
     // MARK: - Enable/Disable Sync

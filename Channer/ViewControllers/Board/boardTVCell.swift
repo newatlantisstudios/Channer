@@ -76,7 +76,7 @@ class boardTVCell: UITableViewCell {
     let customBackgroundView: UIView = {
             let view = UIView()
             view.backgroundColor = ThemeManager.shared.cellBackgroundColor
-            
+
             // Use device corner radius
             let deviceCornerRadius: CGFloat
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -85,7 +85,7 @@ class boardTVCell: UITableViewCell {
             } else {
                 deviceCornerRadius = 39.0 // Default for modern iOS devices
             }
-            
+
             view.layer.cornerRadius = deviceCornerRadius
             view.layer.cornerCurve = .continuous
             view.layer.borderWidth = 6.0
@@ -95,6 +95,9 @@ class boardTVCell: UITableViewCell {
             view.layer.shadowOpacity = 0.15
             view.layer.shadowRadius = 6
             view.layer.masksToBounds = false
+            // Performance: Enable rasterization for shadow rendering
+            view.layer.shouldRasterize = true
+            view.layer.rasterizationScale = UIScreen.main.scale
             return view
         }()
     
@@ -124,6 +127,17 @@ class boardTVCell: UITableViewCell {
         topicTextTitle.text = nil
         topicTextNoTitle.text = nil
         topicTitle.text = nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Performance: Set shadowPath for efficient shadow rendering
+        if customBackgroundView.layer.shadowPath == nil || customBackgroundView.bounds != CGRect(origin: .zero, size: customBackgroundView.bounds.size) {
+            customBackgroundView.layer.shadowPath = UIBezierPath(
+                roundedRect: customBackgroundView.bounds,
+                cornerRadius: customBackgroundView.layer.cornerRadius
+            ).cgPath
+        }
     }
 
     // MARK: - Setup Methods

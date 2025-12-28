@@ -97,8 +97,7 @@ class NotificationManager {
     /// Helper method to fetch notifications from UserDefaults
     private func fetchNotificationsFromDefaults() -> [ReplyNotification] {
         let defaults = UserDefaults.standard
-        defaults.synchronize()
-        
+
         if let data = defaults.data(forKey: notificationsKey),
            let notifications = try? JSONDecoder().decode([ReplyNotification].self, from: data) {
             return notifications.sorted { $0.timestamp > $1.timestamp }
@@ -258,7 +257,6 @@ class NotificationManager {
         let defaults = UserDefaults.standard
         if let encoded = try? JSONEncoder().encode(notifications) {
             defaults.set(encoded, forKey: notificationsKey)
-            defaults.synchronize()
         }
     }
     
@@ -276,7 +274,6 @@ class NotificationManager {
     private func updateUnreadCountOnMainThread() {
         let count = getUnreadCount()
         UserDefaults.standard.set(count, forKey: unreadCountKey)
-        UserDefaults.standard.synchronize()
     }
     
     @objc private func userDefaultsDidChange(_ notification: Notification) {

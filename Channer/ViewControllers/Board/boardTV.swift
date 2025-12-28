@@ -216,9 +216,14 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     // Image cache configuration
     private let imageCache = NSCache<NSString, UIImage>()
     private let prefetchQueue = OperationQueue()
+
+    // Performance: Cache filter results per thread to avoid expensive KVC lookups in cellForRowAt
+    private var filteredThreadNumbers: Set<String> = []
+    private var filterCacheValid = false
     
     // Auto-refresh timer
     private var refreshTimer: Timer?
+    private var progressUpdateTimer: Timer?  // Separate timer for progress updates
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private var lastRefreshTime: Date?
     private var nextRefreshTime: Date?
@@ -231,6 +236,13 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 
     // MARK: - Lifecycle Methods
     // Methods related to the view controller's lifecycle.
+
+    deinit {
+        // Clean up timers to prevent memory leaks
+        refreshTimer?.invalidate()
+        progressUpdateTimer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -942,11 +954,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             } else {
                 self.filteredThreadData = self.threadData
             }
-            
+
+            self.updateFilterCache()
             self.tableView.reloadData()
         }
     }
-    
+
     func loadFavorites() {
         // Loads favorite threads.
         print("boardTV - loadFavorites")
@@ -973,11 +986,43 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         } else {
             filteredThreadData = threadData
         }
-    
-        // Reload the table view after updating `threadData` and `filteredThreadData`
+
+        // Update filter cache and reload the table view
+        updateFilterCache()
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
+    }
+
+    /// Performance: Compute and cache which threads match content filters
+    /// Call this after loading data to avoid expensive KVC lookups in cellForRowAt
+    private func updateFilterCache() {
+        filteredThreadNumbers.removeAll()
+
+        // Check if content filtering is enabled using direct access
+        guard ContentFilterManager.shared.isFilteringEnabled() else {
+            filterCacheValid = true
+            return
+        }
+
+        let filters = ContentFilterManager.shared.getAllFilters()
+        guard !filters.keywords.isEmpty else {
+            filterCacheValid = true
+            return
+        }
+
+        // Pre-compute lowercased keywords once
+        let lowercasedKeywords = filters.keywords.map { $0.lowercased() }
+
+        // Cache which threads match filters
+        for thread in filteredThreadData {
+            let threadContent = (thread.title + " " + thread.comment).lowercased()
+            if lowercasedKeywords.contains(where: { threadContent.contains($0) }) {
+                filteredThreadNumbers.insert(thread.number)
+            }
+        }
+
+        filterCacheValid = true
     }
 
     // MARK: - TableView DataSource Methods
@@ -997,23 +1042,13 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 
         let cell = tableView.dequeueReusableCell(withIdentifier: "boardTVCell", for: indexPath) as! boardTVCell
         let thread = filteredThreadData[indexPath.row]
-        
-        // Check if content filtering is enabled
-        var isFiltered = false
-        
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
-           isFilteringEnabled,
-           let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]) {
-            
-            let threadContent = (thread.title + " " + thread.comment).lowercased()
-            isFiltered = getAllFilters.keywords.contains { threadContent.contains($0.lowercased()) }
-        }
-        
+
+        // Performance: Use cached filter results instead of expensive KVC lookup on every cell
+        let isFiltered = filteredThreadNumbers.contains(thread.number)
+
         cell.configure(with: thread, isHistoryView: isHistoryView, isFavoritesView: isFavoritesView, isFiltered: isFiltered)
         configureImage(for: cell, with: thread.imageUrl)
-        
+
         return cell
     }
 
@@ -1110,12 +1145,11 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             return
         }
         
-        // Updated corner radius from 15 to 8
+        // Performance: Remove RoundCornerImageProcessor - the UIImageView already has cornerRadius set
+        // Also removed cacheOriginalImage to avoid caching both original and processed versions
         let options: KingfisherOptionsInfo = [
             .transition(.fade(0.2)),
-            .processor(RoundCornerImageProcessor(cornerRadius: 8)),
             .scaleFactor(UIScreen.main.scale),
-            .cacheOriginalImage,
             .memoryCacheExpiration(.days(1)),
             .diskCacheExpiration(.days(7)),
             .backgroundDecode
@@ -1208,9 +1242,10 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: true) { [weak self] _ in
             self?.refreshBoardContent()
         }
-        
-        // Also create a timer to update the progress view
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+
+        // Invalidate any existing progress timer before creating a new one
+        progressUpdateTimer?.invalidate()
+        progressUpdateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateRefreshProgress()
         }
     }
@@ -1218,6 +1253,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private func stopAutoRefreshTimer() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+        progressUpdateTimer?.invalidate()
+        progressUpdateTimer = nil
         hideRefreshStatus()
     }
     

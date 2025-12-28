@@ -47,10 +47,7 @@ class boardsTV: UITableViewController {
     /// Authenticates the user using Face ID or Touch ID.
     private func authenticateUser(completion: @escaping (Bool) -> Void) {
         let defaults = UserDefaults.standard
-        
-        // Make sure we're reading the latest data
-        defaults.synchronize()
-        
+
         // Get authentication setting
         let isAuthenticationEnabled = defaults.bool(forKey: faceIDEnabledKey)
         

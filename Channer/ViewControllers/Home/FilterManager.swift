@@ -121,7 +121,6 @@ class FilterManager {
             if isICloudAvailable() {
                 print("Saving filters to iCloud.")
                 iCloudStore.set(encodedData, forKey: filtersKey)
-                iCloudStore.synchronize()
             } else {
                 print("Saving filters to local storage.")
                 UserDefaults.standard.set(encodedData, forKey: filtersKey)

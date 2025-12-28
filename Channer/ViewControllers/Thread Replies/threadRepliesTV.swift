@@ -2177,23 +2177,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         cell.setImageURL(imageUrl)
         print("Debug: Set full image URL for tap action: \(imageUrl)")
         
-        // Load image with Kingfisher using the same style as catalog view
-        // Use device corner radius to match board thread thumbnails
-        let deviceCornerRadius: CGFloat
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
-        } else {
-            deviceCornerRadius = 39.0 // Default for modern iOS devices
-        }
-        let processor = RoundCornerImageProcessor(cornerRadius: deviceCornerRadius)
-        
-        // Enhanced options for better image loading
+        // Performance: Remove RoundCornerImageProcessor - the UIImageView already has cornerRadius set via layer
+        // Also removed cacheOriginalImage to avoid caching both original and processed versions
         let options: KingfisherOptionsInfo = [
-            .processor(processor),
             .scaleFactor(UIScreen.main.scale),
             .transition(.fade(0.2)),
-            .cacheOriginalImage,
             .backgroundDecode,   // Decode in background to prevent UI stutter
             .retryStrategy(DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(1))), // Retry failed loads
             .callbackQueue(.mainAsync) // Ensure callbacks are on main thread
@@ -3844,21 +3832,10 @@ extension threadRepliesTV {
         // Store the high-quality URL for when the image is tapped (same as normal loading)
         cell.setImageURL(imageUrl)
         
-        // Use same processor and options as normal loading but optimized for scroll
-        // Use device corner radius for consistent look
-        let deviceCornerRadius: CGFloat
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            deviceCornerRadius = window.layer.cornerRadius > 0 ? window.layer.cornerRadius : 39.0
-        } else {
-            deviceCornerRadius = 39.0 // Default for modern iOS devices
-        }
-        let processor = RoundCornerImageProcessor(cornerRadius: deviceCornerRadius)
-        
+        // Performance: Remove RoundCornerImageProcessor - the UIImageView already has cornerRadius set via layer
+        // Also removed cacheOriginalImage to avoid caching both original and processed versions
         let options: KingfisherOptionsInfo = [
-            .processor(processor),
             .scaleFactor(UIScreen.main.scale),
-            .cacheOriginalImage,
             .backgroundDecode,
             .callbackQueue(.mainAsync)
         ]
