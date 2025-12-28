@@ -554,13 +554,20 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         searchBar.barTintColor = .clear
         searchBar.tintColor = ThemeManager.shared.primaryTextColor
 
-        // Style the search text field to be transparent (styled container provides background)
-        searchBar.searchTextField.backgroundColor = .clear
-        searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
-        searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
-        searchBar.searchTextField.layer.cornerRadius = 0
-        searchBar.searchTextField.layer.borderWidth = 0
-        searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
+        // Style the search text field to be fully transparent (styled container provides background)
+        let textField = searchBar.searchTextField
+        textField.backgroundColor = .clear
+        textField.textColor = ThemeManager.shared.primaryTextColor
+        textField.font = UIFont.systemFont(ofSize: 16)
+        textField.layer.cornerRadius = 0
+        textField.layer.borderWidth = 0
+        textField.borderStyle = .none
+
+        // Remove the internal background image/view that creates the nested appearance
+        textField.background = nil
+
+        // Set placeholder styling
+        textField.attributedPlaceholder = NSAttributedString(
             string: "Title or Comment",
             attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
         )
@@ -643,15 +650,18 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
 
         // Update search text field (transparent, styled container provides background)
-        searchBar.searchTextField.backgroundColor = .clear
-        searchBar.searchTextField.textColor = ThemeManager.shared.primaryTextColor
-        searchBar.searchTextField.tintColor = ThemeManager.shared.primaryTextColor
-        searchBar.searchTextField.font = UIFont.systemFont(ofSize: 16)
-        searchBar.searchTextField.layer.cornerRadius = 0
-        searchBar.searchTextField.layer.borderWidth = 0
+        let textField = searchBar.searchTextField
+        textField.backgroundColor = .clear
+        textField.textColor = ThemeManager.shared.primaryTextColor
+        textField.tintColor = ThemeManager.shared.primaryTextColor
+        textField.font = UIFont.systemFont(ofSize: 16)
+        textField.layer.cornerRadius = 0
+        textField.layer.borderWidth = 0
+        textField.borderStyle = .none
+        textField.background = nil
 
         // Update placeholder
-        searchBar.searchTextField.attributedPlaceholder = NSAttributedString(
+        textField.attributedPlaceholder = NSAttributedString(
             string: searchBar.placeholder ?? "Title or Comment",
             attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
         )
