@@ -1042,8 +1042,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNum, quoteText: quoteText)
         composeVC.delegate = self
+        activeComposeVC = composeVC  // Store reference so minimize works
+        print("[DEBUG] showComposeViewWithQuote - set activeComposeVC: \(String(describing: activeComposeVC))")
+
         let navController = UINavigationController(rootViewController: composeVC)
-        navController.modalPresentationStyle = .formSheet
+        navController.modalPresentationStyle = .pageSheet
+        navController.isModalInPresentation = true
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
         present(navController, animated: true)
     }
 
@@ -2664,10 +2672,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func updateFloatingReplyButton() {
         let hasQuotes = !pendingQuotes.isEmpty
 
-        if isComposeMinimized || hasQuotes {
-            // Show "Continue Reply" button
+        if isComposeMinimized {
+            // Show "Continue Reply" button for minimized compose (no clear button)
             floatingReplyButton.setTitle("  Continue Reply  ", for: .normal)
             floatingReplyButton.backgroundColor = .systemGreen
+            showFloatingButton(showClearButton: false)
+        } else if hasQuotes {
+            // Show reply button with pending quotes (show clear button to discard quotes)
+            floatingReplyButton.setTitle("  Reply (\(pendingQuotes.count))  ", for: .normal)
+            floatingReplyButton.backgroundColor = .systemBlue
             showFloatingButton(showClearButton: true)
         } else {
             // Hide the button
@@ -2712,10 +2725,27 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Called when the floating reply button is tapped
     @objc private func floatingReplyButtonTapped() {
+        print("[DEBUG] floatingReplyButtonTapped called")
+        print("[DEBUG] isComposeMinimized: \(isComposeMinimized)")
+        print("[DEBUG] activeComposeVC: \(String(describing: activeComposeVC))")
+        print("[DEBUG] pendingQuotes: \(pendingQuotes)")
+
         // Check if we're restoring a minimized compose view
         if isComposeMinimized, let composeVC = activeComposeVC {
+            print("[DEBUG] Restoring minimized compose view")
             // Re-present the existing compose view
             isComposeMinimized = false
+
+            // Remove from any previous parent before re-embedding in new navigation controller
+            if composeVC.parent != nil {
+                print("[DEBUG] Removing composeVC from parent: \(String(describing: composeVC.parent))")
+                composeVC.willMove(toParent: nil)
+                composeVC.view.removeFromSuperview()
+                composeVC.removeFromParent()
+            } else {
+                print("[DEBUG] composeVC has no parent")
+            }
+
             let navController = UINavigationController(rootViewController: composeVC)
             navController.modalPresentationStyle = .pageSheet
             navController.isModalInPresentation = true
@@ -2723,14 +2753,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 sheet.detents = [.medium(), .large()]
                 sheet.prefersGrabberVisible = true
             }
-            present(navController, animated: true)
+            print("[DEBUG] About to present navController, self.presentedViewController: \(String(describing: self.presentedViewController))")
+            present(navController, animated: true) {
+                print("[DEBUG] Present completion called - navController presented successfully")
+            }
             updateFloatingReplyButton()
             return
         }
 
         // Otherwise, create a new compose view with pending quotes
-        guard !pendingQuotes.isEmpty, let threadNo = Int(threadNumber) else { return }
+        guard !pendingQuotes.isEmpty, let threadNo = Int(threadNumber) else {
+            print("[DEBUG] Early return - pendingQuotes.isEmpty: \(pendingQuotes.isEmpty), threadNumber: \(threadNumber)")
+            return
+        }
 
+        print("[DEBUG] Creating new compose view with pending quotes")
         // Build quote text with all pending quotes
         let quoteText = pendingQuotes.map { ">>\($0)" }.joined(separator: "\n")
 
@@ -3859,6 +3896,7 @@ extension threadRepliesTV {
 // MARK: - ComposeViewControllerDelegate
 extension threadRepliesTV: ComposeViewControllerDelegate {
     func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        print("[DEBUG] composeViewControllerDidPost called, postNumber: \(String(describing: postNumber))")
         // Clear reference to compose view
         activeComposeVC = nil
         isComposeMinimized = false
@@ -3886,6 +3924,7 @@ extension threadRepliesTV: ComposeViewControllerDelegate {
     }
 
     func composeViewControllerDidCancel(_ controller: ComposeViewController) {
+        print("[DEBUG] composeViewControllerDidCancel called")
         // Clear reference to compose view
         activeComposeVC = nil
         isComposeMinimized = false
@@ -3893,6 +3932,8 @@ extension threadRepliesTV: ComposeViewControllerDelegate {
     }
 
     func composeViewControllerDidMinimize(_ controller: ComposeViewController) {
+        print("[DEBUG] composeViewControllerDidMinimize called")
+        print("[DEBUG] Setting isComposeMinimized = true, activeComposeVC: \(String(describing: activeComposeVC))")
         // Mark as minimized and show the continue button
         isComposeMinimized = true
         updateFloatingReplyButton()
