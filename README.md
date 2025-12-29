@@ -1,6 +1,8 @@
 <div align="center">
-  <img src="App Images/iOS/iOS-1.png" alt="Channer Logo" width="120">
 
+<img width="300" alt="simulator_screenshot_480AF9A3-0AF9-4C27-92DB-B455FBED3AB0" src="https://github.com/user-attachments/assets/e3f91edd-b860-4a14-acb2-7edbb1c5f5b2" />
+
+  
   # Channer v3.0
 
   ### The Ultimate Image Board Client for iOS & iPadOS
@@ -13,7 +15,7 @@
 
   **A powerful, native iOS/iPadOS client for browsing image boards with advanced features, privacy-focused design, and seamless media handling.**
 
-  [Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Build](#-building-from-source) • [Contributing](#-contributing)
+  [Features](#-features) • [Installation](#-installation) • [Build](#-building-from-source) • [Contributing](#-contributing)
 </div>
 
 ---
@@ -131,29 +133,6 @@
 </td>
 </tr>
 </table>
-
-## 📱 Screenshots
-
-### iPhone
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/3c589998-3b0a-4cd5-ba27-102d0e2cdd7b" width="200" alt="Board List">
-  <img src="https://github.com/user-attachments/assets/53162278-c0ff-459f-8209-837418a1d666" width="200" alt="Reply View">
-  <img src="https://github.com/user-attachments/assets/ee980155-6595-4a55-bf5f-994b9e00ce1b" width="200" alt="Settings">
-</div>
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/1e08fdde-56a7-4010-a6e7-472f648559e3" width="200" alt="Media Gallery">
-  <img src="https://github.com/user-attachments/assets/9fa5140d-fb20-44f5-b9d1-7649ccea92c6" width="200" alt="Theme Editor">
-  <img src="https://github.com/user-attachments/assets/c9e5d8c9-c8fc-4eb2-a0af-5c0c059a0942" width="200" alt="Search">
-  <img src="https://github.com/user-attachments/assets/65802ea9-032e-4563-b920-ab6d9b7b2c86" width="200" alt="Categories">
-</div>
-
-### iPad
-<div align="center">
-  <img src="App Images/iPadOS/iPadOS-1.png" width="400" alt="iPad Split View">
-  <img src="App Images/iPadOS/iPadOS-2.png" width="400" alt="iPad Gallery">
-</div>
-
 
 ## 🛠️ Technical Details
 
