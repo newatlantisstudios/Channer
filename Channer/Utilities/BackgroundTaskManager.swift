@@ -208,12 +208,75 @@ class BackgroundTaskManager {
                 updatedThread.currentReplies = currentReplies
                 updatedThread.hasNewReplies = true
 
+                // Get thread title - try API response first, then fall back to stored favorite data
+                var threadTitle: String? = firstPost["sub"].string
+                if threadTitle == nil || threadTitle?.isEmpty == true {
+                    threadTitle = favorite.title.isEmpty ? nil : favorite.title
+                }
+                // If still no title, create one from the comment (first 50 chars)
+                if threadTitle == nil || threadTitle?.isEmpty == true {
+                    let comment = favorite.comment
+                        .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                        .replacingOccurrences(of: "&quot;", with: "\"")
+                        .replacingOccurrences(of: "&amp;", with: "&")
+                        .replacingOccurrences(of: "&lt;", with: "<")
+                        .replacingOccurrences(of: "&gt;", with: ">")
+                        .replacingOccurrences(of: "&#039;", with: "'")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !comment.isEmpty {
+                        threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
+                    }
+                }
+
+                // Get the latest reply preview from the posts array
+                var replyPreview = ""
+                if let posts = json["posts"].array, posts.count > 1 {
+                    let latestPost = posts[posts.count - 1]
+                    let hasImage = latestPost["tim"].exists()
+
+                    if let comment = latestPost["com"].string, !comment.isEmpty {
+                        let cleanedComment = comment
+                            .replacingOccurrences(of: "<br>", with: " ")
+                            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                            .replacingOccurrences(of: "&quot;", with: "\"")
+                            .replacingOccurrences(of: "&amp;", with: "&")
+                            .replacingOccurrences(of: "&lt;", with: "<")
+                            .replacingOccurrences(of: "&gt;", with: ">")
+                            .replacingOccurrences(of: "&#039;", with: "'")
+                            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                        if hasImage && cleanedComment.isEmpty {
+                            replyPreview = "New image reply"
+                        } else if hasImage {
+                            let preview = String(cleanedComment.prefix(100))
+                            replyPreview = "📷 " + preview + (cleanedComment.count > 100 ? "..." : "")
+                        } else {
+                            replyPreview = String(cleanedComment.prefix(100)) + (cleanedComment.count > 100 ? "..." : "")
+                        }
+                    } else if hasImage {
+                        replyPreview = "New image reply"
+                    } else {
+                        replyPreview = "New reply"
+                    }
+                }
+
                 await MainActor.run {
                     FavoritesManager.shared.updateFavorite(thread: updatedThread)
+
+                    // Add in-app notification (was previously missing!)
+                    NotificationManager.shared.addThreadUpdateNotification(
+                        boardAbv: favorite.boardAbv,
+                        threadNo: favorite.number,
+                        threadTitle: threadTitle,
+                        newReplyCount: newReplies,
+                        replyPreview: replyPreview
+                    )
+
                     updateApplicationBadgeCount()
                 }
 
-                // Send notification
+                // Send push notification
                 sendThreadUpdateNotification(
                     threadNumber: favorite.number,
                     boardAbv: favorite.boardAbv,
