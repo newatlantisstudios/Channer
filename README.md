@@ -1,18 +1,18 @@
 <div align="center">
   <img src="App Images/iOS/iOS-1.png" alt="Channer Logo" width="120">
-  
-  # Channer v2.2
-  
+
+  # Channer v3.0
+
   ### The Ultimate Image Board Client for iOS & iPadOS
-  
+
   [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS-blue.svg)](https://developer.apple.com/ios/)
   [![iOS Version](https://img.shields.io/badge/iOS-15.6%2B-brightgreen.svg)](https://developer.apple.com/ios/)
   [![Swift](https://img.shields.io/badge/Swift-5.0-orange.svg)](https://swift.org/)
   [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
   [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-  
+
   **A powerful, native iOS/iPadOS client for browsing image boards with advanced features, privacy-focused design, and seamless media handling.**
-  
+
   [Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Build](#-building-from-source) • [Contributing](#-contributing)
 </div>
 
@@ -27,31 +27,38 @@
 - 🌐 **Offline Support**: Browse cached threads without internet
 - ⚡ **Smart Features**: Advanced search, filtering, and organization tools
 
-## 🆕 What's New in v2.2
+## 🆕 What's New in v3.0
 
-### Enhanced Organization & Sync
+### Expanded iCloud Sync
 
+- **☁️ Universal Sync**: Sync settings, themes, favorites, statistics, 4chan Pass credentials, and hidden boards across all devices
 - **📂 Categorized Favorites**: Organize saved threads into custom categories with color-coding and icons
-- **☁️ iCloud Sync**: Seamlessly sync settings, themes, and preferences across all your devices
-- **🔍 Advanced Thread Search**: Search through threads with history tracking and saved searches
+- **🔍 Synced Search History**: Search through threads with history tracking and saved searches
 
-### Improved Media Experience
+### Enhanced Post Rendering
 
-- **🎥 Enhanced Video Playback**: Better WebM and MP4 support with improved gallery view
-- **🖼️ High-Quality Thumbnails**: Optional high-resolution preview images for better browsing
-- **⚡ Smart Preloading**: Configurable media preloading for smoother browsing
+- **🔮 Spoiler Support**: Tap-to-reveal spoiler text with per-spoiler state tracking
+- **💻 Code Highlighting**: Syntax highlighting for programming boards (/g/, /sci/, /diy/)
+- **📐 Math Rendering**: LaTeX and formula support for /sci/ board with Greek letters
+- **🔗 Link Previews**: Inline YouTube, Twitter, and external link previews
 
-### User Interface & Accessibility
+### Smart Notifications
 
+- **📍 Auto-Scroll to Reply**: Tap a notification to jump directly to the reply
+- **🔔 Duplicate Prevention**: Stable identifiers prevent notification spam
+- **📝 Rich Previews**: See actual reply text and image indicators in notifications
+
+### User Interface Improvements
+
+- **🔄 Pull-to-Refresh**: Refresh boards and threads with a simple swipe
 - **🎨 Advanced Theming**: Comprehensive theme customization with live editing
 - **⌨️ iPad Keyboard Shortcuts**: Full keyboard navigation support for iPad users
-- **📱 Display Mode Toggle**: Switch between table and grid view for boards
-- **🔧 Content Filtering**: Advanced keyword, poster, and image filtering system
+- **📱 Streamlined Actions**: Consolidated action menu for cleaner interface
 
 ### Developer & Build Improvements
 
+- **📦 Swift Package Manager**: Migrated from CocoaPods to modern SPM
 - **🔨 Enhanced Build System**: Multiple build scripts with clean, formatted output
-- **📦 Updated Dependencies**: Migrated to modern FFmpeg implementation
 - **🧪 Better Testing Framework**: Improved test structure and CI/CD support
 
 ## 🌟 Features
@@ -63,6 +70,7 @@
 ### 📱 Browsing Experience
 
 - **Intuitive Navigation**: Swipe gestures and smart controls
+- **Pull-to-Refresh**: Refresh content with a simple swipe
 - **Thread Sorting**: By reply count, date, or custom filters
 - **Adaptive Layout**: Optimized for every screen size
 - **Quick Actions**: 3D Touch and context menus
@@ -103,8 +111,14 @@
 - **Full-Text Search**: Search all thread content
 - **Search Filters**: By board, date, or type
 - **Search History**: Recent and saved searches
-- **Smart Suggestions**: AI-powered recommendations
 - **Export Results**: Share or save search results
+
+### ✨ Rich Post Rendering
+
+- **Spoiler Text**: Tap-to-reveal spoilers
+- **Code Highlighting**: Syntax colors for /g/, /sci/, /diy/
+- **Math/LaTeX**: Formula rendering for /sci/
+- **Link Previews**: YouTube, Twitter embeds
 
 ### 🎨 Customization
 
@@ -123,7 +137,6 @@
 ### iPhone
 <div align="center">
   <img src="https://github.com/user-attachments/assets/3c589998-3b0a-4cd5-ba27-102d0e2cdd7b" width="200" alt="Board List">
-  <img src="https://github.com/user-attachments/assets/a62eedd6-bf1c-49f4-ad4f-c9cabdd681d5" width="200" alt="Thread View">
   <img src="https://github.com/user-attachments/assets/53162278-c0ff-459f-8209-837418a1d666" width="200" alt="Reply View">
   <img src="https://github.com/user-attachments/assets/ee980155-6595-4a55-bf5f-994b9e00ce1b" width="200" alt="Settings">
 </div>
@@ -158,8 +171,8 @@
 
 - **Language**: Swift 5.0+
 - **UI Framework**: UIKit
-- **Architecture**: MVC + Coordinators
-- **Package Manager**: CocoaPods
+- **Architecture**: MVC
+- **Package Manager**: Swift Package Manager (SPM)
 - **Minimum Deployment**: iOS 15.6
 </details>
 
@@ -167,19 +180,18 @@
 <summary><b>Dependencies</b></summary>
 
 | Library | Purpose | Version |
-|---------|---------|----------|
-| Alamofire | Networking | Latest |
-| SwiftyJSON | JSON Parsing | Latest |
-| Kingfisher | Image Loading | Latest |
+|---------|---------|---------|
+| Alamofire | Networking | 5.11.0 |
+| SwiftyJSON | JSON Parsing | 5.0.2 |
+| Kingfisher | Image Loading | 8.6.2 |
 | VLCKit | Video Playback | 4.0.0a6 |
-| FFmpeg | Media Processing | Latest |
 </details>
 
 ## 🚀 Installation
 
 ### Direct IPA
 
-Download the latest IPA from our [Releases](https://github.com/yourusername/Channer/releases) page.
+Download the latest IPA from our [Releases](https://github.com/newatlantisstudios/Channer/releases) page.
 
 ## 🔨 Building from Source
 
@@ -188,7 +200,6 @@ Download the latest IPA from our [Releases](https://github.com/yourusername/Chan
 
 - macOS 12.0 or later
 - Xcode 14.0 or later
-- CocoaPods 1.11.0 or later
 - Active Apple Developer account (for device builds)
 </details>
 
@@ -197,13 +208,10 @@ Download the latest IPA from our [Releases](https://github.com/yourusername/Chan
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/Channer.git
+git clone https://github.com/newatlantisstudios/Channer.git
 cd Channer
 
-# Install dependencies
-pod install
-
-# Open in Xcode
+# Open in Xcode (SPM dependencies resolve automatically)
 open Channer.xcworkspace
 
 # Select your target and build (⌘+B)
@@ -272,7 +280,7 @@ We love contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to 
 
 ## 🐛 Bug Reports & Feature Requests
 
-Found a bug or have a feature idea? [Open an issue](https://github.com/yourusername/Channer/issues/new/choose)!
+Found a bug or have a feature idea? [Open an issue](https://github.com/newatlantisstudios/Channer/issues/new/choose)!
 
 ## 📚 Documentation
 
@@ -284,7 +292,7 @@ Found a bug or have a feature idea? [Open an issue](https://github.com/yourusern
 
 ## 🙏 Acknowledgments
 
-- Thanks to all our [contributors](https://github.com/yourusername/Channer/graphs/contributors)
+- Thanks to all our [contributors](https://github.com/newatlantisstudios/Channer/graphs/contributors)
 - Special thanks to the open source community
 - Icons by [Icons8](https://icons8.com)
 
@@ -295,8 +303,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <b>Channer v2.2</b><br>
+  <b>Channer v3.0</b><br>
   Made with ❤️ for the iOS community<br>
   <br>
-  <a href="https://github.com/yourusername/Channer/stargazers">⭐ Star us on GitHub!</a>
+  <a href="https://github.com/newatlantisstudios/Channer/stargazers">⭐ Star us on GitHub!</a>
 </div>
