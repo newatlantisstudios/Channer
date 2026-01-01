@@ -249,6 +249,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     let cellIdentifier = "threadRepliesCell"
     private var showSpoilers = false
     private var spoilerButton: UIBarButtonItem?
+    private var favoriteButton: UIBarButtonItem?
     private var originalTexts: [String] = []
     private var isLoading = true {
         didSet {
@@ -889,8 +890,24 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          target: self,
                                          action: #selector(showActionSheet))
 
-        // Set the more button in the navigation bar
-        navigationItem.rightBarButtonItems = [moreButton]
+        // Create the Gallery button
+        let galleryImage = UIImage(systemName: "photo.on.rectangle.angled")
+        let galleryButton = UIBarButtonItem(image: galleryImage,
+                                            style: .plain,
+                                            target: self,
+                                            action: #selector(showGallery))
+
+        // Create the Favorite button with dynamic image based on state
+        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
+        let favoriteImageName = isFavorited ? "star.fill" : "star"
+        let favoriteImage = UIImage(systemName: favoriteImageName)
+        favoriteButton = UIBarButtonItem(image: favoriteImage,
+                                         style: .plain,
+                                         target: self,
+                                         action: #selector(toggleFavorite))
+
+        // Set the buttons in the navigation bar (rightmost to leftmost order)
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton].compactMap { $0 }
     }
     
     // MARK: - Search Bar Setup
@@ -1062,18 +1079,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Add Reply action
         actionSheet.addAction(UIAlertAction(title: "Reply", style: .default, handler: { _ in
             self.showComposeView()
-        }))
-
-        // Add Favorite action with dynamic title based on current state
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
-        let favoriteTitle = isFavorited ? "Remove from Favorites" : "Add to Favorites"
-        actionSheet.addAction(UIAlertAction(title: favoriteTitle, style: .default, handler: { _ in
-            self.toggleFavorite()
-        }))
-
-        // Add Gallery action
-        actionSheet.addAction(UIAlertAction(title: "Gallery", style: .default, handler: { _ in
-            self.showGallery()
         }))
 
         // Add actions for additional navigation options
@@ -1778,7 +1783,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func updateFavoriteButton() {
-        // Favorite button is now in the more menu, state is checked dynamically when menu opens
+        // Update the favorite button icon based on current state
+        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
+        let favoriteImageName = isFavorited ? "star.fill" : "star"
+        favoriteButton?.image = UIImage(systemName: favoriteImageName)
     }
     
     private func addFavorite() {
