@@ -69,8 +69,17 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     }
 
     // MARK: - Navigation Bar Setup
-    /// Sets up navigation bar items including share/actions button
+    /// Sets up navigation bar items including save and actions buttons
     private func setupNavigationBarItems() {
+        // Create save button
+        let saveButton = UIBarButtonItem(
+            image: UIImage(systemName: "square.and.arrow.down"),
+            style: .plain,
+            target: self,
+            action: #selector(saveImageToPhotos)
+        )
+        saveButton.tintColor = .white
+
         // Create action menu button
         let menuButton = UIBarButtonItem(
             image: UIImage(systemName: "ellipsis.circle"),
@@ -80,7 +89,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         )
         menuButton.tintColor = .white
 
-        navigationItem.rightBarButtonItem = menuButton
+        navigationItem.rightBarButtonItems = [menuButton, saveButton]
     }
 
     /// Shows actions menu for the current image
@@ -90,15 +99,6 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             message: nil,
             preferredStyle: .actionSheet
         )
-
-        // Save Image action
-        alertController.addAction(UIAlertAction(
-            title: "Save Image",
-            style: .default,
-            image: UIImage(systemName: "square.and.arrow.down")
-        ) { [weak self] _ in
-            self?.saveImageToPhotos()
-        })
 
         // Share action
         alertController.addAction(UIAlertAction(
@@ -204,7 +204,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
     // MARK: - Image Actions
     /// Saves the current image to the photo library
-    private func saveImageToPhotos() {
+    @objc private func saveImageToPhotos() {
         guard let image = imageView.image else {
             showToast("No image to save")
             return
