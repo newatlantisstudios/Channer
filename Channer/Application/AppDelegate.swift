@@ -229,6 +229,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
                             // Update the thread in favorites with new reply count and set hasNewReplies flag
                             var updatedThread = favorite
+                            updatedThread.replies = currentReplies  // Update stored replies to prevent duplicate notifications
                             updatedThread.currentReplies = currentReplies
                             updatedThread.hasNewReplies = true
                             FavoritesManager.shared.updateFavorite(thread: updatedThread)

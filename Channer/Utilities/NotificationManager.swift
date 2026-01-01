@@ -210,6 +210,7 @@ class NotificationManager {
     // MARK: - Convenience Methods
 
     /// Adds a thread update notification
+    /// If an unread notification for the same thread already exists, it will be updated instead of creating a duplicate
     /// - Parameters:
     ///   - boardAbv: Board abbreviation
     ///   - threadNo: Thread number
@@ -217,6 +218,20 @@ class NotificationManager {
     ///   - newReplyCount: Number of new replies
     ///   - replyPreview: Preview text of the latest reply
     func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int, replyPreview: String) {
+        var notifications = getNotifications()
+
+        // Check for existing unread notification for the same thread
+        if let existingIndex = notifications.firstIndex(where: {
+            $0.boardAbv == boardAbv &&
+            $0.threadNo == threadNo &&
+            $0.notificationType == .threadUpdate &&
+            !$0.isRead
+        }) {
+            // Update existing notification by removing old and adding new
+            notifications.remove(at: existingIndex)
+            saveNotifications(notifications)
+        }
+
         let notification = ReplyNotification(
             boardAbv: boardAbv,
             threadNo: threadNo,
