@@ -217,7 +217,8 @@ class NotificationManager {
     ///   - threadTitle: Optional thread title/subject
     ///   - newReplyCount: Number of new replies
     ///   - replyPreview: Preview text of the latest reply
-    func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int, replyPreview: String) {
+    ///   - latestReplyNo: Optional post number of the latest reply (for navigation)
+    func addThreadUpdateNotification(boardAbv: String, threadNo: String, threadTitle: String?, newReplyCount: Int, replyPreview: String, latestReplyNo: String? = nil) {
         var notifications = getNotifications()
 
         // Check for existing unread notification for the same thread
@@ -235,7 +236,7 @@ class NotificationManager {
         let notification = ReplyNotification(
             boardAbv: boardAbv,
             threadNo: threadNo,
-            replyNo: "",
+            replyNo: latestReplyNo ?? "",
             replyToNo: "",
             replyText: replyPreview,
             notificationType: .threadUpdate,

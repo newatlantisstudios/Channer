@@ -257,12 +257,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 }
                             }
 
-                            // Get the latest reply preview from the posts array
+                            // Get the latest reply preview and post number from the posts array
                             var replyPreview = ""
+                            var latestReplyNo: String? = nil
                             if let posts = json["posts"].array, posts.count > 1 {
                                 // Get the last post (most recent reply)
                                 let latestPost = posts[posts.count - 1]
                                 let hasImage = latestPost["tim"].exists()
+
+                                // Capture the post number for navigation
+                                latestReplyNo = String(latestPost["no"].intValue)
 
                                 // Extract and clean the comment text
                                 if let comment = latestPost["com"].string, !comment.isEmpty {
@@ -294,13 +298,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 }
                             }
 
-                            // Add in-app notification
+                            // Add in-app notification with latest reply number for navigation
                             NotificationManager.shared.addThreadUpdateNotification(
                                 boardAbv: favorite.boardAbv,
                                 threadNo: favorite.number,
                                 threadTitle: threadTitle,
                                 newReplyCount: newReplies,
-                                replyPreview: replyPreview
+                                replyPreview: replyPreview,
+                                latestReplyNo: latestReplyNo
                             )
 
                             // Update the app badge count
@@ -643,14 +648,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                didReceive response: UNNotificationResponse,
                                withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        
+
         // Extract thread information from notification
         if let threadNumber = userInfo["threadNumber"] as? String,
            let boardAbv = userInfo["boardAbv"] as? String {
-            print("User tapped notification for thread /\(boardAbv)/\(threadNumber)")
-            navigateToThread(boardAbv: boardAbv, threadNumber: threadNumber)
+            // Extract post number if available (for reply notifications)
+            let postNo = userInfo["postNo"] as? String
+            print("User tapped notification for thread /\(boardAbv)/\(threadNumber)" + (postNo != nil ? " post \(postNo!)" : ""))
+            navigateToThread(boardAbv: boardAbv, threadNumber: threadNumber, scrollToPostNumber: postNo)
         }
-        
+
         completionHandler()
     }
     
@@ -668,31 +675,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     // MARK: - Navigation Helper
-    private func navigateToThread(boardAbv: String, threadNumber: String) {
+    private func navigateToThread(boardAbv: String, threadNumber: String, scrollToPostNumber: String? = nil) {
         // Get the current navigation controller
         guard let window = window,
               let navigationController = window.rootViewController as? UINavigationController else {
             print("Could not find navigation controller")
             return
         }
-        
+
         // Pop to root to ensure clean navigation state
         navigationController.popToRootViewController(animated: false)
-        
+
         // Create and push the thread view controller
         let threadVC = threadRepliesTV()
         threadVC.boardAbv = boardAbv
         threadVC.threadNumber = threadNumber
-        
+        threadVC.scrollToPostNumber = scrollToPostNumber
+
         // Get thread info from favorites if available
         let favorites = FavoritesManager.shared.loadFavorites()
         if let favoriteThread = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
             threadVC.totalImagesInThread = favoriteThread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
         }
-        
+
         // Push the thread view controller
         navigationController.pushViewController(threadVC, animated: true)
-        
+
         // Clear the "hasNewReplies" flag for this thread
         if var thread = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
             thread.hasNewReplies = false
