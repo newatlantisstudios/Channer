@@ -1355,22 +1355,27 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             cell.configure(withImage: false,
                            text: NSAttributedString(string: "Loading..."),
                            boardNumber: "",
-                           isFiltered: false)
+                           isFiltered: false,
+                           replyCount: 0)
         } else {
             let imageUrl = threadRepliesImages[actualIndex]
             let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
             let attributedText = threadReplies[actualIndex]
             let boardNumber = threadBoardReplyNumber[actualIndex]
             let isFiltered = filteredReplyIndices.contains(actualIndex)
-            
+
+            // Get the reply count for this post (how many posts replied to it)
+            let replyCount = threadBoardReplies[boardNumber]?.count ?? 0
+
             // Debug: Content of the reply
             //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
-            
+
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
                            text: attributedText,
                            boardNumber: boardNumber,
-                           isFiltered: isFiltered)
+                           isFiltered: isFiltered,
+                           replyCount: replyCount)
             
             // Set the attributed text based on whether the cell has an image
             if hasImage {

@@ -137,6 +137,20 @@ class threadRepliesCell: UITableViewCell {
         return label
     }()
 
+    // Reply count label to show how many replies this post has received
+    let replyCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        label.textAlignment = .center
+        label.textColor = .white
+        label.backgroundColor = UIColor.systemBlue
+        label.layer.cornerRadius = 10
+        label.layer.masksToBounds = true
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     // MARK: - Properties
     weak var replyTextDelegate: UITextViewDelegate? {
         didSet {
@@ -173,6 +187,8 @@ class threadRepliesCell: UITableViewCell {
         imageURL = nil
         postNumber = ""
         spoilerDelegate = nil
+        replyCountLabel.isHidden = true
+        replyCountLabel.text = nil
     }
 
     // MARK: - Spoiler Tap Gesture Setup
@@ -274,6 +290,7 @@ class threadRepliesCell: UITableViewCell {
         contentView.addSubview(boardReplyCount)
         // Reply bubble button removed - feature moved to long press menu
         contentView.addSubview(filterBadge)
+        contentView.addSubview(replyCountLabel)
     }
 
     private func setupConstraints() {
@@ -301,7 +318,13 @@ class threadRepliesCell: UITableViewCell {
             filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
             filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
             filterBadge.widthAnchor.constraint(equalToConstant: 80),
-            filterBadge.heightAnchor.constraint(equalToConstant: 24)
+            filterBadge.heightAnchor.constraint(equalToConstant: 24),
+
+            // Reply count label constraints - positioned at top right
+            replyCountLabel.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
+            replyCountLabel.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            replyCountLabel.heightAnchor.constraint(equalToConstant: 20),
+            replyCountLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 28)
         ])
 
         // Minimum height constraint with lower priority
@@ -329,7 +352,7 @@ class threadRepliesCell: UITableViewCell {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false) {
+    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0) {
         print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
@@ -352,7 +375,7 @@ class threadRepliesCell: UITableViewCell {
         }
 
         boardReplyCount.text = boardNumber
-        
+
         // Handle filtered content
         if isFiltered {
             filterBadge.isHidden = false
@@ -362,9 +385,25 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.alpha = 1.0 // Normal opacity
         }
 
+        // Handle reply count display
+        if replyCount > 0 {
+            replyCountLabel.text = " \(replyCount) "
+            replyCountLabel.isHidden = false
+            // If filter badge is also visible, offset the reply count label
+            if !filterBadge.isHidden {
+                // Move reply count to the left of filter badge
+                for constraint in replyCountLabel.constraints where constraint.firstAttribute == .trailing {
+                    constraint.isActive = false
+                }
+                replyCountLabel.trailingAnchor.constraint(equalTo: filterBadge.leadingAnchor, constant: -8).isActive = true
+            }
+        } else {
+            replyCountLabel.isHidden = true
+        }
+
         // Update hover interaction
         updatePointerInteractionIfNeeded()
-        
+
         setNeedsLayout()
         layoutIfNeeded()
     }
