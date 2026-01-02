@@ -906,8 +906,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          target: self,
                                          action: #selector(toggleFavorite))
 
+        // Create the Reply button
+        let replyImage = UIImage(systemName: "square.and.pencil")
+        let replyButton = UIBarButtonItem(image: replyImage,
+                                          style: .plain,
+                                          target: self,
+                                          action: #selector(showComposeView))
+
         // Set the buttons in the navigation bar (rightmost to leftmost order)
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton].compactMap { $0 }
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton, replyButton].compactMap { $0 }
     }
     
     // MARK: - Search Bar Setup
