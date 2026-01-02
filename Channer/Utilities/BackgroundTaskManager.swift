@@ -205,6 +205,7 @@ class BackgroundTaskManager {
 
                 // Update the thread in favorites
                 var updatedThread = favorite
+                updatedThread.replies = currentReplies  // Update stored replies to prevent duplicate notifications
                 updatedThread.currentReplies = currentReplies
                 updatedThread.hasNewReplies = true
 
