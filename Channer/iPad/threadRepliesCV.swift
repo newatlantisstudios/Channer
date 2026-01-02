@@ -355,10 +355,19 @@ class threadRepliesCV: UICollectionViewController {
         // Reply button hidden - feature moved to long press menu
         cell.thread.isHidden = true
 
-        // Set reply counts
-        cell.boardReplyCount.text = threadBoardReplyNumber[indexPath.row]
-        cell.threadReplyCount.text = String(indexPath.row + 1)
-        
+        // Set post number
+        let boardNumber = threadBoardReplyNumber[indexPath.row]
+        cell.boardReplyCount.text = boardNumber
+
+        // Set reply count (number of replies to this post)
+        let replyCount = threadBoardReplies[boardNumber]?.count ?? 0
+        if replyCount > 0 {
+            cell.threadReplyCount.text = "\(replyCount)"
+            cell.threadReplyCount.isHidden = false
+        } else {
+            cell.threadReplyCount.isHidden = true
+        }
+
         // Configure content
         let imageUrl = threadRepliesImages[indexPath.row]
         if imageUrl.contains("nullnull") {
