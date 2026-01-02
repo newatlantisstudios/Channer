@@ -229,11 +229,15 @@ class BackgroundTaskManager {
                     }
                 }
 
-                // Get the latest reply preview from the posts array
+                // Get the latest reply preview and post number from the posts array
                 var replyPreview = ""
+                var latestReplyNo: String? = nil
                 if let posts = json["posts"].array, posts.count > 1 {
                     let latestPost = posts[posts.count - 1]
                     let hasImage = latestPost["tim"].exists()
+
+                    // Capture the post number for navigation
+                    latestReplyNo = String(latestPost["no"].intValue)
 
                     if let comment = latestPost["com"].string, !comment.isEmpty {
                         let cleanedComment = comment
@@ -265,13 +269,14 @@ class BackgroundTaskManager {
                 await MainActor.run {
                     FavoritesManager.shared.updateFavorite(thread: updatedThread)
 
-                    // Add in-app notification (was previously missing!)
+                    // Add in-app notification with latest reply number for navigation
                     NotificationManager.shared.addThreadUpdateNotification(
                         boardAbv: favorite.boardAbv,
                         threadNo: favorite.number,
                         threadTitle: threadTitle,
                         newReplyCount: newReplies,
-                        replyPreview: replyPreview
+                        replyPreview: replyPreview,
+                        latestReplyNo: latestReplyNo
                     )
 
                     updateApplicationBadgeCount()
