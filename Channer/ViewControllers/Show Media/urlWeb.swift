@@ -1809,6 +1809,12 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         let filename = images[currentIndex].lastPathComponent
         let destinationURL = folderURL.appendingPathComponent(filename)
 
+        // Check if file has already been downloaded
+        if DownloadedMediaTracker.fileExists(at: destinationURL) {
+            showAlert(title: "Already Downloaded", message: "This file has already been downloaded")
+            return
+        }
+
         // Start download
         Task {
             await download(url: images[currentIndex], to: destinationURL)

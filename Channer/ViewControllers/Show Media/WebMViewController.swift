@@ -802,11 +802,17 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             showAlert(message: "Invalid video URL")
             return
         }
-        
+
         let webmDir = getWebMDirectory()
         let filename = sourceURL.lastPathComponent
         let destinationURL = webmDir.appendingPathComponent(filename)
-        
+
+        // Check if video has already been downloaded
+        if DownloadedMediaTracker.fileExists(at: destinationURL) {
+            showAlert(message: "This video has already been downloaded")
+            return
+        }
+
         Task {
             await download(url: sourceURL, to: destinationURL)
         }
@@ -850,13 +856,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                 return
             }
             
-            // Ensure destination directory exists and no conflicting file remains
+            // Ensure destination directory exists
             let dir = localUrl.deletingLastPathComponent()
             if !FileManager.default.fileExists(atPath: dir.path) {
                 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            }
-            if FileManager.default.fileExists(atPath: localUrl.path) {
-                try? FileManager.default.removeItem(at: localUrl)
             }
             try FileManager.default.moveItem(at: tempLocalUrl, to: localUrl)
             let attrs = try? FileManager.default.attributesOfItem(atPath: localUrl.path)

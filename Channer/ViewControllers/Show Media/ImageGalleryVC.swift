@@ -1089,10 +1089,17 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     private func saveImage(at indexPath: IndexPath) {
         let imageURL = images[indexPath.row]
 
+        // Check if image has already been saved to Photos
+        if DownloadedMediaTracker.shared.hasBeenSavedToPhotos(url: imageURL) {
+            showToast("This image has already been saved to Photos")
+            return
+        }
+
         // Get the cell to access the image
         if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell,
            let image = cell.imageView?.image {
             UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+            DownloadedMediaTracker.shared.markAsSavedToPhotos(url: imageURL)
             showToast("Image saved to Photos")
         } else {
             // Download and save if not already loaded
@@ -1102,6 +1109,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
 
     /// Downloads and saves an image from URL
     private func downloadAndSaveImage(url: URL) {
+        // Check if image has already been saved to Photos
+        if DownloadedMediaTracker.shared.hasBeenSavedToPhotos(url: url) {
+            showToast("This image has already been saved to Photos")
+            return
+        }
+
         Task {
             do {
                 var request = URLRequest(url: url)
@@ -1120,6 +1133,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 if let image = UIImage(data: data) {
                     await MainActor.run {
                         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                        DownloadedMediaTracker.shared.markAsSavedToPhotos(url: url)
                         self.showToast("Image saved to Photos")
                     }
                 }
