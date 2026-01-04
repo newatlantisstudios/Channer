@@ -43,7 +43,7 @@ class boardTVCell: UITableViewCell {
             label.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
             label.textAlignment = .center
             label.textColor = ThemeManager.shared.primaryTextColor
-            label.numberOfLines = 1
+            label.numberOfLines = 2
             label.lineBreakMode = .byTruncatingTail
             return label
         }()
