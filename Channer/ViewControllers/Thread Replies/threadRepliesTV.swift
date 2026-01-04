@@ -578,7 +578,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 self.navigationController?.navigationBar.standardAppearance = appearance
                 self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
                 self.navigationController?.navigationBar.compactAppearance = appearance
-                self.navigationController?.navigationBar.isTranslucent = true
+                self.navigationController?.navigationBar.isTranslucent = false
                 self.navigationController?.navigationBar.tintColor = nil
             }, completion: nil)
         } else {
@@ -587,7 +587,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 self.navigationController?.navigationBar.standardAppearance = appearance
                 self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
                 self.navigationController?.navigationBar.compactAppearance = appearance
-                self.navigationController?.navigationBar.isTranslucent = true
+                self.navigationController?.navigationBar.isTranslucent = false
                 self.navigationController?.navigationBar.tintColor = nil
             }
         }
