@@ -210,6 +210,12 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             return
         }
 
+        // Check if image has already been saved to Photos
+        if DownloadedMediaTracker.shared.hasBeenSavedToPhotos(url: imageURL) {
+            showToast("This image has already been saved to Photos")
+            return
+        }
+
         UIImageWriteToSavedPhotosAlbum(image, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
     }
 
@@ -217,6 +223,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         if let error = error {
             showToast("Error saving image: \(error.localizedDescription)")
         } else {
+            DownloadedMediaTracker.shared.markAsSavedToPhotos(url: imageURL)
             showToast("Image saved to Photos")
         }
     }
