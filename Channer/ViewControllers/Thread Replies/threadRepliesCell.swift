@@ -80,13 +80,24 @@ class threadRepliesCell: UITableViewCell {
     let thread: UIButton = {
         let button = UIButton()
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setImage(UIImage(named: "thread"), for: .normal)
-        
-        // Make button more visually appealing
-        button.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
-        button.layer.cornerRadius = 15
-        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-        button.tintColor = .systemBlue // Make the icon blue
+
+        if #available(iOS 15.0, *) {
+            var config = UIButton.Configuration.plain()
+            config.image = UIImage(named: "thread")
+            config.baseForegroundColor = .systemBlue
+            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+            config.background.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+            config.background.cornerRadius = 15
+            button.configuration = config
+        } else {
+            button.setImage(UIImage(named: "thread"), for: .normal)
+
+            // Make button more visually appealing
+            button.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+            button.layer.cornerRadius = 15
+            button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+            button.tintColor = .systemBlue // Make the icon blue
+        }
         
         // Add shadow for depth
         button.layer.shadowColor = UIColor.black.cgColor

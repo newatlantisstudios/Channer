@@ -17,7 +17,7 @@ class ThreadDataHelper {
         
         do {
             // Parse the JSON data
-            let json = try JSON(data: threadData)
+            _ = try JSON(data: threadData)
             
             // Apply filtering to the parsed JSON
             // TODO: Implement filterPosts method in ContentFilterManager

@@ -146,30 +146,30 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     override var keyCommands: [UIKeyCommand]? {
         // Only provide shortcuts on iPad
         if UIDevice.current.userInterfaceIdiom == .pad {
-            let nextReplyCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow, 
-                                                modifierFlags: [], 
-                                                action: #selector(nextReply),
-                                                discoverabilityTitle: "Next Reply")
+            let nextReplyCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                                modifierFlags: [],
+                                                action: #selector(nextReply))
+            nextReplyCommand.discoverabilityTitle = "Next Reply"
             
-            let previousReplyCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow, 
-                                                    modifierFlags: [], 
-                                                    action: #selector(previousReply),
-                                                    discoverabilityTitle: "Previous Reply")
+            let previousReplyCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                    modifierFlags: [],
+                                                    action: #selector(previousReply))
+            previousReplyCommand.discoverabilityTitle = "Previous Reply"
             
-            let toggleFavoriteCommand = UIKeyCommand(input: "d", 
-                                                    modifierFlags: .command, 
-                                                    action: #selector(toggleFavoriteShortcut),
-                                                    discoverabilityTitle: "Toggle Favorite")
+            let toggleFavoriteCommand = UIKeyCommand(input: "d",
+                                                     modifierFlags: .command,
+                                                     action: #selector(toggleFavoriteShortcut))
+            toggleFavoriteCommand.discoverabilityTitle = "Toggle Favorite"
             
-            let openGalleryCommand = UIKeyCommand(input: "g", 
-                                                modifierFlags: .command, 
-                                                action: #selector(openGallery),
-                                                discoverabilityTitle: "Open Gallery")
+            let openGalleryCommand = UIKeyCommand(input: "g",
+                                                  modifierFlags: .command,
+                                                  action: #selector(openGallery))
+            openGalleryCommand.discoverabilityTitle = "Open Gallery"
             
-            let backToBoardCommand = UIKeyCommand(input: UIKeyCommand.inputEscape, 
-                                                 modifierFlags: [], 
-                                                 action: #selector(backToBoard),
-                                                 discoverabilityTitle: "Back to Board")
+            let backToBoardCommand = UIKeyCommand(input: UIKeyCommand.inputEscape,
+                                                  modifierFlags: [],
+                                                  action: #selector(backToBoard))
+            backToBoardCommand.discoverabilityTitle = "Back to Board"
             
             return [nextReplyCommand, previousReplyCommand, toggleFavoriteCommand, 
                     openGalleryCommand, backToBoardCommand]
@@ -389,15 +389,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private lazy var jumpToNewButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.backgroundColor = ThemeManager.shared.cellBorderColor
         button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
-        button.layer.cornerRadius = 20
+
+        if #available(iOS 15.0, *) {
+            var config = UIButton.Configuration.plain()
+            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
+            config.baseForegroundColor = .white
+            config.background.backgroundColor = ThemeManager.shared.cellBorderColor
+            config.background.cornerRadius = 20
+            button.configuration = config
+        } else {
+            button.backgroundColor = ThemeManager.shared.cellBorderColor
+            button.layer.cornerRadius = 20
+            button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        }
+
         button.layer.shadowColor = UIColor.black.cgColor
         button.layer.shadowOffset = CGSize(width: 0, height: 2)
         button.layer.shadowRadius = 4
         button.layer.shadowOpacity = 0.3
-        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
         button.addTarget(self, action: #selector(jumpToNewPostsTapped), for: .touchUpInside)
         button.isHidden = true
         button.alpha = 0
@@ -898,7 +909,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                             action: #selector(showGallery))
 
         // Create the Favorite button with dynamic image based on state
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
+        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv)
         let favoriteImageName = isFavorited ? "star.fill" : "star"
         let favoriteImage = UIImage(systemName: favoriteImageName)
         favoriteButton = UIBarButtonItem(image: favoriteImage,
@@ -915,6 +926,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Set the buttons in the navigation bar (rightmost to leftmost order)
         navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton, replyButton].compactMap { $0 }
+    }
+    
+    private func removeReplyButton() {
+        guard let items = navigationItem.rightBarButtonItems else { return }
+        navigationItem.rightBarButtonItems = items.filter { $0.action != #selector(showComposeView) }
     }
     
     // MARK: - Search Bar Setup
@@ -1534,11 +1550,22 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func handleNetworkResponse(_ response: AFDataResponse<Data>) {
+        if let statusCode = response.response?.statusCode, statusCode == 404 {
+            handleThreadUnavailable()
+            onViewReady?()
+            return
+        }
+
         switch response.result {
         case .success(let data):
             do {
                 // Parse JSON response
                 let json = try JSON(data: data)
+                guard !json["posts"].arrayValue.isEmpty else {
+                    self.handleThreadUnavailable()
+                    self.onViewReady?()
+                    return
+                }
                 self.processThreadData(json)
                 self.structureThreadReplies()
                 
@@ -1588,10 +1615,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func handleLoadDataResponse(_ response: AFDataResponse<Data>) {
+        if let statusCode = response.response?.statusCode, statusCode == 404 {
+            handleThreadUnavailable()
+            return
+        }
+
         switch response.result {
         case .success(let data):
             do {
                 let json = try JSON(data: data)
+                guard !json["posts"].arrayValue.isEmpty else {
+                    self.handleThreadUnavailable()
+                    return
+                }
                 self.processThreadData(json)
                 self.structureThreadReplies()
                 self.preloadThreadContent { [weak self] in
@@ -1610,6 +1646,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
     
+    private func handleThreadUnavailable() {
+        isLoading = false
+        loadingIndicator.stopAnimating()
+        removeReplyButton()
+
+        let alert = UIAlertController(
+            title: "Thread Unavailable",
+            message: "This thread no longer exists.",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     private func handleLoadError() {
         isLoading = false
         
@@ -1764,9 +1815,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func toggleFavorite() {
         guard !threadNumber.isEmpty else { return }
         
-        if FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
+        if FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) {
             print("Removing favorite for thread: \(threadNumber)")
-            FavoritesManager.shared.removeFavorite(threadNumber: threadNumber)
+            FavoritesManager.shared.removeFavorite(threadNumber: threadNumber, boardAbv: boardAbv)
             updateFavoriteButton()
         } else {
             // Show category selection
@@ -1796,7 +1847,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func updateFavoriteButton() {
         // Update the favorite button icon based on current state
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber)
+        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv)
         let favoriteImageName = isFavorited ? "star.fill" : "star"
         favoriteButton?.image = UIImage(systemName: favoriteImageName)
     }
@@ -1829,7 +1880,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func removeFavorite() {
-        FavoritesManager.shared.removeFavorite(threadNumber: threadNumber)
+        FavoritesManager.shared.removeFavorite(threadNumber: threadNumber, boardAbv: boardAbv)
     }
     
     private func loadFavorites() -> [ThreadData] {
@@ -2379,7 +2430,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             let replyString = reply.string
             
             if replyString.contains(">>") {
-                for (a, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
+                for (_, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
                     if replyString.contains(">>" + boardReplyNumber) {
                         if threadBoardReplies[boardReplyNumber] == nil {
                             threadBoardReplies[boardReplyNumber] = [threadBoardReplyNumber[i]]
@@ -3485,9 +3536,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Get category if thread is favorited
         var categoryId: String? = nil
-        if FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
+        if FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) {
             let favorites = FavoritesManager.shared.loadFavorites()
-            if let favorite = favorites.first(where: { $0.number == threadNumber }) {
+            if let favorite = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
                 categoryId = favorite.categoryId
             }
         }
@@ -3583,7 +3634,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let result = NSMutableAttributedString()
         let lines = text.components(separatedBy: "\n")
         
-        for (i, line) in lines.enumerated() {
+        for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             
             if trimmed.hasPrefix(">>") {
@@ -3841,7 +3892,7 @@ extension threadRepliesTV {
         
         // Generate thumbnail URL using same method as normal loading
         let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
-        print("🚀 LOAD: Thumbnail URL: \(thumbnailUrl)")
+        print("🚀 LOAD: Thumbnail URL: \(thumbnailUrl?.absoluteString ?? "nil")")
         
         guard let url = thumbnailUrl else {
             print("❌ LOAD: Invalid thumbnail URL")

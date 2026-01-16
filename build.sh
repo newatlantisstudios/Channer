@@ -24,15 +24,49 @@ WORKSPACE="Channer.xcworkspace"
 SCHEME="Channer"
 CONFIGURATION="Debug"
 SDK="iphonesimulator"
+DESTINATION="${DESTINATION:-generic/platform=iOS Simulator}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_PATH="${SCRIPT_DIR}/${WORKSPACE}"
+PROJECT_PATH="${SCRIPT_DIR}/Channer.xcodeproj"
+
+# Use a local cache root to avoid permission issues with system cache dirs.
+CACHE_ROOT="${SCRIPT_DIR}/build/.xcode-cache"
+HOME_PATH="${CACHE_ROOT}/home"
+XDG_CACHE_HOME_PATH="${CACHE_ROOT}/cache"
+TMPDIR_PATH="${CACHE_ROOT}/tmp"
+DERIVED_DATA_PATH="${CACHE_ROOT}/DerivedData"
+SOURCE_PACKAGES_PATH="${CACHE_ROOT}/SourcePackages"
+
+mkdir -p \
+    "$HOME_PATH/Library/Caches" \
+    "$HOME_PATH/.cache/clang/ModuleCache" \
+    "$XDG_CACHE_HOME_PATH" \
+    "$TMPDIR_PATH" \
+    "$DERIVED_DATA_PATH" \
+    "$SOURCE_PACKAGES_PATH"
+
+XCODEBUILD_ENV=(HOME="$HOME_PATH" XDG_CACHE_HOME="$XDG_CACHE_HOME_PATH" TMPDIR="$TMPDIR_PATH")
+
+if [ -d "$WORKSPACE_PATH" ] && [ -f "$WORKSPACE_PATH/contents.xcworkspacedata" ] \
+    && env "${XCODEBUILD_ENV[@]}" xcodebuild -list -workspace "$WORKSPACE_PATH" >/dev/null 2>&1; then
+    XCODEBUILD_ARGS=(-workspace "$WORKSPACE_PATH")
+else
+    echo -e "${YELLOW}Workspace not found or invalid. Falling back to project.${NC}"
+    XCODEBUILD_ARGS=(-project "$PROJECT_PATH")
+fi
 
 echo -e "${GREEN}Building $SCHEME...${NC}"
 
 # Build with xcodebuild and pipe through xcbeautify
-xcodebuild \
-    -workspace "$WORKSPACE" \
+env "${XCODEBUILD_ENV[@]}" xcodebuild \
+    "${XCODEBUILD_ARGS[@]}" \
     -scheme "$SCHEME" \
     -configuration "$CONFIGURATION" \
     -sdk "$SDK" \
+    -destination "$DESTINATION" \
+    -derivedDataPath "$DERIVED_DATA_PATH" \
+    -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_PATH" \
     -quiet \
     clean build \
     | xcbeautify

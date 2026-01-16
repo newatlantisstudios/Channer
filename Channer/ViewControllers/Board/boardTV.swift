@@ -103,25 +103,25 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     override var keyCommands: [UIKeyCommand]? {
         // Only provide shortcuts on iPad
         if UIDevice.current.userInterfaceIdiom == .pad {
-            let nextThreadCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow, 
-                                                modifierFlags: [], 
-                                                action: #selector(nextThread),
-                                                discoverabilityTitle: "Next Thread")
+            let nextThreadCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                                 modifierFlags: [],
+                                                 action: #selector(nextThread))
+            nextThreadCommand.discoverabilityTitle = "Next Thread"
             
-            let previousThreadCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow, 
-                                                    modifierFlags: [], 
-                                                    action: #selector(previousThread),
-                                                    discoverabilityTitle: "Previous Thread")
+            let previousThreadCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                     modifierFlags: [],
+                                                     action: #selector(previousThread))
+            previousThreadCommand.discoverabilityTitle = "Previous Thread"
             
-            let openSelectedThreadCommand = UIKeyCommand(input: "\r", 
-                                                       modifierFlags: [], 
-                                                       action: #selector(openSelectedThread),
-                                                       discoverabilityTitle: "Open Selected Thread")
+            let openSelectedThreadCommand = UIKeyCommand(input: "\r",
+                                                         modifierFlags: [],
+                                                         action: #selector(openSelectedThread))
+            openSelectedThreadCommand.discoverabilityTitle = "Open Selected Thread"
             
-            let refreshThreadsCommand = UIKeyCommand(input: "r", 
-                                                   modifierFlags: .command, 
-                                                   action: #selector(refreshThreads),
-                                                   discoverabilityTitle: "Refresh Threads")
+            let refreshThreadsCommand = UIKeyCommand(input: "r",
+                                                     modifierFlags: .command,
+                                                     action: #selector(refreshThreads))
+            refreshThreadsCommand.discoverabilityTitle = "Refresh Threads"
             
             return [nextThreadCommand, previousThreadCommand, openSelectedThreadCommand, refreshThreadsCommand]
         }
@@ -718,7 +718,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
             alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { _ in
                 // Remove from FavoritesManager
-                FavoritesManager.shared.removeFavorite(threadNumber: threadToDelete.number)
+                FavoritesManager.shared.removeFavorite(threadNumber: threadToDelete.number, boardAbv: threadToDelete.boardAbv)
                 
                 // Remove from local data sources
                 self.filteredThreadData.remove(at: indexPath.row)

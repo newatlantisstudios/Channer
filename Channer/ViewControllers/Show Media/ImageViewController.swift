@@ -69,16 +69,16 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     }
 
     // MARK: - Navigation Bar Setup
-    /// Sets up navigation bar items including save and actions buttons
+    /// Sets up navigation bar items including download and actions buttons
     private func setupNavigationBarItems() {
-        // Create save button
-        let saveButton = UIBarButtonItem(
+        // Create download button
+        let downloadButton = UIBarButtonItem(
             image: UIImage(systemName: "square.and.arrow.down"),
             style: .plain,
             target: self,
-            action: #selector(saveImageToPhotos)
+            action: #selector(downloadImage)
         )
-        saveButton.tintColor = .white
+        downloadButton.tintColor = .white
 
         // Create action menu button
         let menuButton = UIBarButtonItem(
@@ -89,7 +89,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         )
         menuButton.tintColor = .white
 
-        navigationItem.rightBarButtonItems = [menuButton, saveButton]
+        navigationItem.rightBarButtonItems = [menuButton, downloadButton]
     }
 
     /// Shows actions menu for the current image
@@ -203,29 +203,87 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     }
 
     // MARK: - Image Actions
-    /// Saves the current image to the photo library
-    @objc private func saveImageToPhotos() {
-        guard let image = imageView.image else {
-            showToast("No image to save")
+    /// Downloads the current image to the app's documents folder
+    @objc private func downloadImage() {
+        if imageURL.isFileURL {
+            showToast("Image already downloaded")
             return
         }
 
-        // Check if image has already been saved to Photos
-        if DownloadedMediaTracker.shared.hasBeenSavedToPhotos(url: imageURL) {
-            showToast("This image has already been saved to Photos")
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            showToast("Unable to access downloads folder")
             return
         }
 
-        UIImageWriteToSavedPhotosAlbum(image, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
+        let imagesDirectory = documentsDirectory.appendingPathComponent("images", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
+        } catch {
+            showToast("Failed to create downloads folder")
+            return
+        }
+
+        let destinationURL = imagesDirectory.appendingPathComponent(imageURL.lastPathComponent)
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            showToast("Image already downloaded")
+            return
+        }
+
+        Task {
+            do {
+                let request = makeDownloadRequest(for: imageURL)
+                let (tempURL, response) = try await URLSession.shared.download(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse,
+                      (200...299).contains(httpResponse.statusCode) else {
+                    await MainActor.run {
+                        self.showToast("Failed to download image")
+                    }
+                    return
+                }
+
+                try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+
+                await MainActor.run {
+                    self.showToast("Image downloaded")
+                }
+            } catch {
+                await MainActor.run {
+                    self.showToast("Download failed: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
-    @objc private func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        if let error = error {
-            showToast("Error saving image: \(error.localizedDescription)")
-        } else {
-            DownloadedMediaTracker.shared.markAsSavedToPhotos(url: imageURL)
-            showToast("Image saved to Photos")
+    private func makeDownloadRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+
+        if let referer = refererString {
+            request.setValue(referer, forHTTPHeaderField: "Referer")
+            if let refererURL = URL(string: referer),
+               let scheme = refererURL.scheme,
+               let host = refererURL.host {
+                let origin = "\(scheme)://\(host)"
+                request.setValue(origin, forHTTPHeaderField: "Origin")
+            }
+        } else if url.host == "i.4cdn.org" {
+            let components = url.pathComponents
+            if components.count > 1 {
+                let board = components[1]
+                request.setValue("https://boards.4chan.org/\(board)/", forHTTPHeaderField: "Referer")
+                request.setValue("https://boards.4chan.org", forHTTPHeaderField: "Origin")
+            }
+        } else if let scheme = url.scheme, let host = url.host {
+            let origin = "\(scheme)://\(host)"
+            request.setValue(origin + "/", forHTTPHeaderField: "Referer")
+            request.setValue(origin, forHTTPHeaderField: "Origin")
         }
+
+        return request
     }
 
     /// Shares the current image

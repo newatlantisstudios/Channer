@@ -3,32 +3,59 @@ import AVFoundation
 
 class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, UIContextMenuInteractionDelegate {
     
+    // MARK: - Types
+    private enum ViewMode: Int {
+        case grid
+        case list
+    }
+
+    private enum ContentScope: Int {
+        case allMedia
+        case currentFolder
+    }
+
+    private struct FileItem {
+        let url: URL
+        let isDirectory: Bool
+    }
+
     // MARK: - Properties
-    /// An array to hold file URLs.
-    var files: [URL] = []
+    private let rootDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    
+    /// Items currently displayed.
+    private var items: [FileItem] = []
     
     /// The current directory being displayed.
-    var currentDirectory: URL
+    private var currentDirectory: URL
+    
+    /// Current view mode (grid or list).
+    private var viewMode: ViewMode = .grid
+
+    /// Current content scope (all media or current folder).
+    private var contentScope: ContentScope = .allMedia
     
     /// The collection view to display thumbnails of files.
-    var collectionView: UICollectionView!
+    private var collectionView: UICollectionView!
     
     /// Tracks whether we're in selection mode
-    var isSelectionMode: Bool = false
+    private var isSelectionMode: Bool = false
     
     /// Set of selected index paths
-    var selectedIndexPaths: Set<IndexPath> = []
+    private var selectedIndexPaths: Set<IndexPath> = []
     
     /// Navigation bar buttons
-    var selectButton: UIBarButtonItem!
-    var cancelButton: UIBarButtonItem!
-    var deleteButton: UIBarButtonItem!
+    private var selectButton: UIBarButtonItem!
+    private var cancelButton: UIBarButtonItem!
+    private var deleteButton: UIBarButtonItem!
+    private var moveButton: UIBarButtonItem!
+    private var optionsButton: UIBarButtonItem!
+    private var downloadManagerButton: UIBarButtonItem!
     
     // MARK: - Initializers
     /// Initializes the view controller with an optional directory.
     /// - Parameter directory: The directory to display. Defaults to the documents directory.
     init(directory: URL? = nil) {
-        self.currentDirectory = directory ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.currentDirectory = directory ?? rootDirectory
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -43,7 +70,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         super.viewDidLoad()
         print("viewDidLoad - FilesListVC")
         view.backgroundColor = .systemBackground
-        self.navigationItem.title = "Downloaded"
+        updateNavigationTitle()
         
         // Remove custom back/home button to use navigation controller's default back button
         // The navigation controller will automatically show a back button with an arrow
@@ -61,13 +88,11 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     // MARK: - Setup Methods
     /// Configures the collection view for thumbnail display.
     private func setupCollectionView() {
-        let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 5
-        layout.minimumLineSpacing = 5
-        
+        let layout = makeLayout(for: viewMode)
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.register(FileThumbnailCell.self, forCellWithReuseIdentifier: FileThumbnailCell.reuseIdentifier)
+        collectionView.register(FileListCell.self, forCellWithReuseIdentifier: FileListCell.reuseIdentifier)
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.backgroundColor = .systemBackground
@@ -87,6 +112,46 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
+
+    private func makeLayout(for viewMode: ViewMode) -> UICollectionViewFlowLayout {
+        let layout = UICollectionViewFlowLayout()
+        switch viewMode {
+        case .grid:
+            layout.minimumInteritemSpacing = 5
+            layout.minimumLineSpacing = 5
+            layout.sectionInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+
+        case .list:
+            layout.minimumInteritemSpacing = 0
+            layout.minimumLineSpacing = 1
+            layout.sectionInset = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        }
+        return layout
+    }
+
+    private func updateLayout(animated: Bool = true) {
+        let layout = makeLayout(for: viewMode)
+        if animated {
+            collectionView.setCollectionViewLayout(layout, animated: true) { [weak self] _ in
+                self?.collectionView.collectionViewLayout.invalidateLayout()
+                self?.collectionView.reloadData()
+            }
+        } else {
+            collectionView.setCollectionViewLayout(layout, animated: false)
+            collectionView.collectionViewLayout.invalidateLayout()
+            collectionView.reloadData()
+        }
+    }
+
+    private func updateNavigationTitle() {
+        switch contentScope {
+        case .allMedia:
+            navigationItem.title = "All Media"
+
+        case .currentFolder:
+            navigationItem.title = currentDirectory == rootDirectory ? "App Folder" : currentDirectory.lastPathComponent
+        }
+    }
     
     /// Sets up navigation bar buttons for selection mode
     private func setupNavigationBar() {
@@ -94,15 +159,127 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         cancelButton = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelButtonTapped))
         deleteButton = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(deleteSelectedItems))
         deleteButton.isEnabled = false
+        moveButton = UIBarButtonItem(title: "Move", style: .plain, target: self, action: #selector(moveSelectedItemsAction))
+        moveButton.isEnabled = false
 
-        let downloadManagerButton = UIBarButtonItem(
+        downloadManagerButton = UIBarButtonItem(
             image: UIImage(systemName: "arrow.down.circle"),
             style: .plain,
             target: self,
             action: #selector(openDownloadManager)
         )
 
-        navigationItem.rightBarButtonItems = [selectButton, downloadManagerButton]
+        optionsButton = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"), style: .plain, target: nil, action: nil)
+        optionsButton.menu = makeOptionsMenu()
+
+        navigationItem.rightBarButtonItems = [selectButton, optionsButton, downloadManagerButton]
+    }
+
+    private func makeOptionsMenu() -> UIMenu {
+        let gridAction = UIAction(
+            title: "Grid View",
+            image: UIImage(systemName: "square.grid.2x2"),
+            state: viewMode == .grid ? .on : .off
+        ) { [weak self] _ in
+            self?.setViewMode(.grid)
+        }
+
+        let listAction = UIAction(
+            title: "List View",
+            image: UIImage(systemName: "list.bullet"),
+            state: viewMode == .list ? .on : .off
+        ) { [weak self] _ in
+            self?.setViewMode(.list)
+        }
+
+        let viewMenu = UIMenu(title: "View Mode", options: .displayInline, children: [gridAction, listAction])
+
+        let allMediaAction = UIAction(
+            title: "All Media",
+            image: UIImage(systemName: "square.stack"),
+            state: contentScope == .allMedia ? .on : .off
+        ) { [weak self] _ in
+            self?.setContentScope(.allMedia)
+        }
+
+        let folderAction = UIAction(
+            title: "App Folder",
+            image: UIImage(systemName: "folder"),
+            state: contentScope == .currentFolder ? .on : .off
+        ) { [weak self] _ in
+            self?.setContentScope(.currentFolder)
+        }
+
+        let scopeMenu = UIMenu(title: "Content", options: .displayInline, children: [allMediaAction, folderAction])
+
+        let newFolderAttributes: UIMenuElement.Attributes = contentScope == .currentFolder ? [] : [.disabled]
+        let newFolderAction = UIAction(
+            title: "New Folder",
+            image: UIImage(systemName: "folder.badge.plus"),
+            attributes: newFolderAttributes
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.promptForNewFolder(in: self.currentDirectory)
+        }
+
+        return UIMenu(title: "", children: [viewMenu, scopeMenu, newFolderAction])
+    }
+
+    private func refreshOptionsMenu() {
+        optionsButton.menu = makeOptionsMenu()
+    }
+
+    private func setViewMode(_ mode: ViewMode) {
+        guard viewMode != mode else { return }
+        viewMode = mode
+        updateLayout()
+        refreshOptionsMenu()
+    }
+
+    private func setContentScope(_ scope: ContentScope) {
+        guard contentScope != scope else { return }
+        contentScope = scope
+        if isSelectionMode {
+            exitSelectionMode()
+        }
+        updateNavigationTitle()
+        refreshOptionsMenu()
+        loadFiles()
+    }
+
+    private func promptForNewFolder(in directory: URL, completion: ((URL) -> Void)? = nil) {
+        let alert = UIAlertController(title: "New Folder", message: "Enter a name for the new folder.", preferredStyle: .alert)
+        alert.addTextField { textField in
+            textField.placeholder = "Folder name"
+            textField.autocapitalizationType = .words
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Create", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            let folderName = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !folderName.isEmpty else { return }
+            self.createFolder(named: folderName, in: directory, completion: completion)
+        })
+        present(alert, animated: true)
+    }
+
+    private func createFolder(named folderName: String, in directory: URL, completion: ((URL) -> Void)? = nil) {
+        let folderURL = directory.appendingPathComponent(folderName, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
+            completion?(folderURL)
+            if completion == nil {
+                loadFiles()
+            }
+        } catch {
+            let alert = UIAlertController(
+                title: "Folder Not Created",
+                message: "Unable to create the folder. \(error.localizedDescription)",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
     }
 
     @objc private func openDownloadManager() {
@@ -117,9 +294,9 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         collectionView.allowsMultipleSelection = true
         
         navigationItem.leftBarButtonItem = cancelButton
-        navigationItem.rightBarButtonItem = deleteButton
+        navigationItem.rightBarButtonItems = [deleteButton, moveButton]
         
-        updateDeleteButtonState()
+        updateSelectionActionStates()
     }
     
     @objc private func cancelButtonTapped() {
@@ -129,17 +306,16 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     @objc private func deleteSelectedItems() {
         guard !selectedIndexPaths.isEmpty else { return }
         
-        let selectedFiles = selectedIndexPaths.map { files[$0.row] }
-        let fileCount = selectedFiles.count
+        let itemCount = selectedIndexPaths.count
         
         let alert = UIAlertController(
-            title: "Delete \(fileCount) Item\(fileCount > 1 ? "s" : "")",
-            message: "Are you sure you want to delete \(fileCount) item\(fileCount > 1 ? "s" : "")? This action cannot be undone.",
+            title: "Delete \(itemCount) Item\(itemCount > 1 ? "s" : "")",
+            message: "Are you sure you want to delete \(itemCount) item\(itemCount > 1 ? "s" : "")? This action cannot be undone.",
             preferredStyle: .alert
         )
         
         let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
-            self.performBatchDelete(selectedFiles)
+            self.performBatchDelete()
         }
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
@@ -149,32 +325,179 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         
         present(alert, animated: true, completion: nil)
     }
+
+    @objc private func moveSelectedItemsAction() {
+        guard !selectedIndexPaths.isEmpty else { return }
+
+        let baseDirectory = contentScope == .currentFolder ? currentDirectory : rootDirectory
+        let destinationFolders = fetchSubfolders(in: baseDirectory)
+
+        let alert = UIAlertController(title: "Move to Folder", message: nil, preferredStyle: .actionSheet)
+
+        if contentScope == .allMedia {
+            alert.addAction(UIAlertAction(title: "App Folder", style: .default) { [weak self] _ in
+                self?.moveSelectedItems(to: baseDirectory)
+            })
+        } else if currentDirectory != rootDirectory {
+            let parentDirectory = currentDirectory.deletingLastPathComponent()
+            let parentName = parentDirectory.lastPathComponent.isEmpty ? "App Folder" : parentDirectory.lastPathComponent
+            alert.addAction(UIAlertAction(title: "Move to \(parentName)", style: .default) { [weak self] _ in
+                self?.moveSelectedItems(to: parentDirectory)
+            })
+        }
+
+        for folderURL in destinationFolders {
+            let folderName = folderURL.lastPathComponent
+            alert.addAction(UIAlertAction(title: folderName, style: .default) { [weak self] _ in
+                self?.moveSelectedItems(to: folderURL)
+            })
+        }
+
+        if contentScope == .currentFolder {
+            alert.addAction(UIAlertAction(title: "New Folder", style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                self.promptForNewFolder(in: baseDirectory) { newFolderURL in
+                    self.moveSelectedItems(to: newFolderURL)
+                }
+            })
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.barButtonItem = moveButton
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func fetchSubfolders(in directory: URL) -> [URL] {
+        let fileManager = FileManager.default
+        do {
+            let contents = try fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+            return contents.filter { url in
+                (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            }.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+        } catch {
+            print("DEBUG: FilesListVC - Failed to fetch subfolders: \(error)")
+            return []
+        }
+    }
+
+    private func moveSelectedItems(to destinationFolder: URL) {
+        let fileManager = FileManager.default
+        var failedMoves: [String] = []
+
+        let sortedIndexPaths = selectedIndexPaths.sorted { $0.row > $1.row }
+
+        for indexPath in sortedIndexPaths {
+            let item = items[indexPath.row]
+            let sourceURL = item.url
+
+            if sourceURL.deletingLastPathComponent() == destinationFolder {
+                continue
+            }
+
+            if item.isDirectory {
+                let sourcePath = sourceURL.standardizedFileURL.path
+                let destinationPath = destinationFolder.standardizedFileURL.path
+                if destinationPath.hasPrefix(sourcePath + "/") {
+                    failedMoves.append(sourceURL.lastPathComponent)
+                    continue
+                }
+            }
+
+            let destinationURL = uniqueDestinationURL(for: sourceURL, in: destinationFolder)
+
+            do {
+                try fileManager.moveItem(at: sourceURL, to: destinationURL)
+                if !item.isDirectory {
+                    moveThumbnailIfNeeded(from: sourceURL, to: destinationURL)
+                }
+            } catch {
+                print("ERROR: FilesListVC - Failed to move item: \(error.localizedDescription)")
+                failedMoves.append(sourceURL.lastPathComponent)
+            }
+        }
+
+        exitSelectionMode()
+        loadFiles()
+
+        if !failedMoves.isEmpty {
+            let alert = UIAlertController(
+                title: "Move Failed",
+                message: "Could not move: \(failedMoves.joined(separator: ", "))",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
+    }
+
+    private func uniqueDestinationURL(for sourceURL: URL, in destinationFolder: URL) -> URL {
+        let fileManager = FileManager.default
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let fileExtension = sourceURL.pathExtension
+
+        var destinationURL = destinationFolder.appendingPathComponent(sourceURL.lastPathComponent)
+        var counter = 1
+
+        while fileManager.fileExists(atPath: destinationURL.path) {
+            let newName = "\(baseName) \(counter)"
+            let fileName = fileExtension.isEmpty ? newName : "\(newName).\(fileExtension)"
+            destinationURL = destinationFolder.appendingPathComponent(fileName)
+            counter += 1
+        }
+
+        return destinationURL
+    }
+
+    private func moveThumbnailIfNeeded(from sourceURL: URL, to destinationURL: URL) {
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        guard fileExtension == "webm" || fileExtension == "mp4" else { return }
+
+        let fileManager = FileManager.default
+        let thumbnailURL = getLocalThumbnailURL(for: sourceURL)
+        let destinationThumbnailURL = getLocalThumbnailURL(for: destinationURL)
+
+        guard fileManager.fileExists(atPath: thumbnailURL.path) else { return }
+
+        do {
+            if fileManager.fileExists(atPath: destinationThumbnailURL.path) {
+                try fileManager.removeItem(at: destinationThumbnailURL)
+            }
+            try fileManager.moveItem(at: thumbnailURL, to: destinationThumbnailURL)
+        } catch {
+            print("DEBUG: FilesListVC - Failed to move thumbnail: \(error)")
+        }
+    }
     
-    private func performBatchDelete(_ filesToDelete: [URL]) {
+    private func performBatchDelete() {
         let fileManager = FileManager.default
         var failedDeletions: [String] = []
         var indexPathsToDelete: [IndexPath] = []
         
-        // Sort selected index paths in descending order to delete from the end first
         let sortedIndexPaths = selectedIndexPaths.sorted { $0.row > $1.row }
         
         for indexPath in sortedIndexPaths {
-            let fileURL = files[indexPath.row]
+            let item = items[indexPath.row]
+            let fileURL = item.url
             
             do {
-                // If it's a video file, also delete its thumbnail
-                if fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4" {
+                if !item.isDirectory && (fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4") {
                     let thumbnailURL = getLocalThumbnailURL(for: fileURL)
                     if fileManager.fileExists(atPath: thumbnailURL.path) {
                         try fileManager.removeItem(at: thumbnailURL)
                     }
                 }
                 
-                // Delete the main file or directory
                 try fileManager.removeItem(at: fileURL)
                 
-                // Remove from data source (removing from end to maintain indices)
-                files.remove(at: indexPath.row)
+                items.remove(at: indexPath.row)
                 indexPathsToDelete.append(indexPath)
                 
                 print("DEBUG: FilesListVC - Successfully deleted: \(fileURL.lastPathComponent)")
@@ -185,13 +508,10 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             }
         }
         
-        // Update collection view
         collectionView.deleteItems(at: indexPathsToDelete)
         
-        // Exit selection mode
         exitSelectionMode()
         
-        // Show error message if any deletions failed
         if !failedDeletions.isEmpty {
             let errorAlert = UIAlertController(
                 title: "Some Deletions Failed",
@@ -205,79 +525,157 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     
     private func exitSelectionMode() {
         isSelectionMode = false
+        let selectedItems = selectedIndexPaths
         selectedIndexPaths.removeAll()
         collectionView.allowsMultipleSelection = false
         
         // Deselect all items
-        if let selectedItems = collectionView.indexPathsForSelectedItems {
-            for indexPath in selectedItems {
-                collectionView.deselectItem(at: indexPath, animated: false)
-            }
+        for indexPath in selectedItems {
+            collectionView.deselectItem(at: indexPath, animated: false)
         }
         
         navigationItem.leftBarButtonItem = nil
-        navigationItem.rightBarButtonItem = selectButton
+        navigationItem.rightBarButtonItems = [selectButton, optionsButton, downloadManagerButton]
         
         // Refresh collection view to remove selection UI
         collectionView.reloadData()
     }
     
-    private func updateDeleteButtonState() {
-        deleteButton.isEnabled = !selectedIndexPaths.isEmpty
+    private func updateSelectionActionStates() {
+        let hasSelection = !selectedIndexPaths.isEmpty
+        deleteButton.isEnabled = hasSelection
+        moveButton.isEnabled = hasSelection
     }
     
     // MARK: - Data Loading
-    /// Loads all files recursively from the current directory into the files array.
-    /// Shows a flat list of files without folder navigation.
+    /// Loads files based on the selected scope.
     func loadFiles() {
         let fileManager = FileManager.default
-        var allFiles: [URL] = []
+        var loadedItems: [FileItem] = []
 
-        // Recursively enumerate all files in the directory
-        if let enumerator = fileManager.enumerator(
-            at: currentDirectory,
-            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) {
-            for case let fileURL as URL in enumerator {
-                do {
-                    let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
-                    // Only include regular files, not directories
-                    if resourceValues.isRegularFile == true && resourceValues.isDirectory == false {
-                        allFiles.append(fileURL)
+        switch contentScope {
+        case .allMedia:
+            if let enumerator = fileManager.enumerator(
+                at: rootDirectory,
+                includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            ) {
+                for case let fileURL as URL in enumerator {
+                    do {
+                        let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                        if resourceValues.isRegularFile == true && resourceValues.isDirectory == false {
+                            loadedItems.append(FileItem(url: fileURL, isDirectory: false))
+                        }
+                    } catch {
+                        print("DEBUG: FilesListVC - Error reading file properties: \(error)")
                     }
-                } catch {
-                    print("DEBUG: FilesListVC - Error reading file properties: \(error)")
                 }
+            }
+
+        case .currentFolder:
+            do {
+                let contents = try fileManager.contentsOfDirectory(
+                    at: currentDirectory,
+                    includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+
+                for fileURL in contents {
+                    let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                    let isDirectory = resourceValues.isDirectory ?? false
+                    let isFile = resourceValues.isRegularFile ?? false
+                    if isDirectory || isFile {
+                        loadedItems.append(FileItem(url: fileURL, isDirectory: isDirectory))
+                    }
+                }
+            } catch {
+                print("DEBUG: FilesListVC - Error reading directory contents: \(error)")
             }
         }
 
-        // Sort files by name for consistent ordering
-        files = allFiles.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+        if contentScope == .currentFolder {
+            let directories = loadedItems.filter { $0.isDirectory }.sorted {
+                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
+            }
+            let files = loadedItems.filter { !$0.isDirectory }.sorted {
+                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
+            }
+            items = directories + files
+        } else {
+            items = loadedItems.sorted {
+                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
+            }
+        }
 
-        print("DEBUG: FilesListVC - Loaded \(files.count) files recursively from directory: \(currentDirectory.path)")
+        if !selectedIndexPaths.isEmpty {
+            selectedIndexPaths.removeAll()
+            updateSelectionActionStates()
+        }
+
+        print("DEBUG: FilesListVC - Loaded \(items.count) items in scope: \(contentScope)")
         collectionView.reloadData()
     }
     
     // MARK: - UICollectionViewDataSource
     /// Returns the number of items in the collection view section.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return files.count
+        return items.count
     }
     
     /// Configures and returns the cell for the given index path.
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FileThumbnailCell.reuseIdentifier, for: indexPath) as! FileThumbnailCell
-        let fileURL = files[indexPath.row]
+        let item = items[indexPath.row]
+        switch viewMode {
+        case .grid:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FileThumbnailCell.reuseIdentifier, for: indexPath) as! FileThumbnailCell
+            configureGridCell(cell, with: item, at: indexPath)
+            return cell
+
+        case .list:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: FileListCell.reuseIdentifier, for: indexPath) as! FileListCell
+            configureListCell(cell, with: item, at: indexPath)
+            return cell
+        }
+    }
+
+    private func configureGridCell(_ cell: FileThumbnailCell, with item: FileItem, at indexPath: IndexPath) {
+        let fileURL = item.url
         let fileName = fileURL.lastPathComponent
+
+        if item.isDirectory {
+            let folderImage = UIImage(systemName: "folder.fill")
+            cell.configure(with: folderImage, fileName: fileName, isDirectory: true)
+        } else {
+            configureFileCell(cell: cell, fileURL: fileURL, fileName: fileName, indexPath: indexPath, detailText: detailTextForItem(item))
+        }
+
+        let isSelected = selectedIndexPaths.contains(indexPath)
+        cell.setSelectionMode(isSelectionMode, isSelected: isSelected)
+    }
+
+    private func configureListCell(_ cell: FileListCell, with item: FileItem, at indexPath: IndexPath) {
+        let fileURL = item.url
+        let fileName = fileURL.lastPathComponent
+        let detailText = detailTextForItem(item)
+
+        if item.isDirectory {
+            let folderImage = UIImage(systemName: "folder.fill")
+            cell.configure(with: folderImage, fileName: fileName, isDirectory: true, detailText: detailText)
+        } else {
+            configureFileCell(cell: cell, fileURL: fileURL, fileName: fileName, indexPath: indexPath, detailText: detailText)
+        }
+
+        let isSelected = selectedIndexPaths.contains(indexPath)
+        cell.setSelectionMode(isSelectionMode, isSelected: isSelected)
+    }
+
+    private func configureFileCell(cell: FileThumbnailCell, fileURL: URL, fileName: String, indexPath: IndexPath, detailText: String?) {
         let fileExtension = fileURL.pathExtension.lowercased()
 
-        // First try to load a saved thumbnail
         if let savedThumbnail = loadSavedThumbnail(for: fileURL) {
             print("DEBUG: FilesListVC - Using saved thumbnail for: \(fileURL.lastPathComponent)")
             cell.configure(with: savedThumbnail, fileName: fileName, isDirectory: false)
         } else if ["jpg", "jpeg", "png"].contains(fileExtension) {
-            // For images, generate thumbnail from the actual image
             if let image = UIImage(contentsOfFile: fileURL.path) {
                 let thumbnail = resizeImage(image, to: CGSize(width: 150, height: 150))
                 cell.configure(with: thumbnail, fileName: fileName, isDirectory: false)
@@ -288,34 +686,75 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         } else if fileExtension == "webm" || fileExtension == "mp4" {
             print("DEBUG: FilesListVC - No saved thumbnail found for video: \(fileURL.path)")
 
-            // Set fallback icon immediately
             let videoImage = UIImage(systemName: "video.fill")
             cell.configure(with: videoImage, fileName: fileName, isDirectory: false)
 
-            // Try to generate thumbnail as fallback (but this should rarely happen now)
-            generateThumbnail(for: fileURL) { image in
+            generateThumbnail(for: fileURL) { [weak self] image in
+                guard let self = self, let image = image else { return }
                 DispatchQueue.main.async {
-                    if let image = image {
-                        print("DEBUG: FilesListVC - Generated fallback thumbnail for \(fileURL.lastPathComponent)")
-                        cell.configure(with: image, fileName: fileName, isDirectory: false)
-                    }
+                    self.updateVisibleCell(at: indexPath, image: image, fileName: fileName, isDirectory: false, detailText: detailText)
                 }
             }
         } else if fileExtension == "gif" {
-            // For GIFs, show the actual image as thumbnail
             let image = UIImage(contentsOfFile: fileURL.path)
             cell.configure(with: image, fileName: fileName, isDirectory: false)
         } else {
-            // Display generic file icon for other file types
             let fileImage = UIImage(systemName: "doc.fill")
             cell.configure(with: fileImage, fileName: fileName, isDirectory: false)
         }
+    }
 
-        // Configure selection mode UI
-        let isSelected = selectedIndexPaths.contains(indexPath)
-        cell.setSelectionMode(isSelectionMode, isSelected: isSelected)
+    private func configureFileCell(cell: FileListCell, fileURL: URL, fileName: String, indexPath: IndexPath, detailText: String?) {
+        let fileExtension = fileURL.pathExtension.lowercased()
 
-        return cell
+        if let savedThumbnail = loadSavedThumbnail(for: fileURL) {
+            print("DEBUG: FilesListVC - Using saved thumbnail for: \(fileURL.lastPathComponent)")
+            cell.configure(with: savedThumbnail, fileName: fileName, isDirectory: false, detailText: detailText)
+        } else if ["jpg", "jpeg", "png"].contains(fileExtension) {
+            if let image = UIImage(contentsOfFile: fileURL.path) {
+                let thumbnail = resizeImage(image, to: CGSize(width: 150, height: 150))
+                cell.configure(with: thumbnail, fileName: fileName, isDirectory: false, detailText: detailText)
+            } else {
+                let imageIcon = UIImage(systemName: "photo.fill")
+                cell.configure(with: imageIcon, fileName: fileName, isDirectory: false, detailText: detailText)
+            }
+        } else if fileExtension == "webm" || fileExtension == "mp4" {
+            print("DEBUG: FilesListVC - No saved thumbnail found for video: \(fileURL.path)")
+
+            let videoImage = UIImage(systemName: "video.fill")
+            cell.configure(with: videoImage, fileName: fileName, isDirectory: false, detailText: detailText)
+
+            generateThumbnail(for: fileURL) { [weak self] image in
+                guard let self = self, let image = image else { return }
+                DispatchQueue.main.async {
+                    self.updateVisibleCell(at: indexPath, image: image, fileName: fileName, isDirectory: false, detailText: detailText)
+                }
+            }
+        } else if fileExtension == "gif" {
+            let image = UIImage(contentsOfFile: fileURL.path)
+            cell.configure(with: image, fileName: fileName, isDirectory: false, detailText: detailText)
+        } else {
+            let fileImage = UIImage(systemName: "doc.fill")
+            cell.configure(with: fileImage, fileName: fileName, isDirectory: false, detailText: detailText)
+        }
+    }
+
+    private func detailTextForItem(_ item: FileItem) -> String? {
+        if item.isDirectory {
+            return "Folder"
+        }
+        let ext = item.url.pathExtension
+        return ext.isEmpty ? "File" : ext.uppercased()
+    }
+
+    private func updateVisibleCell(at indexPath: IndexPath, image: UIImage?, fileName: String, isDirectory: Bool, detailText: String?) {
+        if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
+            cell.configure(with: image, fileName: fileName, isDirectory: isDirectory)
+            cell.setSelectionMode(isSelectionMode, isSelected: selectedIndexPaths.contains(indexPath))
+        } else if let cell = collectionView.cellForItem(at: indexPath) as? FileListCell {
+            cell.configure(with: image, fileName: fileName, isDirectory: isDirectory, detailText: detailText)
+            cell.setSelectionMode(isSelectionMode, isSelected: selectedIndexPaths.contains(indexPath))
+        }
     }
     
     // MARK: - UICollectionViewDelegate
@@ -323,16 +762,27 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if isSelectionMode {
             selectedIndexPaths.insert(indexPath)
-            updateDeleteButtonState()
+            updateSelectionActionStates()
 
-            // Update cell's selection state
             if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
+                cell.setSelectionMode(isSelectionMode, isSelected: true)
+            } else if let cell = collectionView.cellForItem(at: indexPath) as? FileListCell {
                 cell.setSelectionMode(isSelectionMode, isSelected: true)
             }
             return
         }
 
-        let selectedURL = files[indexPath.row]
+        let item = items[indexPath.row]
+        if item.isDirectory {
+            guard contentScope == .currentFolder else { return }
+            let filesVC = FilesListVC(directory: item.url)
+            filesVC.viewMode = viewMode
+            filesVC.contentScope = .currentFolder
+            navigationController?.pushViewController(filesVC, animated: true)
+            return
+        }
+
+        let selectedURL = item.url
 
         print("DEBUG: FilesListVC - Selected file: \(selectedURL.lastPathComponent)")
         print("DEBUG: FilesListVC - File path: \(selectedURL.path)")
@@ -343,12 +793,10 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
 
         if ["jpg", "jpeg", "png"].contains(fileExtension) {
             print("DEBUG: FilesListVC - Opening image file with ImageViewController")
-            // Open image in ImageViewController
             let imageViewController = ImageViewController(imageURL: selectedURL)
             navigationController?.pushViewController(imageViewController, animated: true)
         } else if fileExtension == "gif" {
             print("DEBUG: FilesListVC - Opening GIF file with urlWeb for animation support")
-            // Open GIF in urlWeb for animation support
             let urlWebViewController = urlWeb()
             urlWebViewController.images = [selectedURL]
             urlWebViewController.currentIndex = 0
@@ -357,16 +805,14 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             print("DEBUG: FilesListVC - Opening local video with VLCKit (WebMViewController)")
             print("DEBUG: FilesListVC - Video URL: \(selectedURL.absoluteString)")
 
-            // Get all video files for navigation
-            let videoFiles = files.filter { url in
-                let ext = url.pathExtension.lowercased()
-                return ext == "webm" || ext == "mp4"
+            let videoFiles: [URL] = items.compactMap { item in
+                guard !item.isDirectory else { return nil }
+                let ext = item.url.pathExtension.lowercased()
+                return (ext == "webm" || ext == "mp4") ? item.url : nil
             }
 
-            // Find the index of the selected video
             let selectedIndex = videoFiles.firstIndex(of: selectedURL) ?? 0
 
-            // Use VLCKit-only player for local video files with navigation support
             let vlcVC = WebMViewController()
             vlcVC.videoURL = selectedURL.absoluteString
             vlcVC.videoURLs = videoFiles
@@ -381,10 +827,12 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
         if isSelectionMode {
             selectedIndexPaths.remove(indexPath)
-            updateDeleteButtonState()
+            updateSelectionActionStates()
 
             // Update cell's selection state
             if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
+                cell.setSelectionMode(isSelectionMode, isSelected: false)
+            } else if let cell = collectionView.cellForItem(at: indexPath) as? FileListCell {
                 cell.setSelectionMode(isSelectionMode, isSelected: false)
             }
         }
@@ -394,26 +842,41 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     func collectionView(_ collectionView: UICollectionView, didHighlightItemAt indexPath: IndexPath) {
         if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
             cell.setHighlighted(true, animated: true)
+        } else if let cell = collectionView.cellForItem(at: indexPath) as? FileListCell {
+            cell.setHighlighted(true, animated: true)
         }
     }
-
+    
     /// Handles removing cell highlighting (matching ImageGalleryVC)
     func collectionView(_ collectionView: UICollectionView, didUnhighlightItemAt indexPath: IndexPath) {
         if let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell {
             cell.setHighlighted(false, animated: true)
+        } else if let cell = collectionView.cellForItem(at: indexPath) as? FileListCell {
+            cell.setHighlighted(false, animated: true)
         }
     }
+
     
     // MARK: - UICollectionViewDelegateFlowLayout
     /// Defines the size of each item in the collection view.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        // Calculate the width for four items across, with spacing between them
-        let padding: CGFloat = 5
-        let availableWidth = collectionView.frame.width - (padding * 3) // Space for 4 items and 3 paddings between them
-        let widthPerItem = availableWidth / 4
-        // Add extra height for the filename label (approximately 30 points for 2 lines of text)
-        let heightWithLabel = widthPerItem + 30
-        return CGSize(width: widthPerItem, height: heightWithLabel)
+        guard let layout = collectionViewLayout as? UICollectionViewFlowLayout else {
+            return CGSize(width: 100, height: 100)
+        }
+
+        let availableWidth = collectionView.bounds.width - layout.sectionInset.left - layout.sectionInset.right
+
+        switch viewMode {
+        case .grid:
+            let itemsPerRow: CGFloat = 4
+            let totalSpacing = layout.minimumInteritemSpacing * (itemsPerRow - 1)
+            let widthPerItem = (availableWidth - totalSpacing) / itemsPerRow
+            let heightWithLabel = widthPerItem + 30
+            return CGSize(width: widthPerItem, height: heightWithLabel)
+
+        case .list:
+            return CGSize(width: availableWidth, height: 64)
+        }
     }
     
     // MARK: - Helper Methods
@@ -564,8 +1027,8 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             return nil
         }
         
-        let fileURL = files[indexPath.row]
-        let fileName = fileURL.lastPathComponent
+        let item = items[indexPath.row]
+        let fileName = item.url.lastPathComponent
         
         return UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
             let deleteAction = UIAction(
@@ -573,7 +1036,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
                 image: UIImage(systemName: "trash"),
                 attributes: .destructive
             ) { _ in
-                self.showDeleteConfirmation(for: fileURL, at: indexPath)
+                self.showDeleteConfirmation(for: item, at: indexPath)
             }
             
             return UIMenu(title: fileName, children: [deleteAction])
@@ -583,10 +1046,9 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     // MARK: - Delete Functionality
     
     /// Shows a confirmation alert before deleting a file
-    private func showDeleteConfirmation(for fileURL: URL, at indexPath: IndexPath) {
-        let fileName = fileURL.lastPathComponent
-        let isDirectory = fileURL.hasDirectoryPath
-        let itemType = isDirectory ? "folder" : "file"
+    private func showDeleteConfirmation(for item: FileItem, at indexPath: IndexPath) {
+        let fileName = item.url.lastPathComponent
+        let itemType = item.isDirectory ? "folder" : "file"
         
         let alert = UIAlertController(
             title: "Delete \(itemType.capitalized)",
@@ -595,7 +1057,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         )
         
         let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
-            self.deleteFile(at: fileURL, indexPath: indexPath)
+            self.deleteItem(item, at: indexPath)
         }
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
@@ -607,12 +1069,12 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     }
     
     /// Deletes the file at the specified URL and updates the collection view
-    private func deleteFile(at fileURL: URL, indexPath: IndexPath) {
+    private func deleteItem(_ item: FileItem, at indexPath: IndexPath) {
         let fileManager = FileManager.default
+        let fileURL = item.url
         
         do {
-            // If it's a video file, also delete its thumbnail
-            if fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4" {
+            if !item.isDirectory && (fileURL.pathExtension.lowercased() == "webm" || fileURL.pathExtension.lowercased() == "mp4") {
                 let thumbnailURL = getLocalThumbnailURL(for: fileURL)
                 if fileManager.fileExists(atPath: thumbnailURL.path) {
                     try fileManager.removeItem(at: thumbnailURL)
@@ -620,13 +1082,10 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
                 }
             }
             
-            // Delete the main file or directory
             try fileManager.removeItem(at: fileURL)
             
-            // Update the data source
-            files.remove(at: indexPath.row)
+            items.remove(at: indexPath.row)
             
-            // Update the collection view
             collectionView.deleteItems(at: [indexPath])
             
             print("DEBUG: FilesListVC - Successfully deleted: \(fileURL.lastPathComponent)")
@@ -634,7 +1093,6 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         } catch {
             print("ERROR: FilesListVC - Failed to delete file: \(error.localizedDescription)")
             
-            // Show error alert
             let errorAlert = UIAlertController(
                 title: "Delete Failed",
                 message: "Could not delete \"\(fileURL.lastPathComponent)\". \(error.localizedDescription)",

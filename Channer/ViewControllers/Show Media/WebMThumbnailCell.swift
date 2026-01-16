@@ -407,3 +407,135 @@ class FileThumbnailCell: UICollectionViewCell {
         contentView.alpha = 1.0
     }
 }
+
+// MARK: - FileListCell
+/// A list-style cell for the file browser.
+class FileListCell: UICollectionViewCell {
+    static let reuseIdentifier = "FileListCell"
+
+    private let iconImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 8
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .label
+        label.numberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    private let detailLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 12)
+        label.textColor = .secondaryLabel
+        label.numberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    private let selectionImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.tintColor = .systemBlue
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.isHidden = true
+        return imageView
+    }()
+
+    private let textStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .leading
+        stack.spacing = 2
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+
+        contentView.layer.cornerRadius = 10
+        contentView.backgroundColor = .clear
+
+        textStack.addArrangedSubview(nameLabel)
+        textStack.addArrangedSubview(detailLabel)
+
+        contentView.addSubview(iconImageView)
+        contentView.addSubview(textStack)
+        contentView.addSubview(selectionImageView)
+
+        NSLayoutConstraint.activate([
+            iconImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            iconImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 44),
+            iconImageView.heightAnchor.constraint(equalToConstant: 44),
+
+            textStack.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
+            textStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: selectionImageView.leadingAnchor, constant: -12),
+
+            selectionImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            selectionImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            selectionImageView.widthAnchor.constraint(equalToConstant: 22),
+            selectionImageView.heightAnchor.constraint(equalToConstant: 22)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(with image: UIImage?, fileName: String, isDirectory: Bool, detailText: String?) {
+        iconImageView.image = image
+        nameLabel.text = fileName
+        detailLabel.text = detailText
+        detailLabel.isHidden = detailText == nil
+
+        if isDirectory {
+            nameLabel.textColor = .systemBlue
+            nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        } else {
+            nameLabel.textColor = .label
+            nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        }
+    }
+
+    func setSelectionMode(_ isSelectionMode: Bool, isSelected: Bool = false) {
+        if isSelectionMode {
+            selectionImageView.isHidden = false
+            selectionImageView.image = UIImage(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            selectionImageView.tintColor = isSelected ? .systemBlue : .systemGray3
+        } else {
+            selectionImageView.isHidden = true
+            selectionImageView.image = nil
+        }
+    }
+
+    func setHighlighted(_ highlighted: Bool, animated: Bool = true) {
+        let changes = {
+            self.contentView.backgroundColor = highlighted ? UIColor.systemGray5 : UIColor.clear
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        iconImageView.image = nil
+        nameLabel.text = nil
+        detailLabel.text = nil
+        selectionImageView.isHidden = true
+        selectionImageView.image = nil
+        contentView.backgroundColor = .clear
+    }
+}

@@ -139,26 +139,40 @@ class FavoritesManager {
     func addFavorite(_ favorite: ThreadData) {
         addFavorite(favorite, to: nil)
     }
+
+    private func matchesFavorite(_ favorite: ThreadData, threadNumber: String, boardAbv: String?) -> Bool {
+        guard let boardAbv = boardAbv else {
+            return favorite.number == threadNumber
+        }
+        return favorite.number == threadNumber && favorite.boardAbv == boardAbv
+    }
     
-    func removeFavorite(threadNumber: String) {
+    func removeFavorite(threadNumber: String, boardAbv: String? = nil) {
         syncQueue.sync(flags: .barrier) {
             var favorites = self.loadFavorites()
+            let favoritesToRemove = favorites.filter { self.matchesFavorite($0, threadNumber: threadNumber, boardAbv: boardAbv) }
+            guard !favoritesToRemove.isEmpty else { return }
 
-            // Find the favorite to get its board info before removing
-            if let favorite = favorites.first(where: { $0.number == threadNumber }) {
-                // Remove from offline cache
+            for favorite in favoritesToRemove {
                 ThreadCacheManager.shared.removeFromCache(
                     boardAbv: favorite.boardAbv,
-                    threadNumber: threadNumber
+                    threadNumber: favorite.number
                 )
             }
 
-            favorites.removeAll { $0.number == threadNumber }
+            favorites.removeAll { self.matchesFavorite($0, threadNumber: threadNumber, boardAbv: boardAbv) }
             self.saveFavorites(favorites)
         }
     }
     
-    func isFavorited(threadNumber: String) -> Bool {
+    func isFavorited(threadNumber: String, boardAbv: String? = nil) -> Bool {
+        if let boardAbv = boardAbv {
+            if let cached = favoritesCache {
+                return cached.contains { $0.number == threadNumber && $0.boardAbv == boardAbv }
+            }
+            return loadFavorites().contains { $0.number == threadNumber && $0.boardAbv == boardAbv }
+        }
+
         // Performance: Use Set cache for O(1) lookup
         if let cachedNumbers = favoriteNumbersCache {
             return cachedNumbers.contains(threadNumber)
@@ -170,7 +184,7 @@ class FavoritesManager {
     func updateFavorite(thread: ThreadData) {
         syncQueue.sync(flags: .barrier) {
             var favorites = self.loadFavorites()
-            if let index = favorites.firstIndex(where: { $0.number == thread.number }) {
+            if let index = favorites.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
                 favorites[index] = thread
                 self.saveFavorites(favorites)
             }
@@ -204,34 +218,8 @@ class FavoritesManager {
     // MARK: - Verification Methods
     func verifyAndRemoveInvalidFavorites(completion: @escaping ([ThreadData]) -> Void) {
         let favorites = loadFavorites()
-        let dispatchGroup = DispatchGroup()
-        var validFavorites: [ThreadData] = []
-
-        for favorite in favorites {
-            dispatchGroup.enter()
-            let url = "https://a.4cdn.org/\(favorite.boardAbv)/thread/\(favorite.number).json"
-            
-            AF.request(url).responseData { response in
-                defer { dispatchGroup.leave() }
-                switch response.result {
-                case .success(let data):
-                    if let json = try? JSON(data: data),
-                       let firstPost = json["posts"].array?.first {
-                        var threadData = favorite
-                        threadData.currentReplies = firstPost["replies"].intValue
-                        threadData.stats = "\(firstPost["replies"].intValue)/\(firstPost["images"].intValue)"
-                        validFavorites.append(threadData)
-                    } else {
-                        self.removeFavorite(threadNumber: favorite.number)
-                    }
-                case .failure:
-                    self.removeFavorite(threadNumber: favorite.number)
-                }
-            }
-        }
-
-        dispatchGroup.notify(queue: .main) {
-            completion(validFavorites)
+        DispatchQueue.main.async {
+            completion(favorites)
         }
     }
     
@@ -292,7 +280,7 @@ class FavoritesManager {
     
     func syncFavoriteFromICloud(boardAbv: String, threadNumber: String) {
         // Check if favorite already exists locally
-        if !isFavorited(threadNumber: threadNumber) {
+        if !isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) {
             // Create a basic ThreadData object for the synced favorite
             let thread = ThreadData(
                 number: threadNumber,

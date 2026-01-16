@@ -297,44 +297,41 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             }
             
             // Case 2: Thumbnail with "s.jpg" pattern (common in imageboard APIs)
-            if url.absoluteString.contains("s.jpg") {
-                // Extract ID from URL
-                if let fileName = url.absoluteString.split(separator: "/").last {
-                    // Create both WebM and MP4 URLs to try - store both to try either format
-                    let webmString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-                    let mp4String = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
-                    
-                    var hasMP4 = false
-                    var hasWebM = false
-                    
-                    // Store MP4 URL if valid
-                    if let mp4URL = URL(string: mp4String) {
-                        // We're testing both formats and storing both - MP4 as primary if possible
-                        correctedURLs[index] = mp4URL
-                        hasMP4 = true
-                        print("✅ Storing MP4 URL: \(mp4URL.lastPathComponent)")
-                    }
-                    
-                    // Store WebM URL
-                    if let webmURL = URL(string: webmString) {
-                        // If we already have MP4, store WebM as alternate
-                        if hasMP4 {
-                            alternateURLs[index] = webmURL
-                            print("✅ Storing alternate WebM URL: \(webmURL.lastPathComponent)")
-                        } else {
-                            // Otherwise use WebM as primary
-                            correctedURLs[index] = webmURL
-                            hasWebM = true
-                            print("✅ Storing WebM URL: \(webmURL.lastPathComponent)")
-                        }
-                    }
-                    
-                    // If we found either format, continue to next URL
-                    if hasMP4 || hasWebM {
-                        continue
-                    }
+        if url.absoluteString.contains("s.jpg") {
+            // Create both WebM and MP4 URLs to try - store both to try either format
+            let webmString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
+            let mp4String = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
+            
+            var hasMP4 = false
+            var hasWebM = false
+            
+            // Store MP4 URL if valid
+            if let mp4URL = URL(string: mp4String) {
+                // We're testing both formats and storing both - MP4 as primary if possible
+                correctedURLs[index] = mp4URL
+                hasMP4 = true
+                print("✅ Storing MP4 URL: \(mp4URL.lastPathComponent)")
+            }
+            
+            // Store WebM URL
+            if let webmURL = URL(string: webmString) {
+                // If we already have MP4, store WebM as alternate
+                if hasMP4 {
+                    alternateURLs[index] = webmURL
+                    print("✅ Storing alternate WebM URL: \(webmURL.lastPathComponent)")
+                } else {
+                    // Otherwise use WebM as primary
+                    correctedURLs[index] = webmURL
+                    hasWebM = true
+                    print("✅ Storing WebM URL: \(webmURL.lastPathComponent)")
                 }
             }
+            
+            // If we found either format, continue to next URL
+            if hasMP4 || hasWebM {
+                continue
+            }
+        }
             
             // Case 3: Aggressive conversion of ANY image URL to a potential video URL
             if aggressiveConversion && (
@@ -394,7 +391,6 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             for (index, url) in images.enumerated() {
                 if let lastPathComponent = url.absoluteString.split(separator: "/").last {
                     var hasMP4 = false
-                    var hasWebM = false
                     
                     // Try MP4
                     let mp4String = url.absoluteString.replacingOccurrences(
@@ -420,7 +416,6 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                         } else {
                             // Otherwise use as primary
                             correctedURLs[index] = webmURL
-                            hasWebM = true
                             print("⚠️ Desperate primary WebM conversion: \(webmURL.absoluteString)")
                         }
                     }
@@ -611,7 +606,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = [] // Allow videos to play without user interaction
-        config.preferences.javaScriptEnabled = true
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
         
         // Ensure the cell is properly configured for video
         cell.setupForVideo(configuration: config)

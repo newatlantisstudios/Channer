@@ -140,11 +140,15 @@ class BatchImageDownloadManager {
 
         isDownloading = false
 
+        let successTotal = successCount
+        let failureTotal = failureCount
+        let savePath = saveDirectory
+
         await MainActor.run {
             delegate?.batchDownloadDidComplete(
-                successCount: successCount,
-                failureCount: failureCount,
-                savedToPath: saveDirectory
+                successCount: successTotal,
+                failureCount: failureTotal,
+                savedToPath: savePath
             )
         }
     }
@@ -275,6 +279,6 @@ extension BatchImageDownloadManager {
     }
 
     private struct AssociatedKeys {
-        static var progressView = "progressView"
+        static var progressView: UInt8 = 0
     }
 }

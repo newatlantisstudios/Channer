@@ -361,26 +361,22 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
         // Get filter based on section and row
         var filterType = ""
         var filterText = ""
-        var filterArray: [String] = []
         
         switch indexPath.section {
         case 1:
             filterType = "Content Keyword"
             if indexPath.row < keywordFilters.count {
                 filterText = keywordFilters[indexPath.row]
-                filterArray = keywordFilters
             }
         case 2:
             filterType = "Poster ID"
             if indexPath.row < posterFilters.count {
                 filterText = posterFilters[indexPath.row]
-                filterArray = posterFilters
             }
         case 3:
             filterType = "Image Name"
             if indexPath.row < imageFilters.count {
                 filterText = imageFilters[indexPath.row]
-                filterArray = imageFilters
             }
         default:
             return

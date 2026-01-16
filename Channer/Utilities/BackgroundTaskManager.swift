@@ -266,17 +266,24 @@ class BackgroundTaskManager {
                     }
                 }
 
+                let updatedThreadSnapshot = updatedThread
+                let threadTitleSnapshot = threadTitle
+                let replyPreviewSnapshot = replyPreview
+                let latestReplyNoSnapshot = latestReplyNo
+                let newRepliesSnapshot = newReplies
+                let favoriteSnapshot = favorite
+
                 await MainActor.run {
-                    FavoritesManager.shared.updateFavorite(thread: updatedThread)
+                    FavoritesManager.shared.updateFavorite(thread: updatedThreadSnapshot)
 
                     // Add in-app notification with latest reply number for navigation
                     NotificationManager.shared.addThreadUpdateNotification(
-                        boardAbv: favorite.boardAbv,
-                        threadNo: favorite.number,
-                        threadTitle: threadTitle,
-                        newReplyCount: newReplies,
-                        replyPreview: replyPreview,
-                        latestReplyNo: latestReplyNo
+                        boardAbv: favoriteSnapshot.boardAbv,
+                        threadNo: favoriteSnapshot.number,
+                        threadTitle: threadTitleSnapshot,
+                        newReplyCount: newRepliesSnapshot,
+                        replyPreview: replyPreviewSnapshot,
+                        latestReplyNo: latestReplyNoSnapshot
                     )
 
                     updateApplicationBadgeCount()

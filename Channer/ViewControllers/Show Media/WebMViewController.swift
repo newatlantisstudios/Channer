@@ -1,6 +1,6 @@
 import UIKit
-import VLCKit
 import AVFoundation
+import VLCKit
 
 // MARK: - WebMViewController
 /// A view controller responsible for playing and optionally downloading WebM videos.
@@ -1097,7 +1097,7 @@ extension WebMViewController {
             // Basic media information when media changes
             if let media = player.media {
                 print("DEBUG: WebMViewController - Media info:")
-                print("  - Duration: \(media.length.value)ms")
+                print("  - Duration: \(media.length.value?.intValue ?? 0)ms")
             }
             
             switch player.state {
@@ -1170,7 +1170,7 @@ extension WebMViewController {
                 // Get more detailed playback information
                 print("DEBUG: WebMViewController - Player info:")
                 print("  - Position: \(player.position)")
-                print("  - Time: \(player.time.value)ms")
+                print("  - Time: \(player.time.value?.intValue ?? 0)ms")
                 print("  - Length: \(player.media?.length.value ?? 0)ms")
                 print("  - Rate: \(player.rate)")
                 print("  - Has Video Output: \(player.hasVideoOut)")
@@ -1229,7 +1229,7 @@ extension WebMViewController {
                 print("DEBUG: WebMViewController - VLC player error")
                 
                 // Try to get more error details
-                if let media = player.media {
+                if player.media != nil {
                     print("DEBUG: WebMViewController - Media available on error")
                 } else {
                     print("DEBUG: WebMViewController - No media available on error")

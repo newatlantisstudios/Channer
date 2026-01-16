@@ -240,9 +240,9 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         
         // Add video-specific preferences
         let preferences = WKPreferences()
-        preferences.javaScriptEnabled = true
         preferences.javaScriptCanOpenWindowsAutomatically = true
         config.preferences = preferences
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
         
         // Create the web view with the enhanced configuration
         let webView = WKWebView(frame: .zero, configuration: config)

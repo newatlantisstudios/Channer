@@ -199,7 +199,7 @@ class ConflictResolutionViewController: UIViewController {
         switch type {
         case .favorites, .history:
             if let threads = data as? [ThreadData] {
-                return "\\(threads.count) items"
+                return "\(threads.count) items"
             }
         case .categories:
             if let categories = data as? [BookmarkCategory] {

@@ -47,18 +47,21 @@
 		17AAAAAA2DDAAAAA00D75B34 /* BoardsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */; };
 		17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */; };
 		17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */; };
-		17LINKPREV12345678901234 /* LinkPreviewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17LINKPREV12345678901235 /* LinkPreviewManager.swift */; };
-		17CODESYNTAX123456789012 /* CodeSyntaxHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */; };
-		17MATHRENDER123456789012 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17MATHRENDER123456789013 /* MathRenderer.swift */; };
-		17ENHANCEDTF123456789012 /* EnhancedTextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ENHANCEDTF123456789013 /* EnhancedTextFormatter.swift */; };
 		17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CF001A2DDD000000000001 /* ContentFilterViewController.swift */; };
+		17CODESYNTAX123456789012 /* CodeSyntaxHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */; };
 		17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17COMPOSE123456789012345 /* ComposeViewController.swift */; };
+		17D1A7C22F1987D0007FD2E5 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 17SPM001A2DD8000000000004 /* SwiftyJSON */; };
+		17D1A7C32F1987D0007FD2E5 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 17SPM001A2DD8000000000005 /* Alamofire */; };
+		17D1A7C42F1987D0007FD2E5 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 17SPM001A2DD8000000000006 /* Kingfisher */; };
 		17DD68422249B84100641BCA /* urlWeb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DD68412249B84100641BCA /* urlWeb.swift */; };
 		17E4BB702D87E44A0059D400 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */; };
+		17ENHANCEDTF123456789012 /* EnhancedTextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ENHANCEDTF123456789013 /* EnhancedTextFormatter.swift */; };
 		17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */; };
 		17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */; };
 		17IMAGEPICKERBUILD1234567 /* ImagePickerHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */; };
 		17KEYCHAINBUILD123456789 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17KEYCHAIN1234567890123456 /* KeychainHelper.swift */; };
+		17LINKPREV12345678901234 /* LinkPreviewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17LINKPREV12345678901235 /* LinkPreviewManager.swift */; };
+		17MATHRENDER123456789012 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17MATHRENDER123456789013 /* MathRenderer.swift */; };
 		17PASSAUTHBUILD123456789 /* PassAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSAUTH1234567890123456 /* PassAuthManager.swift */; };
 		17PASSSETTINGSBUILD123456 /* PassSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */; };
 		17POSTDATABUILD123456789 /* PostData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17POSTDATA1234567890123456 /* PostData.swift */; };
@@ -84,6 +87,7 @@
 		9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */; };
 		9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */; };
 		9C2E301682B7B21B349D7F28 /* BatchImageDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */; };
+		9C2E301682B7B21B349D7F31 /* DownloadedMediaTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */; };
 		9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */; };
 		A99069598E571715C5D821E8 /* BookmarkCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E195CC9FDB0228531243ED10 /* BookmarkCategoryTests.swift */; };
 		B65284C13704B5B149CF6B14 /* TestDataFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C335E2377BA19B313347A8C /* TestDataFactory.swift */; };
@@ -176,18 +180,18 @@
 		17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardsService.swift; sourceTree = "<group>"; };
 		17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterViewController.swift; sourceTree = "<group>"; };
 		17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFormatter.swift; sourceTree = "<group>"; };
-		17LINKPREV12345678901235 /* LinkPreviewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewManager.swift; sourceTree = "<group>"; };
-		17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntaxHighlighter.swift; sourceTree = "<group>"; };
-		17MATHRENDER123456789013 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
-		17ENHANCEDTF123456789013 /* EnhancedTextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedTextFormatter.swift; sourceTree = "<group>"; };
 		17CF001A2DDD000000000001 /* ContentFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterViewController.swift; sourceTree = "<group>"; };
+		17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntaxHighlighter.swift; sourceTree = "<group>"; };
 		17COMPOSE123456789012345 /* ComposeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeViewController.swift; sourceTree = "<group>"; };
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
 		17E4BB6F2D87E44A0059D400 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		17ENHANCEDTF123456789013 /* EnhancedTextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedTextFormatter.swift; sourceTree = "<group>"; };
 		17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsManager.swift; sourceTree = "<group>"; };
 		17HIDDENBOARDSVC12345678 /* HiddenBoardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBoardsViewController.swift; sourceTree = "<group>"; };
 		17IMAGEPICKER12345678901 /* ImagePickerHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerHelper.swift; sourceTree = "<group>"; };
 		17KEYCHAIN1234567890123456 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		17LINKPREV12345678901235 /* LinkPreviewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewManager.swift; sourceTree = "<group>"; };
+		17MATHRENDER123456789013 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
 		17PASSAUTH1234567890123456 /* PassAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassAuthManager.swift; sourceTree = "<group>"; };
 		17PASSSETTINGS12345678901 /* PassSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassSettingsViewController.swift; sourceTree = "<group>"; };
 		17POSTDATA1234567890123456 /* PostData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostData.swift; sourceTree = "<group>"; };
@@ -211,6 +215,7 @@
 		9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchedPostsManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReverseImageSearchManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchImageDownloadManager.swift; sourceTree = "<group>"; };
+		9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedMediaTracker.swift; sourceTree = "<group>"; };
 		9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "XCTestCase+Helpers.swift"; path = "Helpers/XCTestCase+Helpers.swift"; sourceTree = "<group>"; };
 		9F2E301682B7B21B349D7F23 /* NotificationsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsViewController.swift; sourceTree = "<group>"; };
 		B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DownloadManagerService.swift; path = Channer/Utilities/DownloadManagerService.swift; sourceTree = "<group>"; };
@@ -231,6 +236,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				17D1A7C42F1987D0007FD2E5 /* Kingfisher in Frameworks */,
+				17D1A7C32F1987D0007FD2E5 /* Alamofire in Frameworks */,
+				17D1A7C22F1987D0007FD2E5 /* SwiftyJSON in Frameworks */,
 				17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */,
 				1797989A2CF7A37300486211 /* LocalAuthentication.framework in Frameworks */,
 			);
@@ -269,8 +277,7 @@
 				9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */,
 				9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
-				BB08F7BEAA7D678B23601FE5 /* DownloadItem.swift */,
-				B096411F96C0E3BB6BEAC107 /* DownloadManagerService.swift */,
+				9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
 				17STAT0012DE9000000000002 /* StatisticsManager.swift */,
 				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
 				17PASSAUTH1234567890123456 /* PassAuthManager.swift */,
@@ -536,8 +543,6 @@
 		E56DB976A7D2205FD52D9C61 /* Downloads */ = {
 			isa = PBXGroup;
 			children = (
-				4D48D859953D3D65A9888B85 /* DownloadManagerViewController.swift */,
-				F27EE012E595EAEFE6447B27 /* DownloadItemCell.swift */,
 			);
 			name = Downloads;
 			path = Channer/ViewControllers/Downloads;
@@ -698,6 +703,7 @@
 				17HIDDENBOARDSBUILD123456 /* HiddenBoardsManager.swift in Sources */,
 				17HIDDENBOARDSVCBUILD1234 /* HiddenBoardsViewController.swift in Sources */,
 				9C2E301682B7B21B349D7F28 /* BatchImageDownloadManager.swift in Sources */,
+				9C2E301682B7B21B349D7F31 /* DownloadedMediaTracker.swift in Sources */,
 				9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */,
 				9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */,
 				9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */,
@@ -948,7 +954,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 4.2;
@@ -981,7 +987,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.newatlantisstudios.channer.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 4.2;

@@ -293,7 +293,7 @@ class ConflictResolutionManager {
             var merged: [Theme] = remoteThemes
             
             for localTheme in localThemes {
-                if let existingIndex = merged.firstIndex(where: { $0.id == localTheme.id }) {
+                if merged.contains(where: { $0.id == localTheme.id }) {
                     // Conflict: same ID but different content
                     var renamedTheme = localTheme
                     renamedTheme.name = "\(localTheme.name) (Local)"

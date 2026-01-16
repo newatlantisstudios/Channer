@@ -12,20 +12,20 @@ class boardsTV: UITableViewController {
     override var keyCommands: [UIKeyCommand]? {
         // Only provide shortcuts on iPad
         if UIDevice.current.userInterfaceIdiom == .pad {
-            let nextBoardCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow, 
-                                               modifierFlags: [], 
-                                               action: #selector(nextBoard),
-                                               discoverabilityTitle: "Next Board")
+            let nextBoardCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                                modifierFlags: [],
+                                                action: #selector(nextBoard))
+            nextBoardCommand.discoverabilityTitle = "Next Board"
             
-            let previousBoardCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow, 
-                                                  modifierFlags: [], 
-                                                  action: #selector(previousBoard),
-                                                  discoverabilityTitle: "Previous Board")
+            let previousBoardCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                    modifierFlags: [],
+                                                    action: #selector(previousBoard))
+            previousBoardCommand.discoverabilityTitle = "Previous Board"
             
-            let openSelectedBoardCommand = UIKeyCommand(input: "\r", 
-                                                      modifierFlags: [], 
-                                                      action: #selector(openSelectedBoard),
-                                                      discoverabilityTitle: "Open Selected Board")
+            let openSelectedBoardCommand = UIKeyCommand(input: "\r",
+                                                        modifierFlags: [],
+                                                        action: #selector(openSelectedBoard))
+            openSelectedBoardCommand.discoverabilityTitle = "Open Selected Board"
             
             return [nextBoardCommand, previousBoardCommand, openSelectedBoardCommand]
         }

@@ -36,7 +36,7 @@ class EnhancedTextFormatter {
         showAllSpoilers: Bool = false
     ) -> NSAttributedString {
         // Step 1: Basic HTML processing
-        var processedText = text
+        let processedText = text
             .replacingOccurrences(of: "<br>", with: "\n")
             .replacingOccurrences(of: "<wbr>", with: "")
 

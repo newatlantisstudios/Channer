@@ -86,9 +86,9 @@ class ThreadCacheManager {
                     )
                     
                     // If no category specified but thread is favorited, get its category
-                    if categoryId == nil && FavoritesManager.shared.isFavorited(threadNumber: threadNumber) {
+                    if categoryId == nil && FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) {
                         let favorites = FavoritesManager.shared.loadFavorites()
-                        if let favorite = favorites.first(where: { $0.number == threadNumber }) {
+                        if let favorite = favorites.first(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
                             cachedThread.categoryId = favorite.categoryId
                         }
                     }

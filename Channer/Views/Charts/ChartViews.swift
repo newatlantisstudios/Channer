@@ -606,7 +606,7 @@ class ChartLegendView: UIView {
     }
 
     func updateColors() {
-        for case let container as UIView in stackView.arrangedSubviews {
+        for container in stackView.arrangedSubviews {
             for subview in container.subviews {
                 if let label = subview as? UILabel {
                     label.textColor = ThemeManager.shared.primaryTextColor

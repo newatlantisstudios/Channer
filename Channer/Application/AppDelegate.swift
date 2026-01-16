@@ -135,7 +135,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         setupAppearance()
         setupMainWindow()
         setupNotifications(application)
-        setupBackgroundRefresh(application)
 
         return true
     }
@@ -149,14 +148,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Called when the application is about to enter the foreground
     // Lifecycle methods have been removed as they were only needed for OLED theme handling
     
-    // MARK: - Background Refresh
-    private func setupBackgroundRefresh(_ application: UIApplication) {
-        // Set minimum background fetch interval for legacy API
-        // This is deprecated in iOS 13+ but kept as a fallback
-        // Primary background refresh is now handled by BackgroundTaskManager using BGTaskScheduler
-        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
-    }
-
     // Legacy background fetch handler (iOS 12 and earlier)
     // Primary background refresh is now handled by BackgroundTaskManager using BGTaskScheduler
     @available(iOS, deprecated: 13.0, message: "Use BGTaskScheduler via BackgroundTaskManager instead")
@@ -640,7 +631,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                willPresent notification: UNNotification, 
                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         // Show notification even when app is in foreground
-        completionHandler([.alert, .sound, .badge])
+        completionHandler([.banner, .list, .sound, .badge])
     }
     
     /// Called when user taps on a notification
