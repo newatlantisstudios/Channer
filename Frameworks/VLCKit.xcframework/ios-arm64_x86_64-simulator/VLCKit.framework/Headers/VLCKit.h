@@ -2,7 +2,7 @@
  * VLCKit.h: VLCKit.framework main header
  *****************************************************************************
  * Copyright (C) 2007-2010 Pierre d'Herbemont
- * Copyright (C) 2007, 2013-2024 VLC authors and VideoLAN
+ * Copyright (C) 2007, 2013-2025 VLC authors and VideoLAN
  *
  * Authors: Pierre d'Herbemont <pdherbemont # videolan.org>
  *          Felix Paul Kühne <fkuehne # videolan.org
@@ -44,6 +44,7 @@
 #import <VLCKit/VLCEventsConfiguration.h>
 #import <VLCKit/VLCMediaPlayerTitleDescription.h>
 #if !TARGET_OS_WATCH
+#import <VLCKit/VLCDrawable.h>
 #import <VLCKit/VLCDialogProvider.h>
 #endif
 

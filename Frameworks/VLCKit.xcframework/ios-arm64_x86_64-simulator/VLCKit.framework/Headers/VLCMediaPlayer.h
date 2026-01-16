@@ -271,7 +271,10 @@ OBJC_VISIBLE
 
 /**
  * set/retrieve a video view for rendering
- * This can be any UIView or NSView or instances of VLCVideoView / VLCVideoLayer if running on macOS
+ * This can be any 
+ * - UIView or NSView
+ * - NSObject conforming to VLCDrawable protocol
+ * - VLCVideoView or VLCVideoLayer
  */
 @property (strong, nullable) id drawable; /* The videoView or videoLayer */
 
@@ -657,6 +660,15 @@ typedef NS_ENUM(unsigned, VLCAudioMixMode)
 - (void)jumpWithOffset:(int)offset;
 
 /**
+ * Jumps in current stream if seeking is supported and calls completion block
+ * when seeiking is finished to resume playback.
+ * \param offset interval requested from current time, in milliseconds.
+ * \param completion completion block called when seeking is finished
+ * \discussion completion block will be called on main thread.
+ */
+- (BOOL)jumpWithOffset:(int)interval completion:(dispatch_block_t)completion;
+
+/**
  * Jumps shortly backward in current stream if seeking is supported.
  * \param interval to skip, in sec.
  */
@@ -861,6 +873,13 @@ typedef NS_ENUM(unsigned, VLCAudioMixMode)
 @property(nonatomic, readonly, copy) NSArray<VLCMediaPlayerTrack *> *textTracks;
 
 /**
+ * Select a track of a given type at the given index
+ * \param index position of the track in the list
+ * \param type type of the track being selected
+ */
+- (void)selectTrackAtIndex:(NSInteger)index type:(VLCMediaTrackType)type;
+
+/**
  * deselect all audio tracks
  */
 - (void)deselectAllAudioTracks;
@@ -869,6 +888,12 @@ typedef NS_ENUM(unsigned, VLCAudioMixMode)
  * deselect all video tracks
  */
 - (void)deselectAllVideoTracks;
+
+/**
+ * Select multiple text tracks simultaneously
+ * @param tracks Array of VLCMediaPlayerTrack objects to select
+ */
+- (void)selectTextTracks:(NSArray<VLCMediaPlayerTrack *> *)tracks;
 
 /**
  * deselect all text tracks

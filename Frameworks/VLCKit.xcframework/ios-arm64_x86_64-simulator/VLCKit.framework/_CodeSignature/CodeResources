@@ -24,6 +24,10 @@
 		<data>
 		gmAPF9MHKJqKvv5XXzABi8/lrPM=
 		</data>
+		<key>Headers/VLCDrawable.h</key>
+		<data>
+		w4EcsV8DGAfyzhFa4QQo8Xmr2ok=
+		</data>
 		<key>Headers/VLCEventsConfiguration.h</key>
 		<data>
 		7a/fctNe6I/PHB5O/oXi8RqR+D8=
@@ -38,7 +42,7 @@
 		</data>
 		<key>Headers/VLCKit.h</key>
 		<data>
-		35VeklM5rq2n5A78+IuF+bpyi18=
+		4dxFwAZ0lMwMg+izuVR5AKpF+vo=
 		</data>
 		<key>Headers/VLCLibrary.h</key>
 		<data>
@@ -54,7 +58,7 @@
 		</data>
 		<key>Headers/VLCMedia.h</key>
 		<data>
-		FmlrNVKDfYgBxuAwD60SPKrlAzg=
+		O0Y4kRTWW9wwgOLCFVlB1Rkr9cw=
 		</data>
 		<key>Headers/VLCMediaDiscoverer.h</key>
 		<data>
@@ -74,7 +78,7 @@
 		</data>
 		<key>Headers/VLCMediaPlayer.h</key>
 		<data>
-		rJb2DOp/Uv5AUQoLhWde/3quIC8=
+		kLvZV2zxSvtPOwSSP1mm3t+TKqw=
 		</data>
 		<key>Headers/VLCMediaPlayerTitleDescription.h</key>
 		<data>
@@ -114,7 +118,7 @@
 		</data>
 		<key>Headers/vlc/libvlc_media.h</key>
 		<data>
-		p3v5gpwuI2t+B9A86zFHg+EK6W4=
+		aDS/2uHeg7g1G721QrJoL4O37SI=
 		</data>
 		<key>Headers/vlc/libvlc_media_discoverer.h</key>
 		<data>
@@ -130,7 +134,7 @@
 		</data>
 		<key>Headers/vlc/libvlc_media_player.h</key>
 		<data>
-		PUduSppXYd0bRsp/TCG2v82o1/U=
+		PuC0QYIp8V1KCWq8nwyv4J8/7R4=
 		</data>
 		<key>Headers/vlc/libvlc_media_track.h</key>
 		<data>
@@ -138,7 +142,7 @@
 		</data>
 		<key>Headers/vlc/libvlc_picture.h</key>
 		<data>
-		ySnpFLALjWYpcTKiaKPE1iOkg18=
+		itdU03XhD6Ckid1+1aux6iRUH28=
 		</data>
 		<key>Headers/vlc/libvlc_renderer_discoverer.h</key>
 		<data>
@@ -158,7 +162,7 @@
 		</data>
 		<key>Info.plist</key>
 		<data>
-		SOKz1plNfaQMQsx05LSkrGETIsw=
+		Y8KiEXK+ocgDt/t4TUmMUFOhkh0=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -254,6 +258,17 @@
 			V3ae5RMVv2fhD4EEWku0/WnPyeUha7ymbEMWjFhDw8s=
 			</data>
 		</dict>
+		<key>Headers/VLCDrawable.h</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			w4EcsV8DGAfyzhFa4QQo8Xmr2ok=
+			</data>
+			<key>hash2</key>
+			<data>
+			pzGygT9tRUFU3kOMpeUvHjhdjG1RoSqnl5iz8fBIEMQ=
+			</data>
+		</dict>
 		<key>Headers/VLCEventsConfiguration.h</key>
 		<dict>
 			<key>hash</key>
@@ -291,11 +306,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			35VeklM5rq2n5A78+IuF+bpyi18=
+			4dxFwAZ0lMwMg+izuVR5AKpF+vo=
 			</data>
 			<key>hash2</key>
 			<data>
-			a6QZ/olvE+4E5kq3hdsqOr+gBRe88o+6udy3+24PTAU=
+			KFgdTztP15xoSy1z0VJCNdkVFMilyWy0PQsiK3bACsI=
 			</data>
 		</dict>
 		<key>Headers/VLCLibrary.h</key>
@@ -335,11 +350,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			FmlrNVKDfYgBxuAwD60SPKrlAzg=
+			O0Y4kRTWW9wwgOLCFVlB1Rkr9cw=
 			</data>
 			<key>hash2</key>
 			<data>
-			vHf5S+0TyDn7ws+ok5wATz+3rfaqmfsM17nSekuE0HQ=
+			PKt0xaIwZNb1xoR7QILsLkN2NIaXRrP4hToxwU2cEWQ=
 			</data>
 		</dict>
 		<key>Headers/VLCMediaDiscoverer.h</key>
@@ -390,11 +405,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			rJb2DOp/Uv5AUQoLhWde/3quIC8=
+			kLvZV2zxSvtPOwSSP1mm3t+TKqw=
 			</data>
 			<key>hash2</key>
 			<data>
-			Va8nZD5aOZHXf76uGjm20CvHPKu1So0Vxn2K/J3OAV0=
+			2Ut09NsURfKTr4b/BFuHn9xnojFSXIYwKPrTJR1lWGM=
 			</data>
 		</dict>
 		<key>Headers/VLCMediaPlayerTitleDescription.h</key>
@@ -500,11 +515,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			p3v5gpwuI2t+B9A86zFHg+EK6W4=
+			aDS/2uHeg7g1G721QrJoL4O37SI=
 			</data>
 			<key>hash2</key>
 			<data>
-			BjrSlNszI8AhJ3Hw5CcGAq6D10lQX1B8lpulCkrE7cc=
+			6fPs6J6GR1pv+a0ksX7475Z5OMoJM2AXb6hxryeFqug=
 			</data>
 		</dict>
 		<key>Headers/vlc/libvlc_media_discoverer.h</key>
@@ -544,11 +559,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			PUduSppXYd0bRsp/TCG2v82o1/U=
+			PuC0QYIp8V1KCWq8nwyv4J8/7R4=
 			</data>
 			<key>hash2</key>
 			<data>
-			4JHs53ydCy+FWuZKmm5wDXcbYSbW0bj4pkEtB11W4jA=
+			7J6MX03GuWHOp6o67FmhL7GPE290NdXHaxRN66XNegQ=
 			</data>
 		</dict>
 		<key>Headers/vlc/libvlc_media_track.h</key>
@@ -566,11 +581,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			ySnpFLALjWYpcTKiaKPE1iOkg18=
+			itdU03XhD6Ckid1+1aux6iRUH28=
 			</data>
 			<key>hash2</key>
 			<data>
-			IKbq/6+VTq9nxen2M1EaZpQmJh266EQ5jsVjKk5ifjU=
+			pmZGuaghIobNiTPr+4cM6gobtq4vk0vKLWdO5Htzh8k=
 			</data>
 		</dict>
 		<key>Headers/vlc/libvlc_renderer_discoverer.h</key>
