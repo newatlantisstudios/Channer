@@ -80,8 +80,10 @@ class threadReplyCell: UICollectionViewCell {
     
     // Show preview for Apple Pencil hover
     private func showHoverPreview(at location: CGPoint) {
-        // Remove any existing preview
-        removeHoverPreview()
+        // Avoid recreating the preview if it is already visible
+        if hoveredImageView != nil {
+            return
+        }
         
         guard let image = threadImage.imageView?.image else { return }
         
@@ -112,10 +114,8 @@ class threadReplyCell: UICollectionViewCell {
             overlayView.frame = window.bounds
             overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
             
-            // Add tap gesture to dismiss the preview
-            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handlePreviewTap(_:)))
-            overlayView.addGestureRecognizer(tapGesture)
-            overlayView.isUserInteractionEnabled = true
+            // Keep hover interactions active by avoiding hit-testing on the overlay
+            overlayView.isUserInteractionEnabled = false
             
             // Center the preview in the window
             let centerX = window.bounds.width / 2
