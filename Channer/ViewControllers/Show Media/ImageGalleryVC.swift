@@ -883,8 +883,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 // Use simple JavaScript to ensure video is playing
                 webView.evaluateJavaScript("""
                     var video = document.querySelector('video');
-                    if (video && video.paused) {
-                        video.play();
+                    if (video) {
+                        video.muted = true;
+                        video.volume = 0;
+                        if (video.paused) {
+                            video.play();
+                        }
                     }
                 """)
                 

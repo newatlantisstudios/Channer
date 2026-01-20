@@ -2313,6 +2313,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc func threadContentOpen(sender: UIButton) {
         let selectedImageURLString = threadRepliesImages[sender.tag]
         print("threadContentOpen: \(selectedImageURLString)")
+        print("MUTE DEBUG: threadContentOpen tag=\(sender.tag) board=\(boardAbv) thread=\(threadNumber)")
         
         // Validate URL
         guard let selectedImageURL = URL(string: selectedImageURLString) else {
@@ -2334,6 +2335,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             fileExtension = "png"
         }
         
+        print("MUTE DEBUG: threadContentOpen resolved extension=\(fileExtension)")
         if fileExtension == "webm" || fileExtension == "mp4" {
             // Use WebMViewController for video playback (same as Downloaded view)
             print("Debug: Opening video with WebMViewController")
@@ -2352,6 +2354,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             vlcVC.videoURL = selectedImageURL.absoluteString
             vlcVC.videoURLs = videoURLs
             vlcVC.currentIndex = selectedIndex
+            print("MUTE DEBUG: opening video via WebMViewController index=\(selectedIndex) count=\(videoURLs.count) url=\(selectedImageURL.absoluteString)")
 
             // Handle navigation stack
             if let navController = navigationController {

@@ -215,6 +215,8 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     
     /// Current mute state - always start muted for privacy/courtesy
     private var isMuted: Bool = true
+    /// Flag to force muting when playback begins for a new item
+    private var shouldForceMuteOnNextPlay: Bool = true
     private lazy var vlcVideoView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -882,6 +884,13 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     
     /// Internal content loading method
     private func loadContentInternal() {
+        isMuted = true
+        avPlayer.isMuted = true
+        avPlayer.volume = 0.0
+        vlcPlayer?.audio?.isMuted = true
+        vlcPlayer?.audio?.volume = 0
+        shouldForceMuteOnNextPlay = true
+        setupNavigationButtons()
 
         var url = images[currentIndex]
         print("loadContent url: \(url)")
@@ -1149,6 +1158,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         print("DEBUG: urlWeb - Playing with integrated VLC: \(fileURL.path)")
         
         shouldUseVLCPlayback = true
+        shouldForceMuteOnNextPlay = true
         
         // Hide other views and show VLC view
         webView.isHidden = true
@@ -1170,16 +1180,37 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         // Create VLC media and start playback
         let media = VLCMedia(url: fileURL)
         vlcPlayer?.media = media
+
+        vlcPlayer?.audio?.isMuted = isMuted
+        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : Int32(50)
         
         // Start playback
         print("DEBUG: urlWeb - Starting VLC playback")
         vlcPlayer?.play()
+        forceMuteVLCPlayer()
         
         print("DEBUG: urlWeb - Started VLC playback")
         activityIndicator.stopAnimating()
 
         // Start periodic mute + loop checking
         startPeriodicAudioChecking()
+    }
+
+    private func forceMuteVLCPlayer() {
+        guard let vlcPlayer = vlcPlayer else { return }
+
+        isMuted = true
+        vlcPlayer.audio?.isMuted = true
+        vlcPlayer.audio?.volume = 0
+        setupNavigationButtons()
+
+        for delay in [0.01, 0.05, 0.1] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, let vlcPlayer = self.vlcPlayer else { return }
+                vlcPlayer.audio?.isMuted = true
+                vlcPlayer.audio?.volume = 0
+            }
+        }
     }
     
     // MARK: - Periodic Audio Checking
@@ -1196,8 +1227,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                 let state = player.state
                 print("DEBUG: urlWeb - Loop monitor tick - state: \(state.rawValue), position: \(pos)")
                 if pos >= 0.995 || (state == .stopped && pos >= 0.8) {
-                    print("DEBUG: urlWeb - Loop monitor: looping video (seek to 0 + play)")
+                    print("DEBUG: urlWeb - Loop monitor: looping video (seek to 0 + play, muted)")
                     player.position = 0.0
+                    self.shouldForceMuteOnNextPlay = true
+                    self.forceMuteVLCPlayer()
                     player.play()
                 }
             }
@@ -1983,6 +2016,10 @@ extension urlWeb {
             switch player.state {
             case .playing:
                 print("DEBUG: urlWeb - VLC player started playing")
+                if self.shouldForceMuteOnNextPlay {
+                    self.shouldForceMuteOnNextPlay = false
+                    self.forceMuteVLCPlayer()
+                }
                 
             case .stopped:
                 print("DEBUG: urlWeb - VLC player stopped")
@@ -1991,8 +2028,10 @@ extension urlWeb {
                 let pos = player.position
                 print("DEBUG: urlWeb - VLC stopped at position: \(pos)")
                 if pos >= 0.99 {
-                    print("DEBUG: urlWeb - Looping VLC video: seeking to start and replaying")
+                    print("DEBUG: urlWeb - Looping VLC video: seeking to start and replaying muted")
                     player.position = 0.0
+                    self.shouldForceMuteOnNextPlay = true
+                    self.forceMuteVLCPlayer()
                     player.play()
                 }
                 
@@ -2023,6 +2062,9 @@ extension urlWeb {
                 
             case .buffering:
                 print("DEBUG: urlWeb - VLC player buffering")
+                if self.shouldForceMuteOnNextPlay {
+                    self.forceMuteVLCPlayer()
+                }
                 
             case .paused:
                 print("DEBUG: urlWeb - VLC player paused")
