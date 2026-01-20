@@ -559,12 +559,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             
             // Update application badge count
             DispatchQueue.main.async {
-                // Count threads with new replies
-                let favorites = FavoritesManager.shared.loadFavorites()
-                let threadsWithNewReplies = favorites.filter { $0.hasNewReplies }
-                let badgeCount = threadsWithNewReplies.count
-                
-                // Update badge
+                let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+                let badgeCount = notificationsEnabled ? NotificationManager.shared.getUnreadCount() : 0
                 UIApplication.shared.applicationIconBadgeNumber = badgeCount
             }
         }

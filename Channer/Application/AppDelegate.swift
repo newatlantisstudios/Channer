@@ -135,6 +135,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         setupAppearance()
         setupMainWindow()
         setupNotifications(application)
+        setupNotificationBadgeObservers()
 
         return true
     }
@@ -491,6 +492,39 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     // MARK: - Badge Management
+    private func setupNotificationBadgeObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationBadgeNeedsUpdate),
+            name: .notificationAdded,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationBadgeNeedsUpdate),
+            name: .notificationRead,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationBadgeNeedsUpdate),
+            name: .notificationRemoved,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationBadgeNeedsUpdate),
+            name: .notificationDataChanged,
+            object: nil
+        )
+
+        updateApplicationBadgeCount()
+    }
+
+    @objc private func notificationBadgeNeedsUpdate() {
+        updateApplicationBadgeCount()
+    }
+
     private func updateApplicationBadgeCount() {
         // Only update if notifications are enabled
         let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
