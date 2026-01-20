@@ -21,6 +21,7 @@ class threadReplyCell: UICollectionViewCell {
     // Variables for hover functionality
     private var imageURL: String?
     private var hoveredImageView: UIImageView?
+    private var hoverOverlayView: UIView?
     private var pointerInteraction: UIPointerInteraction?
     
     override func awakeFromNib() {
@@ -84,6 +85,11 @@ class threadReplyCell: UICollectionViewCell {
         if hoveredImageView != nil {
             return
         }
+
+        if let overlayView = hoverOverlayView {
+            overlayView.removeFromSuperview()
+            hoverOverlayView = nil
+        }
         
         guard let image = threadImage.imageView?.image else { return }
         
@@ -132,8 +138,7 @@ class threadReplyCell: UICollectionViewCell {
             window.addSubview(imageView)
             
             // Store references to both views
-            overlayView.tag = 9998
-            imageView.tag = 9999
+            hoverOverlayView = overlayView
             hoveredImageView = imageView
             
             // Add appear animation - faster for better responsiveness
@@ -169,29 +174,26 @@ class threadReplyCell: UICollectionViewCell {
     
     // Remove hover preview
     private func removeHoverPreview() {
-        guard let imageView = hoveredImageView else { return }
-        
-        // Find the overlay view using tag
-        let overlayView = imageView.superview?.viewWithTag(9998)
-        
+        let imageView = hoveredImageView
+        let overlayView = hoverOverlayView
+
+        guard imageView != nil || overlayView != nil else { return }
+
         // Animate out
         UIView.animate(withDuration: 0.15, animations: {
-            imageView.alpha = 0
-            imageView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            imageView?.alpha = 0
+            imageView?.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
             overlayView?.alpha = 0
         }, completion: { _ in
-            // Make sure views are still in hierarchy before removing
-            if imageView.superview != nil {
-                imageView.removeFromSuperview()
-            }
-            
-            if overlayView?.superview != nil {
-                overlayView?.removeFromSuperview()
-            }
-            
-            // Clear reference
-            if self.hoveredImageView === imageView {
+            imageView?.removeFromSuperview()
+            overlayView?.removeFromSuperview()
+
+            if let imageView = imageView, self.hoveredImageView === imageView {
                 self.hoveredImageView = nil
+            }
+
+            if let overlayView = overlayView, self.hoverOverlayView === overlayView {
+                self.hoverOverlayView = nil
             }
         })
     }
@@ -199,14 +201,11 @@ class threadReplyCell: UICollectionViewCell {
     deinit {
         // Ensure we clean up any previews when cell is deallocated
         if let imageView = hoveredImageView {
-            if imageView.superview != nil {
-                imageView.removeFromSuperview()
-            }
-            
-            // Also remove the overlay
-            if let overlayView = imageView.superview?.viewWithTag(9998), overlayView.superview != nil {
-                overlayView.removeFromSuperview()
-            }
+            imageView.removeFromSuperview()
+        }
+
+        if let overlayView = hoverOverlayView {
+            overlayView.removeFromSuperview()
         }
     }
     
