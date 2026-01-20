@@ -437,9 +437,7 @@ class BackgroundTaskManager {
             return
         }
 
-        let favorites = FavoritesManager.shared.loadFavorites()
-        let threadsWithNewReplies = favorites.filter { $0.hasNewReplies }
-        let badgeCount = threadsWithNewReplies.count
+        let badgeCount = NotificationManager.shared.getUnreadCount()
 
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = badgeCount
