@@ -344,6 +344,41 @@ class threadRepliesCV: UICollectionViewController {
         
         return cell
     }
+
+    override func collectionView(_ collectionView: UICollectionView, trailingSwipeActionsConfigurationForItemAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard indexPath.row < threadBoardReplyNumber.count else {
+            return nil
+        }
+
+        let postNo = threadBoardReplyNumber[indexPath.row]
+        var actions: [UIContextualAction] = []
+
+        if let postNoInt = Int(postNo) {
+            let replyAction = UIContextualAction(style: .normal, title: "Reply") { [weak self] _, _, completion in
+                self?.showComposeView(quotePostNumber: postNoInt)
+                completion(true)
+            }
+            replyAction.backgroundColor = .systemBlue
+            replyAction.image = UIImage(systemName: "square.and.pencil")
+            actions.append(replyAction)
+        }
+
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let repliesAction = UIContextualAction(style: .normal, title: "Replies") { [weak self] _, _, completion in
+                self?.showThreadForIndex(indexPath.row)
+                completion(true)
+            }
+            repliesAction.backgroundColor = .systemTeal
+            repliesAction.image = UIImage(systemName: "bubble.left.and.bubble.right")
+            actions.append(repliesAction)
+        }
+
+        guard !actions.isEmpty else { return nil }
+
+        let configuration = UISwipeActionsConfiguration(actions: actions)
+        configuration.performsFirstActionWithFullSwipe = true
+        return configuration
+    }
     
     private func configureLoadingCell(_ cell: threadReplyCell) {
         cell.boardReplyCount.text = "Loading..."

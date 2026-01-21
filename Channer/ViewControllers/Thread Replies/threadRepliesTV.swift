@@ -1300,6 +1300,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // MARK: - Table View Data Source Methods
     /// Methods required to display data in the table view
+    private func actualIndex(for indexPath: IndexPath) -> Int? {
+        guard isSearchActive && !searchText.isEmpty else { return indexPath.row }
+
+        var visibleIndex = 0
+        for dataIndex in 0..<threadReplies.count {
+            if !searchFilteredIndices.contains(dataIndex) {
+                if visibleIndex == indexPath.row {
+                    return dataIndex
+                }
+                visibleIndex += 1
+            }
+        }
+
+        return nil
+    }
     func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
@@ -1324,23 +1339,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Always return a fully reusable cell; skip heavy work during scroll below
         
-        // If search is active, we need to map the visible row index to the actual data index
-        var actualIndex = indexPath.row
-        if isSearchActive && !searchText.isEmpty {
-            var visibleIndex = 0
-            for dataIndex in 0..<threadReplies.count {
-                if !searchFilteredIndices.contains(dataIndex) {
-                    if visibleIndex == indexPath.row {
-                        actualIndex = dataIndex
-                        break
-                    }
-                    visibleIndex += 1
-                }
-            }
-        }
-        
-        guard actualIndex < threadReplies.count else {
-            print("Index out of bounds: \(actualIndex)")
+        guard let actualIndex = actualIndex(for: indexPath), actualIndex < threadReplies.count else {
+            print("Index out of bounds: \(indexPath.row)")
             return UITableViewCell() // Placeholder to avoid crashing
         }
         
@@ -1433,6 +1433,38 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Avoid forcing synchronous layout here to keep scrolling smooth
         
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard let actualIndex = actualIndex(for: indexPath),
+              actualIndex < threadBoardReplyNumber.count else {
+            return nil
+        }
+
+        let postNo = threadBoardReplyNumber[actualIndex]
+        var actions: [UIContextualAction] = []
+
+        let replyAction = UIContextualAction(style: .normal, title: "Reply") { [weak self] _, _, completion in
+            self?.replyToPost(postNumber: postNo)
+            completion(true)
+        }
+        replyAction.backgroundColor = .systemBlue
+        replyAction.image = UIImage(systemName: "square.and.pencil")
+        actions.append(replyAction)
+
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let repliesAction = UIContextualAction(style: .normal, title: "Replies") { [weak self] _, _, completion in
+                self?.showThreadForIndex(actualIndex)
+                completion(true)
+            }
+            repliesAction.backgroundColor = .systemTeal
+            repliesAction.image = UIImage(systemName: "bubble.left.and.bubble.right")
+            actions.append(repliesAction)
+        }
+
+        let configuration = UISwipeActionsConfiguration(actions: actions)
+        configuration.performsFirstActionWithFullSwipe = true
+        return configuration
     }
     
     // MARK: - Height Caching for Performance
