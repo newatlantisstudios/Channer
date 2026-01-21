@@ -9,6 +9,13 @@ private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
 
 class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
+    private struct GridLayoutMetrics {
+        let cellSize: CGSize
+        let interItemSpacing: CGFloat
+        let lineSpacing: CGFloat
+        let sectionInset: CGFloat
+    }
+
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
         // Only provide shortcuts on iPad
@@ -41,6 +48,8 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     /// Boards data (populated from BoardsService)
     var boardNames: [String] = []
     var boardsAbv: [String] = []
+
+    private let maxGridCellWidth: CGFloat = 140
     
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
@@ -587,41 +596,9 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         guard collectionViewLayout is UICollectionViewFlowLayout else {
             return CGSize(width: 85, height: 85) // Default size
         }
-        
-        // Use the same calculation logic as in configureCollectionViewLayout
-        let isPad = traitCollection.userInterfaceIdiom == .pad
-        
-        // Smaller spacing for iPad to fit more cells
-        let interItemSpacing: CGFloat = isPad ? 8 : 10
-        let sectionInset: CGFloat = isPad ? 8 : 10
-        let collectionViewWidth = collectionView.bounds.width
-        let numberOfColumns: CGFloat
-        
-        if isPad {
-            // Increased number of columns for iPad to fit more cells
-            if collectionViewWidth > 1000 {  // Larger iPads (Pro 12.9")
-                numberOfColumns = 8
-            } else if collectionViewWidth > 800 {  // Medium iPads (10.5", 11")
-                numberOfColumns = 7
-            } else {  // Smaller iPads (9.7", iPad mini)
-                numberOfColumns = 6
-            }
-        } else {
-            // iPhone layout
-            if collectionViewWidth > 400 {  // Larger iPhones in landscape
-                numberOfColumns = 4
-            } else {  // Standard iPhone layout
-                numberOfColumns = 3
-            }
-        }
-        
-        let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
-        let cellWidth = floor(availableWidth / numberOfColumns)
-        
-        // Make the cell height slightly higher to accommodate the text better
-        let cellHeight = cellWidth * 1.2
-        
-        return CGSize(width: cellWidth, height: cellHeight)
+
+        let metrics = gridLayoutMetrics(for: collectionView.bounds.width)
+        return metrics.cellSize
     }
     
     /// Configures the layout of the collection view.
@@ -630,56 +607,61 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             return
         }
 
-        // Define spacing based on device type
+        let metrics = gridLayoutMetrics(for: collectionView.bounds.width)
+
+        layout.itemSize = metrics.cellSize
+        layout.minimumInteritemSpacing = metrics.interItemSpacing
+        layout.minimumLineSpacing = metrics.lineSpacing
+        layout.sectionInset = UIEdgeInsets(
+            top: metrics.sectionInset,
+            left: metrics.sectionInset,
+            bottom: metrics.sectionInset,
+            right: metrics.sectionInset
+        )
+    }
+
+    private func gridLayoutMetrics(for collectionViewWidth: CGFloat) -> GridLayoutMetrics {
         let isPad = traitCollection.userInterfaceIdiom == .pad
-        
-        // Smaller spacing for iPad to fit more cells
-        let interItemSpacing: CGFloat = isPad ? 8 : 10  // Horizontal space between cells
-        let lineSpacing: CGFloat = isPad ? 12 : 16      // Vertical space between rows - increased for better readability
-        
-        // Define section insets - smaller for iPad
+
+        let interItemSpacing: CGFloat = isPad ? 8 : 10
+        let lineSpacing: CGFloat = isPad ? 12 : 16
         let sectionInset: CGFloat = isPad ? 8 : 10
-        
-        // Get the collection view's width
-        let collectionViewWidth = collectionView.bounds.width
-        
-        // Determine number of columns based on device and screen width
+
         let numberOfColumns: CGFloat
-        
+
         if isPad {
-            // Increased number of columns for iPad to fit more cells
-            if collectionViewWidth > 1000 {  // Larger iPads (Pro 12.9")
+            if collectionViewWidth > 1000 {
                 numberOfColumns = 8
-            } else if collectionViewWidth > 800 {  // Medium iPads (10.5", 11")
+            } else if collectionViewWidth > 800 {
                 numberOfColumns = 7
-            } else {  // Smaller iPads (9.7", iPad mini)
+            } else {
                 numberOfColumns = 6
             }
         } else {
-            // iPhone layout
-            if collectionViewWidth > 400 {  // Larger iPhones in landscape
+            if collectionViewWidth > 400 {
                 numberOfColumns = 4
-            } else {  // Standard iPhone layout
+            } else {
                 numberOfColumns = 3
             }
         }
-        
-        // Calculate cell width to fill the screen with the desired number of columns
-        let availableWidth = collectionViewWidth - (2 * sectionInset) - (interItemSpacing * (numberOfColumns - 1))
-        let cellWidth = floor(availableWidth / numberOfColumns)
-        
-        // Make cells slightly taller to better fit text
+
+        let availableWidth = collectionViewWidth - (2 * sectionInset)
+        var columns = numberOfColumns
+        var cellWidth = floor((availableWidth - (interItemSpacing * (columns - 1))) / columns)
+
+        if cellWidth > maxGridCellWidth, availableWidth > 0 {
+            let columnsNeeded = ceil((availableWidth + interItemSpacing) / (maxGridCellWidth + interItemSpacing))
+            columns = max(columns, columnsNeeded)
+            cellWidth = floor((availableWidth - (interItemSpacing * (columns - 1))) / columns)
+        }
+
         let cellHeight = cellWidth * 1.2
-        
-        // Configure layout
-        layout.itemSize = CGSize(width: cellWidth, height: cellHeight)
-        layout.minimumInteritemSpacing = interItemSpacing
-        layout.minimumLineSpacing = lineSpacing
-        layout.sectionInset = UIEdgeInsets(
-            top: sectionInset,
-            left: sectionInset,
-            bottom: sectionInset,
-            right: sectionInset
+
+        return GridLayoutMetrics(
+            cellSize: CGSize(width: cellWidth, height: cellHeight),
+            interItemSpacing: interItemSpacing,
+            lineSpacing: lineSpacing,
+            sectionInset: sectionInset
         )
     }
     
