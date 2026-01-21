@@ -290,6 +290,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var threadBoardReplyNumber = [String]()
     var threadBoardReplies = [String: [String]]()
     var threadRepliesImages = [String]()
+    // Full thread context for quote navigation in filtered reply views
+    var fullThreadReplies: [NSAttributedString]?
+    var fullThreadBoardReplyNumber: [String]?
+    var fullThreadRepliesImages: [String]?
+    var fullThreadBoardReplies: [String: [String]]?
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
 
@@ -2140,9 +2145,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {
         if URL.scheme == "post" {
             let postNumber = URL.host ?? ""
-            if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
+            if !postNumber.isEmpty {
                 // Show the specific thread post related to this reference
-                showThread(sender: UIButton().apply { $0.tag = index })
+                showThreadForPostNumber(postNumber)
             }
             return false // Prevent default interaction
         }
@@ -2171,10 +2176,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             
             // Check for custom "PostReference" attribute
             if let postNumber = attributes[.init(rawValue: "PostReference")] as? String {
-                // Find index and open the thread
-                if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
-                    showThread(sender: UIButton().apply { $0.tag = index })
-                }
+                showThreadForPostNumber(postNumber)
             }
         }
     }
@@ -2477,35 +2479,42 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     /// Shows thread replies for the post at the given index (called from long press menu)
     private func showThreadForIndex(_ index: Int) {
-        print("🔴showThreadForIndex")
+        guard threadBoardReplyNumber.indices.contains(index) else { return }
+        showThreadForPostNumber(threadBoardReplyNumber[index])
+    }
+
+    /// Shows thread replies for the post number, using the full thread context when available
+    private func showThreadForPostNumber(_ postNumber: String) {
+        print("🔴showThreadForPostNumber")
+
+        let navigationReplies = fullThreadReplies ?? threadReplies
+        let navigationReplyNumbers = fullThreadBoardReplyNumber ?? threadBoardReplyNumber
+        let navigationReplyImages = fullThreadRepliesImages ?? threadRepliesImages
+        let navigationReplyMap = fullThreadBoardReplies ?? threadBoardReplies
 
         // Create thread data for the new view
         var threadRepliesNew: [NSAttributedString] = []
         var threadBoardReplyNumberNew: [String] = []
         var threadRepliesImagesNew: [String] = []
 
-        // Get the board number that was selected
-        let selectedBoardNumber = threadBoardReplyNumber[index]
-
         // Start with the original post
-        if let postIndex = threadBoardReplyNumber.firstIndex(of: selectedBoardNumber) {
-            threadRepliesNew.append(threadReplies[postIndex])
-            threadBoardReplyNumberNew.append(threadBoardReplyNumber[postIndex])
-            threadRepliesImagesNew.append(threadRepliesImages[postIndex])
-        }
+        guard let postIndex = navigationReplyNumbers.firstIndex(of: postNumber) else { return }
+        threadRepliesNew.append(navigationReplies[postIndex])
+        threadBoardReplyNumberNew.append(navigationReplyNumbers[postIndex])
+        threadRepliesImagesNew.append(navigationReplyImages[postIndex])
 
         // Use a Set to deduplicate replies
         var uniqueReplies = Set<String>()
 
         // Add only replies to this post (not the whole thread)
-        if let replies = threadBoardReplies[selectedBoardNumber] {
+        if let replies = navigationReplyMap[postNumber] {
             for replyNumber in replies {
                 // Add to the set to prevent duplicates
                 if uniqueReplies.insert(replyNumber).inserted,
-                   let replyIndex = threadBoardReplyNumber.firstIndex(of: replyNumber) {
-                    threadRepliesNew.append(threadReplies[replyIndex])
-                    threadBoardReplyNumberNew.append(threadBoardReplyNumber[replyIndex])
-                    threadRepliesImagesNew.append(threadRepliesImages[replyIndex])
+                   let replyIndex = navigationReplyNumbers.firstIndex(of: replyNumber) {
+                    threadRepliesNew.append(navigationReplies[replyIndex])
+                    threadBoardReplyNumberNew.append(navigationReplyNumbers[replyIndex])
+                    threadRepliesImagesNew.append(navigationReplyImages[replyIndex])
                 }
             }
         }
@@ -2517,27 +2526,32 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         newThreadVC.threadReplies = threadRepliesNew
         newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
         newThreadVC.threadRepliesImages = threadRepliesImagesNew
+        newThreadVC.threadBoardReplies = navigationReplyMap
         newThreadVC.replyCount = threadRepliesNew.count
         newThreadVC.boardAbv = self.boardAbv
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
 
+        // Preserve full thread context for nested quote navigation
+        newThreadVC.fullThreadReplies = navigationReplies
+        newThreadVC.fullThreadBoardReplyNumber = navigationReplyNumbers
+        newThreadVC.fullThreadRepliesImages = navigationReplyImages
+        newThreadVC.fullThreadBoardReplies = navigationReplyMap
+
         // Transfer any filtered indices that are also in this view
-        let filteredIndicesInNew = Set(filteredReplyIndices.compactMap { originalIndex in
-            if let originalNumber = threadBoardReplyNumber.indices.contains(originalIndex) ? threadBoardReplyNumber[originalIndex] : nil,
-               let newIndex = threadBoardReplyNumberNew.firstIndex(of: originalNumber) {
-                return newIndex
-            }
-            return nil
+        let filteredIndicesInNew: Set<Int> = Set(filteredReplyIndices.compactMap { originalIndex in
+            guard threadBoardReplyNumber.indices.contains(originalIndex) else { return nil }
+            let originalNumber = threadBoardReplyNumber[originalIndex]
+            return threadBoardReplyNumberNew.firstIndex(of: originalNumber)
         })
         newThreadVC.filteredReplyIndices = filteredIndicesInNew
 
-        print("Selected post: \(selectedBoardNumber)")
+        print("Selected post: \(postNumber)")
         print("Filtered replies: \(Array(uniqueReplies))")
         print("New threadReplies count: \(threadRepliesNew.count)")
 
         // Set the title to show which post is being viewed
-        newThreadVC.title = "\(selectedBoardNumber)"
+        newThreadVC.title = "\(postNumber)"
 
         // Adapt behavior based on device type
         if let navController = navigationController {
