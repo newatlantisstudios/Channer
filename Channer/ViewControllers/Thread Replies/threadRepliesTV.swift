@@ -883,33 +883,48 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Scrolls to a specific post if scrollToPostNumber is set
     /// Called after thread data is loaded to navigate to a specific reply (e.g., from notifications)
-    private func scrollToPostIfNeeded() {
+    private func scrollToPostIfNeeded(retryCount: Int = 3) {
         guard let postNumber = scrollToPostNumber else { return }
 
-        // Find the index of the post in the thread
-        if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
+        // Use a slight delay to ensure the table view layout is complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self = self else { return }
+
+            guard let index = self.threadBoardReplyNumber.firstIndex(of: postNumber) else {
+                if retryCount > 0 && (self.isLoading || self.threadBoardReplyNumber.isEmpty) {
+                    self.scrollToPostIfNeeded(retryCount: retryCount - 1)
+                } else {
+                    self.scrollToPostNumber = nil
+                }
+                return
+            }
+
             let indexPath = IndexPath(row: index, section: 0)
+            let rowCount = self.tableView.numberOfRows(inSection: indexPath.section)
+            guard rowCount > indexPath.row else {
+                if retryCount > 0 {
+                    self.scrollToPostIfNeeded(retryCount: retryCount - 1)
+                } else {
+                    self.scrollToPostNumber = nil
+                }
+                return
+            }
 
-            // Use a slight delay to ensure the table view layout is complete
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self = self else { return }
-                self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+            self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
 
-                // Briefly highlight the cell to draw attention
-                if let cell = self.tableView.cellForRow(at: indexPath) {
-                    UIView.animate(withDuration: 0.3, animations: {
-                        cell.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.3)
-                    }) { _ in
-                        UIView.animate(withDuration: 0.5, delay: 0.5) {
-                            cell.backgroundColor = ThemeManager.shared.backgroundColor
-                        }
+            // Briefly highlight the cell to draw attention
+            if let cell = self.tableView.cellForRow(at: indexPath) {
+                UIView.animate(withDuration: 0.3, animations: {
+                    cell.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.3)
+                }) { _ in
+                    UIView.animate(withDuration: 0.5, delay: 0.5) {
+                        cell.backgroundColor = ThemeManager.shared.backgroundColor
                     }
                 }
             }
-        }
 
-        // Clear the scroll target after use
-        scrollToPostNumber = nil
+            self.scrollToPostNumber = nil
+        }
     }
 
     // MARK: - Navigation Item Setup Methods
