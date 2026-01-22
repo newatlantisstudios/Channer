@@ -543,6 +543,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+
+        resignFirstResponder()
         
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -613,6 +615,25 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Restart auto-refresh timer when view appears
         setupAutoRefreshTimer()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
+
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        guard motion == .motionShake else {
+            super.motionEnded(motion, with: event)
+            return
+        }
+
+        guard presentedViewController == nil else { return }
+        openGallery()
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
