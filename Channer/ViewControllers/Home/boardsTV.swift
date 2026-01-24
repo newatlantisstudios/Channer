@@ -280,11 +280,11 @@ class boardsTV: UITableViewController {
             hasPerformedStartupNavigation = true
             
             // Navigate to the default board
-            let vc = boardTV()
-            vc.boardName = boardNames[index]
-            vc.boardAbv = boardsAbv[index]
-            vc.title = "/" + boardsAbv[index] + "/"
-            vc.boardPassed = true
+            let vc = ThreadViewControllerFactory.makeBoardViewController(
+                boardName: boardNames[index],
+                boardAbv: boardsAbv[index],
+                boardPassed: true
+            )
             
             navigationController?.pushViewController(vc, animated: false)
         }
@@ -512,14 +512,11 @@ class boardsTV: UITableViewController {
             return
         }
 
-        // Instantiate boardTV
-        let vc = boardTV()
-
-        // Configure boardTV with selected category
-        vc.boardName = boardNames[indexPath.row]
-        vc.boardAbv = boardsAbv[indexPath.row]
-        vc.title = "/" + boardsAbv[indexPath.row] + "/"
-        vc.boardPassed = true
+        let vc = ThreadViewControllerFactory.makeBoardViewController(
+            boardName: boardNames[indexPath.row],
+            boardAbv: boardsAbv[indexPath.row],
+            boardPassed: true
+        )
         
         // Use the navigation controller on all devices
         if let navController = navigationController {

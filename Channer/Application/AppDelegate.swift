@@ -107,6 +107,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             let mode = UserDefaults.standard.integer(forKey: boardsDisplayModeKey)
             print("Current boards display mode: \(mode == 0 ? "Grid" : "List")")
         }
+
+        // Set default value for threads display mode if it doesn't exist
+        let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
+        if UserDefaults.standard.object(forKey: threadsDisplayModeKey) == nil {
+            UserDefaults.standard.set(ThreadDisplayMode.list.rawValue, forKey: threadsDisplayModeKey)
+            print("Initialized threads display mode to list view (0)")
+        } else {
+            let mode = UserDefaults.standard.integer(forKey: threadsDisplayModeKey)
+            let modeName = mode == ThreadDisplayMode.catalog.rawValue ? "Catalog" : "List"
+            print("Current threads display mode: \(modeName)")
+        }
         
         // Initialize the offline reading mode setting in ThreadCacheManager
         let isOfflineReadingEnabled = UserDefaults.standard.bool(forKey: offlineReadingEnabledKey)

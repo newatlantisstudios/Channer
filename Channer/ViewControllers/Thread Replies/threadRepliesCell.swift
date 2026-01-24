@@ -179,6 +179,8 @@ class threadRepliesCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
         setupSubviews()
         setupConstraints()
         setupPointerInteraction()
@@ -201,6 +203,16 @@ class threadRepliesCell: UITableViewCell {
         spoilerDelegate = nil
         replyCountLabel.isHidden = true
         replyCountLabel.text = nil
+    }
+
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        contentView.alpha = 1.0
+    }
+
+    override func setSelected(_ selected: Bool, animated: Bool) {
+        super.setSelected(selected, animated: animated)
+        contentView.alpha = 1.0
     }
 
     // MARK: - Spoiler Tap Gesture Setup

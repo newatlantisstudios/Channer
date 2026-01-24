@@ -68,6 +68,9 @@ class settings: UIViewController {
     private var boardsDisplayModeView: UIView!
     private var boardsDisplayModeLabel: UILabel!
     private var boardsDisplayModeSegment: UISegmentedControl!
+    private var threadsDisplayModeView: UIView!
+    private var threadsDisplayModeLabel: UILabel!
+    private var threadsDisplayModeSegment: UISegmentedControl!
 
     // Hidden Boards UI
     private let hiddenBoardsView = UIView()
@@ -98,6 +101,7 @@ class settings: UIViewController {
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
     private let newPostBehaviorKey = "channer_new_post_behavior"
+    private let threadsDisplayModeKey = "channer_threads_display_mode"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     private let preloadVideosKey = "channer_preload_videos_enabled"
     
@@ -474,6 +478,15 @@ class settings: UIViewController {
         fontSizeSegment.selectedSegmentIndex = FontScaleManager.shared.scaleIndex
         fontSizeSegment.translatesAutoresizingMaskIntoConstraints = false
         fontSizeSegment.addTarget(self, action: #selector(fontSizeSegmentChanged), for: .valueChanged)
+        let fontSizeSegmentFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        fontSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: fontSizeSegmentFont, weight: .medium)],
+            for: .normal
+        )
+        fontSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: fontSizeSegmentFont, weight: .medium)],
+            for: .selected
+        )
         fontSizeView.addSubview(fontSizeSegment)
         
         // Content Filtering View
@@ -640,6 +653,9 @@ class settings: UIViewController {
         
         // Setup the Boards Display Mode view
         setupBoardsDisplayModeView()
+
+        // Setup the Threads Display Mode view
+        setupThreadsDisplayModeView()
         
         // Setup High Quality Thumbnails view
         setupHighQualityThumbnailsView()
@@ -654,7 +670,7 @@ class settings: UIViewController {
 
         setupConstraints()
     }
-    
+
     @objc private func faceIDToggleChanged(_ sender: UISwitch) {
         // If turning OFF FaceID and it was previously ON, require authentication
         let wasPreviouslyEnabled = UserDefaults.standard.bool(forKey: faceIDEnabledKey)
@@ -1291,7 +1307,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // High Quality Thumbnails View
-            highQualityThumbnailsView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            highQualityThumbnailsView.topAnchor.constraint(equalTo: threadsDisplayModeView.bottomAnchor, constant: 16),
             highQualityThumbnailsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             highQualityThumbnailsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             highQualityThumbnailsView.heightAnchor.constraint(equalToConstant: 44),
@@ -1453,6 +1469,60 @@ class settings: UIViewController {
             boardsDisplayModeSegment.widthAnchor.constraint(equalToConstant: 120)
         ])
     }
+
+    private func setupThreadsDisplayModeView() {
+        threadsDisplayModeView = {
+            let view = UIView()
+            view.backgroundColor = UIColor.secondarySystemGroupedBackground
+            view.layer.cornerRadius = 10
+            view.clipsToBounds = true
+            view.translatesAutoresizingMaskIntoConstraints = false
+            return view
+        }()
+
+        threadsDisplayModeLabel = {
+            let label = UILabel()
+            label.text = "Threads Display Mode"
+            label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+            label.textAlignment = .left
+            label.numberOfLines = 1
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.8
+            label.translatesAutoresizingMaskIntoConstraints = false
+            return label
+        }()
+
+        threadsDisplayModeSegment = {
+            let segment = UISegmentedControl(items: ["List", "Catalog"])
+            if UserDefaults.standard.object(forKey: threadsDisplayModeKey) == nil {
+                UserDefaults.standard.set(ThreadDisplayMode.list.rawValue, forKey: threadsDisplayModeKey)
+            }
+            let displayMode = UserDefaults.standard.integer(forKey: threadsDisplayModeKey)
+            segment.selectedSegmentIndex = displayMode
+            segment.translatesAutoresizingMaskIntoConstraints = false
+            segment.addTarget(self, action: #selector(threadsDisplayModeChanged), for: .valueChanged)
+            return segment
+        }()
+
+        contentView.addSubview(threadsDisplayModeView)
+        threadsDisplayModeView.addSubview(threadsDisplayModeLabel)
+        threadsDisplayModeView.addSubview(threadsDisplayModeSegment)
+
+        NSLayoutConstraint.activate([
+            threadsDisplayModeView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            threadsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            threadsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            threadsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
+
+            threadsDisplayModeLabel.centerYAnchor.constraint(equalTo: threadsDisplayModeView.centerYAnchor),
+            threadsDisplayModeLabel.leadingAnchor.constraint(equalTo: threadsDisplayModeView.leadingAnchor, constant: 20),
+            threadsDisplayModeLabel.trailingAnchor.constraint(lessThanOrEqualTo: threadsDisplayModeSegment.leadingAnchor, constant: -15),
+
+            threadsDisplayModeSegment.centerYAnchor.constraint(equalTo: threadsDisplayModeView.centerYAnchor),
+            threadsDisplayModeSegment.trailingAnchor.constraint(equalTo: threadsDisplayModeView.trailingAnchor, constant: -20),
+            threadsDisplayModeSegment.widthAnchor.constraint(equalToConstant: 140)
+        ])
+    }
     
     @objc private func boardsDisplayModeChanged(_ sender: UISegmentedControl) {
         // Store the user's preference
@@ -1485,6 +1555,22 @@ class settings: UIViewController {
 
         alert.addAction(UIAlertAction(title: "OK", style: .default))
 
+        present(alert, animated: true)
+    }
+
+    @objc private func threadsDisplayModeChanged(_ sender: UISegmentedControl) {
+        UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: threadsDisplayModeKey)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        let modeName = sender.selectedSegmentIndex == ThreadDisplayMode.catalog.rawValue ? "Catalog" : "List"
+        let alert = UIAlertController(
+            title: "Threads Display Mode Applied",
+            message: "\(modeName) mode will be used when you return to a board.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
     
@@ -1665,7 +1751,7 @@ class settings: UIViewController {
             // Font Size Segment
             fontSizeSegment.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
             fontSizeSegment.trailingAnchor.constraint(equalTo: fontSizeView.trailingAnchor, constant: -20),
-            fontSizeSegment.widthAnchor.constraint(equalToConstant: 190),
+            fontSizeSegment.widthAnchor.constraint(equalToConstant: 200),
             
             // Content Filtering View
             contentFilteringView.topAnchor.constraint(equalTo: fontSizeView.bottomAnchor, constant: 16),

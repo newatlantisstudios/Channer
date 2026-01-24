@@ -233,6 +233,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private let refreshStatusLabel = UILabel()
     private let refreshProgressView = UIProgressView(progressViewStyle: .default)
     private var refreshStatusHeight: NSLayoutConstraint?
+    private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
 
     // MARK: - Lifecycle Methods
     // Methods related to the view controller's lifecycle.
@@ -332,6 +333,29 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             
             loadThreads()
             setupAutoRefreshTimer()
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        guard !isFavoritesView && !isHistoryView else { return }
+
+        let currentMode = UserDefaults.standard.integer(forKey: threadsDisplayModeKey)
+        guard currentMode == ThreadDisplayMode.catalog.rawValue else { return }
+
+        let catalogVC = ThreadViewControllerFactory.makeBoardViewController(
+            boardName: boardName,
+            boardAbv: boardAbv,
+            boardPassed: boardPassed
+        )
+
+        guard catalogVC is threadCatalogCV else { return }
+
+        var viewControllers = navigationController?.viewControllers ?? []
+        if let index = viewControllers.firstIndex(of: self) {
+            viewControllers[index] = catalogVC
+            navigationController?.setViewControllers(viewControllers, animated: false)
         }
     }
     
