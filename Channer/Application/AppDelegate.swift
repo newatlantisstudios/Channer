@@ -66,6 +66,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {       
+        FontScaleManager.shared.enableFontScaling()
+
         // Set default value for FaceID setting if it doesn't exist
         let faceIDKey = "channer_faceID_authentication_enabled"
         if UserDefaults.standard.object(forKey: faceIDKey) == nil {

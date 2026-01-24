@@ -15,6 +15,7 @@
 		171A75E42DD6F9FF00D75B34 /* AdvancedFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */; };
 		171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */; };
 		171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */; };
+		17FONTSCALEBUILD1234567890 /* FontScaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17FONTSCALE123456789012 /* FontScaleManager.swift */; };
 		171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */; };
 		171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */; };
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
@@ -141,6 +142,7 @@
 		171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilter.swift; sourceTree = "<group>"; };
 		171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCacheManager.swift; sourceTree = "<group>"; };
 		171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadDataHelper.swift; sourceTree = "<group>"; };
+		17FONTSCALE123456789012 /* FontScaleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontScaleManager.swift; sourceTree = "<group>"; };
 		171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategorizedFavoritesViewController.swift; sourceTree = "<group>"; };
 		171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryManagerViewController.swift; sourceTree = "<group>"; };
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
@@ -271,15 +273,16 @@
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
 				171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */,
-				171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
-				17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */,
-				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
-				9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */,
-				9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
-				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
-				9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
-				17STAT0012DE9000000000002 /* StatisticsManager.swift */,
-				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
+		171A75E12DD6F9FF00D75B34 /* ThreadDataHelper.swift */,
+		17HIDDENBOARDS1234567890 /* HiddenBoardsManager.swift */,
+		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
+		9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */,
+		9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
+		171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
+		17FONTSCALE123456789012 /* FontScaleManager.swift */,
+		9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
+		17STAT0012DE9000000000002 /* StatisticsManager.swift */,
+		17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
 				17PASSAUTH1234567890123456 /* PassAuthManager.swift */,
 				17POSTING1234567890123456 /* PostingManager.swift */,
 				4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */,
@@ -724,10 +727,11 @@
 				177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */,
 				171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */,
 				171A75E42DD6F9FF00D75B34 /* AdvancedFilter.swift in Sources */,
-				171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,
-				171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */,
-				171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
-				171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
+		171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,
+		171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */,
+		17FONTSCALEBUILD1234567890 /* FontScaleManager.swift in Sources */,
+		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
+		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,
 				176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */,
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,

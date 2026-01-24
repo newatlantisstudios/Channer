@@ -235,7 +235,8 @@ class MathRenderer {
         processed = cleanupRemainingCommands(processed)
 
         // Create attributed string
-        let mathFont = UIFont(name: "Times New Roman", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)
+        let scaledFontSize = FontScaleManager.shared.scaledFontSize(fontSize)
+        let mathFont = UIFont(name: "Times New Roman", size: scaledFontSize) ?? UIFont.systemFont(ofSize: fontSize)
         let mathItalicFont = UIFont.italicSystemFont(ofSize: fontSize)
 
         let attributes: [NSAttributedString.Key: Any] = [

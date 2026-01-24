@@ -37,6 +37,9 @@ class settings: UIViewController {
     private let themeSettingsView = UIView()
     private let themeSettingsLabel = UILabel()
     private let themeSettingsButton = UIButton(type: .system)
+    private let fontSizeView = UIView()
+    private let fontSizeLabel = UILabel()
+    private let fontSizeSegment = UISegmentedControl(items: ["Default", "Large", "XL"])
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
@@ -449,6 +452,29 @@ class settings: UIViewController {
         themeSettingsButton.translatesAutoresizingMaskIntoConstraints = false
         themeSettingsButton.addTarget(self, action: #selector(themeSettingsButtonTapped), for: .touchUpInside)
         themeSettingsView.addSubview(themeSettingsButton)
+
+        // Font Size View
+        fontSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        fontSizeView.layer.cornerRadius = 10
+        fontSizeView.clipsToBounds = true
+        fontSizeView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(fontSizeView)
+
+        // Font Size Label
+        fontSizeLabel.text = "Font Size"
+        fontSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        fontSizeLabel.textAlignment = .left
+        fontSizeLabel.numberOfLines = 1
+        fontSizeLabel.adjustsFontSizeToFitWidth = true
+        fontSizeLabel.minimumScaleFactor = 0.8
+        fontSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+        fontSizeView.addSubview(fontSizeLabel)
+
+        // Font Size Segment
+        fontSizeSegment.selectedSegmentIndex = FontScaleManager.shared.scaleIndex
+        fontSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        fontSizeSegment.addTarget(self, action: #selector(fontSizeSegmentChanged), for: .valueChanged)
+        fontSizeView.addSubview(fontSizeSegment)
         
         // Content Filtering View
         contentFilteringView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -888,6 +914,13 @@ class settings: UIViewController {
         present(alertController, animated: true)
 
         // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func fontSizeSegmentChanged(_ sender: UISegmentedControl) {
+        FontScaleManager.shared.setScaleIndex(sender.selectedSegmentIndex)
+
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
@@ -1616,9 +1649,26 @@ class settings: UIViewController {
             // Theme Settings Button
             themeSettingsButton.centerYAnchor.constraint(equalTo: themeSettingsView.centerYAnchor),
             themeSettingsButton.trailingAnchor.constraint(equalTo: themeSettingsView.trailingAnchor, constant: -20),
+
+            // Font Size View
+            fontSizeView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
+            fontSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            fontSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            fontSizeView.heightAnchor.constraint(equalToConstant: 44),
+            fontSizeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Font Size Label
+            fontSizeLabel.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
+            fontSizeLabel.leadingAnchor.constraint(equalTo: fontSizeView.leadingAnchor, constant: 20),
+            fontSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: fontSizeSegment.leadingAnchor, constant: -15),
+
+            // Font Size Segment
+            fontSizeSegment.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
+            fontSizeSegment.trailingAnchor.constraint(equalTo: fontSizeView.trailingAnchor, constant: -20),
+            fontSizeSegment.widthAnchor.constraint(equalToConstant: 190),
             
             // Content Filtering View
-            contentFilteringView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
+            contentFilteringView.topAnchor.constraint(equalTo: fontSizeView.bottomAnchor, constant: 16),
             contentFilteringView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             contentFilteringView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             contentFilteringView.heightAnchor.constraint(equalToConstant: 44),
