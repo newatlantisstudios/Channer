@@ -80,6 +80,19 @@ class threadRepliesCV: UICollectionViewController {
         }
         return "error"
     }
+
+    private func appendPostMetadata(from dict: [String: Any]) {
+        let fileName: String?
+        if let name = dict["filename"] as? String, let ext = dict["ext"] as? String {
+            fileName = "\(name)\(ext)"
+        } else {
+            fileName = nil
+        }
+        threadRepliesFileNames.append(fileName)
+
+        let timestamp = dict["time"] as? Int
+        threadRepliesTimestamps.append(timestamp)
+    }
     
     // MARK: - Properties
     
@@ -99,6 +112,10 @@ class threadRepliesCV: UICollectionViewController {
     var threadRepliesImages: [String] = []
     /// Array of thread reply content
     var threadReplies: [String] = []
+    /// Array of thread reply file names
+    var threadRepliesFileNames: [String?] = []
+    /// Array of thread reply timestamps
+    var threadRepliesTimestamps: [Int?] = []
     /// Backup array of old thread replies
     var threadRepliesOld: [String] = []
     /// Array of thread board reply numbers
@@ -113,6 +130,13 @@ class threadRepliesCV: UICollectionViewController {
     
     /// Flag indicating if current view is a reply
     var isReply: Bool = false
+
+    private lazy var postInfoDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -212,6 +236,9 @@ class threadRepliesCV: UICollectionViewController {
             let html = try! Data(contentsOf: jsonFile)
             let json = try! JSONSerialization.jsonObject(with: html, options: []) as! [String:Any]
             let posts = json["posts"] as! [[String:Any]]
+
+            threadRepliesFileNames = []
+            threadRepliesTimestamps = []
             
             for dict in posts {
                 
@@ -231,7 +258,9 @@ class threadRepliesCV: UICollectionViewController {
                 if let num = dict["no"] as? Int {
                     threadBoardReplyNumber.append(String(num))
                 }
-                
+
+                appendPostMetadata(from: dict)
+
             }
         } else { // Replies
         
@@ -246,6 +275,8 @@ class threadRepliesCV: UICollectionViewController {
             threadReplies = []
             threadRepliesImages = []
             threadBoardReplyNumber = []
+            threadRepliesFileNames = []
+            threadRepliesTimestamps = []
             
             for dict in posts {
                 
@@ -274,6 +305,8 @@ class threadRepliesCV: UICollectionViewController {
                     }
                     
                     threadBoardReplyNumber.append(String(num))
+
+                    appendPostMetadata(from: dict)
                     
                 }
                 
@@ -295,6 +328,8 @@ class threadRepliesCV: UICollectionViewController {
                     if let num = dict["no"] as? Int {
                         threadBoardReplyNumber.append(String(num))
                     }
+
+                    appendPostMetadata(from: dict)
                     
                     gotReplies = true
                 }
@@ -363,6 +398,14 @@ class threadRepliesCV: UICollectionViewController {
             actions.append(replyAction)
         }
 
+        let infoAction = UIContextualAction(style: .normal, title: "Info") { [weak self] _, _, completion in
+            self?.showPostInfo(for: indexPath.row)
+            completion(true)
+        }
+        infoAction.backgroundColor = .systemGray
+        infoAction.image = UIImage(systemName: "info.circle")
+        actions.append(infoAction)
+
         if let replies = threadBoardReplies[postNo], !replies.isEmpty {
             let repliesAction = UIContextualAction(style: .normal, title: "Replies") { [weak self] _, _, completion in
                 self?.showThreadForIndex(indexPath.row)
@@ -378,6 +421,24 @@ class threadRepliesCV: UICollectionViewController {
         let configuration = UISwipeActionsConfiguration(actions: actions)
         configuration.performsFirstActionWithFullSwipe = true
         return configuration
+    }
+
+    private func showPostInfo(for index: Int) {
+        guard index < threadRepliesTimestamps.count, index < threadRepliesFileNames.count else { return }
+
+        let fileName = threadRepliesFileNames[index] ?? "No file attached"
+        let postedText: String
+        if let timestamp = threadRepliesTimestamps[index] {
+            let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
+            postedText = postInfoDateFormatter.string(from: date)
+        } else {
+            postedText = "Unknown"
+        }
+
+        let message = "File: \(fileName)\nPosted: \(postedText)"
+        let alert = UIAlertController(title: "Post Info", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     private func configureLoadingCell(_ cell: threadReplyCell) {

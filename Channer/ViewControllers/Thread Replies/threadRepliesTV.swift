@@ -300,6 +300,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     // Post metadata for advanced filtering
     var postMetadataList = [PostMetadata]()
+    private lazy var postInfoDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
     
     // Storage for thread view
     private var threadRepliesOld = [NSAttributedString]()
@@ -1338,6 +1344,27 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+
+    private func showPostInfo(for index: Int) {
+        let metadata = index < postMetadataList.count ? postMetadataList[index] : nil
+        let fileName: String
+        if let name = metadata?.imageName, !name.isEmpty, let ext = metadata?.imageExtension, !ext.isEmpty {
+            fileName = "\(name)\(ext)"
+        } else {
+            fileName = "No file attached"
+        }
+
+        let postedText: String
+        if let timestamp = metadata?.timestamp {
+            let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
+            postedText = postInfoDateFormatter.string(from: date)
+        } else {
+            postedText = "Unknown"
+        }
+
+        let message = "File: \(fileName)\nPosted: \(postedText)"
+        showAlert(title: "Post Info", message: message)
+    }
     
     // MARK: - Table View Data Source Methods
     /// Methods required to display data in the table view
@@ -1492,6 +1519,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         replyAction.backgroundColor = .systemBlue
         replyAction.image = UIImage(systemName: "square.and.pencil")
         actions.append(replyAction)
+
+        let infoAction = UIContextualAction(style: .normal, title: "Info") { [weak self] _, _, completion in
+            self?.showPostInfo(for: actualIndex)
+            completion(true)
+        }
+        infoAction.backgroundColor = .systemGray
+        infoAction.image = UIImage(systemName: "info.circle")
+        actions.append(infoAction)
 
         if let replies = threadBoardReplies[postNo], !replies.isEmpty {
             let repliesAction = UIContextualAction(style: .normal, title: "Replies") { [weak self] _, _, completion in
