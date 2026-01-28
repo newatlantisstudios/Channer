@@ -249,9 +249,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     self.navigationController?.navigationBar.compactAppearance = appearance
                     self.navigationController?.navigationBar.isTranslucent = false
 
-                    // Restart video playback
-                    self.vlcPlayer.play()
-                    self.startLoopMonitoring()
+                    // Restart video playback and restore audio state
+                    self.resumePlaybackAfterCancelledTransition()
                 }
             }
         }
@@ -414,6 +413,32 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         
         // For remote files, continue immediately with VLC setup
         setupVLCPlayer(with: url)
+    }
+
+    private func resumePlaybackAfterCancelledTransition() {
+        // Restore observer removed in viewWillDisappear
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(vlcPlayerDidReachEnd),
+                                               name: NSNotification.Name("VLCMediaPlayerStateChanged"),
+                                               object: nil)
+
+        if isMuted {
+            shouldForceMuteOnNextPlay = true
+            disableAudioTracksForMutedStart()
+            startAggressiveMuteEnforcement(reason: "interactive-cancel")
+        } else {
+            shouldForceMuteOnNextPlay = false
+            stopAggressiveMuteEnforcement()
+            enableAudioTracksForUnmute()
+        }
+
+        vlcPlayer.play()
+        startLoopMonitoring()
+        startPeriodicAudioChecking()
+        startSeekBarUpdates()
+        resetControlsHideTimer()
+        setupNavigationButtons()
     }
     
     /// Sets up VLC player with the given URL
