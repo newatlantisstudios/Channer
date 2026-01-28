@@ -134,31 +134,31 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return button
     }()
 
-    /// Left tap zone for navigation to previous video
-    private lazy var leftTapZone: UIView = {
+    /// Upper tap zone for navigation to previous video
+    private lazy var upTapZone: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .clear
         view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(leftTapZoneTapped))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(upTapZoneTapped))
         view.addGestureRecognizer(tap)
         return view
     }()
 
-    /// Right tap zone for navigation to next video
-    private lazy var rightTapZone: UIView = {
+    /// Lower tap zone for navigation to next video
+    private lazy var downTapZone: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .clear
         view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(rightTapZoneTapped))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(downTapZoneTapped))
         view.addGestureRecognizer(tap)
         return view
     }()
 
-    /// Left navigation hint (chevron)
-    private lazy var leftHint: UIImageView = {
-        let imageView = UIImageView(image: UIImage(systemName: "chevron.left.circle.fill"))
+    /// Up navigation hint (chevron)
+    private lazy var upHint: UIImageView = {
+        let imageView = UIImageView(image: UIImage(systemName: "chevron.up.circle.fill"))
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.tintColor = UIColor.white.withAlphaComponent(0.7)
         imageView.contentMode = .scaleAspectFit
@@ -166,9 +166,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return imageView
     }()
 
-    /// Right navigation hint (chevron)
-    private lazy var rightHint: UIImageView = {
-        let imageView = UIImageView(image: UIImage(systemName: "chevron.right.circle.fill"))
+    /// Down navigation hint (chevron)
+    private lazy var downHint: UIImageView = {
+        let imageView = UIImageView(image: UIImage(systemName: "chevron.down.circle.fill"))
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.tintColor = UIColor.white.withAlphaComponent(0.7)
         imageView.contentMode = .scaleAspectFit
@@ -303,10 +303,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         videoView.addGestureRecognizer(tapGesture)
 
         // Add navigation tap zones (only if we have multiple videos)
-        view.addSubview(leftTapZone)
-        view.addSubview(rightTapZone)
-        view.addSubview(leftHint)
-        view.addSubview(rightHint)
+        view.addSubview(upTapZone)
+        view.addSubview(downTapZone)
+        view.addSubview(upHint)
+        view.addSubview(downHint)
         view.addSubview(mediaCounterLabel)
 
         NSLayoutConstraint.activate([
@@ -342,29 +342,29 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             durationLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
             durationLabel.widthAnchor.constraint(equalToConstant: 45),
 
-            // Left tap zone (25% of width on left side)
-            leftTapZone.topAnchor.constraint(equalTo: videoView.topAnchor),
-            leftTapZone.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
-            leftTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            leftTapZone.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.25),
+            // Up tap zone (25% of height at top)
+            upTapZone.topAnchor.constraint(equalTo: videoView.topAnchor),
+            upTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            upTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            upTapZone.heightAnchor.constraint(equalTo: videoView.heightAnchor, multiplier: 0.25),
 
-            // Right tap zone (25% of width on right side)
-            rightTapZone.topAnchor.constraint(equalTo: videoView.topAnchor),
-            rightTapZone.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
-            rightTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            rightTapZone.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.25),
+            // Down tap zone (25% of height at bottom)
+            downTapZone.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
+            downTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            downTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            downTapZone.heightAnchor.constraint(equalTo: videoView.heightAnchor, multiplier: 0.25),
 
-            // Left hint (centered in left tap zone)
-            leftHint.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
-            leftHint.centerXAnchor.constraint(equalTo: leftTapZone.centerXAnchor),
-            leftHint.widthAnchor.constraint(equalToConstant: 44),
-            leftHint.heightAnchor.constraint(equalToConstant: 44),
+            // Up hint (centered in upper tap zone)
+            upHint.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
+            upHint.centerYAnchor.constraint(equalTo: upTapZone.centerYAnchor),
+            upHint.widthAnchor.constraint(equalToConstant: 44),
+            upHint.heightAnchor.constraint(equalToConstant: 44),
 
-            // Right hint (centered in right tap zone)
-            rightHint.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
-            rightHint.centerXAnchor.constraint(equalTo: rightTapZone.centerXAnchor),
-            rightHint.widthAnchor.constraint(equalToConstant: 44),
-            rightHint.heightAnchor.constraint(equalToConstant: 44),
+            // Down hint (centered in lower tap zone)
+            downHint.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
+            downHint.centerYAnchor.constraint(equalTo: downTapZone.centerYAnchor),
+            downHint.widthAnchor.constraint(equalToConstant: 44),
+            downHint.heightAnchor.constraint(equalToConstant: 44),
 
             // Media counter label (top center)
             mediaCounterLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
@@ -797,8 +797,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self.seekBarContainer.alpha = 1.0
             self.mediaCounterLabel.alpha = hasMultipleVideos ? 1.0 : 0.0
             // Show navigation hints if there are multiple videos
-            self.leftHint.alpha = hasMultipleVideos ? 0.7 : 0.0
-            self.rightHint.alpha = hasMultipleVideos ? 0.7 : 0.0
+            self.upHint.alpha = hasMultipleVideos ? 0.7 : 0.0
+            self.downHint.alpha = hasMultipleVideos ? 0.7 : 0.0
         }
 
         if autoHide && vlcPlayer.isPlaying {
@@ -815,8 +815,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self.playPauseButton.alpha = 0.0
             self.seekBarContainer.alpha = 0.0
             self.mediaCounterLabel.alpha = 0.0
-            self.leftHint.alpha = 0.0
-            self.rightHint.alpha = 0.0
+            self.upHint.alpha = 0.0
+            self.downHint.alpha = 0.0
         }
     }
 
@@ -1454,8 +1454,8 @@ extension WebMViewController {
         let hasMultipleVideos = videoURLs.count > 1
 
         // Show/hide tap zones
-        leftTapZone.isHidden = !hasMultipleVideos
-        rightTapZone.isHidden = !hasMultipleVideos
+        upTapZone.isHidden = !hasMultipleVideos
+        downTapZone.isHidden = !hasMultipleVideos
 
         // Show media counter if we have multiple videos
         if hasMultipleVideos {
@@ -1463,13 +1463,13 @@ extension WebMViewController {
             updateMediaCounter()
 
             // Add swipe gestures for navigation
-            let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeLeft))
-            swipeLeft.direction = .left
-            videoView.addGestureRecognizer(swipeLeft)
+            let swipeUp = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
+            swipeUp.direction = .up
+            videoView.addGestureRecognizer(swipeUp)
 
-            let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeRight))
-            swipeRight.direction = .right
-            videoView.addGestureRecognizer(swipeRight)
+            let swipeDown = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
+            swipeDown.direction = .down
+            videoView.addGestureRecognizer(swipeDown)
         } else {
             mediaCounterLabel.isHidden = true
         }
@@ -1478,14 +1478,14 @@ extension WebMViewController {
         updateNavigationHints()
     }
 
-    /// Handles swipe left gesture - go to next video
-    @objc private func handleSwipeLeft() {
-        rightTapZoneTapped()
+    /// Handles swipe up gesture - go to previous video
+    @objc private func handleSwipeUp() {
+        upTapZoneTapped()
     }
 
-    /// Handles swipe right gesture - go to previous video
-    @objc private func handleSwipeRight() {
-        leftTapZoneTapped()
+    /// Handles swipe down gesture - go to next video
+    @objc private func handleSwipeDown() {
+        downTapZoneTapped()
     }
 
     /// Updates the media counter label
@@ -1497,12 +1497,12 @@ extension WebMViewController {
     /// Updates navigation hint visibility based on current position
     private func updateNavigationHints() {
         // Only show hints if there's somewhere to navigate to
-        leftHint.alpha = currentIndex > 0 ? 0.7 : 0.3
-        rightHint.alpha = currentIndex < videoURLs.count - 1 ? 0.7 : 0.3
+        upHint.alpha = currentIndex > 0 ? 0.7 : 0.3
+        downHint.alpha = currentIndex < videoURLs.count - 1 ? 0.7 : 0.3
     }
 
-    /// Handles tap on left zone - go to previous video
-    @objc private func leftTapZoneTapped() {
+    /// Handles tap on upper zone - go to previous video
+    @objc private func upTapZoneTapped() {
         // If controls are hidden, show them first instead of navigating
         if !controlsVisible {
             showControls()
@@ -1511,7 +1511,7 @@ extension WebMViewController {
 
         guard videoURLs.count > 1, currentIndex > 0 else {
             // Flash the hint to show we're at the beginning
-            flashHint(leftHint)
+            flashHint(upHint)
             return
         }
 
@@ -1519,8 +1519,8 @@ extension WebMViewController {
         loadVideo(at: currentIndex)
     }
 
-    /// Handles tap on right zone - go to next video
-    @objc private func rightTapZoneTapped() {
+    /// Handles tap on lower zone - go to next video
+    @objc private func downTapZoneTapped() {
         // If controls are hidden, show them first instead of navigating
         if !controlsVisible {
             showControls()
@@ -1529,7 +1529,7 @@ extension WebMViewController {
 
         guard videoURLs.count > 1, currentIndex < videoURLs.count - 1 else {
             // Flash the hint to show we're at the end
-            flashHint(rightHint)
+            flashHint(downHint)
             return
         }
 
