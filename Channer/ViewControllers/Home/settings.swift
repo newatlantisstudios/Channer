@@ -83,6 +83,10 @@ class settings: UIViewController {
     private let preloadVideosLabel = UILabel()
     private let preloadVideosToggle = UISwitch()
 
+    private let mediaPrefetchSettingsView = UIView()
+    private let mediaPrefetchSettingsLabel = UILabel()
+    private let mediaPrefetchSettingsButton = UIButton(type: .system)
+
     // Debug UI (only in Debug builds)
     #if DEBUG
     private let debugView = UIView()
@@ -663,6 +667,9 @@ class settings: UIViewController {
         // Setup Preload Videos view
         setupPreloadVideosView()
 
+        // Setup Media Prefetch Settings view
+        setupMediaPrefetchSettingsView()
+
         #if DEBUG
         // Setup Debug view (only in Debug builds)
         setupDebugView()
@@ -1209,6 +1216,14 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
+    @objc private func mediaPrefetchSettingsButtonTapped() {
+        let mediaPrefetchVC = MediaPrefetchSettingsViewController()
+        navigationController?.pushViewController(mediaPrefetchVC, animated: true)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     @objc private func newPostBehaviorChanged(_ sender: UISegmentedControl) {
         UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: newPostBehaviorKey)
 
@@ -1367,6 +1382,44 @@ class settings: UIViewController {
             // Preload Videos Toggle
             preloadVideosToggle.centerYAnchor.constraint(equalTo: preloadVideosView.centerYAnchor),
             preloadVideosToggle.trailingAnchor.constraint(equalTo: preloadVideosView.trailingAnchor, constant: -30),
+        ])
+    }
+
+    private func setupMediaPrefetchSettingsView() {
+        mediaPrefetchSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        mediaPrefetchSettingsView.layer.cornerRadius = 10
+        mediaPrefetchSettingsView.clipsToBounds = true
+        mediaPrefetchSettingsView.translatesAutoresizingMaskIntoConstraints = false
+
+        mediaPrefetchSettingsLabel.text = "Media Prefetching"
+        mediaPrefetchSettingsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        mediaPrefetchSettingsLabel.textAlignment = .left
+        mediaPrefetchSettingsLabel.numberOfLines = 1
+        mediaPrefetchSettingsLabel.adjustsFontSizeToFitWidth = true
+        mediaPrefetchSettingsLabel.minimumScaleFactor = 0.8
+        mediaPrefetchSettingsLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        mediaPrefetchSettingsButton.setTitle("Configure", for: .normal)
+        mediaPrefetchSettingsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        mediaPrefetchSettingsButton.translatesAutoresizingMaskIntoConstraints = false
+        mediaPrefetchSettingsButton.addTarget(self, action: #selector(mediaPrefetchSettingsButtonTapped), for: .touchUpInside)
+
+        contentView.addSubview(mediaPrefetchSettingsView)
+        mediaPrefetchSettingsView.addSubview(mediaPrefetchSettingsLabel)
+        mediaPrefetchSettingsView.addSubview(mediaPrefetchSettingsButton)
+
+        NSLayoutConstraint.activate([
+            mediaPrefetchSettingsView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+            mediaPrefetchSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            mediaPrefetchSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            mediaPrefetchSettingsView.heightAnchor.constraint(equalToConstant: 44),
+
+            mediaPrefetchSettingsLabel.centerYAnchor.constraint(equalTo: mediaPrefetchSettingsView.centerYAnchor),
+            mediaPrefetchSettingsLabel.leadingAnchor.constraint(equalTo: mediaPrefetchSettingsView.leadingAnchor, constant: 20),
+            mediaPrefetchSettingsLabel.trailingAnchor.constraint(lessThanOrEqualTo: mediaPrefetchSettingsButton.leadingAnchor, constant: -15),
+
+            mediaPrefetchSettingsButton.centerYAnchor.constraint(equalTo: mediaPrefetchSettingsView.centerYAnchor),
+            mediaPrefetchSettingsButton.trailingAnchor.constraint(equalTo: mediaPrefetchSettingsView.trailingAnchor, constant: -20),
         ])
     }
 
@@ -1846,7 +1899,7 @@ class settings: UIViewController {
         if UIDevice.current.userInterfaceIdiom == .pad {
             NSLayoutConstraint.activate([
                 // Keyboard Shortcuts View
-                keyboardShortcutsView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+                keyboardShortcutsView.topAnchor.constraint(equalTo: mediaPrefetchSettingsView.bottomAnchor, constant: 16),
                 keyboardShortcutsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 keyboardShortcutsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
                 keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
@@ -1890,7 +1943,7 @@ class settings: UIViewController {
             // For iPhone, debug view goes after preload videos view
             NSLayoutConstraint.activate([
                 // Debug View
-                debugView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+                debugView.topAnchor.constraint(equalTo: mediaPrefetchSettingsView.bottomAnchor, constant: 16),
                 debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
                 debugView.heightAnchor.constraint(equalToConstant: 44),
@@ -1907,7 +1960,7 @@ class settings: UIViewController {
             #else
             // Bottom constraint for scroll content size (Release build)
             NSLayoutConstraint.activate([
-                preloadVideosView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+                mediaPrefetchSettingsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
             ])
             #endif
         }
@@ -2334,5 +2387,438 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
     
     func tableView(_ tableView: UITableView, titleForDeleteConfirmationButtonForRowAt indexPath: IndexPath) -> String? {
         return "Remove"
+    }
+}
+
+// MARK: - Media Prefetch Settings
+
+final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    private enum Section: Int, CaseIterable {
+        case mode
+        case battery
+        case perBoard
+
+        var title: String {
+            switch self {
+            case .mode:
+                return "Network"
+            case .battery:
+                return "Battery"
+            case .perBoard:
+                return "Per-board Rules"
+            }
+        }
+    }
+
+    private enum BatteryRow: Int, CaseIterable {
+        case pauseLowPower
+        case minimumBattery
+    }
+
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let manager = MediaPrefetchManager.shared
+    private let batteryOptions = [0, 20, 40]
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        title = "Media Prefetching"
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        tableView.reloadData()
+    }
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return Section.allCases.count
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard let section = Section(rawValue: section) else { return 0 }
+        switch section {
+        case .mode:
+            return 1
+        case .battery:
+            return BatteryRow.allCases.count
+        case .perBoard:
+            return 1
+        }
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return Section(rawValue: section)?.title
+    }
+
+    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        guard let section = Section(rawValue: section) else { return nil }
+        switch section {
+        case .mode:
+            return "Prefetches thumbnails to make scrolling smoother."
+        case .battery:
+            return "Prefetching pauses when Low Power Mode is enabled or the battery is below the selected threshold."
+        case .perBoard:
+            return "Overrides apply to both board and thread views."
+        }
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "MediaPrefetchCell") ??
+            UITableViewCell(style: .value1, reuseIdentifier: "MediaPrefetchCell")
+        cell.backgroundColor = ThemeManager.shared.backgroundColor
+        cell.textLabel?.textColor = .label
+        cell.detailTextLabel?.textColor = .secondaryLabel
+        cell.detailTextLabel?.text = nil
+        cell.accessoryView = nil
+        cell.accessoryType = .none
+
+        guard let section = Section(rawValue: indexPath.section) else { return cell }
+        switch section {
+        case .mode:
+            cell.textLabel?.text = "Prefetch Mode"
+            cell.detailTextLabel?.text = manager.mode.displayName
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
+        case .battery:
+            guard let row = BatteryRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .pauseLowPower:
+                cell.textLabel?.text = "Pause on Low Power Mode"
+                let toggle = UISwitch()
+                toggle.isOn = manager.pauseOnLowPowerMode
+                toggle.addTarget(self, action: #selector(pauseOnLowPowerChanged(_:)), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
+            case .minimumBattery:
+                cell.textLabel?.text = "Minimum Battery"
+                let value = manager.minimumBatteryPercent
+                cell.detailTextLabel?.text = value == 0 ? "Off" : "\(value)%"
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
+            }
+        case .perBoard:
+            cell.textLabel?.text = "Manage Per-board Rules"
+            let count = manager.boardOverrideCount()
+            cell.detailTextLabel?.text = count == 0 ? "None" : "\(count) override\(count == 1 ? "" : "s")"
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
+        }
+
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard let section = Section(rawValue: indexPath.section) else { return }
+
+        switch section {
+        case .mode:
+            if let cell = tableView.cellForRow(at: indexPath) {
+                presentModePicker(from: cell)
+            }
+        case .battery:
+            if BatteryRow(rawValue: indexPath.row) == .minimumBattery,
+               let cell = tableView.cellForRow(at: indexPath) {
+                presentBatteryPicker(from: cell)
+            }
+        case .perBoard:
+            let perBoardVC = MediaPrefetchBoardRulesViewController()
+            navigationController?.pushViewController(perBoardVC, animated: true)
+        }
+    }
+
+    @objc private func pauseOnLowPowerChanged(_ sender: UISwitch) {
+        manager.pauseOnLowPowerMode = sender.isOn
+    }
+
+    private func presentModePicker(from cell: UITableViewCell) {
+        let alert = UIAlertController(title: "Prefetch Mode", message: "Choose when to prefetch media", preferredStyle: .actionSheet)
+
+        for mode in MediaPrefetchManager.PrefetchMode.allCases {
+            let action = UIAlertAction(title: mode.displayName, style: .default) { [weak self] _ in
+                self?.manager.mode = mode
+                self?.tableView.reloadSections(IndexSet(integer: Section.mode.rawValue), with: .none)
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            }
+            if mode == manager.mode {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = cell
+            popover.sourceRect = cell.bounds
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func presentBatteryPicker(from cell: UITableViewCell) {
+        let alert = UIAlertController(title: "Minimum Battery", message: "Choose a battery threshold", preferredStyle: .actionSheet)
+
+        for value in batteryOptions {
+            let title = value == 0 ? "Off" : "\(value)%"
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.manager.minimumBatteryPercent = value
+                self?.tableView.reloadSections(IndexSet(integer: Section.battery.rawValue), with: .none)
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            }
+            if value == manager.minimumBatteryPercent {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = cell
+            popover.sourceRect = cell.bounds
+        }
+
+        present(alert, animated: true)
+    }
+}
+
+final class MediaPrefetchBoardRulesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
+    private var boardNames: [String] = []
+    private var boardCodes: [String] = []
+    private var filteredBoardNames: [String] = []
+    private var filteredBoardCodes: [String] = []
+    private var isSearching = false
+
+    private let searchBar = UISearchBar()
+    private let tableView = UITableView()
+    private let headerLabel = UILabel()
+    private let manager = MediaPrefetchManager.shared
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        title = "Per-board Prefetch"
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+
+        boardNames = BoardsService.shared.boardNames
+        boardCodes = BoardsService.shared.boardAbv
+        sortBoardsAlphabetically()
+
+        filteredBoardNames = boardNames
+        filteredBoardCodes = boardCodes
+
+        setupHeader()
+        setupSearchBar()
+        setupTableView()
+
+        BoardsService.shared.fetchBoards { [weak self] in
+            guard let self = self else { return }
+            self.boardNames = BoardsService.shared.boardNames
+            self.boardCodes = BoardsService.shared.boardAbv
+            self.sortBoardsAlphabetically()
+            self.filteredBoardNames = self.boardNames
+            self.filteredBoardCodes = self.boardCodes
+            self.tableView.reloadData()
+            self.updateHeader()
+        }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateHeader()
+        tableView.reloadData()
+    }
+
+    private func setupHeader() {
+        headerLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
+        headerLabel.textColor = .secondaryLabel
+        headerLabel.textAlignment = .center
+        headerLabel.numberOfLines = 0
+        headerLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerLabel)
+
+        updateHeader()
+
+        NSLayoutConstraint.activate([
+            headerLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            headerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            headerLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+        ])
+    }
+
+    private func setupSearchBar() {
+        searchBar.placeholder = "Search boards..."
+        searchBar.delegate = self
+        searchBar.searchBarStyle = .minimal
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(searchBar)
+
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 8),
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+    }
+
+    private func setupTableView() {
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "BoardPrefetchCell")
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    private func updateHeader() {
+        let overrideCount = manager.boardOverrideCount()
+        if overrideCount == 0 {
+            headerLabel.text = "No overrides. Boards use the global prefetch mode."
+        } else {
+            headerLabel.text = "\(overrideCount) board override\(overrideCount == 1 ? "" : "s"). Tap a board to change."
+        }
+    }
+
+    private func sortBoardsAlphabetically() {
+        let combinedBoards = zip(boardNames, boardCodes).map { ($0, $1) }
+        let sortedBoards = combinedBoards.sorted { $0.0 < $1.0 }
+        boardNames = sortedBoards.map { $0.0 }
+        boardCodes = sortedBoards.map { $0.1 }
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return isSearching ? filteredBoardNames.count : boardNames.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "BoardPrefetchCell", for: indexPath)
+
+        let names = isSearching ? filteredBoardNames : boardNames
+        let codes = isSearching ? filteredBoardCodes : boardCodes
+        guard indexPath.row < names.count, indexPath.row < codes.count else { return cell }
+
+        let boardName = names[indexPath.row]
+        let boardCode = codes[indexPath.row]
+        let override = manager.boardOverride(for: boardCode)
+
+        let detail: String
+        if let override = override {
+            detail = override.displayName
+        } else {
+            detail = "Use Global (\(manager.mode.displayName))"
+        }
+
+        var content = cell.defaultContentConfiguration()
+        content.text = boardName
+        content.secondaryText = "/\(boardCode)/ • \(detail)"
+        content.secondaryTextProperties.color = .secondaryLabel
+
+        cell.contentConfiguration = content
+        cell.backgroundColor = ThemeManager.shared.backgroundColor
+        cell.selectionStyle = .default
+        cell.accessoryType = .disclosureIndicator
+
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let codes = isSearching ? filteredBoardCodes : boardCodes
+        guard indexPath.row < codes.count, let cell = tableView.cellForRow(at: indexPath) else { return }
+
+        presentOverridePicker(for: codes[indexPath.row], from: cell, indexPath: indexPath)
+    }
+
+    private func presentOverridePicker(for boardCode: String, from cell: UITableViewCell, indexPath: IndexPath) {
+        let title = "/\(boardCode)/ Prefetch"
+        let alert = UIAlertController(title: title, message: "Set a per-board prefetch rule", preferredStyle: .actionSheet)
+
+        let currentOverride = manager.boardOverride(for: boardCode)
+        let globalTitle = "Use Global (\(manager.mode.displayName))"
+
+        let globalAction = UIAlertAction(title: globalTitle, style: .default) { [weak self] _ in
+            self?.manager.setBoardOverride(nil, for: boardCode)
+            self?.updateRow(at: indexPath)
+        }
+        if currentOverride == nil {
+            globalAction.setValue(true, forKey: "checked")
+        }
+        alert.addAction(globalAction)
+
+        for mode in MediaPrefetchManager.PrefetchMode.allCases {
+            let action = UIAlertAction(title: mode.displayName, style: .default) { [weak self] _ in
+                self?.manager.setBoardOverride(mode, for: boardCode)
+                self?.updateRow(at: indexPath)
+            }
+            if mode == currentOverride {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = cell
+            popover.sourceRect = cell.bounds
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func updateRow(at indexPath: IndexPath) {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+
+        tableView.reloadRows(at: [indexPath], with: .automatic)
+        updateHeader()
+    }
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchText.isEmpty {
+            isSearching = false
+            filteredBoardNames = boardNames
+            filteredBoardCodes = boardCodes
+        } else {
+            isSearching = true
+            let searchTextLowercased = searchText.lowercased()
+
+            let filteredIndices = boardNames.indices.filter { index in
+                boardNames[index].lowercased().contains(searchTextLowercased) ||
+                boardCodes[index].lowercased().contains(searchTextLowercased)
+            }
+
+            filteredBoardNames = filteredIndices.map { boardNames[$0] }
+            filteredBoardCodes = filteredIndices.map { boardCodes[$0] }
+        }
+
+        tableView.reloadData()
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 }
