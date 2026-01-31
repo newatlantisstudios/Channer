@@ -39,7 +39,11 @@ class settings: UIViewController {
     private let themeSettingsButton = UIButton(type: .system)
     private let fontSizeView = UIView()
     private let fontSizeLabel = UILabel()
-    private let fontSizeSegment = UISegmentedControl(items: ["Default", "Large", "XL"])
+    private let fontSizeSegment = UISegmentedControl(items: ["Default", "Large", "XL", "XXL", "XXXL"])
+    private let gridItemSizeView = UIView()
+    private let gridItemSizeLabel = UILabel()
+    private let gridItemSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
+    private var gridItemSizeHeightConstraint: NSLayoutConstraint!
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
@@ -658,6 +662,9 @@ class settings: UIViewController {
         // Setup the Boards Display Mode view
         setupBoardsDisplayModeView()
 
+        // Setup the Grid Item Size view
+        setupGridItemSizeView()
+
         // Setup the Threads Display Mode view
         setupThreadsDisplayModeView()
         
@@ -943,6 +950,13 @@ class settings: UIViewController {
 
     @objc private func fontSizeSegmentChanged(_ sender: UISegmentedControl) {
         FontScaleManager.shared.setScaleIndex(sender.selectedSegmentIndex)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func gridItemSizeSegmentChanged(_ sender: UISegmentedControl) {
+        GridItemSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
 
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
@@ -1523,6 +1537,59 @@ class settings: UIViewController {
         ])
     }
 
+    private func setupGridItemSizeView() {
+        gridItemSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        gridItemSizeView.layer.cornerRadius = 10
+        gridItemSizeView.clipsToBounds = true
+        gridItemSizeView.translatesAutoresizingMaskIntoConstraints = false
+
+        gridItemSizeLabel.text = "Catalog Grid Size"
+        gridItemSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        gridItemSizeLabel.textAlignment = .left
+        gridItemSizeLabel.numberOfLines = 1
+        gridItemSizeLabel.adjustsFontSizeToFitWidth = true
+        gridItemSizeLabel.minimumScaleFactor = 0.8
+        gridItemSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        gridItemSizeSegment.selectedSegmentIndex = GridItemSizeManager.shared.sizeIndex
+        gridItemSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        gridItemSizeSegment.addTarget(self, action: #selector(gridItemSizeSegmentChanged), for: .valueChanged)
+
+        let gridItemSizeFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        gridItemSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: gridItemSizeFont, weight: .medium)],
+            for: .normal
+        )
+        gridItemSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: gridItemSizeFont, weight: .medium)],
+            for: .selected
+        )
+
+        contentView.addSubview(gridItemSizeView)
+        gridItemSizeView.addSubview(gridItemSizeLabel)
+        gridItemSizeView.addSubview(gridItemSizeSegment)
+
+        gridItemSizeHeightConstraint = gridItemSizeView.heightAnchor.constraint(equalToConstant: 44)
+
+        NSLayoutConstraint.activate([
+            gridItemSizeView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            gridItemSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            gridItemSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            gridItemSizeHeightConstraint,
+
+            gridItemSizeLabel.centerYAnchor.constraint(equalTo: gridItemSizeView.centerYAnchor),
+            gridItemSizeLabel.leadingAnchor.constraint(equalTo: gridItemSizeView.leadingAnchor, constant: 20),
+            gridItemSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: gridItemSizeSegment.leadingAnchor, constant: -15),
+
+            gridItemSizeSegment.centerYAnchor.constraint(equalTo: gridItemSizeView.centerYAnchor),
+            gridItemSizeSegment.trailingAnchor.constraint(equalTo: gridItemSizeView.trailingAnchor, constant: -20),
+            gridItemSizeSegment.widthAnchor.constraint(equalToConstant: 220)
+        ])
+
+        let isCatalog = UserDefaults.standard.integer(forKey: threadsDisplayModeKey) == ThreadDisplayMode.catalog.rawValue
+        updateGridItemSizeVisibility(isVisible: isCatalog)
+    }
+
     private func setupThreadsDisplayModeView() {
         threadsDisplayModeView = {
             let view = UIView()
@@ -1562,7 +1629,7 @@ class settings: UIViewController {
         threadsDisplayModeView.addSubview(threadsDisplayModeSegment)
 
         NSLayoutConstraint.activate([
-            threadsDisplayModeView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
+            threadsDisplayModeView.topAnchor.constraint(equalTo: gridItemSizeView.bottomAnchor, constant: 16),
             threadsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             threadsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             threadsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
@@ -1614,6 +1681,8 @@ class settings: UIViewController {
     @objc private func threadsDisplayModeChanged(_ sender: UISegmentedControl) {
         UserDefaults.standard.set(sender.selectedSegmentIndex, forKey: threadsDisplayModeKey)
 
+        updateGridItemSizeVisibility(isVisible: sender.selectedSegmentIndex == ThreadDisplayMode.catalog.rawValue)
+
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
 
@@ -1625,6 +1694,12 @@ class settings: UIViewController {
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func updateGridItemSizeVisibility(isVisible: Bool) {
+        gridItemSizeView.isHidden = !isVisible
+        gridItemSizeHeightConstraint.constant = isVisible ? 44 : 0
+        view.layoutIfNeeded()
     }
     
     private func setupConstraints() {
@@ -1804,7 +1879,7 @@ class settings: UIViewController {
             // Font Size Segment
             fontSizeSegment.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
             fontSizeSegment.trailingAnchor.constraint(equalTo: fontSizeView.trailingAnchor, constant: -20),
-            fontSizeSegment.widthAnchor.constraint(equalToConstant: 200),
+            fontSizeSegment.widthAnchor.constraint(equalToConstant: 240),
             
             // Content Filtering View
             contentFilteringView.topAnchor.constraint(equalTo: fontSizeView.bottomAnchor, constant: 16),

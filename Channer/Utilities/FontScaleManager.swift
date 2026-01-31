@@ -6,7 +6,7 @@ final class FontScaleManager {
     static let shared = FontScaleManager()
 
     private let fontScaleKey = "channer_font_scale_index"
-    private let scaleOptions: [CGFloat] = [1.0, 1.2, 1.35]
+    private let scaleOptions: [CGFloat] = [1.0, 1.2, 1.35, 1.5, 1.65]
     private var currentScale: CGFloat = 1.0
 
     private init() {

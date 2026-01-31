@@ -14,6 +14,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     private let loadingIndicator = UIActivityIndicatorView(style: .medium)
     private let searchController = UISearchController(searchResultsController: nil)
     private var lastLayoutWidth: CGFloat = 0
+    private var lastGridSizeIndex: Int = GridItemSizeManager.shared.sizeIndex
 
     private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
 
@@ -23,6 +24,13 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         setupCollectionView()
         setupLoadingIndicator()
         setupSearchController()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(gridItemSizeDidChange),
+            name: .gridItemSizeDidChange,
+            object: nil
+        )
 
         if !boardPassed {
             let userDefaultsKey = "defaultBoard"
@@ -66,9 +74,14 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         super.viewWillLayoutSubviews()
 
         let currentWidth = collectionView.bounds.width
-        guard currentWidth > 0, currentWidth != lastLayoutWidth else { return }
-        lastLayoutWidth = currentWidth
-        collectionView.collectionViewLayout.invalidateLayout()
+        let gridSizeIndex = GridItemSizeManager.shared.sizeIndex
+        guard currentWidth > 0 else { return }
+
+        if currentWidth != lastLayoutWidth || gridSizeIndex != lastGridSizeIndex {
+            lastLayoutWidth = currentWidth
+            lastGridSizeIndex = gridSizeIndex
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -109,6 +122,11 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = true
         definesPresentationContext = true
+    }
+
+    @objc private func gridItemSizeDidChange(_ notification: Notification) {
+        lastGridSizeIndex = GridItemSizeManager.shared.sizeIndex
+        collectionView.collectionViewLayout.invalidateLayout()
     }
 
     @objc private func handlePullToRefresh() {
@@ -338,6 +356,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
 
     private func gridLayoutMetrics(for collectionViewWidth: CGFloat) -> GridLayoutMetrics {
         let isPad = traitCollection.userInterfaceIdiom == .pad
+        let gridScale = GridItemSizeManager.shared.scaleFactor
         let sectionInset: CGFloat = isPad ? 12 : 10
         let interItemSpacing: CGFloat = isPad ? 12 : 10
         let lineSpacing: CGFloat = isPad ? 14 : 12
@@ -355,8 +374,12 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             columns = collectionViewWidth > 400 ? 3 : 2
         }
 
-        let availableWidth = collectionViewWidth - (sectionInset * 2) - (interItemSpacing * (columns - 1))
-        let itemWidth = floor(availableWidth / columns)
+        let availableWidth = collectionViewWidth - (sectionInset * 2)
+        let baseItemWidth = floor((availableWidth - (interItemSpacing * (columns - 1))) / columns)
+        let targetItemWidth = baseItemWidth * gridScale
+        var adjustedColumns = floor((availableWidth + interItemSpacing) / (targetItemWidth + interItemSpacing))
+        adjustedColumns = max(adjustedColumns, 1)
+        let itemWidth = floor((availableWidth - (interItemSpacing * (adjustedColumns - 1))) / adjustedColumns)
         let itemHeight = itemWidth * 1.55
 
         return GridLayoutMetrics(
