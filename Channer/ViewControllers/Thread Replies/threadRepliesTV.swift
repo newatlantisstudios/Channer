@@ -56,6 +56,7 @@ extension threadRepliesTV {
         let images = self.threadRepliesImages
         let board = self.boardAbv
         let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        let shouldPrefetchMedia = MediaPrefetchManager.shared.shouldPrefetchMedia(boardAbv: board)
 
         DispatchQueue.global(qos: .userInitiated).async {
             var newHeights: [Int: CGFloat] = [:]
@@ -87,7 +88,7 @@ extension threadRepliesTV {
                 for (k, v) in newHeights { self.cellHeightCache[k] = v }
                 self.hasPreloadedContent = true
 
-                if !firstScreenUrls.isEmpty {
+                if shouldPrefetchMedia, !firstScreenUrls.isEmpty {
                     self.imagePrefetcher?.stop()
                     self.imagePrefetcher = ImagePrefetcher(urls: firstScreenUrls, progressBlock: nil) { _, _, _ in
                         completion()
@@ -102,7 +103,7 @@ extension threadRepliesTV {
                     guard i >= firstScreenCount, raw != "https://i.4cdn.org/\(board)/" else { return nil }
                     return self.thumbnailURL(from: raw, useHQ: useHQ)
                 }
-                if !remainingUrls.isEmpty {
+                if shouldPrefetchMedia, !remainingUrls.isEmpty {
                     let backgroundPrefetcher = ImagePrefetcher(urls: remainingUrls)
                     backgroundPrefetcher.start()
                 }
@@ -1563,6 +1564,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
         // Prefetch only image data using Kingfisher, not cells
         if isScrolling { return }
+        if !MediaPrefetchManager.shared.shouldPrefetchMedia(boardAbv: boardAbv) {
+            imagePrefetcher?.stop()
+            return
+        }
         let urls: [URL] = indexPaths.compactMap { ip in
             guard ip.row < threadRepliesImages.count else { return nil }
             let raw = threadRepliesImages[ip.row]

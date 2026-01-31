@@ -1453,6 +1453,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 extension boardTV: UITableViewDataSourcePrefetching {
     func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
         // Prefetches data for upcoming table view cells.
+        if !MediaPrefetchManager.shared.shouldPrefetchMedia(boardAbv: boardAbv) { return }
         let limitedPaths = Array(indexPaths.prefix(5))
         
         let urls = limitedPaths.compactMap { indexPath -> URL? in

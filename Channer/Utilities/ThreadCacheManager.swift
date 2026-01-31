@@ -2,6 +2,8 @@ import Foundation
 import Alamofire
 import SwiftyJSON
 import Kingfisher
+import SystemConfiguration
+import UIKit
 
 /// Manages caching thread data and content for offline reading
 /// Provides functionality to save threads locally with image caching and iCloud sync support
@@ -348,5 +350,176 @@ struct CachedThread: Codable {
             print("Error parsing cached thread data: \(error)")
         }
         return nil
+    }
+}
+
+// MARK: - Media Prefetching
+
+final class MediaPrefetchManager {
+    enum PrefetchMode: Int, CaseIterable {
+        case off = 0
+        case wifiOnly = 1
+        case wifiAndCellular = 2
+
+        var displayName: String {
+            switch self {
+            case .off:
+                return "Off"
+            case .wifiOnly:
+                return "Wi-Fi Only"
+            case .wifiAndCellular:
+                return "Wi-Fi + Cellular"
+            }
+        }
+    }
+
+    static let shared = MediaPrefetchManager()
+
+    private enum Constants {
+        static let modeKey = "channer_media_prefetch_mode"
+        static let pauseOnLowPowerKey = "channer_media_prefetch_pause_low_power"
+        static let minimumBatteryKey = "channer_media_prefetch_min_battery_percent"
+        static let boardOverridesKey = "channer_media_prefetch_board_overrides"
+        static let defaultMinimumBattery = 20
+    }
+
+    private let defaults = UserDefaults.standard
+
+    private init() {
+        defaults.register(defaults: [
+            Constants.modeKey: PrefetchMode.wifiOnly.rawValue,
+            Constants.pauseOnLowPowerKey: true,
+            Constants.minimumBatteryKey: Constants.defaultMinimumBattery
+        ])
+        UIDevice.current.isBatteryMonitoringEnabled = true
+    }
+
+    var mode: PrefetchMode {
+        get {
+            PrefetchMode(rawValue: defaults.integer(forKey: Constants.modeKey)) ?? .wifiOnly
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Constants.modeKey)
+        }
+    }
+
+    var pauseOnLowPowerMode: Bool {
+        get { defaults.bool(forKey: Constants.pauseOnLowPowerKey) }
+        set { defaults.set(newValue, forKey: Constants.pauseOnLowPowerKey) }
+    }
+
+    var minimumBatteryPercent: Int {
+        get { defaults.integer(forKey: Constants.minimumBatteryKey) }
+        set {
+            let clamped = max(0, min(100, newValue))
+            defaults.set(clamped, forKey: Constants.minimumBatteryKey)
+        }
+    }
+
+    func boardOverride(for boardAbv: String) -> PrefetchMode? {
+        let overrides = loadBoardOverrides()
+        guard let raw = overrides[boardAbv] else { return nil }
+        return PrefetchMode(rawValue: raw)
+    }
+
+    func setBoardOverride(_ mode: PrefetchMode?, for boardAbv: String) {
+        var overrides = loadBoardOverrides()
+        if let mode = mode {
+            overrides[boardAbv] = mode.rawValue
+        } else {
+            overrides.removeValue(forKey: boardAbv)
+        }
+        saveBoardOverrides(overrides)
+    }
+
+    func boardOverrideCount() -> Int {
+        return loadBoardOverrides().count
+    }
+
+    func effectiveMode(for boardAbv: String?) -> PrefetchMode {
+        if let boardAbv = boardAbv, let override = boardOverride(for: boardAbv) {
+            return override
+        }
+        return mode
+    }
+
+    func shouldPrefetchMedia(boardAbv: String?) -> Bool {
+        let modeToUse = effectiveMode(for: boardAbv)
+        guard modeToUse != .off else { return false }
+
+        let connection = connectionType()
+        switch connection {
+        case .none:
+            return false
+        case .cellular:
+            if modeToUse == .wifiOnly { return false }
+        case .wifi:
+            break
+        }
+
+        if pauseOnLowPowerMode && ProcessInfo.processInfo.isLowPowerModeEnabled {
+            return false
+        }
+
+        let minBattery = minimumBatteryPercent
+        if minBattery > 0, let battery = currentBatteryPercent(), battery < minBattery {
+            return false
+        }
+
+        return true
+    }
+
+    private enum ConnectionType {
+        case wifi
+        case cellular
+        case none
+    }
+
+    private func connectionType() -> ConnectionType {
+        var zeroAddress = sockaddr_in()
+        zeroAddress.sin_len = UInt8(MemoryLayout.size(ofValue: zeroAddress))
+        zeroAddress.sin_family = sa_family_t(AF_INET)
+
+        let reachability = withUnsafePointer(to: &zeroAddress) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { zeroSockAddress in
+                SCNetworkReachabilityCreateWithAddress(nil, zeroSockAddress)
+            }
+        }
+
+        var flags: SCNetworkReachabilityFlags = []
+        guard let reachability = reachability,
+              SCNetworkReachabilityGetFlags(reachability, &flags) else {
+            return .none
+        }
+
+        let reachable = flags.contains(.reachable)
+        let needsConnection = flags.contains(.connectionRequired)
+        guard reachable && !needsConnection else { return .none }
+
+        if flags.contains(.isWWAN) { return .cellular }
+        return .wifi
+    }
+
+    private func currentBatteryPercent() -> Int? {
+        let level = UIDevice.current.batteryLevel
+        guard level >= 0 else { return nil }
+        return Int(level * 100)
+    }
+
+    private func loadBoardOverrides() -> [String: Int] {
+        guard let raw = defaults.dictionary(forKey: Constants.boardOverridesKey) else {
+            return [:]
+        }
+        var overrides: [String: Int] = [:]
+        for (key, value) in raw {
+            if let intValue = value as? Int {
+                overrides[key] = intValue
+            }
+        }
+        return overrides
+    }
+
+    private func saveBoardOverrides(_ overrides: [String: Int]) {
+        defaults.set(overrides, forKey: Constants.boardOverridesKey)
     }
 }
