@@ -12,6 +12,7 @@ class BackgroundTaskManager {
     // MARK: - Task Identifiers
     static let threadRefreshTaskIdentifier = "com.newatlantisstudios.channer.threadRefresh"
     static let watchedPostsTaskIdentifier = "com.newatlantisstudios.channer.watchedPostsCheck"
+    static let savedSearchTaskIdentifier = "com.newatlantisstudios.channer.savedSearchCheck"
 
     private init() {}
 
@@ -34,6 +35,14 @@ class BackgroundTaskManager {
             using: nil
         ) { [weak self] task in
             self?.handleWatchedPostsTask(task as! BGProcessingTask)
+        }
+
+        // Register processing task for saved searches (longer execution window)
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.savedSearchTaskIdentifier,
+            using: nil
+        ) { [weak self] task in
+            self?.handleSavedSearchTask(task as! BGProcessingTask)
         }
 
         print("BackgroundTaskManager: Registered background tasks")
@@ -75,6 +84,25 @@ class BackgroundTaskManager {
         }
     }
 
+    /// Schedules the saved search processing task
+    /// Called when app enters background
+    func scheduleSavedSearchTask() {
+        let request = BGProcessingTaskRequest(identifier: Self.savedSearchTaskIdentifier)
+        // Request to run no earlier than 60 minutes from now
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
+        // This task requires network connectivity
+        request.requiresNetworkConnectivity = true
+        // This task can run on battery power
+        request.requiresExternalPower = false
+
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            print("BackgroundTaskManager: Scheduled saved search task")
+        } catch {
+            print("BackgroundTaskManager: Failed to schedule saved search task: \(error.localizedDescription)")
+        }
+    }
+
     /// Schedules all background tasks
     /// Called when app enters background
     func scheduleAllTasks() {
@@ -89,6 +117,11 @@ class BackgroundTaskManager {
         // Only schedule watched posts task if there are watched posts
         if !WatchedPostsManager.shared.getWatchedPosts().isEmpty {
             scheduleWatchedPostsTask()
+        }
+
+        // Only schedule saved search task if there are saved searches
+        if !SearchManager.shared.getSavedSearches().isEmpty {
+            scheduleSavedSearchTask()
         }
     }
 
@@ -171,6 +204,43 @@ class BackgroundTaskManager {
             _ = await checkTask.value
             task.setTaskCompleted(success: true)
             print("BackgroundTaskManager: Watched posts task completed")
+        }
+    }
+
+    /// Handles the saved search processing task
+    /// Checks saved searches for new thread matches
+    private func handleSavedSearchTask(_ task: BGProcessingTask) {
+        print("BackgroundTaskManager: Starting saved search task")
+
+        // Schedule the next check
+        scheduleSavedSearchTask()
+
+        // Check if notifications are enabled
+        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        // Get saved searches
+        let savedSearches = SearchManager.shared.getSavedSearches()
+        guard !savedSearches.isEmpty else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        let checkTask = Task {
+            await checkSavedSearchAlerts()
+        }
+
+        task.expirationHandler = {
+            checkTask.cancel()
+            print("BackgroundTaskManager: Saved search task expired")
+        }
+
+        Task {
+            _ = await checkTask.value
+            task.setTaskCompleted(success: true)
+            print("BackgroundTaskManager: Saved search task completed")
         }
     }
 
@@ -377,6 +447,48 @@ class BackgroundTaskManager {
         }
     }
 
+    // MARK: - Saved Search Alerts
+
+    /// Checks saved searches for new matches and posts notifications
+    private func checkSavedSearchAlerts() async {
+        await withCheckedContinuation { continuation in
+            SearchManager.shared.checkSavedSearchesForAlerts { alerts in
+                guard !alerts.isEmpty else {
+                    continuation.resume()
+                    return
+                }
+
+                for alert in alerts {
+                    guard let firstMatch = alert.newMatches.first else { continue }
+
+                    let previewText = self.buildSavedSearchPreview(for: firstMatch)
+                    let searchName = alert.search.name.isEmpty ? alert.search.query : alert.search.name
+                    let matchCount = alert.newMatches.count
+
+                    NotificationManager.shared.addSavedSearchNotification(
+                        searchId: alert.search.id,
+                        searchName: searchName,
+                        boardAbv: firstMatch.boardAbv,
+                        threadNo: firstMatch.number,
+                        previewText: previewText,
+                        matchCount: matchCount
+                    )
+
+                    self.sendSavedSearchNotification(
+                        searchId: alert.search.id,
+                        searchName: searchName,
+                        boardAbv: firstMatch.boardAbv,
+                        threadNo: firstMatch.number,
+                        matchCount: matchCount
+                    )
+                }
+
+                self.updateApplicationBadgeCount()
+                continuation.resume()
+            }
+        }
+    }
+
     // MARK: - Notifications
 
     /// Sends a notification for thread updates
@@ -426,6 +538,71 @@ class BackgroundTaskManager {
                 print("BackgroundTaskManager: Error sending watched post notification: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Sends a notification for saved search matches
+    private func sendSavedSearchNotification(
+        searchId: String,
+        searchName: String,
+        boardAbv: String,
+        threadNo: String,
+        matchCount: Int
+    ) {
+        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Saved Search Match"
+        let countText = "\(matchCount) new \(matchCount == 1 ? "match" : "matches")"
+        content.body = "\"\(searchName)\" has \(countText)"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": threadNo,
+            "boardAbv": boardAbv,
+            "savedSearchId": searchId,
+            "notificationType": "savedSearchAlert"
+        ]
+
+        let identifier = "saved-search-\(searchId)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("BackgroundTaskManager: Error sending saved search notification: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - Saved Search Helpers
+
+    private func buildSavedSearchPreview(for thread: ThreadData) -> String {
+        let cleanedComment = cleanThreadText(thread.comment, limit: 140)
+        if !cleanedComment.isEmpty {
+            return cleanedComment
+        }
+
+        let title = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !title.isEmpty {
+            return title
+        }
+
+        return "New thread match"
+    }
+
+    private func cleanThreadText(_ text: String, limit: Int) -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "<br>", with: " ")
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&#039;", with: "'")
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleaned.isEmpty else { return "" }
+        let preview = String(cleaned.prefix(limit))
+        return cleaned.count > limit ? preview + "..." : preview
     }
 
     // MARK: - Badge Management

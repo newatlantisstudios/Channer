@@ -4,7 +4,7 @@ import SwiftyJSON
 class NotificationsViewController: UITableViewController {
 
     // Section order for display
-    private let sectionOrder: [NotificationType] = [.myPostReply, .threadUpdate, .watchedPostReply]
+    private let sectionOrder: [NotificationType] = [.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply]
     private var groupedNotifications: [NotificationType: [ReplyNotification]] = [:]
     private var activeSections: [NotificationType] = []
 
@@ -130,6 +130,8 @@ class NotificationsViewController: UITableViewController {
             return "Replies to Your Posts"
         case .threadUpdate:
             return "Thread Updates"
+        case .savedSearchAlert:
+            return "Saved Search Alerts"
         case .watchedPostReply:
             return "Watched Post Replies"
         }
@@ -141,6 +143,8 @@ class NotificationsViewController: UITableViewController {
             return UIImage(systemName: "person.fill")
         case .threadUpdate:
             return UIImage(systemName: "arrow.triangle.2.circlepath")
+        case .savedSearchAlert:
+            return UIImage(systemName: "magnifyingglass")
         case .watchedPostReply:
             return UIImage(systemName: "eye.fill")
         }
@@ -152,6 +156,8 @@ class NotificationsViewController: UITableViewController {
             return .systemOrange
         case .threadUpdate:
             return .systemGreen
+        case .savedSearchAlert:
+            return .systemTeal
         case .watchedPostReply:
             return .systemBlue
         }
@@ -256,7 +262,7 @@ class NotificationsViewController: UITableViewController {
         let threadVC = threadRepliesTV()
         threadVC.boardAbv = notification.boardAbv
         threadVC.threadNumber = notification.threadNo
-        threadVC.scrollToPostNumber = notification.replyNo
+        threadVC.scrollToPostNumber = notification.replyNo.isEmpty ? nil : notification.replyNo
         threadVC.title = "/\(notification.boardAbv)/ - Thread \(notification.threadNo)"
 
         // Dismiss and navigate
@@ -393,17 +399,26 @@ class NotificationCell: UITableViewCell {
             iconImageView.image = UIImage(systemName: "person.fill")
         case .threadUpdate:
             iconImageView.image = UIImage(systemName: "arrow.triangle.2.circlepath")
+        case .savedSearchAlert:
+            iconImageView.image = UIImage(systemName: "magnifyingglass")
         case .watchedPostReply:
             iconImageView.image = UIImage(systemName: "eye.fill")
         }
 
-        // Header - thread title with board info, or just board/thread info as fallback
-        let boardThreadInfo = "/\(notification.boardAbv)/ - No. \(notification.threadNo)"
-        if let threadTitle = notification.threadTitle, !threadTitle.isEmpty {
-            // Show title with board info prefix for context
-            headerLabel.text = "\(boardThreadInfo): \(threadTitle)"
+        // Header - thread title with board info, or saved search name for search alerts
+        if notification.notificationType == .savedSearchAlert {
+            if let searchName = notification.threadTitle, !searchName.isEmpty {
+                headerLabel.text = "Saved Search: \(searchName)"
+            } else {
+                headerLabel.text = "Saved Search"
+            }
         } else {
-            headerLabel.text = boardThreadInfo
+            let boardThreadInfo = "/\(notification.boardAbv)/ - No. \(notification.threadNo)"
+            if let threadTitle = notification.threadTitle, !threadTitle.isEmpty {
+                headerLabel.text = "\(boardThreadInfo): \(threadTitle)"
+            } else {
+                headerLabel.text = boardThreadInfo
+            }
         }
         headerLabel.textColor = notification.isRead ? .systemGray : ThemeManager.shared.primaryTextColor
 
@@ -414,6 +429,19 @@ class NotificationCell: UITableViewCell {
                 replyInfoLabel.text = "\(count) new \(count == 1 ? "reply" : "replies")"
             } else {
                 replyInfoLabel.text = "New replies"
+            }
+            replyInfoLabel.textColor = notification.isRead ? .systemGray : color
+        case .savedSearchAlert:
+            let countText: String
+            if let count = notification.newReplyCount, count > 0 {
+                countText = "\(count) new \(count == 1 ? "match" : "matches")"
+            } else {
+                countText = "New matches"
+            }
+            if notification.boardAbv.isEmpty || notification.threadNo.isEmpty {
+                replyInfoLabel.text = countText
+            } else {
+                replyInfoLabel.text = "\(countText) in /\(notification.boardAbv)/ No. \(notification.threadNo)"
             }
             replyInfoLabel.textColor = notification.isRead ? .systemGray : color
         case .myPostReply, .watchedPostReply:

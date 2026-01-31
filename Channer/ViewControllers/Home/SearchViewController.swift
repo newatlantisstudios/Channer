@@ -10,11 +10,14 @@ class SearchViewController: UIViewController {
     private let searchController = UISearchController(searchResultsController: nil)
     private let tableView = UITableView()
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    private let progressLabel = UILabel()
+    private let progressView = UIProgressView(progressViewStyle: .default)
 
     private var searchResults: [ThreadData] = []
 
     private var currentBoard: String?
     private var isSearching = false
+    private var activeSearchToken = UUID()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -77,6 +80,19 @@ class SearchViewController: UIViewController {
         loadingIndicator.hidesWhenStopped = true
         loadingIndicator.color = ThemeManager.shared.primaryTextColor
 
+        // Setup progress UI
+        progressLabel.translatesAutoresizingMaskIntoConstraints = false
+        progressLabel.textAlignment = .center
+        progressLabel.textColor = ThemeManager.shared.secondaryTextColor
+        progressLabel.font = .systemFont(ofSize: 14)
+        progressLabel.numberOfLines = 2
+        progressLabel.isHidden = true
+
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        progressView.trackTintColor = ThemeManager.shared.cellBackgroundColor
+        progressView.progressTintColor = ThemeManager.shared.primaryTextColor
+        progressView.isHidden = true
+
         // Setup empty state label
         let emptyLabel = UILabel()
         emptyLabel.text = "Enter search terms and press Search"
@@ -89,6 +105,8 @@ class SearchViewController: UIViewController {
         // Add to view
         view.addSubview(tableView)
         view.addSubview(loadingIndicator)
+        view.addSubview(progressLabel)
+        view.addSubview(progressView)
 
         // Setup constraints
         NSLayoutConstraint.activate([
@@ -98,7 +116,16 @@ class SearchViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
 
             loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+
+            progressLabel.topAnchor.constraint(equalTo: loadingIndicator.bottomAnchor, constant: 12),
+            progressLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            progressLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+            progressLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+
+            progressView.topAnchor.constraint(equalTo: progressLabel.bottomAnchor, constant: 8),
+            progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+            progressView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40)
         ])
 
         // Add right bar button for board selection
@@ -157,6 +184,10 @@ class SearchViewController: UIViewController {
             tableView.backgroundView = emptyLabel
             searchResults = []
             tableView.reloadData()
+            loadingIndicator.stopAnimating()
+            hideProgressUI()
+            isSearching = false
+            activeSearchToken = UUID()
             return
         }
 
@@ -166,17 +197,21 @@ class SearchViewController: UIViewController {
         isSearching = true
         searchResults = []
         tableView.reloadData()
+        let searchToken = UUID()
+        activeSearchToken = searchToken
 
         if currentBoard == nil {
-            // Search all boards
-            searchAllBoards(query: query)
-        } else {
-            // Search specific board
-            SearchManager.shared.performSearch(query: query, boardAbv: currentBoard) { [weak self] results in
+            showProgressUI()
+            SearchManager.shared.performSearch(query: query, boardAbv: nil, progress: { [weak self] progress in
+                guard let self = self, self.activeSearchToken == searchToken else { return }
+                self.updateProgress(progress)
+            }) { [weak self] results in
                 DispatchQueue.main.async {
-                    self?.loadingIndicator.stopAnimating()
-                    self?.searchResults = results
-                    self?.isSearching = false
+                    guard let self = self, self.activeSearchToken == searchToken else { return }
+                    self.loadingIndicator.stopAnimating()
+                    self.hideProgressUI()
+                    self.searchResults = results.sorted { $0.replies > $1.replies }
+                    self.isSearching = false
 
                     if results.isEmpty {
                         let emptyLabel = UILabel()
@@ -184,73 +219,71 @@ class SearchViewController: UIViewController {
                         emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
                         emptyLabel.textAlignment = .center
                         emptyLabel.font = .systemFont(ofSize: 16)
-                        self?.tableView.backgroundView = emptyLabel
+                        self.tableView.backgroundView = emptyLabel
                     } else {
-                        self?.tableView.backgroundView = nil
+                        self.tableView.backgroundView = nil
                     }
 
-                    self?.tableView.reloadData()
+                    self.tableView.reloadData()
+                }
+            }
+        } else {
+            hideProgressUI()
+            // Search specific board
+            SearchManager.shared.performSearch(query: query, boardAbv: currentBoard) { [weak self] results in
+                DispatchQueue.main.async {
+                    guard let self = self, self.activeSearchToken == searchToken else { return }
+                    self.loadingIndicator.stopAnimating()
+                    self.searchResults = results
+                    self.isSearching = false
+
+                    if results.isEmpty {
+                        let emptyLabel = UILabel()
+                        emptyLabel.text = "No results found"
+                        emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
+                        emptyLabel.textAlignment = .center
+                        emptyLabel.font = .systemFont(ofSize: 16)
+                        self.tableView.backgroundView = emptyLabel
+                    } else {
+                        self.tableView.backgroundView = nil
+                    }
+
+                    self.tableView.reloadData()
                 }
             }
         }
     }
 
-    private func searchAllBoards(query: String) {
-        let boards = BoardsService.shared.boardAbv
+    private func showProgressUI() {
+        progressLabel.text = "Preparing search..."
+        progressView.progress = 0
+        progressLabel.isHidden = false
+        progressView.isHidden = false
+    }
 
-        // Handle case where boards haven't loaded yet
-        guard !boards.isEmpty else {
-            loadingIndicator.stopAnimating()
-            isSearching = false
-            let emptyLabel = UILabel()
-            emptyLabel.text = "Loading boards... Please try again."
-            emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
-            emptyLabel.textAlignment = .center
-            emptyLabel.font = .systemFont(ofSize: 16)
-            tableView.backgroundView = emptyLabel
-            // Trigger boards fetch for next attempt
-            BoardsService.shared.fetchBoards()
-            return
-        }
+    private func hideProgressUI() {
+        progressLabel.isHidden = true
+        progressView.isHidden = true
+    }
 
-        // Use a thread-safe approach with a serial queue for collecting results
-        let resultsQueue = DispatchQueue(label: "com.channer.searchResults")
-        var allResults: [ThreadData] = []
-        let searchGroup = DispatchGroup()
-
-        // Add to search history once for the all-boards search
-        SearchManager.shared.addToHistory(query, boardAbv: nil)
-
-        for board in boards {
-            searchGroup.enter()
-            SearchManager.shared.searchBoard(board: board, query: query) { results in
-                resultsQueue.async {
-                    allResults.append(contentsOf: results)
-                    searchGroup.leave()
-                }
-            }
-        }
-
-        searchGroup.notify(queue: .main) { [weak self] in
-            // Read results safely
-            let finalResults = resultsQueue.sync { allResults }
-
-            self?.loadingIndicator.stopAnimating()
-            self?.searchResults = finalResults.sorted { $0.replies > $1.replies } // Sort by popularity
-            self?.isSearching = false
-
-            if finalResults.isEmpty {
-                let emptyLabel = UILabel()
-                emptyLabel.text = "No results found"
-                emptyLabel.textColor = ThemeManager.shared.secondaryTextColor
-                emptyLabel.textAlignment = .center
-                emptyLabel.font = .systemFont(ofSize: 16)
-                self?.tableView.backgroundView = emptyLabel
+    private func updateProgress(_ progress: SearchManager.SearchProgress) {
+        switch progress.phase {
+        case .loadingBoards:
+            progressLabel.text = "Loading boards..."
+            progressView.progress = 0
+        case .searching:
+            let boardSuffix: String
+            if let board = progress.currentBoard {
+                boardSuffix = " • /\(board)/"
             } else {
-                self?.tableView.backgroundView = nil
+                boardSuffix = ""
             }
-
-            self?.tableView.reloadData()
+            progressLabel.text = "Searching \(progress.completedBoards)/\(progress.totalBoards) boards\(boardSuffix)"
+            if progress.totalBoards > 0 {
+                progressView.progress = Float(progress.completedBoards) / Float(progress.totalBoards)
+            } else {
+                progressView.progress = 0
+            }
         }
     }
 }
@@ -330,5 +363,9 @@ extension SearchViewController: UISearchBarDelegate {
         emptyLabel.textAlignment = .center
         emptyLabel.font = .systemFont(ofSize: 16)
         tableView.backgroundView = emptyLabel
+        loadingIndicator.stopAnimating()
+        hideProgressUI()
+        isSearching = false
+        activeSearchToken = UUID()
     }
 }

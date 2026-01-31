@@ -5,6 +5,7 @@ enum NotificationType: String, Codable {
     case threadUpdate       // New posts in favorited threads
     case watchedPostReply   // Reply to a watched post
     case myPostReply        // Reply to user's own post
+    case savedSearchAlert   // New matches for a saved search
 }
 
 /// Represents a reply notification with tracking metadata
@@ -20,10 +21,11 @@ struct ReplyNotification: Codable, Identifiable {
     let notificationType: NotificationType
     let threadTitle: String?
     let newReplyCount: Int?
+    let searchId: String?
 
     /// Full initializer with all fields
     init(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String,
-         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil) {
+         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil, searchId: String? = nil) {
         self.id = UUID().uuidString
         self.boardAbv = boardAbv
         self.threadNo = threadNo
@@ -35,6 +37,7 @@ struct ReplyNotification: Codable, Identifiable {
         self.notificationType = notificationType
         self.threadTitle = threadTitle
         self.newReplyCount = newReplyCount
+        self.searchId = searchId
     }
 
     /// Backward-compatible decoding with defaults for missing fields
@@ -52,6 +55,7 @@ struct ReplyNotification: Codable, Identifiable {
         notificationType = try container.decodeIfPresent(NotificationType.self, forKey: .notificationType) ?? .watchedPostReply
         threadTitle = try container.decodeIfPresent(String.self, forKey: .threadTitle)
         newReplyCount = try container.decodeIfPresent(Int.self, forKey: .newReplyCount)
+        searchId = try container.decodeIfPresent(String.self, forKey: .searchId)
     }
 }
 
@@ -197,7 +201,7 @@ class NotificationManager {
         let allNotifications = getNotifications()
         var grouped: [NotificationType: [ReplyNotification]] = [:]
 
-        for type in [NotificationType.myPostReply, .threadUpdate, .watchedPostReply] {
+        for type in [NotificationType.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply] {
             let filtered = allNotifications.filter { $0.notificationType == type }
             if !filtered.isEmpty {
                 grouped[type] = filtered
@@ -263,6 +267,41 @@ class NotificationManager {
             replyText: replyText,
             notificationType: .myPostReply,
             threadTitle: threadTitle
+        )
+        addNotification(notification)
+    }
+
+    /// Adds a saved search alert notification
+    /// If an unread notification for the same saved search already exists, it will be updated instead of duplicated
+    func addSavedSearchNotification(
+        searchId: String,
+        searchName: String,
+        boardAbv: String,
+        threadNo: String,
+        previewText: String,
+        matchCount: Int
+    ) {
+        var notifications = getNotifications()
+
+        if let existingIndex = notifications.firstIndex(where: {
+            $0.notificationType == .savedSearchAlert &&
+            $0.searchId == searchId &&
+            !$0.isRead
+        }) {
+            notifications.remove(at: existingIndex)
+            saveNotifications(notifications)
+        }
+
+        let notification = ReplyNotification(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            replyNo: threadNo,
+            replyToNo: "",
+            replyText: previewText,
+            notificationType: .savedSearchAlert,
+            threadTitle: searchName,
+            newReplyCount: matchCount,
+            searchId: searchId
         )
         addNotification(notification)
     }

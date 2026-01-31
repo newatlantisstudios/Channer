@@ -42,6 +42,7 @@
 	<array>
 		<string>com.newatlantisstudios.channer.threadRefresh</string>
 		<string>com.newatlantisstudios.channer.watchedPostsCheck</string>
+		<string>com.newatlantisstudios.channer.savedSearchCheck</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

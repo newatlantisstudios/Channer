@@ -167,7 +167,7 @@ class DebugViewController: UIViewController {
 
     // MARK: - Actions
     @objc private func addNotificationTapped() {
-        let types: [NotificationType] = [.threadUpdate, .watchedPostReply, .myPostReply]
+        let types: [NotificationType] = [.threadUpdate, .savedSearchAlert, .watchedPostReply, .myPostReply]
         let randomType = types.randomElement() ?? .threadUpdate
 
         let notification = ReplyNotification(
