@@ -1363,7 +1363,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             postedText = "Unknown"
         }
 
-        let message = "File: \(fileName)\nPosted: \(postedText)"
+        let posterText = metadata?.posterId?.isEmpty == false ? metadata?.posterId ?? "" : "Unknown"
+        let hashText = metadata?.fileHash?.isEmpty == false ? metadata?.fileHash ?? "" : "None"
+        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)"
         showAlert(title: "Post Info", message: message)
     }
     
@@ -1851,6 +1853,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Check for new replies to watched posts
         checkWatchedPostsForNewReplies()
+
+        // Check watch rules for new matches
+        checkWatchRulesForNewMatches()
     }
 
     /// Checks watched posts for new replies and creates notifications
@@ -1868,10 +1873,48 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             print("Found \(newRepliesCount) new replies to watched posts")
         }
     }
+
+    /// Checks watch rules for new matches and creates notifications
+    private func checkWatchRulesForNewMatches() {
+        guard !threadNumber.isEmpty, !boardAbv.isEmpty else { return }
+        guard WatchRulesManager.shared.isWatchRulesEnabled() else { return }
+
+        let posts: [WatchRulePost] = postMetadataList.compactMap { metadata in
+            let postNoInt = Int(metadata.postNumber) ?? 0
+            return WatchRulePost(
+                postNo: metadata.postNumber,
+                postNoInt: postNoInt,
+                comment: metadata.comment,
+                posterId: metadata.posterId,
+                fileHash: metadata.fileHash
+            )
+        }
+
+        let alerts = WatchRulesManager.shared.processThread(
+            boardAbv: boardAbv,
+            threadNo: threadNumber,
+            threadTitle: title,
+            posts: posts
+        )
+
+        guard !alerts.isEmpty else { return }
+
+        for alert in alerts {
+            NotificationManager.shared.addWatchRuleNotification(
+                rule: alert.rule,
+                boardAbv: alert.latestMatch.boardAbv,
+                threadNo: alert.latestMatch.threadNo,
+                postNo: alert.latestMatch.postNo,
+                previewText: alert.latestMatch.previewText,
+                matchCount: alert.matchCount
+            )
+            sendWatchRuleNotification(alert)
+        }
+    }
     
     private func processPost(_ post: JSON, index: Int) {
         // Extract the board reply number
-        let replyNumber = String(describing: post["no"])
+        let replyNumber = post["no"].stringValue
         threadBoardReplyNumber.append(replyNumber)
 
         // Extract the image URL and related data
@@ -1902,6 +1945,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let countryCode = post["country"].stringValue  // Country code (e.g., "US")
         let countryName = post["country_name"].stringValue  // Country name
         let timestamp = post["time"].int  // Unix timestamp
+        let fileHash = post["md5"].stringValue  // File hash (if available)
 
         // Create PostMetadata for advanced filtering
         let metadata = PostMetadata(
@@ -1914,7 +1958,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             timestamp: timestamp,
             imageUrl: imageURL.isEmpty ? nil : imageURL,
             imageExtension: imageExtension.isEmpty ? nil : imageExtension,
-            imageName: imageName.isEmpty ? nil : imageName
+            imageName: imageName.isEmpty ? nil : imageName,
+            fileHash: fileHash.isEmpty ? nil : fileHash
         )
         postMetadataList.append(metadata)
     }
@@ -2680,6 +2725,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         let postNo = threadBoardReplyNumber[indexPath.row]
+        let metadata = indexPath.row < postMetadataList.count ? postMetadataList[indexPath.row] : nil
 
         // View replies option (only show if post has replies)
         if let replies = threadBoardReplies[postNo], !replies.isEmpty {
@@ -2708,6 +2754,29 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         actionSheet.addAction(UIAlertAction(title: watchTitle, style: .default, handler: { _ in
             self.toggleWatchForReplies(at: indexPath.row)
         }))
+
+        // Watch keyword rule
+        actionSheet.addAction(UIAlertAction(title: "Watch Keyword...", style: .default, handler: { _ in
+            self.showWatchKeywordPrompt()
+        }))
+
+        // Watch poster ID rule
+        if let posterId = metadata?.posterId, !posterId.isEmpty {
+            let existing = WatchRulesManager.shared.findRule(type: .posterId, value: posterId)
+            let title = existing == nil ? "Watch Poster ID" : "Stop Watching Poster ID"
+            actionSheet.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
+                self.toggleWatchRule(type: .posterId, value: posterId)
+            }))
+        }
+
+        // Watch file hash rule
+        if let fileHash = metadata?.fileHash, !fileHash.isEmpty {
+            let existing = WatchRulesManager.shared.findRule(type: .fileHash, value: fileHash)
+            let title = existing == nil ? "Watch File Hash" : "Stop Watching File Hash"
+            actionSheet.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
+                self.toggleWatchRule(type: .fileHash, value: fileHash)
+            }))
+        }
 
         // Filter this reply option
         actionSheet.addAction(UIAlertAction(title: "Filter This Reply", style: .default, handler: { _ in
@@ -2776,6 +2845,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 existingReplies: existingReplies
             )
             showToast(message: "Watching post #\(postNo) for new replies")
+        }
+    }
+
+    private func showWatchKeywordPrompt() {
+        let alert = UIAlertController(
+            title: "Watch Keyword",
+            message: "Enter a keyword to watch for new posts.",
+            preferredStyle: .alert
+        )
+        alert.addTextField { textField in
+            textField.placeholder = "Keyword"
+            textField.autocapitalizationType = .none
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Watch", style: .default) { _ in
+            guard let keyword = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !keyword.isEmpty else {
+                return
+            }
+            let added = WatchRulesManager.shared.addRule(type: .keyword, value: keyword)
+            let message = added ? "Watching keyword: \(keyword)" : "Keyword already watched"
+            self.showToast(message: message)
+        })
+
+        present(alert, animated: true)
+    }
+
+    private func toggleWatchRule(type: WatchRuleType, value: String) {
+        if let existing = WatchRulesManager.shared.findRule(type: type, value: value) {
+            WatchRulesManager.shared.removeRule(id: existing.id)
+            showToast(message: "Stopped watching \(type.displayName.lowercased())")
+        } else {
+            let added = WatchRulesManager.shared.addRule(
+                type: type,
+                value: value,
+                isCaseSensitive: type == .fileHash
+            )
+            let message = added ? "Watching \(type.displayName.lowercased())" : "Already watching \(type.displayName.lowercased())"
+            showToast(message: message)
         }
     }
 
@@ -3453,6 +3562,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
     }
+
+    /// Sends a local notification when watch rules match new posts
+    private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        guard notificationsEnabled else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watch Rule Match"
+        let countText = alert.matchCount == 1 ? "1 new match" : "\(alert.matchCount) new matches"
+        content.body = "\(alert.rule.displayName) - \(countText)"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": alert.latestMatch.threadNo,
+            "boardAbv": alert.latestMatch.boardAbv,
+            "postNo": alert.latestMatch.postNo,
+            "notificationType": "watchRuleMatch",
+            "watchRuleId": alert.rule.id
+        ]
+
+        let identifier = "watchrule-\(alert.rule.id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending watch rule notification: \(error.localizedDescription)")
+            }
+        }
+    }
     
     /// Filters replies similar to the selected one
     private func filterSimilarContent(to index: Int) {
@@ -3605,7 +3742,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     timestamp: nil,
                     imageUrl: imageUrl,
                     imageExtension: imageExt,
-                    imageName: nil
+                    imageName: nil,
+                    fileHash: nil
                 )
             }
 

@@ -270,6 +270,25 @@ class BackgroundTaskManager {
             let currentReplies = firstPost["replies"].intValue
             let storedReplies = favorite.replies
 
+            // Resolve thread title for notifications and watch rules
+            var threadTitle: String? = firstPost["sub"].string
+            if threadTitle == nil || threadTitle?.isEmpty == true {
+                threadTitle = favorite.title.isEmpty ? nil : favorite.title
+            }
+            if threadTitle == nil || threadTitle?.isEmpty == true {
+                let comment = favorite.comment
+                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                    .replacingOccurrences(of: "&quot;", with: "\"")
+                    .replacingOccurrences(of: "&amp;", with: "&")
+                    .replacingOccurrences(of: "&lt;", with: "<")
+                    .replacingOccurrences(of: "&gt;", with: ">")
+                    .replacingOccurrences(of: "&#039;", with: "'")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !comment.isEmpty {
+                    threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
+                }
+            }
+
             if currentReplies > storedReplies {
                 let newReplies = currentReplies - storedReplies
 
@@ -278,26 +297,6 @@ class BackgroundTaskManager {
                 updatedThread.replies = currentReplies  // Update stored replies to prevent duplicate notifications
                 updatedThread.currentReplies = currentReplies
                 updatedThread.hasNewReplies = true
-
-                // Get thread title - try API response first, then fall back to stored favorite data
-                var threadTitle: String? = firstPost["sub"].string
-                if threadTitle == nil || threadTitle?.isEmpty == true {
-                    threadTitle = favorite.title.isEmpty ? nil : favorite.title
-                }
-                // If still no title, create one from the comment (first 50 chars)
-                if threadTitle == nil || threadTitle?.isEmpty == true {
-                    let comment = favorite.comment
-                        .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                        .replacingOccurrences(of: "&quot;", with: "\"")
-                        .replacingOccurrences(of: "&amp;", with: "&")
-                        .replacingOccurrences(of: "&lt;", with: "<")
-                        .replacingOccurrences(of: "&gt;", with: ">")
-                        .replacingOccurrences(of: "&#039;", with: "'")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !comment.isEmpty {
-                        threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
-                    }
-                }
 
                 // Get the latest reply preview and post number from the posts array
                 var replyPreview = ""
@@ -364,6 +363,15 @@ class BackgroundTaskManager {
                     threadNumber: favorite.number,
                     boardAbv: favorite.boardAbv,
                     newReplies: newReplies
+                )
+            }
+
+            if let posts = json["posts"].array {
+                processWatchRuleAlerts(
+                    boardAbv: favorite.boardAbv,
+                    threadNo: favorite.number,
+                    threadTitle: threadTitle,
+                    posts: posts
                 )
             }
         } catch {
@@ -442,6 +450,14 @@ class BackgroundTaskManager {
                     replyCount: newReplyCount
                 )
             }
+
+            let threadTitle = posts.first?["sub"].string
+            processWatchRuleAlerts(
+                boardAbv: boardAbv,
+                threadNo: threadNo,
+                threadTitle: threadTitle,
+                posts: posts
+            )
         } catch {
             print("BackgroundTaskManager: Failed to check watched posts in thread \(threadNo): \(error.localizedDescription)")
         }
@@ -487,6 +503,55 @@ class BackgroundTaskManager {
                 continuation.resume()
             }
         }
+    }
+
+    // MARK: - Watch Rule Alerts
+
+    private func processWatchRuleAlerts(
+        boardAbv: String,
+        threadNo: String,
+        threadTitle: String?,
+        posts: [JSON]
+    ) {
+        guard WatchRulesManager.shared.isWatchRulesEnabled() else { return }
+
+        let watchPosts: [WatchRulePost] = posts.map { post in
+            let postNo = String(post["no"].intValue)
+            let posterId = post["id"].string
+            let fileHash = post["md5"].string
+
+            return WatchRulePost(
+                postNo: postNo,
+                postNoInt: post["no"].intValue,
+                comment: post["com"].stringValue,
+                posterId: posterId?.isEmpty == true ? nil : posterId,
+                fileHash: fileHash?.isEmpty == true ? nil : fileHash
+            )
+        }
+
+        let alerts = WatchRulesManager.shared.processThread(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            threadTitle: threadTitle,
+            posts: watchPosts
+        )
+
+        guard !alerts.isEmpty else { return }
+
+        for alert in alerts {
+            NotificationManager.shared.addWatchRuleNotification(
+                rule: alert.rule,
+                boardAbv: alert.latestMatch.boardAbv,
+                threadNo: alert.latestMatch.threadNo,
+                postNo: alert.latestMatch.postNo,
+                previewText: alert.latestMatch.previewText,
+                matchCount: alert.matchCount
+            )
+
+            sendWatchRuleNotification(alert)
+        }
+
+        updateApplicationBadgeCount()
     }
 
     // MARK: - Notifications
@@ -568,6 +633,33 @@ class BackgroundTaskManager {
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("BackgroundTaskManager: Error sending saved search notification: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Sends a notification for watch rule matches
+    private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
+        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watch Rule Match"
+        let countText = alert.matchCount == 1 ? "1 new match" : "\(alert.matchCount) new matches"
+        content.body = "\(alert.rule.displayName) - \(countText)"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": alert.latestMatch.threadNo,
+            "boardAbv": alert.latestMatch.boardAbv,
+            "postNo": alert.latestMatch.postNo,
+            "notificationType": "watchRuleMatch",
+            "watchRuleId": alert.rule.id
+        ]
+
+        let identifier = "watchrule-\(alert.rule.id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("BackgroundTaskManager: Error sending watch rule notification: \(error.localizedDescription)")
             }
         }
     }
