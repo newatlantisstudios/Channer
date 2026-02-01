@@ -8,6 +8,7 @@
 
 import UIKit
 import Kingfisher
+import UserNotifications
 
 /// iPad-optimized collection view controller for displaying thread replies
 /// Uses collection view layout for better performance on larger iPad screens
@@ -92,6 +93,12 @@ class threadRepliesCV: UICollectionViewController {
 
         let timestamp = dict["time"] as? Int
         threadRepliesTimestamps.append(timestamp)
+
+        let posterId = dict["id"] as? String
+        threadRepliesPosterIds.append(posterId)
+
+        let fileHash = dict["md5"] as? String
+        threadRepliesFileHashes.append(fileHash)
     }
     
     // MARK: - Properties
@@ -116,6 +123,10 @@ class threadRepliesCV: UICollectionViewController {
     var threadRepliesFileNames: [String?] = []
     /// Array of thread reply timestamps
     var threadRepliesTimestamps: [Int?] = []
+    /// Array of thread reply poster IDs
+    var threadRepliesPosterIds: [String?] = []
+    /// Array of thread reply file hashes
+    var threadRepliesFileHashes: [String?] = []
     /// Backup array of old thread replies
     var threadRepliesOld: [String] = []
     /// Array of thread board reply numbers
@@ -239,6 +250,8 @@ class threadRepliesCV: UICollectionViewController {
 
             threadRepliesFileNames = []
             threadRepliesTimestamps = []
+            threadRepliesPosterIds = []
+            threadRepliesFileHashes = []
             
             for dict in posts {
                 
@@ -277,6 +290,8 @@ class threadRepliesCV: UICollectionViewController {
             threadBoardReplyNumber = []
             threadRepliesFileNames = []
             threadRepliesTimestamps = []
+            threadRepliesPosterIds = []
+            threadRepliesFileHashes = []
             
             for dict in posts {
                 
@@ -339,6 +354,7 @@ class threadRepliesCV: UICollectionViewController {
         }
         
         collectionView?.reloadData()
+        checkWatchRulesForNewMatches()
     }
     
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -435,10 +451,83 @@ class threadRepliesCV: UICollectionViewController {
             postedText = "Unknown"
         }
 
-        let message = "File: \(fileName)\nPosted: \(postedText)"
+        let posterText = index < threadRepliesPosterIds.count ? (threadRepliesPosterIds[index] ?? "Unknown") : "Unknown"
+        let hashText = index < threadRepliesFileHashes.count ? (threadRepliesFileHashes[index] ?? "None") : "None"
+        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)"
         let alert = UIAlertController(title: "Post Info", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func checkWatchRulesForNewMatches() {
+        guard !threadNumber.isEmpty, !boardAbv.isEmpty else { return }
+        guard WatchRulesManager.shared.isWatchRulesEnabled() else { return }
+
+        var posts: [WatchRulePost] = []
+        posts.reserveCapacity(threadBoardReplyNumber.count)
+
+        for (index, postNo) in threadBoardReplyNumber.enumerated() {
+            let postNoInt = Int(postNo) ?? 0
+            let comment = index < threadReplies.count ? threadReplies[index] : ""
+            let posterId = index < threadRepliesPosterIds.count ? threadRepliesPosterIds[index] : nil
+            let fileHash = index < threadRepliesFileHashes.count ? threadRepliesFileHashes[index] : nil
+
+            posts.append(WatchRulePost(
+                postNo: postNo,
+                postNoInt: postNoInt,
+                comment: comment,
+                posterId: posterId,
+                fileHash: fileHash
+            ))
+        }
+
+        let alerts = WatchRulesManager.shared.processThread(
+            boardAbv: boardAbv,
+            threadNo: threadNumber,
+            threadTitle: title,
+            posts: posts
+        )
+
+        guard !alerts.isEmpty else { return }
+
+        for alert in alerts {
+            NotificationManager.shared.addWatchRuleNotification(
+                rule: alert.rule,
+                boardAbv: alert.latestMatch.boardAbv,
+                threadNo: alert.latestMatch.threadNo,
+                postNo: alert.latestMatch.postNo,
+                previewText: alert.latestMatch.previewText,
+                matchCount: alert.matchCount
+            )
+            sendWatchRuleNotification(alert)
+        }
+    }
+
+    private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        guard notificationsEnabled else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watch Rule Match"
+        let countText = alert.matchCount == 1 ? "1 new match" : "\(alert.matchCount) new matches"
+        content.body = "\(alert.rule.displayName) - \(countText)"
+        content.sound = UNNotificationSound.default
+        content.userInfo = [
+            "threadNumber": alert.latestMatch.threadNo,
+            "boardAbv": alert.latestMatch.boardAbv,
+            "postNo": alert.latestMatch.postNo,
+            "notificationType": "watchRuleMatch",
+            "watchRuleId": alert.rule.id
+        ]
+
+        let identifier = "watchrule-\(alert.rule.id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending watch rule notification: \(error.localizedDescription)")
+            }
+        }
     }
     
     private func configureLoadingCell(_ cell: threadReplyCell) {

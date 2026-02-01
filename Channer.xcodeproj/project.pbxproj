@@ -52,6 +52,7 @@
 		17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */; };
 		17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */; };
 		17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CF001A2DDD000000000001 /* ContentFilterViewController.swift */; };
+		3DD4F12F5AD54324985C558C /* WatchRulesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24C0E0851E4B559C176A01 /* WatchRulesViewController.swift */; };
 		17CODESYNTAX123456789012 /* CodeSyntaxHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */; };
 		17COMPOSEBUILD12345678901 /* ComposeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17COMPOSE123456789012345 /* ComposeViewController.swift */; };
 		17D1A7C22F1987D0007FD2E5 /* SwiftyJSON in Frameworks */ = {isa = PBXBuildFile; productRef = 17SPM001A2DD8000000000004 /* SwiftyJSON */; };
@@ -90,6 +91,7 @@
 		9857759C52EA1EFB8C79A9D8 /* XCTestCase+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */; };
 		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
 		9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */; };
+		29D75CA684814E9091D214D9 /* WatchRulesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */; };
 		9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */; };
 		9C2E301682B7B21B349D7F28 /* BatchImageDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */; };
 		9C2E301682B7B21B349D7F31 /* DownloadedMediaTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */; };
@@ -190,6 +192,7 @@
 		17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterViewController.swift; sourceTree = "<group>"; };
 		17C1AE752CE6FFCA00D6FF84 /* TextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFormatter.swift; sourceTree = "<group>"; };
 		17CF001A2DDD000000000001 /* ContentFilterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentFilterViewController.swift; sourceTree = "<group>"; };
+		DB24C0E0851E4B559C176A01 /* WatchRulesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRulesViewController.swift; sourceTree = "<group>"; };
 		17CODESYNTAX123456789013 /* CodeSyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntaxHighlighter.swift; sourceTree = "<group>"; };
 		17COMPOSE123456789012345 /* ComposeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeViewController.swift; sourceTree = "<group>"; };
 		17DD68412249B84100641BCA /* urlWeb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = urlWeb.swift; sourceTree = "<group>"; };
@@ -223,6 +226,7 @@
 		92384100D50DF2DC8905F7E0 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationManagerTests.swift; path = Managers/NotificationManagerTests.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchedPostsManager.swift; sourceTree = "<group>"; };
+		C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRulesManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReverseImageSearchManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchImageDownloadManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedMediaTracker.swift; sourceTree = "<group>"; };
@@ -287,6 +291,7 @@
 				9D2E301682B7B21B349D7F21 /* NotificationManager.swift */,
 				9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */,
 				9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */,
+				C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */,
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
 				17FONTSCALE123456789012 /* FontScaleManager.swift */,
 				9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
@@ -419,6 +424,7 @@
 				171A83482DDD36CC00D75B34 /* boardsTVCell.swift */,
 				178E88F72CFA6EE000810132 /* settings.swift */,
 				17CF001A2DDD000000000001 /* ContentFilterViewController.swift */,
+				DB24C0E0851E4B559C176A01 /* WatchRulesViewController.swift */,
 				17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */,
 				171A76172DD83C6F00D75B34 /* SearchManager.swift */,
 				171A76182DD83C6F00D75B34 /* SearchViewController.swift */,
@@ -722,6 +728,7 @@
 				9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */,
 				9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */,
 				9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */,
+				29D75CA684814E9091D214D9 /* WatchRulesManager.swift in Sources */,
 				9E2E301682B7B21B349D7F22 /* NotificationsViewController.swift in Sources */,
 				170F90E722506E7C00F52BBD /* WebMViewController.swift in Sources */,
 				178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */,
@@ -752,6 +759,7 @@
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,
 				178E88F82CFA6EEA00810132 /* settings.swift in Sources */,
 				17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */,
+				3DD4F12F5AD54324985C558C /* WatchRulesViewController.swift in Sources */,
 				17AF001A2DDD000000000002 /* AdvancedFilterViewController.swift in Sources */,
 				1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */,
 				171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */,

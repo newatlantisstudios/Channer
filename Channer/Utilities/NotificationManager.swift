@@ -6,6 +6,7 @@ enum NotificationType: String, Codable {
     case watchedPostReply   // Reply to a watched post
     case myPostReply        // Reply to user's own post
     case savedSearchAlert   // New matches for a saved search
+    case watchRuleMatch     // New matches for watch rules
 }
 
 /// Represents a reply notification with tracking metadata
@@ -22,10 +23,11 @@ struct ReplyNotification: Codable, Identifiable {
     let threadTitle: String?
     let newReplyCount: Int?
     let searchId: String?
+    let watchRuleId: String?
 
     /// Full initializer with all fields
     init(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String,
-         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil, searchId: String? = nil) {
+         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil, searchId: String? = nil, watchRuleId: String? = nil) {
         self.id = UUID().uuidString
         self.boardAbv = boardAbv
         self.threadNo = threadNo
@@ -38,6 +40,7 @@ struct ReplyNotification: Codable, Identifiable {
         self.threadTitle = threadTitle
         self.newReplyCount = newReplyCount
         self.searchId = searchId
+        self.watchRuleId = watchRuleId
     }
 
     /// Backward-compatible decoding with defaults for missing fields
@@ -56,6 +59,7 @@ struct ReplyNotification: Codable, Identifiable {
         threadTitle = try container.decodeIfPresent(String.self, forKey: .threadTitle)
         newReplyCount = try container.decodeIfPresent(Int.self, forKey: .newReplyCount)
         searchId = try container.decodeIfPresent(String.self, forKey: .searchId)
+        watchRuleId = try container.decodeIfPresent(String.self, forKey: .watchRuleId)
     }
 }
 
@@ -201,7 +205,7 @@ class NotificationManager {
         let allNotifications = getNotifications()
         var grouped: [NotificationType: [ReplyNotification]] = [:]
 
-        for type in [NotificationType.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply] {
+        for type in [NotificationType.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply, .watchRuleMatch] {
             let filtered = allNotifications.filter { $0.notificationType == type }
             if !filtered.isEmpty {
                 grouped[type] = filtered
@@ -303,6 +307,42 @@ class NotificationManager {
             newReplyCount: matchCount,
             searchId: searchId
         )
+        addNotification(notification)
+    }
+
+    /// Adds a watch rule match notification
+    /// If an unread notification for the same rule already exists, it will be updated instead of duplicated
+    func addWatchRuleNotification(
+        rule: WatchRule,
+        boardAbv: String,
+        threadNo: String,
+        postNo: String,
+        previewText: String,
+        matchCount: Int
+    ) {
+        var notifications = getNotifications()
+
+        if let existingIndex = notifications.firstIndex(where: {
+            $0.notificationType == .watchRuleMatch &&
+            $0.watchRuleId == rule.id &&
+            !$0.isRead
+        }) {
+            notifications.remove(at: existingIndex)
+            saveNotifications(notifications)
+        }
+
+        let notification = ReplyNotification(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            replyNo: postNo,
+            replyToNo: "",
+            replyText: previewText,
+            notificationType: .watchRuleMatch,
+            threadTitle: rule.displayName,
+            newReplyCount: matchCount,
+            watchRuleId: rule.id
+        )
+
         addNotification(notification)
     }
 

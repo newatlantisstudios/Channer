@@ -238,6 +238,7 @@ struct PostMetadata: Codable {
     let imageUrl: String?
     let imageExtension: String?
     let imageName: String?
+    let fileHash: String?
 
     /// Checks if post has an attachment
     var hasAttachment: Bool {

@@ -4,7 +4,7 @@ import SwiftyJSON
 class NotificationsViewController: UITableViewController {
 
     // Section order for display
-    private let sectionOrder: [NotificationType] = [.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply]
+    private let sectionOrder: [NotificationType] = [.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply, .watchRuleMatch]
     private var groupedNotifications: [NotificationType: [ReplyNotification]] = [:]
     private var activeSections: [NotificationType] = []
 
@@ -134,6 +134,8 @@ class NotificationsViewController: UITableViewController {
             return "Saved Search Alerts"
         case .watchedPostReply:
             return "Watched Post Replies"
+        case .watchRuleMatch:
+            return "Watch Rule Matches"
         }
     }
 
@@ -147,6 +149,8 @@ class NotificationsViewController: UITableViewController {
             return UIImage(systemName: "magnifyingglass")
         case .watchedPostReply:
             return UIImage(systemName: "eye.fill")
+        case .watchRuleMatch:
+            return UIImage(systemName: "bell.fill")
         }
     }
 
@@ -160,6 +164,8 @@ class NotificationsViewController: UITableViewController {
             return .systemTeal
         case .watchedPostReply:
             return .systemBlue
+        case .watchRuleMatch:
+            return .systemIndigo
         }
     }
 
@@ -403,6 +409,8 @@ class NotificationCell: UITableViewCell {
             iconImageView.image = UIImage(systemName: "magnifyingglass")
         case .watchedPostReply:
             iconImageView.image = UIImage(systemName: "eye.fill")
+        case .watchRuleMatch:
+            iconImageView.image = UIImage(systemName: "bell.fill")
         }
 
         // Header - thread title with board info, or saved search name for search alerts
@@ -411,6 +419,12 @@ class NotificationCell: UITableViewCell {
                 headerLabel.text = "Saved Search: \(searchName)"
             } else {
                 headerLabel.text = "Saved Search"
+            }
+        } else if notification.notificationType == .watchRuleMatch {
+            if let ruleName = notification.threadTitle, !ruleName.isEmpty {
+                headerLabel.text = "Watch Rule: \(ruleName)"
+            } else {
+                headerLabel.text = "Watch Rule Match"
             }
         } else {
             let boardThreadInfo = "/\(notification.boardAbv)/ - No. \(notification.threadNo)"
@@ -447,6 +461,15 @@ class NotificationCell: UITableViewCell {
         case .myPostReply, .watchedPostReply:
             replyInfoLabel.text = "Reply to >>\(notification.replyToNo)"
             replyInfoLabel.textColor = notification.isRead ? .systemGray : .systemBlue
+        case .watchRuleMatch:
+            let countText: String
+            if let count = notification.newReplyCount, count > 0 {
+                countText = "\(count) new \(count == 1 ? "match" : "matches")"
+            } else {
+                countText = "New match"
+            }
+            replyInfoLabel.text = "\(countText) in /\(notification.boardAbv)/ No. \(notification.threadNo)"
+            replyInfoLabel.textColor = notification.isRead ? .systemGray : color
         }
 
         // Text preview

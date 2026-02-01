@@ -337,7 +337,8 @@ class ContentFilterManager {
             timestamp: Int(Date().timeIntervalSince1970),
             imageUrl: nil,
             imageExtension: nil,
-            imageName: nil
+            imageName: nil,
+            fileHash: nil
         )
         return filter.matches(post: testPost)
     }

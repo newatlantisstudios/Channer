@@ -223,6 +223,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         // Get the current reply count
                         let currentReplies = firstPost["replies"].intValue
 
+                        // Resolve thread title for notifications and watch rules
+                        var threadTitle: String? = firstPost["sub"].string
+                        if threadTitle == nil || threadTitle?.isEmpty == true {
+                            threadTitle = favorite.title.isEmpty ? nil : favorite.title
+                        }
+                        if threadTitle == nil || threadTitle?.isEmpty == true {
+                            let comment = favorite.comment
+                                .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                                .replacingOccurrences(of: "&quot;", with: "\"")
+                                .replacingOccurrences(of: "&amp;", with: "&")
+                                .replacingOccurrences(of: "&lt;", with: "<")
+                                .replacingOccurrences(of: "&gt;", with: ">")
+                                .replacingOccurrences(of: "&#039;", with: "'")
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !comment.isEmpty {
+                                threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
+                            }
+                        }
+
                         // Check if there are new replies
                         let storedReplies = favorite.replies
                         if currentReplies > storedReplies {
@@ -238,29 +257,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             updatedThread.currentReplies = currentReplies
                             updatedThread.hasNewReplies = true
                             FavoritesManager.shared.updateFavorite(thread: updatedThread)
-
-                            // Get thread title - try API response first, then fall back to stored favorite data
-                            var threadTitle: String? = firstPost["sub"].string
-
-                            // If no subject from API, use stored title from favorite
-                            if threadTitle == nil || threadTitle?.isEmpty == true {
-                                threadTitle = favorite.title.isEmpty ? nil : favorite.title
-                            }
-
-                            // If still no title, create one from the comment (first 50 chars)
-                            if threadTitle == nil || threadTitle?.isEmpty == true {
-                                let comment = favorite.comment
-                                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                                    .replacingOccurrences(of: "&quot;", with: "\"")
-                                    .replacingOccurrences(of: "&amp;", with: "&")
-                                    .replacingOccurrences(of: "&lt;", with: "<")
-                                    .replacingOccurrences(of: "&gt;", with: ">")
-                                    .replacingOccurrences(of: "&#039;", with: "'")
-                                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                                if !comment.isEmpty {
-                                    threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
-                                }
-                            }
 
                             // Get the latest reply preview and post number from the posts array
                             var replyPreview = ""
@@ -321,6 +317,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                                 threadNumber: favorite.number,
                                 boardAbv: favorite.boardAbv,
                                 newReplies: newReplies
+                            )
+                        }
+
+                        if let posts = json["posts"].array {
+                            self.processWatchRuleAlerts(
+                                boardAbv: favorite.boardAbv,
+                                threadNo: favorite.number,
+                                threadTitle: threadTitle,
+                                posts: posts
                             )
                         }
                     }
@@ -405,6 +410,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
                             self.updateApplicationBadgeCount()
                         }
+
+                        let threadTitle = postsArray.first?["sub"].string
+                        self.processWatchRuleAlerts(
+                            boardAbv: firstPost.boardAbv,
+                            threadNo: firstPost.threadNo,
+                            threadTitle: threadTitle,
+                            posts: postsArray
+                        )
                     }
                 case .failure:
                     break
@@ -415,6 +428,53 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dispatchGroup.notify(queue: .main) {
             completion(hasNewReplies)
         }
+    }
+
+    private func processWatchRuleAlerts(
+        boardAbv: String,
+        threadNo: String,
+        threadTitle: String?,
+        posts: [JSON]
+    ) {
+        guard WatchRulesManager.shared.isWatchRulesEnabled() else { return }
+
+        let watchPosts: [WatchRulePost] = posts.map { post in
+            let postNo = String(post["no"].intValue)
+            let posterId = post["id"].string
+            let fileHash = post["md5"].string
+
+            return WatchRulePost(
+                postNo: postNo,
+                postNoInt: post["no"].intValue,
+                comment: post["com"].stringValue,
+                posterId: posterId?.isEmpty == true ? nil : posterId,
+                fileHash: fileHash?.isEmpty == true ? nil : fileHash
+            )
+        }
+
+        let alerts = WatchRulesManager.shared.processThread(
+            boardAbv: boardAbv,
+            threadNo: threadNo,
+            threadTitle: threadTitle,
+            posts: watchPosts
+        )
+
+        guard !alerts.isEmpty else { return }
+
+        for alert in alerts {
+            NotificationManager.shared.addWatchRuleNotification(
+                rule: alert.rule,
+                boardAbv: alert.latestMatch.boardAbv,
+                threadNo: alert.latestMatch.threadNo,
+                postNo: alert.latestMatch.postNo,
+                previewText: alert.latestMatch.previewText,
+                matchCount: alert.matchCount
+            )
+
+            sendWatchRuleNotification(alert)
+        }
+
+        updateApplicationBadgeCount()
     }
     
     // MARK: - Notifications Setup
@@ -500,6 +560,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 print("Error sending reply notification: \(error.localizedDescription)")
             } else {
                 print("Reply notification scheduled for post \(postNo)")
+            }
+        }
+    }
+
+    private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        if !notificationsEnabled {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Watch Rule Match"
+        let countText = alert.matchCount == 1 ? "1 new match" : "\(alert.matchCount) new matches"
+        content.body = "\(alert.rule.displayName) - \(countText)"
+        content.sound = UNNotificationSound.default
+
+        content.userInfo = [
+            "threadNumber": alert.latestMatch.threadNo,
+            "boardAbv": alert.latestMatch.boardAbv,
+            "postNo": alert.latestMatch.postNo,
+            "notificationType": "watchRuleMatch",
+            "watchRuleId": alert.rule.id
+        ]
+
+        let identifier = "watchrule-\(alert.rule.id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending watch rule notification: \(error.localizedDescription)")
             }
         }
     }

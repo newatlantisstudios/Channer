@@ -43,6 +43,9 @@ class settings: UIViewController {
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
+    private let watchRulesView = UIView()
+    private let watchRulesLabel = UILabel()
+    private let watchRulesButton = UIButton(type: .system)
     private let autoRefreshView = UIView()
     private let autoRefreshLabel = UILabel()
     private let autoRefreshButton = UIButton(type: .system)
@@ -516,6 +519,30 @@ class settings: UIViewController {
         contentFilteringButton.translatesAutoresizingMaskIntoConstraints = false
         contentFilteringButton.addTarget(self, action: #selector(contentFilteringButtonTapped), for: .touchUpInside)
         contentFilteringView.addSubview(contentFilteringButton)
+
+        // Watch Rules View
+        watchRulesView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        watchRulesView.layer.cornerRadius = 10
+        watchRulesView.clipsToBounds = true
+        watchRulesView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(watchRulesView)
+
+        // Watch Rules Label
+        watchRulesLabel.text = "Watch Rules"
+        watchRulesLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        watchRulesLabel.textAlignment = .left
+        watchRulesLabel.numberOfLines = 1
+        watchRulesLabel.adjustsFontSizeToFitWidth = true
+        watchRulesLabel.minimumScaleFactor = 0.8
+        watchRulesLabel.translatesAutoresizingMaskIntoConstraints = false
+        watchRulesView.addSubview(watchRulesLabel)
+
+        // Watch Rules Button
+        watchRulesButton.setTitle("Manage", for: .normal)
+        watchRulesButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        watchRulesButton.translatesAutoresizingMaskIntoConstraints = false
+        watchRulesButton.addTarget(self, action: #selector(watchRulesButtonTapped), for: .touchUpInside)
+        watchRulesView.addSubview(watchRulesButton)
 
         // Auto-refresh View
         autoRefreshView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -993,6 +1020,14 @@ class settings: UIViewController {
         navigationController?.pushViewController(contentFilterVC, animated: true)
 
         // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func watchRulesButtonTapped() {
+        let watchRulesVC = WatchRulesViewController()
+        navigationController?.pushViewController(watchRulesVC, animated: true)
+
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
@@ -1822,8 +1857,24 @@ class settings: UIViewController {
             contentFilteringButton.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
             contentFilteringButton.trailingAnchor.constraint(equalTo: contentFilteringView.trailingAnchor, constant: -20),
 
+            // Watch Rules View
+            watchRulesView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
+            watchRulesView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            watchRulesView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            watchRulesView.heightAnchor.constraint(equalToConstant: 44),
+            watchRulesView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
+
+            // Watch Rules Label
+            watchRulesLabel.centerYAnchor.constraint(equalTo: watchRulesView.centerYAnchor),
+            watchRulesLabel.leadingAnchor.constraint(equalTo: watchRulesView.leadingAnchor, constant: 20),
+            watchRulesLabel.trailingAnchor.constraint(lessThanOrEqualTo: watchRulesButton.leadingAnchor, constant: -15),
+
+            // Watch Rules Button
+            watchRulesButton.centerYAnchor.constraint(equalTo: watchRulesView.centerYAnchor),
+            watchRulesButton.trailingAnchor.constraint(equalTo: watchRulesView.trailingAnchor, constant: -20),
+
             // Auto-refresh View
-            autoRefreshView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
+            autoRefreshView.topAnchor.constraint(equalTo: watchRulesView.bottomAnchor, constant: 16),
             autoRefreshView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             autoRefreshView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             autoRefreshView.heightAnchor.constraint(equalToConstant: 44),
