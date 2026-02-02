@@ -90,6 +90,10 @@ class settings: UIViewController {
     private let preloadVideosLabel = UILabel()
     private let preloadVideosToggle = UISwitch()
 
+    private let defaultVideoMutedView = UIView()
+    private let defaultVideoMutedLabel = UILabel()
+    private let defaultVideoMutedToggle = UISwitch()
+
     private let mediaPrefetchSettingsView = UIView()
     private let mediaPrefetchSettingsLabel = UILabel()
     private let mediaPrefetchSettingsButton = UIButton(type: .system)
@@ -115,6 +119,7 @@ class settings: UIViewController {
     private let threadsDisplayModeKey = "channer_threads_display_mode"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     private let preloadVideosKey = "channer_preload_videos_enabled"
+    private let defaultVideoMutedKey = MediaSettings.defaultMutedKey
     
     // MARK: - Initialization
     required init?(coder: NSCoder) {
@@ -150,6 +155,10 @@ class settings: UIViewController {
         
         if UserDefaults.standard.object(forKey: preloadVideosKey) == nil {
             UserDefaults.standard.set(false, forKey: preloadVideosKey)
+        }
+
+        if UserDefaults.standard.object(forKey: defaultVideoMutedKey) == nil {
+            UserDefaults.standard.set(true, forKey: defaultVideoMutedKey)
         }
         
         // Load cached boards from shared service, then fetch latest
@@ -700,6 +709,9 @@ class settings: UIViewController {
         
         // Setup Preload Videos view
         setupPreloadVideosView()
+
+        // Setup Default Video Mute view
+        setupDefaultVideoMutedView()
 
         // Setup Media Prefetch Settings view
         setupMediaPrefetchSettingsView()
@@ -1265,6 +1277,20 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
+    @objc private func defaultVideoMutedToggleChanged(_ sender: UISwitch) {
+        MediaSettings.defaultMuted = sender.isOn
+
+        let title = sender.isOn ? "Videos Start Muted" : "Videos Start Unmuted"
+        let message = sender.isOn ? "New videos will start muted by default." : "New videos will start unmuted by default."
+
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     @objc private func mediaPrefetchSettingsButtonTapped() {
         let mediaPrefetchVC = MediaPrefetchSettingsViewController()
         navigationController?.pushViewController(mediaPrefetchVC, animated: true)
@@ -1434,6 +1460,45 @@ class settings: UIViewController {
         ])
     }
 
+    private func setupDefaultVideoMutedView() {
+        defaultVideoMutedView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        defaultVideoMutedView.layer.cornerRadius = 10
+        defaultVideoMutedView.clipsToBounds = true
+        defaultVideoMutedView.translatesAutoresizingMaskIntoConstraints = false
+
+        defaultVideoMutedLabel.text = "Videos Start Muted"
+        defaultVideoMutedLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        defaultVideoMutedLabel.textAlignment = .left
+        defaultVideoMutedLabel.numberOfLines = 1
+        defaultVideoMutedLabel.adjustsFontSizeToFitWidth = true
+        defaultVideoMutedLabel.minimumScaleFactor = 0.8
+        defaultVideoMutedLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let isDefaultMuted = MediaSettings.defaultMuted
+        defaultVideoMutedToggle.isOn = isDefaultMuted
+        defaultVideoMutedToggle.translatesAutoresizingMaskIntoConstraints = false
+        defaultVideoMutedToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        defaultVideoMutedToggle.addTarget(self, action: #selector(defaultVideoMutedToggleChanged), for: .valueChanged)
+
+        contentView.addSubview(defaultVideoMutedView)
+        defaultVideoMutedView.addSubview(defaultVideoMutedLabel)
+        defaultVideoMutedView.addSubview(defaultVideoMutedToggle)
+
+        NSLayoutConstraint.activate([
+            defaultVideoMutedView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+            defaultVideoMutedView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            defaultVideoMutedView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            defaultVideoMutedView.heightAnchor.constraint(equalToConstant: 44),
+
+            defaultVideoMutedLabel.centerYAnchor.constraint(equalTo: defaultVideoMutedView.centerYAnchor),
+            defaultVideoMutedLabel.leadingAnchor.constraint(equalTo: defaultVideoMutedView.leadingAnchor, constant: 20),
+            defaultVideoMutedLabel.trailingAnchor.constraint(lessThanOrEqualTo: defaultVideoMutedToggle.leadingAnchor, constant: -15),
+
+            defaultVideoMutedToggle.centerYAnchor.constraint(equalTo: defaultVideoMutedView.centerYAnchor),
+            defaultVideoMutedToggle.trailingAnchor.constraint(equalTo: defaultVideoMutedView.trailingAnchor, constant: -30),
+        ])
+    }
+
     private func setupMediaPrefetchSettingsView() {
         mediaPrefetchSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
         mediaPrefetchSettingsView.layer.cornerRadius = 10
@@ -1458,7 +1523,7 @@ class settings: UIViewController {
         mediaPrefetchSettingsView.addSubview(mediaPrefetchSettingsButton)
 
         NSLayoutConstraint.activate([
-            mediaPrefetchSettingsView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
+            mediaPrefetchSettingsView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
             mediaPrefetchSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             mediaPrefetchSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             mediaPrefetchSettingsView.heightAnchor.constraint(equalToConstant: 44),

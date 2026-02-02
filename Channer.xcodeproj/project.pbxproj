@@ -22,6 +22,7 @@
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
 		171A761A2DD83C6F00D75B34 /* SearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76182DD83C6F00D75B34 /* SearchViewController.swift */; };
 		171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */; };
+		17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17MEDIASETTINGS1234567890AC /* MediaSettings.swift */; };
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
@@ -42,6 +43,7 @@
 		177BC7F12CDEC27C000FE370 /* WebMThumbnailCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */; };
 		177BC7F32CDECC2E000FE370 /* ThumbnailGridVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */; };
 		177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177BC7F42CDECD05000FE370 /* ImageViewController.swift */; };
+		17IMAGECROPVC1234567890AB /* ImageCropViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17IMAGECROPVC1234567890AC /* ImageCropViewController.swift */; };
 		1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6452CEEEC7B00CE243D /* boardCVCell.swift */; };
 		1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1781F6462CEEEC7B00CE243D /* boardsCV.swift */; };
 		178E5E9F2CE4895200B2A9C5 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */; };
@@ -157,6 +159,7 @@
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
 		171A76182DD83C6F00D75B34 /* SearchViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewController.swift; sourceTree = "<group>"; };
 		171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
+		17MEDIASETTINGS1234567890AC /* MediaSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSettings.swift; sourceTree = "<group>"; };
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
@@ -182,6 +185,7 @@
 		177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMThumbnailCell.swift; sourceTree = "<group>"; };
 		177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridVC.swift; sourceTree = "<group>"; };
 		177BC7F42CDECD05000FE370 /* ImageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViewController.swift; sourceTree = "<group>"; };
+		17IMAGECROPVC1234567890AC /* ImageCropViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropViewController.swift; sourceTree = "<group>"; };
 		1781F6452CEEEC7B00CE243D /* boardCVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardCVCell.swift; sourceTree = "<group>"; };
 		1781F6462CEEEC7B00CE243D /* boardsCV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsCV.swift; sourceTree = "<group>"; };
 		178E5E9E2CE4894800B2A9C5 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
@@ -283,6 +287,7 @@
 				9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */,
 				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
+				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
 				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
 				171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */,
@@ -454,6 +459,7 @@
 				177BC7F22CDECC2D000FE370 /* ThumbnailGridVC.swift */,
 				179B6B972CDDF06D0099D980 /* ImageGalleryVC.swift */,
 				177BC7F42CDECD05000FE370 /* ImageViewController.swift */,
+				17IMAGECROPVC1234567890AC /* ImageCropViewController.swift */,
 				177BC7F02CDEC27A000FE370 /* WebMThumbnailCell.swift */,
 				170F90E622506E7C00F52BBD /* WebMViewController.swift */,
 				17DD68412249B84100641BCA /* urlWeb.swift */,
@@ -718,6 +724,7 @@
 				1776B0A82CE307A300B304E7 /* HistoryManager.swift in Sources */,
 				171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */,
 				171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */,
+				17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */,
 				17737E2C2CDC6F3600DF0874 /* threadRepliesTV.swift in Sources */,
 				171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */,
 				17737E2D2CDC6F3600DF0874 /* threadRepliesCell.swift in Sources */,
@@ -749,6 +756,7 @@
 				17ENHANCEDTF123456789012 /* EnhancedTextFormatter.swift in Sources */,
 				171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */,
 				177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */,
+				17IMAGECROPVC1234567890AB /* ImageCropViewController.swift in Sources */,
 				171A75E32DD6F9FF00D75B34 /* ThreadDataHelper.swift in Sources */,
 				171A75E42DD6F9FF00D75B34 /* AdvancedFilter.swift in Sources */,
 				171A75E52DD6F9FF00D75B34 /* ContentFilterManager.swift in Sources */,

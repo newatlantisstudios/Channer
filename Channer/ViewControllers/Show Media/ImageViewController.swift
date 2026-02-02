@@ -21,6 +21,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     private var activityIndicator: UIActivityIndicatorView!
     /// Flag to track if currently zoomed in (for double-tap toggle)
     private var isZoomedIn = false
+    /// Holds a cropped/edited image if the user modifies the original
+    private var editedImage: UIImage?
 
     /// Array of image URLs for navigation (optional)
     var imageURLs: [URL] = []
@@ -99,6 +101,15 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             message: nil,
             preferredStyle: .actionSheet
         )
+
+        // Crop action
+        alertController.addAction(UIAlertAction(
+            title: "Crop",
+            style: .default,
+            image: UIImage(systemName: "crop")
+        ) { [weak self] _ in
+            self?.presentCropController()
+        })
 
         // Share action
         alertController.addAction(UIAlertAction(
@@ -205,6 +216,11 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     // MARK: - Image Actions
     /// Downloads the current image to the app's documents folder
     @objc private func downloadImage() {
+        if let editedImage = editedImage {
+            saveEditedImageToDownloads(editedImage)
+            return
+        }
+
         if imageURL.isFileURL {
             showToast("Image already downloaded")
             return
@@ -290,10 +306,12 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     private func shareImage() {
         var itemsToShare: [Any] = []
 
-        if let image = imageView.image {
+        if let image = editedImage ?? imageView.image {
             itemsToShare.append(image)
         }
-        itemsToShare.append(imageURL)
+        if editedImage == nil {
+            itemsToShare.append(imageURL)
+        }
 
         let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
 
@@ -307,7 +325,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
     /// Copies the current image to clipboard
     private func copyImageToClipboard() {
-        guard let image = imageView.image else {
+        guard let image = editedImage ?? imageView.image else {
             showToast("No image to copy")
             return
         }
@@ -351,10 +369,77 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         }
     }
 
+    private func presentCropController() {
+        guard let image = imageView.image else {
+            showToast("Image not loaded yet")
+            return
+        }
+
+        let cropVC = ImageCropViewController(image: image) { [weak self] croppedImage in
+            self?.handleCroppedImage(croppedImage)
+        }
+        navigationController?.pushViewController(cropVC, animated: true)
+    }
+
+    private func handleCroppedImage(_ image: UIImage) {
+        editedImage = image
+        imageView.image = image
+        showToast("Cropped image ready")
+    }
+
+    private func saveEditedImageToDownloads(_ image: UIImage) {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            showToast("Unable to access downloads folder")
+            return
+        }
+
+        let imagesDirectory = documentsDirectory.appendingPathComponent("images", isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
+        } catch {
+            showToast("Failed to create downloads folder")
+            return
+        }
+
+        let baseName = imageURL.deletingPathExtension().lastPathComponent
+        let safeBase = baseName.isEmpty ? "image" : baseName
+        let filename = "\(safeBase)-cropped.jpg"
+        let destinationURL = uniqueDestinationURL(in: imagesDirectory, filename: filename)
+
+        guard let data = image.jpegData(compressionQuality: 0.92) ?? image.pngData() else {
+            showToast("Failed to encode image")
+            return
+        }
+
+        do {
+            try data.write(to: destinationURL)
+            showToast("Cropped image saved")
+        } catch {
+            showToast("Save failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func uniqueDestinationURL(in directory: URL, filename: String) -> URL {
+        let base = (filename as NSString).deletingPathExtension
+        let ext = (filename as NSString).pathExtension
+        var candidate = directory.appendingPathComponent(filename)
+        var index = 1
+
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            let numberedName = "\(base)-\(index).\(ext)"
+            candidate = directory.appendingPathComponent(numberedName)
+            index += 1
+        }
+
+        return candidate
+    }
+
     /// Loads the image from either local file or remote URL
     private func loadImage() {
         hasInitializedZoomScale = false
         isZoomedIn = false  // Reset zoom state when loading new image
+        editedImage = nil
 
         if imageURL.isFileURL {
             // Local file - with HEIC/AVIF support

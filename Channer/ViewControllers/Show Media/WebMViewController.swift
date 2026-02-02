@@ -28,12 +28,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Interval for aggressive mute enforcement ticks
     private let aggressiveMuteInterval: TimeInterval = 0.05
     
-    /// Current mute state - always start muted for privacy/courtesy
-    private var isMuted: Bool = true
+    /// Current mute state - default comes from settings
+    private var isMuted: Bool = MediaSettings.defaultMuted
     /// Remembers the preferred audio track so we can re-enable it after mute
     private var preferredAudioTrackIndex: Int?
     /// Force muting when playback begins for a new item
-    private var shouldForceMuteOnNextPlay: Bool = true
+    private var shouldForceMuteOnNextPlay: Bool = MediaSettings.defaultMuted
     /// Timer to monitor playback position and force loop at end
     private var loopCheckTimer: Timer?
     /// Timer to update seek bar position
@@ -65,8 +65,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private lazy var vlcPlayer: VLCMediaPlayer = {
         let player = VLCMediaPlayer()
         player.drawable = videoView
-        player.audio?.isMuted = true
-        player.audio?.volume = 0
+        let startMuted = MediaSettings.defaultMuted
+        player.audio?.isMuted = startMuted
+        player.audio?.volume = startMuted ? 0 : 50
         
         print("🎵 DEBUG: WebMViewController - VLC Player created")
         print("🎵 DEBUG: WebMViewController - Initial Audio Muted: \(player.audio?.isMuted ?? false)")
@@ -462,54 +463,60 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         // Set up delegate to handle player events
         vlcPlayer.delegate = self
         
-        // NUCLEAR OPTION: Disable audio completely
+        // Apply default mute preference before playback
         preferredAudioTrackIndex = nil
-        shouldForceMuteOnNextPlay = true
-        isMuted = true
-        disableAudioTracksForMutedStart()
-        print("MUTE DEBUG: after disableAudioTracksForMutedStart isMuted=\(isMuted) vlcMuted=\(vlcPlayer.audio?.isMuted ?? false) vlcVolume=\(vlcPlayer.audio?.volume ?? -1)")
-        logAudioDebug("setupVLCPlayer-prePlay")
-        
-        print("🎵 DEBUG: WebMViewController - NUCLEAR AUDIO DISABLING - videos always start muted")
-        print("🎵 DEBUG: WebMViewController - Pre-play Audio Muted: \(vlcPlayer.audio?.isMuted ?? false)")
-        print("🎵 DEBUG: WebMViewController - Pre-play Audio Volume: \(vlcPlayer.audio?.volume ?? -1)")
+        shouldForceMuteOnNextPlay = isMuted
+        if isMuted {
+            disableAudioTracksForMutedStart()
+            print("MUTE DEBUG: after disableAudioTracksForMutedStart isMuted=\(isMuted) vlcMuted=\(vlcPlayer.audio?.isMuted ?? false) vlcVolume=\(vlcPlayer.audio?.volume ?? -1)")
+            logAudioDebug("setupVLCPlayer-prePlay")
+            print("🎵 DEBUG: WebMViewController - Mute enforcement enabled (default muted)")
+            print("🎵 DEBUG: WebMViewController - Pre-play Audio Muted: \(vlcPlayer.audio?.isMuted ?? false)")
+            print("🎵 DEBUG: WebMViewController - Pre-play Audio Volume: \(vlcPlayer.audio?.volume ?? -1)")
+        } else {
+            enableAudioTracksForUnmute()
+        }
         
         // Start playback
         print("DEBUG: WebMViewController - Starting VLC playback")
         vlcPlayer.play()
         logAudioDebug("setupVLCPlayer-postPlay")
-        startAggressiveMuteEnforcement(reason: "initial-play")
+        if isMuted {
+            startAggressiveMuteEnforcement(reason: "initial-play")
+        }
 
         // Start auto-hide timer for controls
         resetControlsHideTimer()
 
-        // IMMEDIATE mute enforcement - multiple attempts to catch VLC before audio starts
-        // Attempt 1: Immediate
-        disableAudioTracksForMutedStart()
-        print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #1")
-        
-        // Attempt 2: Next run loop
-        DispatchQueue.main.async {
-            print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #2 (async)")
-            self.disableAudioTracksForMutedStart()
-        }
-        
-        // Attempt 3: Microsecond delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
-            print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #3 (0.001s)")
-            self.disableAudioTracksForMutedStart()
-        }
-        
-        // Attempt 4: 5ms delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.005) {
-            print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #4 (0.005s)")
-            self.disableAudioTracksForMutedStart()
-        }
-        
-        // Attempt 5: 10ms delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #5 (0.01s)")
-            self.disableAudioTracksForMutedStart()
+        if isMuted {
+            // IMMEDIATE mute enforcement - multiple attempts to catch VLC before audio starts
+            // Attempt 1: Immediate
+            disableAudioTracksForMutedStart()
+            print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #1")
+            
+            // Attempt 2: Next run loop
+            DispatchQueue.main.async {
+                print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #2 (async)")
+                self.disableAudioTracksForMutedStart()
+            }
+            
+            // Attempt 3: Microsecond delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+                print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #3 (0.001s)")
+                self.disableAudioTracksForMutedStart()
+            }
+            
+            // Attempt 4: 5ms delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.005) {
+                print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #4 (0.005s)")
+                self.disableAudioTracksForMutedStart()
+            }
+            
+            // Attempt 5: 10ms delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #5 (0.01s)")
+                self.disableAudioTracksForMutedStart()
+            }
         }
         
         // Check audio state immediately after play() call
@@ -532,9 +539,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                 }
                 
                 // Force mute again if not muted
-                if !(self.vlcPlayer.audio?.isMuted ?? true) {
+                if self.isMuted && !(self.vlcPlayer.audio?.isMuted ?? true) {
                     print("🎵 DEBUG: WebMViewController - \(delay)s delay - AUDIO NOT MUTED! Forcing mute again")
-                    self.isMuted = true
                     self.disableAudioTracksForMutedStart()
                     print("🎵 DEBUG: WebMViewController - \(delay)s delay - After force mute - Audio Muted: \(self.vlcPlayer.audio?.isMuted ?? false)")
                 }
@@ -637,6 +643,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }
 
     private func disableAudioTracksForMutedStart() {
+        if !isMuted && !shouldForceMuteOnNextPlay {
+            return
+        }
         cachePreferredAudioTrackIndexIfNeeded()
         vlcPlayer.deselectAllAudioTracks()
         vlcPlayer.audio?.isMuted = true
@@ -669,6 +678,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }
 
     private func startAggressiveMuteEnforcement(reason: String) {
+        guard isMuted else { return }
         if !Thread.isMainThread {
             DispatchQueue.main.async { [weak self] in
                 self?.startAggressiveMuteEnforcement(reason: reason)
@@ -709,7 +719,15 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }
 
     private func prepareForMutedPlaybackStart() {
-        isMuted = true
+        guard isMuted else {
+            shouldForceMuteOnNextPlay = false
+            stopAggressiveMuteEnforcement()
+            DispatchQueue.main.async { [weak self] in
+                self?.setupNavigationButtons()
+            }
+            return
+        }
+
         shouldForceMuteOnNextPlay = true
         disableAudioTracksForMutedStart()
         print("MUTE DEBUG: prepareForMutedPlaybackStart isMuted=\(isMuted) shouldForceMuteOnNextPlay=\(shouldForceMuteOnNextPlay) vlcMuted=\(vlcPlayer.audio?.isMuted ?? false) vlcVolume=\(vlcPlayer.audio?.volume ?? -1)")
@@ -866,6 +884,14 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         if duration > 0 && duration < 3600000 {
             let currentMs = Int32(sender.value * Float(duration))
             currentTimeLabel.text = formatTime(milliseconds: currentMs)
+        }
+
+        // Fast scrub: seek while dragging with a small throttle
+        guard isSeeking else { return }
+        let now = Date()
+        if lastSeekTime == nil || now.timeIntervalSince(lastSeekTime!) > 0.05 {
+            lastSeekTime = now
+            vlcPlayer.position = Double(sender.value)
         }
     }
 
@@ -1568,9 +1594,9 @@ extension WebMViewController {
         durationLabel.text = "0:00"
         calculatedDurationMs = 0
 
-        isMuted = true
+        isMuted = MediaSettings.defaultMuted
         preferredAudioTrackIndex = nil
-        shouldForceMuteOnNextPlay = true
+        shouldForceMuteOnNextPlay = isMuted
         setupNavigationButtons()
 
         // Update video URL

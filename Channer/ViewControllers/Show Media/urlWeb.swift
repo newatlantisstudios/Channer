@@ -213,10 +213,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     private var audioCheckTimer: Timer?
     private var bufferingStartTime: Date?
     
-    /// Current mute state - always start muted for privacy/courtesy
-    private var isMuted: Bool = true
+    /// Current mute state - default comes from settings
+    private var isMuted: Bool = MediaSettings.defaultMuted
     /// Flag to force muting when playback begins for a new item
-    private var shouldForceMuteOnNextPlay: Bool = true
+    private var shouldForceMuteOnNextPlay: Bool = MediaSettings.defaultMuted
     private lazy var vlcVideoView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -276,9 +276,9 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         // Configure AVPlayer for better streaming performance
         player.automaticallyWaitsToMinimizeStalling = true
         player.allowsExternalPlayback = true
-        // FORCE AVPlayer to always start muted for privacy/courtesy
-        player.isMuted = true
-        player.volume = 0.0
+        let startMuted = MediaSettings.defaultMuted
+        player.isMuted = startMuted
+        player.volume = startMuted ? 0.0 : 0.5
         return player
     }()
     
@@ -884,12 +884,12 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     
     /// Internal content loading method
     private func loadContentInternal() {
-        isMuted = true
-        avPlayer.isMuted = true
-        avPlayer.volume = 0.0
-        vlcPlayer?.audio?.isMuted = true
-        vlcPlayer?.audio?.volume = 0
-        shouldForceMuteOnNextPlay = true
+        isMuted = MediaSettings.defaultMuted
+        avPlayer.isMuted = isMuted
+        avPlayer.volume = isMuted ? 0.0 : 0.5
+        vlcPlayer?.audio?.isMuted = isMuted
+        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : Int32(50)
+        shouldForceMuteOnNextPlay = isMuted
         setupNavigationButtons()
 
         var url = images[currentIndex]
@@ -1158,7 +1158,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         print("DEBUG: urlWeb - Playing with integrated VLC: \(fileURL.path)")
         
         shouldUseVLCPlayback = true
-        shouldForceMuteOnNextPlay = true
+        shouldForceMuteOnNextPlay = isMuted
         
         // Hide other views and show VLC view
         webView.isHidden = true
@@ -1199,17 +1199,22 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     private func forceMuteVLCPlayer() {
         guard let vlcPlayer = vlcPlayer else { return }
 
-        isMuted = true
-        vlcPlayer.audio?.isMuted = true
-        vlcPlayer.audio?.volume = 0
-        setupNavigationButtons()
+        if isMuted {
+            vlcPlayer.audio?.isMuted = true
+            vlcPlayer.audio?.volume = 0
+            setupNavigationButtons()
 
-        for delay in [0.01, 0.05, 0.1] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self, let vlcPlayer = self.vlcPlayer else { return }
-                vlcPlayer.audio?.isMuted = true
-                vlcPlayer.audio?.volume = 0
+            for delay in [0.01, 0.05, 0.1] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self = self, let vlcPlayer = self.vlcPlayer else { return }
+                    vlcPlayer.audio?.isMuted = true
+                    vlcPlayer.audio?.volume = 0
+                }
             }
+        } else {
+            vlcPlayer.audio?.isMuted = false
+            vlcPlayer.audio?.volume = 50
+            setupNavigationButtons()
         }
     }
     
@@ -1229,7 +1234,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                 if pos >= 0.995 || (state == .stopped && pos >= 0.8) {
                     print("DEBUG: urlWeb - Loop monitor: looping video (seek to 0 + play, muted)")
                     player.position = 0.0
-                    self.shouldForceMuteOnNextPlay = true
+                    self.shouldForceMuteOnNextPlay = self.isMuted
                     self.forceMuteVLCPlayer()
                     player.play()
                 }
@@ -1294,11 +1299,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         audioCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             
-            if !self.avPlayer.isMuted || self.avPlayer.volume != 0.0 {
+            if self.isMuted && (!self.avPlayer.isMuted || self.avPlayer.volume != 0.0) {
                 print("🎵 DEBUG: urlWeb - AVPlayer UNMUTED DETECTED! Force muting - was isMuted: \(self.avPlayer.isMuted), volume: \(self.avPlayer.volume)")
                 self.avPlayer.isMuted = true
                 self.avPlayer.volume = 0.0
-                self.isMuted = true
                 print("🎵 DEBUG: urlWeb - AVPlayer FORCE MUTED - now isMuted: \(self.avPlayer.isMuted), volume: \(self.avPlayer.volume)")
                 
                 // Update UI
@@ -1390,6 +1394,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
             let alternateSourceTag = fallbackURL != nil ? 
                         "<source src=\"\(fallbackURL!.absoluteString)\" type=\"\(fallbackURL!.pathExtension.lowercased() == "webm" ? "video/webm" : "video/mp4")\">" : ""
             
+            let defaultMuted = isMuted
+            let mutedAttribute = defaultMuted ? "muted" : ""
+            let defaultVolume = defaultMuted ? "0" : "0.5"
+
             // Create custom HTML for video display with proper controls
             let videoHTML = """
             <!DOCTYPE html>
@@ -1442,7 +1450,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                 </style>
             </head>
             <body>
-                <video id="videoPlayer" controls autoplay loop playsinline muted volume="0">
+                <video id="videoPlayer" controls autoplay loop playsinline \(mutedAttribute) volume="\(defaultVolume)">
                     <source src="\(url.absoluteString)" type="\(mimeType)">
                     \(alternateSourceTag)
                     Your browser does not support the video tag.
@@ -1485,13 +1493,31 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     var errorMsg = document.getElementById('errorMessage');
                     var sourceIndex = 0;
                     var sources = video.querySelectorAll('source');
+                    const defaultMuted = \(defaultMuted ? "true" : "false");
+                    const defaultVolume = \(defaultMuted ? "0" : "0.5");
+                    window._channerEnforceMuted = defaultMuted;
                     
-                    // NUCLEAR MUTING: Force videos to always start muted for privacy/courtesy
-                    video.muted = true;
-                    video.volume = 0;
-                    video.setAttribute('muted', 'muted');
-                    video.setAttribute('volume', '0');
-                    console.log('NUCLEAR MUTING: Initial video muting applied - muted:', video.muted, 'volume:', video.volume);
+                    function shouldEnforceMute() {
+                        return window._channerEnforceMuted === true;
+                    }
+                    
+                    function applyDefaultMuteState(context) {
+                        if (shouldEnforceMute()) {
+                            video.muted = true;
+                            video.volume = 0;
+                            video.setAttribute('muted', 'muted');
+                            video.setAttribute('volume', '0');
+                            console.log('MUTING: ' + context + ' applied - muted:', video.muted, 'volume:', video.volume);
+                        } else {
+                            video.muted = false;
+                            video.volume = defaultVolume;
+                            video.removeAttribute('muted');
+                            video.setAttribute('volume', String(defaultVolume));
+                            console.log('MUTING: ' + context + ' skipped (default unmuted)');
+                        }
+                    }
+                    
+                    applyDefaultMuteState('initial');
                     
                     // Loop safeguard: if native looping fails, manually loop on 'ended'
                     video.addEventListener('ended', function() {
@@ -1538,13 +1564,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     
                     // Function to try playing the video with error handling and NUCLEAR muting
                     function tryPlayVideo() {
-                        // NUCLEAR MUTING: Force videos to always start muted for privacy/courtesy
-                        console.log('NUCLEAR MUTING: Pre-play muting enforcement');
-                        video.muted = true;
-                        video.volume = 0;
-                        video.setAttribute('muted', 'muted');
-                        video.setAttribute('volume', '0');
-                        console.log('NUCLEAR MUTING: Pre-play muting applied - muted:', video.muted, 'volume:', video.volume);
+                        applyDefaultMuteState('pre-play');
                         
                         // Try to play the video
                         var playPromise = video.play().catch(function(error) {
@@ -1556,24 +1576,23 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                         // NUCLEAR MUTING: Force mute immediately after play() call
                         if (playPromise !== undefined) {
                             playPromise.then(function() {
-                                console.log('NUCLEAR MUTING: Post-play muting enforcement');
-                                video.muted = true;
-                                video.volume = 0;
-                                console.log('NUCLEAR MUTING: Post-play muting applied - muted:', video.muted, 'volume:', video.volume);
+                                applyDefaultMuteState('post-play');
                             }).catch(function(error) {
                                 console.log('Play failed:', error);
                             });
                         }
                         
                         // Set up continuous mute monitoring
-                        setInterval(function() {
-                            if (!video.muted || video.volume !== 0) {
-                                console.log('NUCLEAR MUTING: Unmuted video detected! Force muting - was muted:', video.muted, 'volume:', video.volume);
-                                video.muted = true;
-                                video.volume = 0;
-                                console.log('NUCLEAR MUTING: Force muting applied - now muted:', video.muted, 'volume:', video.volume);
-                            }
-                        }, 100); // Check every 100ms
+                        if (shouldEnforceMute()) {
+                            setInterval(function() {
+                                if (!video.muted || video.volume !== 0) {
+                                    console.log('NUCLEAR MUTING: Unmuted video detected! Force muting - was muted:', video.muted, 'volume:', video.volume);
+                                    video.muted = true;
+                                    video.volume = 0;
+                                    console.log('NUCLEAR MUTING: Force muting applied - now muted:', video.muted, 'volume:', video.volume);
+                                }
+                            }, 100); // Check every 100ms
+                        }
                     }
                     
                     // Add click handler to retry playback
@@ -1627,9 +1646,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     video.addEventListener('canplay', function() {
                         console.log('Video can play now!');
                         errorMsg.style.display = 'none';
-                        // FORCE videos to always start muted for privacy/courtesy
-                        video.muted = true;
-                        video.volume = 0;
+                        applyDefaultMuteState('canplay');
                         if (video.paused) {
                             tryPlayVideo();
                         }
@@ -1641,13 +1658,8 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     });
                     
                     video.addEventListener('loadstart', function() {
-                        // NUCLEAR MUTING: Force videos to always start muted for privacy/courtesy
-                        console.log('NUCLEAR MUTING: loadstart event - applying muting');
-                        video.muted = true;
-                        video.volume = 0;
-                        video.setAttribute('muted', 'muted');
-                        video.setAttribute('volume', '0');
-                        console.log('NUCLEAR MUTING: loadstart muting applied - muted:', video.muted, 'volume:', video.volume);
+                        console.log('MUTING: loadstart event');
+                        applyDefaultMuteState('loadstart');
                     });
                     
                     // Additional handlers for better user experience
@@ -1668,13 +1680,14 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     ['pause', 'play', 'ended'].forEach(function(evt) {
                         video.addEventListener(evt, function() {
                             console.log('Video event:', evt, 'paused:', video.paused, 'muted:', video.muted, 'volume:', video.volume);
-                            // NUCLEAR MUTING: Force muting on ALL video events for privacy/courtesy
-                            console.log('NUCLEAR MUTING: ' + evt + ' event - enforcing muting');
-                            video.muted = true;
-                            video.volume = 0;
-                            video.setAttribute('muted', 'muted');
-                            video.setAttribute('volume', '0');
-                            console.log('NUCLEAR MUTING: ' + evt + ' event muting applied - videos always start muted');
+                            if (shouldEnforceMute()) {
+                                console.log('NUCLEAR MUTING: ' + evt + ' event - enforcing muting');
+                                video.muted = true;
+                                video.volume = 0;
+                                video.setAttribute('muted', 'muted');
+                                video.setAttribute('volume', '0');
+                                console.log('NUCLEAR MUTING: ' + evt + ' event muting applied - videos always start muted');
+                            }
                         });
                     });
                     
@@ -1794,9 +1807,9 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         
         // Update web view audio state via JavaScript if web player is active
         if !webView.isHidden {
-            let jsCommand = isMuted ? 
-                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = true; video.volume = 0; }" :
-                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = false; video.volume = 0.5; }"
+            let jsCommand = isMuted ?
+                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = true; video.volume = 0; } window._channerEnforceMuted = true;" :
+                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = false; video.volume = 0.5; } window._channerEnforceMuted = false;"
             webView.evaluateJavaScript(jsCommand) { result, error in
                 if let error = error {
                     print("DEBUG: urlWeb - Error updating web video mute state: \(error)")
@@ -2030,7 +2043,7 @@ extension urlWeb {
                 if pos >= 0.99 {
                     print("DEBUG: urlWeb - Looping VLC video: seeking to start and replaying muted")
                     player.position = 0.0
-                    self.shouldForceMuteOnNextPlay = true
+                    self.shouldForceMuteOnNextPlay = self.isMuted
                     self.forceMuteVLCPlayer()
                     player.play()
                 }
