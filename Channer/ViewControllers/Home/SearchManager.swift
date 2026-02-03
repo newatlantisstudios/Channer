@@ -45,14 +45,16 @@ class SearchManager {
         var name: String
         let query: String
         let boardAbv: String?
+        var filters: SearchFilters?
         let createdAt: Date
         var updatedAt: Date
         
-        init(name: String, query: String, boardAbv: String? = nil) {
+        init(name: String, query: String, boardAbv: String? = nil, filters: SearchFilters? = nil) {
             self.id = UUID().uuidString
             self.name = name
             self.query = query
             self.boardAbv = boardAbv
+            self.filters = filters
             self.createdAt = Date()
             self.updatedAt = Date()
         }
@@ -139,11 +141,12 @@ class SearchManager {
     }
     
     // MARK: - Saved Searches Management
-    func saveSearch(_ query: String, name: String? = nil, boardAbv: String? = nil) -> SavedSearch {
+    func saveSearch(_ query: String, name: String? = nil, boardAbv: String? = nil, filters: SearchFilters? = nil) -> SavedSearch {
         let cleanedQuery = sanitizedQuery(query)
         let normalizedBoard = normalizedBoardAbv(boardAbv)
+        let normalizedFilters = filters?.normalized()
         let searchName = name ?? cleanedQuery
-        let savedSearch = SavedSearch(name: searchName, query: cleanedQuery, boardAbv: normalizedBoard)
+        let savedSearch = SavedSearch(name: searchName, query: cleanedQuery, boardAbv: normalizedBoard, filters: normalizedFilters)
         let queryKey = normalizedQuery(cleanedQuery)
         
         // Remove duplicate if exists
@@ -153,7 +156,9 @@ class SearchManager {
         savedSearches.removeAll {
             normalizedQuery($0.query) == queryKey && normalizedBoardAbv($0.boardAbv) == normalizedBoard
         }
-        if let existingState = duplicates.compactMap({ savedSearchStates[$0.id] }).first {
+        if let existing = duplicates.first,
+           let existingState = savedSearchStates[existing.id],
+           existing.filters == savedSearch.filters {
             savedSearchStates[savedSearch.id] = existingState
         } else {
             savedSearchStates[savedSearch.id] = SavedSearchState()
@@ -176,7 +181,8 @@ class SearchManager {
             updatedSearch.updatedAt = Date()
             savedSearches[index] = updatedSearch
             if normalizedQuery(existing.query) != normalizedQuery(search.query)
-                || normalizedBoardAbv(existing.boardAbv) != normalizedBoardAbv(search.boardAbv) {
+                || normalizedBoardAbv(existing.boardAbv) != normalizedBoardAbv(search.boardAbv)
+                || existing.filters != search.filters {
                 savedSearchStates[search.id] = SavedSearchState()
             }
             saveSavedSearches()
@@ -285,26 +291,31 @@ class SearchManager {
     func performSearch(
         query: String,
         boardAbv: String?,
+        filters: SearchFilters? = nil,
+        recordHistory: Bool = true,
         progress: ((SearchProgress) -> Void)? = nil,
         completion: @escaping ([ThreadData]) -> Void
     ) {
         let cleanedQuery = sanitizedQuery(query)
         let normalizedBoard = normalizedBoardAbv(boardAbv)
+        let normalizedFilters = filters?.normalized()
         guard !cleanedQuery.isEmpty else {
             DispatchQueue.main.async { completion([]) }
             return
         }
-        addToHistory(cleanedQuery, boardAbv: normalizedBoard)
+        if recordHistory {
+            addToHistory(cleanedQuery, boardAbv: normalizedBoard)
+        }
         
         // If no board specified, we need to search all boards
         if let board = normalizedBoard {
-            searchBoard(board: board, query: cleanedQuery) { results in
+            searchBoard(board: board, query: cleanedQuery, filters: normalizedFilters) { results in
                 DispatchQueue.main.async {
                     completion(results)
                 }
             }
         } else {
-            searchAllBoards(query: cleanedQuery, progress: progress, completion: completion)
+            searchAllBoards(query: cleanedQuery, filters: normalizedFilters, progress: progress, completion: completion)
         }
     }
 
@@ -346,6 +357,7 @@ class SearchManager {
 
     private func searchAllBoards(
         query: String,
+        filters: SearchFilters?,
         progress: ((SearchProgress) -> Void)?,
         completion: @escaping ([ThreadData]) -> Void
     ) {
@@ -369,7 +381,7 @@ class SearchManager {
                 allResults.reserveCapacity(128)
 
                 for threads in catalogsByBoard.values {
-                    allResults.append(contentsOf: self.filterThreads(threads, normalizedQuery: queryKey))
+                    allResults.append(contentsOf: self.filterThreads(threads, normalizedQuery: queryKey, filters: filters))
                 }
 
                 DispatchQueue.main.async {
@@ -511,11 +523,16 @@ class SearchManager {
         return threads
     }
 
-    private func filterThreads(_ threads: [ThreadData], normalizedQuery: String) -> [ThreadData] {
+    private func filterThreads(_ threads: [ThreadData], normalizedQuery: String, filters: SearchFilters?) -> [ThreadData] {
         guard !normalizedQuery.isEmpty else { return [] }
+        let activeFilters = filters?.normalized()
         return threads.filter { thread in
             let searchText = normalizedSearchText(title: thread.title, comment: thread.comment)
-            return searchText.contains(normalizedQuery)
+            guard searchText.contains(normalizedQuery) else { return false }
+            if let activeFilters = activeFilters, activeFilters.isActive {
+                return activeFilters.matches(thread: thread)
+            }
+            return true
         }
     }
 
@@ -563,7 +580,7 @@ class SearchManager {
 
             for board in boards {
                 guard let threads = catalogsByBoard[board] else { continue }
-                let matches = filterThreads(threads, normalizedQuery: queryKey)
+                let matches = filterThreads(threads, normalizedQuery: queryKey, filters: search.filters)
 
                 if state.isPrimed {
                     let previous = Set(lastSeen[board] ?? [])
@@ -598,7 +615,7 @@ class SearchManager {
         }
     }
     
-    func searchBoard(board: String, query: String, completion: @escaping ([ThreadData]) -> Void) {
+    func searchBoard(board: String, query: String, filters: SearchFilters? = nil, completion: @escaping ([ThreadData]) -> Void) {
         let queryKey = normalizedQuery(query)
         let normalizedBoard = normalizedBoardAbv(board) ?? board
         guard !queryKey.isEmpty else {
@@ -612,7 +629,7 @@ class SearchManager {
             switch response.result {
             case .success(let data):
                 let threads = self.parseCatalogData(data, board: normalizedBoard)
-                completion(self.filterThreads(threads, normalizedQuery: queryKey))
+                completion(self.filterThreads(threads, normalizedQuery: queryKey, filters: filters))
             case .failure:
                 completion([])
             }

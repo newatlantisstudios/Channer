@@ -1,4 +1,7 @@
 import UIKit
+#if canImport(UniformTypeIdentifiers)
+import UniformTypeIdentifiers
+#endif
 
 /// Delegate for compose view controller actions
 protocol ComposeViewControllerDelegate: AnyObject {
@@ -200,6 +203,9 @@ class ComposeViewController: UIViewController {
         commentTextView.delegate = self
         commentTextView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(commentTextView)
+#if targetEnvironment(macCatalyst)
+        setupDropInteractionForCommentTextView()
+#endif
 
         characterCountLabel.font = UIFont.systemFont(ofSize: 12)
         characterCountLabel.textColor = ThemeManager.shared.secondaryTextColor
@@ -208,6 +214,12 @@ class ComposeViewController: UIViewController {
         characterCountLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(characterCountLabel)
     }
+
+#if targetEnvironment(macCatalyst)
+    private func setupDropInteractionForCommentTextView() {
+        commentTextView.addInteraction(UIDropInteraction(delegate: self))
+    }
+#endif
 
     private func setupImageSection() {
         // Image button
@@ -605,6 +617,80 @@ class ComposeViewController: UIViewController {
         }
     }
 
+#if targetEnvironment(macCatalyst)
+    private func handleDroppedImage(_ image: UIImage, filename: String?) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let selectedImage = self.imagePicker.createSelectedImage(from: image, originalFilename: filename)
+            DispatchQueue.main.async {
+                self.handleImageSelection(selectedImage)
+            }
+        }
+    }
+
+    private func handleDroppedFileURL(_ url: URL) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            let needsAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if needsAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let filename = url.lastPathComponent.isEmpty ? "image.jpg" : url.lastPathComponent
+            guard let data = try? Data(contentsOf: url),
+                  let image = UIImage(data: data) else {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Unable to Load Image", message: "The dropped file could not be read as an image.")
+                }
+                return
+            }
+
+            let selectedImage = self.imagePicker.createSelectedImage(from: image, originalFilename: filename)
+            DispatchQueue.main.async {
+                self.handleImageSelection(selectedImage)
+            }
+        }
+    }
+
+    private func setDropHighlight(_ isActive: Bool) {
+        if isActive {
+            commentTextView.layer.borderWidth = 2
+            commentTextView.layer.borderColor = UIColor.systemBlue.cgColor
+        } else {
+            commentTextView.layer.borderWidth = 0
+            commentTextView.layer.borderColor = nil
+        }
+    }
+
+    private func loadDroppedImage(from provider: NSItemProvider) {
+        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] url, _ in
+                guard let self = self else { return }
+                if let url = url {
+                    self.handleDroppedFileURL(url)
+                } else if provider.canLoadObject(ofClass: UIImage.self) {
+                    provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+                        guard let self = self, let image = object as? UIImage else { return }
+                        let filename = provider.suggestedName ?? "image.jpg"
+                        self.handleDroppedImage(image, filename: filename)
+                    }
+                }
+            }
+            return
+        }
+
+        if provider.canLoadObject(ofClass: UIImage.self) {
+            provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+                guard let self = self, let image = object as? UIImage else { return }
+                let filename = provider.suggestedName ?? "image.jpg"
+                self.handleDroppedImage(image, filename: filename)
+            }
+        }
+    }
+#endif
+
     private func handlePostSuccess(_ result: PostResult) {
         let postNumber = result.postNumber ?? result.threadNumber
         delegate?.composeViewControllerDidPost(self, postNumber: postNumber)
@@ -683,3 +769,50 @@ extension ComposeViewController: UITextViewDelegate {
         updateCharacterCount()
     }
 }
+
+#if targetEnvironment(macCatalyst)
+// MARK: - UIDropInteractionDelegate (macOS)
+extension ComposeViewController: UIDropInteractionDelegate {
+    func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
+        return session.hasItemsConforming(toTypeIdentifiers: [UTType.image.identifier, UTType.fileURL.identifier])
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+        return UIDropProposal(operation: .copy)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidEnter session: UIDropSession) {
+        setDropHighlight(true)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidExit session: UIDropSession) {
+        setDropHighlight(false)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, sessionDidEnd session: UIDropSession) {
+        setDropHighlight(false)
+    }
+
+    func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+        setDropHighlight(false)
+        guard let provider = session.items.first?.itemProvider else { return }
+
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
+                guard let self = self else { return }
+                if let url = item as? URL {
+                    self.handleDroppedFileURL(url)
+                } else if let data = item as? Data,
+                          let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    self.handleDroppedFileURL(url)
+                } else {
+                    self.loadDroppedImage(from: provider)
+                }
+            }
+            return
+        }
+
+        loadDroppedImage(from: provider)
+    }
+}
+#endif

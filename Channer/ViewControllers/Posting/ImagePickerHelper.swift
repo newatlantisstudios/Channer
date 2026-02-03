@@ -117,6 +117,11 @@ class ImagePickerHelper: NSObject {
         )
     }
 
+    /// Create a SelectedImage from a UIImage (used by drag-and-drop on macOS)
+    func createSelectedImage(from image: UIImage, originalFilename: String?) -> SelectedImage? {
+        return processImage(image, originalFilename: originalFilename)
+    }
+
     /// Resize an image to fit within the given size
     private func resizeImage(_ image: UIImage, to targetSize: CGSize) -> UIImage? {
         let size = image.size

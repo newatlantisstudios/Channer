@@ -21,6 +21,9 @@
 		171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */; };
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
 		171A761A2DD83C6F00D75B34 /* SearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76182DD83C6F00D75B34 /* SearchViewController.swift */; };
+		17SEARCHFILTERSBUILD1234567890 /* SearchFilters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17SEARCHFILTERS123456789001 /* SearchFilters.swift */; };
+		17BOARDPICKERBUILD1234567890 /* BoardPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17BOARDPICKER123456789001 /* BoardPickerViewController.swift */; };
+		17SEARCHFILTERSVCBUILD123456789 /* SearchFiltersViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17SEARCHFILTERSVC1234567890 /* SearchFiltersViewController.swift */; };
 		171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */; };
 		17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17MEDIASETTINGS1234567890AC /* MediaSettings.swift */; };
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
@@ -158,6 +161,9 @@
 		171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryManagerViewController.swift; sourceTree = "<group>"; };
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
 		171A76182DD83C6F00D75B34 /* SearchViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewController.swift; sourceTree = "<group>"; };
+		17SEARCHFILTERS123456789001 /* SearchFilters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchFilters.swift; sourceTree = "<group>"; };
+		17BOARDPICKER123456789001 /* BoardPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardPickerViewController.swift; sourceTree = "<group>"; };
+		17SEARCHFILTERSVC1234567890 /* SearchFiltersViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchFiltersViewController.swift; sourceTree = "<group>"; };
 		171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
 		17MEDIASETTINGS1234567890AC /* MediaSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSettings.swift; sourceTree = "<group>"; };
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
@@ -436,6 +442,9 @@
 				17AF001A2DDD000000000001 /* AdvancedFilterViewController.swift */,
 				171A76172DD83C6F00D75B34 /* SearchManager.swift */,
 				171A76182DD83C6F00D75B34 /* SearchViewController.swift */,
+				17SEARCHFILTERS123456789001 /* SearchFilters.swift */,
+				17SEARCHFILTERSVC1234567890 /* SearchFiltersViewController.swift */,
+				17BOARDPICKER123456789001 /* BoardPickerViewController.swift */,
 				171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */,
 				171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */,
 				171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */,
@@ -776,6 +785,9 @@
 				1781F6482CEEEC7B00CE243D /* boardsCV.swift in Sources */,
 				171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */,
 				171A761A2DD83C6F00D75B34 /* SearchViewController.swift in Sources */,
+				17SEARCHFILTERSBUILD1234567890 /* SearchFilters.swift in Sources */,
+				17SEARCHFILTERSVCBUILD123456789 /* SearchFiltersViewController.swift in Sources */,
+				17BOARDPICKERBUILD1234567890 /* BoardPickerViewController.swift in Sources */,
 				4B777D3D1563F3F2B0ED5C80 /* DownloadItem.swift in Sources */,
 				5655ABED6489BBB2B80A4C6F /* DownloadManagerService.swift in Sources */,
 				F18EAFB93C6F55EE34E23ADF /* DownloadManagerViewController.swift in Sources */,
