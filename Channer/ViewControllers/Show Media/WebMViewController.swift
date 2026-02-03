@@ -191,6 +191,36 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return label
     }()
 
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        guard supportsHardwareNavigation,
+              videoURLs.count > 1 else {
+            return nil
+        }
+
+        let nextVideoCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                            modifierFlags: [],
+                                            action: #selector(nextVideoShortcut))
+        nextVideoCommand.discoverabilityTitle = "Next Video"
+        if #available(iOS 15.0, *) {
+            nextVideoCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        let previousVideoCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                modifierFlags: [],
+                                                action: #selector(previousVideoShortcut))
+        previousVideoCommand.discoverabilityTitle = "Previous Video"
+        if #available(iOS 15.0, *) {
+            previousVideoCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        return [nextVideoCommand, previousVideoCommand]
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
+
     // MARK: - Lifecycle Methods
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
@@ -223,6 +253,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                                                selector: #selector(vlcPlayerDidReachEnd),
                                                name: NSNotification.Name("VLCMediaPlayerStateChanged"),
                                                object: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
     }
     
     override func viewDidLayoutSubviews() {
@@ -1527,10 +1562,27 @@ extension WebMViewController {
         downHint.alpha = currentIndex < videoURLs.count - 1 ? 0.7 : 0.3
     }
 
+    // MARK: - Keyboard Shortcut Methods
+    @objc private func nextVideoShortcut() {
+        navigateToNextVideo(ignoreControls: true)
+    }
+
+    @objc private func previousVideoShortcut() {
+        navigateToPreviousVideo(ignoreControls: true)
+    }
+
     /// Handles tap on upper zone - go to previous video
     @objc private func upTapZoneTapped() {
-        // If controls are hidden, show them first instead of navigating
-        if !controlsVisible {
+        navigateToPreviousVideo(ignoreControls: false)
+    }
+
+    /// Handles tap on lower zone - go to next video
+    @objc private func downTapZoneTapped() {
+        navigateToNextVideo(ignoreControls: false)
+    }
+
+    private func navigateToPreviousVideo(ignoreControls: Bool) {
+        if !ignoreControls && !controlsVisible {
             showControls()
             return
         }
@@ -1545,10 +1597,8 @@ extension WebMViewController {
         loadVideo(at: currentIndex)
     }
 
-    /// Handles tap on lower zone - go to next video
-    @objc private func downTapZoneTapped() {
-        // If controls are hidden, show them first instead of navigating
-        if !controlsVisible {
+    private func navigateToNextVideo(ignoreControls: Bool) {
+        if !ignoreControls && !controlsVisible {
             showControls()
             return
         }
@@ -1561,6 +1611,15 @@ extension WebMViewController {
 
         currentIndex += 1
         loadVideo(at: currentIndex)
+    }
+
+    private var supportsHardwareNavigation: Bool {
+        let idiom = UIDevice.current.userInterfaceIdiom
+        if idiom == .pad { return true }
+        if #available(iOS 14.0, *) {
+            return idiom == .mac
+        }
+        return false
     }
 
     /// Flashes a hint to indicate navigation limit

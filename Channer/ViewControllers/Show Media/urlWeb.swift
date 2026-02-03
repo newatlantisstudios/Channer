@@ -15,6 +15,37 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
 
     // Property to enable or disable swipes
     var enableSwipes: Bool = true
+
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        guard supportsHardwareNavigation,
+              enableSwipes,
+              images.count > 1 else {
+            return nil
+        }
+
+        let nextMediaCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                            modifierFlags: [],
+                                            action: #selector(nextMediaShortcut))
+        nextMediaCommand.discoverabilityTitle = "Next Media"
+        if #available(iOS 15.0, *) {
+            nextMediaCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        let previousMediaCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                modifierFlags: [],
+                                                action: #selector(previousMediaShortcut))
+        previousMediaCommand.discoverabilityTitle = "Previous Media"
+        if #available(iOS 15.0, *) {
+            previousMediaCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        return [nextMediaCommand, previousMediaCommand]
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
     
     // UI Enhancement Properties
     /// Progress indicator showing current position
@@ -340,6 +371,11 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
             swipeRight.direction = .right
             view.addGestureRecognizer(swipeRight)
         }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
     }
 
     /// Notifies the view controller that its view is about to be removed from a view hierarchy
@@ -1730,6 +1766,24 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         
         // Stop activity indicator
         activityIndicator.stopAnimating()
+    }
+
+    // MARK: - Keyboard Shortcut Methods
+    @objc private func nextMediaShortcut() {
+        rightTapZoneTapped()
+    }
+
+    @objc private func previousMediaShortcut() {
+        leftTapZoneTapped()
+    }
+
+    private var supportsHardwareNavigation: Bool {
+        let idiom = UIDevice.current.userInterfaceIdiom
+        if idiom == .pad { return true }
+        if #available(iOS 14.0, *) {
+            return idiom == .mac
+        }
+        return false
     }
 
     // MARK: - Swipe Handling

@@ -36,6 +36,37 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     /// Supported image formats including modern formats
     static let supportedImageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "bmp", "tiff", "ico"]
 
+    // MARK: - Keyboard Shortcuts
+    override var keyCommands: [UIKeyCommand]? {
+        guard supportsHardwareNavigation,
+              enableSwipes,
+              imageURLs.count > 1 else {
+            return nil
+        }
+
+        let nextImageCommand = UIKeyCommand(input: UIKeyCommand.inputDownArrow,
+                                            modifierFlags: [],
+                                            action: #selector(nextImageShortcut))
+        nextImageCommand.discoverabilityTitle = "Next Image"
+        if #available(iOS 15.0, *) {
+            nextImageCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        let previousImageCommand = UIKeyCommand(input: UIKeyCommand.inputUpArrow,
+                                                modifierFlags: [],
+                                                action: #selector(previousImageShortcut))
+        previousImageCommand.discoverabilityTitle = "Previous Image"
+        if #available(iOS 15.0, *) {
+            previousImageCommand.wantsPriorityOverSystemBehavior = true
+        }
+
+        return [nextImageCommand, previousImageCommand]
+    }
+
+    override var canBecomeFirstResponder: Bool {
+        return true
+    }
+
     // MARK: - Initializers
     /// Initializes the view controller with the given image URL.
     /// - Parameter imageURL: The URL of the image to display.
@@ -68,6 +99,38 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         setupNavigationBarItems()
 
         loadImage()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
+    }
+
+    // MARK: - Keyboard Shortcut Methods
+    @objc private func nextImageShortcut() {
+        navigateImage(by: 1)
+    }
+
+    @objc private func previousImageShortcut() {
+        navigateImage(by: -1)
+    }
+
+    private func navigateImage(by offset: Int) {
+        guard imageURLs.count > 1 else { return }
+        let newIndex = currentIndex + offset
+        guard newIndex >= 0, newIndex < imageURLs.count else { return }
+        currentIndex = newIndex
+        imageURL = imageURLs[currentIndex]
+        loadImage()
+    }
+
+    private var supportsHardwareNavigation: Bool {
+        let idiom = UIDevice.current.userInterfaceIdiom
+        if idiom == .pad { return true }
+        if #available(iOS 14.0, *) {
+            return idiom == .mac
+        }
+        return false
     }
 
     // MARK: - Navigation Bar Setup
