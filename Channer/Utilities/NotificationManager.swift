@@ -72,12 +72,30 @@ class NotificationManager {
     private let unreadCountKey = "channer_unread_notifications_count"
     
     private init() {
+        migrateLocalNotificationsIfNeeded()
+
         // Subscribe to UserDefaults changes to sync iCloud
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(userDefaultsDidChange),
             name: UserDefaults.didChangeNotification,
             object: nil
+        )
+
+        // Listen for iCloud sync completion to refresh notification data
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudSyncCompleted),
+            name: ICloudSyncManager.iCloudSyncCompletedNotification,
+            object: nil
+        )
+
+        // Listen for direct iCloud key-value store changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(iCloudStoreDidChangeExternally),
+            name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: NSUbiquitousKeyValueStore.default
         )
     }
 
@@ -104,10 +122,7 @@ class NotificationManager {
     
     /// Helper method to fetch notifications from UserDefaults
     private func fetchNotificationsFromDefaults() -> [ReplyNotification] {
-        let defaults = UserDefaults.standard
-
-        if let data = defaults.data(forKey: notificationsKey),
-           let notifications = try? JSONDecoder().decode([ReplyNotification].self, from: data) {
+        if let notifications = ICloudSyncManager.shared.load([ReplyNotification].self, forKey: notificationsKey) {
             return notifications.sorted { $0.timestamp > $1.timestamp }
         }
         return []
@@ -349,10 +364,7 @@ class NotificationManager {
     // MARK: - Private Methods
     
     private func saveNotifications(_ notifications: [ReplyNotification]) {
-        let defaults = UserDefaults.standard
-        if let encoded = try? JSONEncoder().encode(notifications) {
-            defaults.set(encoded, forKey: notificationsKey)
-        }
+        _ = ICloudSyncManager.shared.save(notifications, forKey: notificationsKey)
     }
     
     private func updateUnreadCount() {
@@ -382,6 +394,29 @@ class NotificationManager {
         
         // Notify UI that data might have changed
         NotificationCenter.default.post(name: .notificationDataChanged, object: nil)
+    }
+
+    @objc private func iCloudSyncCompleted(_ notification: Notification) {
+        NotificationCenter.default.post(name: .notificationDataChanged, object: nil)
+    }
+
+    @objc private func iCloudStoreDidChangeExternally(_ notification: Notification) {
+        NotificationCenter.default.post(name: .notificationDataChanged, object: nil)
+    }
+
+    private func migrateLocalNotificationsIfNeeded() {
+        guard ICloudSyncManager.shared.isICloudAvailable,
+              ICloudSyncManager.shared.isSyncEnabled else { return }
+
+        let store = NSUbiquitousKeyValueStore.default
+        store.synchronize()
+
+        // Only migrate if iCloud doesn't already have notifications
+        guard store.data(forKey: notificationsKey) == nil else { return }
+        guard let localData = UserDefaults.standard.data(forKey: notificationsKey) else { return }
+
+        store.set(localData, forKey: notificationsKey)
+        store.synchronize()
     }
 }
 
