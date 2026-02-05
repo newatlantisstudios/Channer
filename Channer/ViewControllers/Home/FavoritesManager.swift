@@ -395,6 +395,13 @@ class FavoritesManager {
             var favorites = self.loadFavorites()
             print("Current favorites count before add: \(favorites.count)")
 
+            // Remove any existing entry for this thread to ensure it can only be in one category at a time
+            let existingCount = favorites.count
+            favorites.removeAll { $0.number == favorite.number && $0.boardAbv == favorite.boardAbv }
+            if favorites.count < existingCount {
+                print("Removed existing favorite entry to prevent duplicate categories")
+            }
+
             var newFavorite = favorite
             newFavorite.categoryId = categoryId ?? self.categories.first?.id
 
