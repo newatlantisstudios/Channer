@@ -481,13 +481,26 @@ class BackgroundTaskManager {
                     let searchName = alert.search.name.isEmpty ? alert.search.query : alert.search.name
                     let matchCount = alert.newMatches.count
 
+                    // Build matched threads list so the notification can show all matches
+                    let matchedThreads: [MatchedThread] = alert.newMatches.map { thread in
+                        let title = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let preview = self.buildSavedSearchPreview(for: thread)
+                        return MatchedThread(
+                            boardAbv: thread.boardAbv,
+                            threadNo: thread.number,
+                            title: title.isEmpty ? preview : title,
+                            preview: preview
+                        )
+                    }
+
                     NotificationManager.shared.addSavedSearchNotification(
                         searchId: alert.search.id,
                         searchName: searchName,
                         boardAbv: firstMatch.boardAbv,
                         threadNo: firstMatch.number,
                         previewText: previewText,
-                        matchCount: matchCount
+                        matchCount: matchCount,
+                        matchedThreads: matchedThreads
                     )
 
                     self.sendSavedSearchNotification(

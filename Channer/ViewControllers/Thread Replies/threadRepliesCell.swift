@@ -1,12 +1,14 @@
 import UIKit
 import Kingfisher
+import WebKit
 
 class threadRepliesCell: UITableViewCell {
     // Variables for hover functionality
     private var imageURL: String?
-    private var hoveredImageView: UIImageView?
+    private var hoveredPreviewView: UIView?
     private var hoverOverlayView: UIView?
     private var pointerInteraction: UIPointerInteraction?
+    private var hoverProgressTimer: Timer?
 
     // MARK: - Spoiler Handling
     /// The post number for this cell (used for spoiler state tracking)
@@ -15,6 +17,12 @@ class threadRepliesCell: UITableViewCell {
     weak var spoilerDelegate: SpoilerTapHandler?
     /// Tap gesture for spoiler reveal
     private var spoilerTapGesture: UITapGestureRecognizer?
+
+    // MARK: - Quote Link Hover Preview
+    weak var quoteLinkHoverDelegate: QuoteLinkHoverDelegate?
+    private var quoteLinkPreviewView: UIView?
+    private var quoteLinkOverlayView: UIView?
+    private var currentlyHoveredPostNumber: String?
 
     // MARK: - UI Components
     let threadImage: UIButton = {
@@ -135,6 +143,16 @@ class threadRepliesCell: UITableViewCell {
     }()
     
     // Filter badge to indicate filtered content
+    let subjectLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        label.textColor = ThemeManager.shared.primaryTextColor
+        label.numberOfLines = 0
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     let filterBadge: UILabel = {
         let label = UILabel()
         label.text = "FILTERED"
@@ -173,7 +191,10 @@ class threadRepliesCell: UITableViewCell {
 
     private var replyTextWithImageConstraints: [NSLayoutConstraint] = []
     private var replyTextNoImageConstraints: [NSLayoutConstraint] = []
+    private var replyTextNoImageWithSubjectConstraints: [NSLayoutConstraint] = []
     private var minHeightConstraint: NSLayoutConstraint?
+    private var imageTopToSubject: NSLayoutConstraint?
+    private var imageTopToBoardReply: NSLayoutConstraint?
 
     // MARK: - Initializer
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -185,6 +206,7 @@ class threadRepliesCell: UITableViewCell {
         setupConstraints()
         setupPointerInteraction()
         setupSpoilerTapGesture()
+        setupQuoteLinkHoverGestures()
     }
 
     required init?(coder: NSCoder) {
@@ -195,14 +217,18 @@ class threadRepliesCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         removeHoverPreview()
+        removeQuoteLinkPreview()
         // Cancel any in-flight image downloads to prevent race conditions
         threadImage.kf.cancelImageDownloadTask()
         threadImage.setImage(nil, for: .normal)
         imageURL = nil
         postNumber = ""
         spoilerDelegate = nil
+        quoteLinkHoverDelegate = nil
         replyCountLabel.isHidden = true
         replyCountLabel.text = nil
+        subjectLabel.isHidden = true
+        subjectLabel.text = nil
     }
 
     override func setHighlighted(_ highlighted: Bool, animated: Bool) {
@@ -264,6 +290,7 @@ class threadRepliesCell: UITableViewCell {
             customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
             customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
             boardReplyCount.textColor = ThemeManager.shared.primaryTextColor
+            subjectLabel.textColor = ThemeManager.shared.primaryTextColor
 
             // When trait collection changes, we also need to update attributed text
             if let attributedText = replyText.attributedText {
@@ -312,6 +339,7 @@ class threadRepliesCell: UITableViewCell {
         contentView.addSubview(replyText)
         contentView.addSubview(replyTextNoImage)
         contentView.addSubview(boardReplyCount)
+        contentView.addSubview(subjectLabel)
         // Reply bubble button removed - feature moved to long press menu
         contentView.addSubview(filterBadge)
         contentView.addSubview(replyCountLabel)
@@ -333,10 +361,15 @@ class threadRepliesCell: UITableViewCell {
             threadImage.widthAnchor.constraint(equalToConstant: 120),
             threadImage.heightAnchor.constraint(equalToConstant: 120),
             threadImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: sideInset),
-            threadImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 32),
+            threadImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset),
 
             boardReplyCount.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
             boardReplyCount.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
+
+            // Subject label constraints
+            subjectLabel.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
+            subjectLabel.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            subjectLabel.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
 
             // Filter badge constraints
             filterBadge.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
@@ -358,15 +391,27 @@ class threadRepliesCell: UITableViewCell {
             minHeightConstraint.isActive = true
         }
 
+        // Image top constraints (switched based on subject visibility)
+        imageTopToSubject = threadImage.topAnchor.constraint(equalTo: subjectLabel.bottomAnchor, constant: 8)
+        imageTopToBoardReply = threadImage.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 8)
+        imageTopToBoardReply?.isActive = true
+
         // Constraints for replyText with image
         replyTextWithImageConstraints = [
             replyText.leadingAnchor.constraint(equalTo: threadImage.trailingAnchor, constant: 8),
-            replyText.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
+            replyText.topAnchor.constraint(equalTo: threadImage.topAnchor),
             replyText.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
             replyText.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
         ]
 
-        // Constraints for replyText without image
+        // Constraints for replyText without image (top anchored to same as image)
+        replyTextNoImageWithSubjectConstraints = [
+            replyTextNoImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
+            replyTextNoImage.topAnchor.constraint(equalTo: subjectLabel.bottomAnchor, constant: 4),
+            replyTextNoImage.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+        ]
+
         replyTextNoImageConstraints = [
             replyTextNoImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
             replyTextNoImage.topAnchor.constraint(equalTo: boardReplyCount.bottomAnchor, constant: 4),
@@ -376,7 +421,7 @@ class threadRepliesCell: UITableViewCell {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0) {
+    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0, subject: String? = nil) {
         print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
@@ -387,12 +432,26 @@ class threadRepliesCell: UITableViewCell {
             print("threadRepliesCell - Final image frame after constraints: \(threadImage.frame)")
         }
 
+        // Configure subject label
+        let hasSubject = subject != nil && !subject!.isEmpty
+        subjectLabel.isHidden = !hasSubject
+        subjectLabel.text = subject
+        subjectLabel.textColor = ThemeManager.shared.primaryTextColor
+
+        // Switch image top constraint based on subject visibility
+        imageTopToSubject?.isActive = hasSubject
+        imageTopToBoardReply?.isActive = !hasSubject
+
         NSLayoutConstraint.deactivate(replyTextWithImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageConstraints)
+        NSLayoutConstraint.deactivate(replyTextNoImageWithSubjectConstraints)
 
         if withImage {
             NSLayoutConstraint.activate(replyTextWithImageConstraints)
             replyText.attributedText = text
+        } else if hasSubject {
+            NSLayoutConstraint.activate(replyTextNoImageWithSubjectConstraints)
+            replyTextNoImage.attributedText = text
         } else {
             NSLayoutConstraint.activate(replyTextNoImageConstraints)
             replyTextNoImage.attributedText = text
@@ -474,11 +533,15 @@ class threadRepliesCell: UITableViewCell {
             setupPointerInteraction()
         }
     }
-    
+
+    func setupHoverGestureRecognizer() {
+        updatePointerInteractionIfNeeded()
+    }
+
     // Show preview for Apple Pencil hover
     private func showHoverPreview(at location: CGPoint) {
         // Avoid recreating the preview if it is already visible
-        if hoveredImageView != nil {
+        if hoveredPreviewView != nil {
             return
         }
 
@@ -486,17 +549,23 @@ class threadRepliesCell: UITableViewCell {
             overlayView.removeFromSuperview()
             hoverOverlayView = nil
         }
-        
-        guard let image = threadImage.imageView?.image else { return }
-        
+
+        guard let thumbnailImage = threadImage.imageView?.image else { return }
+
         // Create overlay view for the entire screen
         let overlayView = UIView()
-        
-        // Create preview image view with larger size
-        let previewSize: CGFloat = 550
-        let imageView = UIImageView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
-        imageView.contentMode = .scaleAspectFit
-        // Use device corner radius for preview image
+
+        // Determine if this is a video thumbnail (low quality, keep smaller)
+        let isVideo: Bool
+        if let urlString = imageURL {
+            isVideo = urlString.hasSuffix(".webm") || urlString.hasSuffix(".mp4")
+        } else {
+            isVideo = false
+        }
+
+        // Bigger preview for images, smaller for video thumbnails
+        let previewSize: CGFloat = isVideo ? 550 : 750
+        // Use device corner radius for preview
         let deviceCornerRadius: CGFloat
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
@@ -504,97 +573,270 @@ class threadRepliesCell: UITableViewCell {
         } else {
             deviceCornerRadius = 39.0 // Default for modern iOS devices
         }
-        imageView.layer.cornerRadius = deviceCornerRadius
-        imageView.layer.cornerCurve = .continuous
-        imageView.clipsToBounds = true
-        imageView.backgroundColor = UIColor.systemBackground
-        imageView.layer.borderColor = UIColor.label.cgColor
-        imageView.layer.borderWidth = 1.0
-        imageView.layer.shadowColor = UIColor.black.cgColor
-        imageView.layer.shadowOffset = CGSize(width: 0, height: 5)
-        imageView.layer.shadowOpacity = 0.5
-        imageView.layer.shadowRadius = 12
-        imageView.image = image
-        
+
+        let previewView: UIView
+        if isVideo, let urlString = imageURL, let url = URL(string: urlString) {
+            // Container holds WKWebView + native poster/progress overlays
+            let container = UIView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
+            container.backgroundColor = .black
+            container.layer.cornerRadius = deviceCornerRadius
+            container.layer.cornerCurve = .continuous
+            container.clipsToBounds = true
+            container.isUserInteractionEnabled = false
+            container.layer.borderColor = UIColor.label.cgColor
+            container.layer.borderWidth = 1.0
+
+            // WKWebView for video playback
+            let config = WKWebViewConfiguration()
+            config.allowsInlineMediaPlayback = true
+            config.mediaTypesRequiringUserActionForPlayback = []
+
+            let webView = WKWebView(frame: container.bounds, configuration: config)
+            webView.isUserInteractionEnabled = false
+            webView.scrollView.isScrollEnabled = false
+            webView.scrollView.bounces = false
+            webView.isOpaque = false
+            webView.backgroundColor = .black
+            container.addSubview(webView)
+
+            // Native poster overlay (shows thumbnail immediately, no WKWebView load delay)
+            let posterView = UIImageView(frame: container.bounds)
+            posterView.image = thumbnailImage
+            posterView.contentMode = .scaleAspectFit
+            posterView.backgroundColor = .black
+            container.addSubview(posterView)
+
+            // Gradient background behind progress bar
+            let gradientHeight: CGFloat = 48
+            let gradientView = UIView(frame: CGRect(x: 0, y: previewSize - gradientHeight, width: previewSize, height: gradientHeight))
+            let gradient = CAGradientLayer()
+            gradient.frame = gradientView.bounds
+            gradient.colors = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.7).cgColor]
+            gradientView.layer.addSublayer(gradient)
+            container.addSubview(gradientView)
+
+            // Progress bar track
+            let trackInset: CGFloat = 24
+            let trackHeight: CGFloat = 3
+            let trackY = previewSize - 20
+            let trackWidth = previewSize - (trackInset * 2)
+            let progressTrack = UIView(frame: CGRect(x: trackInset, y: trackY, width: trackWidth, height: trackHeight))
+            progressTrack.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+            progressTrack.layer.cornerRadius = trackHeight / 2
+            progressTrack.clipsToBounds = true
+            container.addSubview(progressTrack)
+
+            // Progress fill
+            let progressFill = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: trackHeight))
+            progressFill.backgroundColor = UIColor.white.withAlphaComponent(0.9)
+            progressFill.layer.cornerRadius = trackHeight / 2
+            progressTrack.addSubview(progressFill)
+
+            // Shimmer for indeterminate loading state
+            let shimmerWidth = trackWidth * 0.3
+            let shimmerView = UIView(frame: CGRect(x: -shimmerWidth, y: 0, width: shimmerWidth, height: trackHeight))
+            shimmerView.backgroundColor = UIColor.white.withAlphaComponent(0.4)
+            progressTrack.addSubview(shimmerView)
+
+            // Start shimmer animation
+            UIView.animate(withDuration: 1.0, delay: 0, options: [.repeat, .curveEaseInOut]) {
+                shimmerView.frame.origin.x = trackWidth
+            }
+
+            // Load video HTML (simple version, poster/progress handled natively)
+            let mimeType = urlString.hasSuffix(".mp4") ? "video/mp4" : "video/webm"
+            let videoHTML = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+                video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+              </style>
+            </head>
+            <body>
+              <video autoplay loop muted playsinline webkit-playsinline preload="auto">
+                <source src="\(url.absoluteString)" type="\(mimeType)">
+              </video>
+              <script>
+                var v = document.querySelector('video');
+                function play() { if (v && v.paused) { v.muted = true; v.play().catch(function(){}); } }
+                play(); setTimeout(play, 100); setTimeout(play, 500);
+                v.addEventListener('pause', play);
+              </script>
+            </body>
+            </html>
+            """
+            webView.loadHTMLString(videoHTML, baseURL: nil)
+
+            // Poll video state to update native progress overlay
+            hoverProgressTimer?.invalidate()
+            hoverProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak webView, weak posterView, weak progressFill, weak shimmerView, weak gradientView, weak progressTrack] _ in
+                guard let webView = webView else {
+                    self?.hoverProgressTimer?.invalidate()
+                    self?.hoverProgressTimer = nil
+                    return
+                }
+                let js = "(function(){var v=document.querySelector('video');if(!v)return'{}';var b=v.buffered.length>0?v.buffered.end(v.buffered.length-1):0;return JSON.stringify({p:!v.paused,b:b,d:v.duration||0,t:v.currentTime})})()"
+                webView.evaluateJavaScript(js) { result, _ in
+                    guard let jsonString = result as? String,
+                          let data = jsonString.data(using: .utf8),
+                          let jsonObj = try? JSONSerialization.jsonObject(with: data),
+                          let json = jsonObj as? [String: Any] else { return }
+
+                    let playing = json["p"] as? Bool ?? false
+                    let buffered = json["b"] as? Double ?? 0
+                    let duration = json["d"] as? Double ?? 0
+                    let currentTime = json["t"] as? Double ?? 0
+
+                    if duration > 0 && buffered > 0 {
+                        let pct = CGFloat(min(buffered / duration, 1.0))
+                        let tw = progressTrack?.bounds.width ?? 0
+                        UIView.animate(withDuration: 0.2) {
+                            progressFill?.frame.size.width = tw * pct
+                        }
+                        if pct > 0.1 {
+                            shimmerView?.layer.removeAllAnimations()
+                            shimmerView?.isHidden = true
+                        }
+                    }
+
+                    if playing || currentTime > 0 {
+                        self?.hoverProgressTimer?.invalidate()
+                        self?.hoverProgressTimer = nil
+                        UIView.animate(withDuration: 0.3) {
+                            posterView?.alpha = 0
+                            gradientView?.alpha = 0
+                            progressTrack?.alpha = 0
+                        }
+                    }
+                }
+            }
+
+            previewView = container
+        } else {
+            let imageView = UIImageView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
+            imageView.contentMode = .scaleAspectFit
+            imageView.layer.cornerRadius = deviceCornerRadius
+            imageView.layer.cornerCurve = .continuous
+            imageView.clipsToBounds = true
+            imageView.isUserInteractionEnabled = false
+            imageView.backgroundColor = UIColor.systemBackground
+            imageView.layer.borderColor = UIColor.label.cgColor
+            imageView.layer.borderWidth = 1.0
+            imageView.layer.shadowColor = UIColor.black.cgColor
+            imageView.layer.shadowOffset = CGSize(width: 0, height: 5)
+            imageView.layer.shadowOpacity = 0.5
+            imageView.layer.shadowRadius = 12
+            imageView.image = thumbnailImage
+
+            // Load the full-resolution image for non-video files
+            if let urlString = imageURL, let url = URL(string: urlString) {
+                imageView.kf.setImage(
+                    with: url,
+                    placeholder: thumbnailImage,
+                    options: [
+                        .scaleFactor(UIScreen.main.scale),
+                        .transition(.fade(0.2)),
+                        .backgroundDecode
+                    ]
+                )
+            }
+            previewView = imageView
+        }
+
         // Position the image in the center of the screen
         // Add to window safely
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
-            
+
             // Configure overlay to cover the entire screen with a semi-transparent background
             overlayView.frame = window.bounds
             overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-            
+
             // Keep hover interactions active by avoiding hit-testing on the overlay
             overlayView.isUserInteractionEnabled = false
-            
+
             // Center the preview in the window
             let centerX = window.bounds.width / 2
             let centerY = window.bounds.height / 2
-            
+
             // Position relative to center
-            imageView.frame.origin = CGPoint(
+            previewView.frame.origin = CGPoint(
                 x: centerX - (previewSize / 2),
                 y: centerY - (previewSize / 2)
             )
-            
+
             // Add the overlay first, then the image on top
             window.addSubview(overlayView)
-            window.addSubview(imageView)
-            
+            window.addSubview(previewView)
+
             // Store references to both views
             hoverOverlayView = overlayView
-            hoveredImageView = imageView
-            
+            hoveredPreviewView = previewView
+
             // Add appear animation - faster for better responsiveness
-            imageView.alpha = 0
-            imageView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
-            
+            previewView.alpha = 0
+            previewView.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+
             UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseOut) {
-                imageView.alpha = 1
-                imageView.transform = .identity
+                previewView.alpha = 1
+                previewView.transform = .identity
             }
         }
     }
     
     // Update position of hover preview
     private func updateHoverPreviewPosition(to location: CGPoint) {
-        guard let imageView = hoveredImageView else { return }
+        guard let previewView = hoveredPreviewView else { return }
         
-        let previewSize = imageView.frame.size.width
+        let previewSize = previewView.frame.size.width
         let positionY = location.y - previewSize - 20
         let positionX = location.x - (previewSize / 2)
         
         // Use window bounds to keep preview on screen
-        if let window = imageView.window {
+        if let window = previewView.window {
             let minX: CGFloat = 20
             let maxX = window.bounds.width - previewSize - 20
             let finalX = max(minX, min(positionX, maxX))
             
-            imageView.frame.origin = CGPoint(x: finalX, y: positionY)
+            previewView.frame.origin = CGPoint(x: finalX, y: positionY)
         } else {
-            imageView.frame.origin = CGPoint(x: positionX, y: positionY)
+            previewView.frame.origin = CGPoint(x: positionX, y: positionY)
         }
     }
     
     // Remove hover preview
     private func removeHoverPreview() {
-        let imageView = hoveredImageView
+        hoverProgressTimer?.invalidate()
+        hoverProgressTimer = nil
+
+        let previewView = hoveredPreviewView
         let overlayView = hoverOverlayView
 
-        guard imageView != nil || overlayView != nil else { return }
+        guard previewView != nil || overlayView != nil else { return }
+
+        // Cancel any in-flight full-res image download
+        (previewView as? UIImageView)?.kf.cancelDownloadTask()
+        // Stop WKWebView (may be nested in a container)
+        if let webView = previewView as? WKWebView {
+            webView.stopLoading()
+        } else if let container = previewView {
+            container.subviews.compactMap { $0 as? WKWebView }.first?.stopLoading()
+        }
 
         // Animate out
         UIView.animate(withDuration: 0.15, animations: {
-            imageView?.alpha = 0
-            imageView?.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            previewView?.alpha = 0
+            previewView?.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
             overlayView?.alpha = 0
         }, completion: { _ in
-            imageView?.removeFromSuperview()
+            previewView?.removeFromSuperview()
             overlayView?.removeFromSuperview()
 
-            if let imageView = imageView, self.hoveredImageView === imageView {
-                self.hoveredImageView = nil
+            if let previewView = previewView, self.hoveredPreviewView === previewView {
+                self.hoveredPreviewView = nil
             }
 
             if let overlayView = overlayView, self.hoverOverlayView === overlayView {
@@ -604,16 +846,220 @@ class threadRepliesCell: UITableViewCell {
     }
     
     deinit {
+        hoverProgressTimer?.invalidate()
+
         // Ensure we clean up any previews when cell is deallocated
-        if let imageView = hoveredImageView {
-            imageView.removeFromSuperview()
+        if let previewView = hoveredPreviewView {
+            previewView.removeFromSuperview()
         }
 
         if let overlayView = hoverOverlayView {
             overlayView.removeFromSuperview()
         }
+
+        quoteLinkPreviewView?.removeFromSuperview()
+        quoteLinkOverlayView?.removeFromSuperview()
     }
-    
+
+    // MARK: - Quote Link Hover Preview
+
+    private func setupQuoteLinkHoverGestures() {
+        let hover1 = UIHoverGestureRecognizer(target: self, action: #selector(handleQuoteLinkHover(_:)))
+        replyText.addGestureRecognizer(hover1)
+
+        let hover2 = UIHoverGestureRecognizer(target: self, action: #selector(handleQuoteLinkHover(_:)))
+        replyTextNoImage.addGestureRecognizer(hover2)
+    }
+
+    @objc private func handleQuoteLinkHover(_ gesture: UIHoverGestureRecognizer) {
+        guard let textView = gesture.view as? UITextView,
+              let attributedText = textView.attributedText else { return }
+
+        switch gesture.state {
+        case .began, .changed:
+            let location = gesture.location(in: textView)
+            let layoutManager = textView.layoutManager
+            let textContainer = textView.textContainer
+
+            var fraction: CGFloat = 0
+            let characterIndex = layoutManager.characterIndex(
+                for: location,
+                in: textContainer,
+                fractionOfDistanceBetweenInsertionPoints: &fraction
+            )
+
+            guard characterIndex < attributedText.length else {
+                removeQuoteLinkPreview()
+                return
+            }
+
+            // Check for a .link attribute with post:// scheme
+            if let link = attributedText.attribute(.link, at: characterIndex, effectiveRange: nil),
+               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
+               url.scheme == "post",
+               let postNum = url.host, !postNum.isEmpty {
+                // Avoid re-showing for the same post
+                if currentlyHoveredPostNumber == postNum { return }
+                removeQuoteLinkPreview()
+                showQuoteLinkPreview(for: postNum)
+            } else {
+                removeQuoteLinkPreview()
+            }
+
+        case .ended, .cancelled:
+            removeQuoteLinkPreview()
+
+        default:
+            break
+        }
+    }
+
+    private func showQuoteLinkPreview(for postNum: String) {
+        guard let delegate = quoteLinkHoverDelegate,
+              let content = delegate.attributedTextForPost(number: postNum) else { return }
+
+        currentlyHoveredPostNumber = postNum
+        let thumbnailURL = delegate.thumbnailURLForPost(number: postNum)
+
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else { return }
+
+        // Overlay
+        let overlay = UIView(frame: window.bounds)
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        overlay.isUserInteractionEnabled = false
+
+        // Card dimensions
+        let maxWidth = min(window.bounds.width - 40, 500)
+        let maxHeight = window.bounds.height * 0.7
+        let deviceCornerRadius: CGFloat
+        if window.layer.cornerRadius > 0 {
+            deviceCornerRadius = window.layer.cornerRadius
+        } else {
+            deviceCornerRadius = 39.0
+        }
+        let thumbnailSize: CGFloat = 120
+        let padding: CGFloat = 16
+
+        // Calculate text height to size the card properly
+        let textInset: CGFloat = 8
+        let textWidth = (thumbnailURL != nil)
+            ? maxWidth - thumbnailSize - padding - (textInset * 2) - padding
+            : maxWidth - (textInset * 2)
+        let boundingRect = content.boundingRect(
+            with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        // Header ~30, top/bottom padding, text insets
+        let headerHeight: CGFloat = 30
+        let contentHeight = ceil(boundingRect.height) + textInset * 2
+        let minContentHeight = (thumbnailURL != nil) ? thumbnailSize + padding : 40
+        let totalHeight = min(headerHeight + padding + max(contentHeight, minContentHeight) + padding, maxHeight)
+
+        // Build card with frame-based layout for reliable sizing
+        let cardWidth = maxWidth
+        let card = UIView(frame: CGRect(
+            x: (window.bounds.width - cardWidth) / 2,
+            y: (window.bounds.height - totalHeight) / 2,
+            width: cardWidth,
+            height: totalHeight
+        ))
+        card.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        card.layer.cornerRadius = deviceCornerRadius
+        card.layer.cornerCurve = .continuous
+        card.clipsToBounds = true
+        card.isUserInteractionEnabled = false
+
+        // Header
+        let header = UILabel(frame: CGRect(x: padding, y: 12, width: cardWidth - padding * 2, height: 20))
+        header.text = ">>\(postNum)"
+        header.font = UIFont.systemFont(ofSize: 14, weight: .bold)
+        header.textColor = .systemBlue
+        card.addSubview(header)
+
+        // Content area starts below header
+        let contentY = header.frame.maxY + 4
+
+        // Thumbnail
+        var textX: CGFloat = 0
+        var textAvailableWidth = cardWidth
+        if let thumbURL = thumbnailURL {
+            let thumbView = UIImageView(frame: CGRect(
+                x: padding,
+                y: contentY,
+                width: thumbnailSize,
+                height: thumbnailSize
+            ))
+            thumbView.contentMode = .scaleAspectFill
+            thumbView.clipsToBounds = true
+            thumbView.layer.cornerRadius = 8
+            thumbView.backgroundColor = UIColor.secondarySystemBackground
+            thumbView.kf.setImage(with: thumbURL)
+            card.addSubview(thumbView)
+
+            textX = padding + thumbnailSize + padding
+            textAvailableWidth = cardWidth - textX
+        }
+
+        // Text content
+        let textViewHeight = totalHeight - contentY
+        let textView = UITextView(frame: CGRect(
+            x: textX,
+            y: contentY,
+            width: textAvailableWidth,
+            height: textViewHeight
+        ))
+        textView.attributedText = content
+        textView.isEditable = false
+        textView.isSelectable = false
+        textView.isScrollEnabled = contentHeight > textViewHeight
+        textView.backgroundColor = .clear
+        textView.isUserInteractionEnabled = false
+        textView.textContainerInset = UIEdgeInsets(top: 4, left: textInset, bottom: 8, right: textInset)
+        card.addSubview(textView)
+
+        window.addSubview(overlay)
+        window.addSubview(card)
+
+        quoteLinkOverlayView = overlay
+        quoteLinkPreviewView = card
+
+        // Animate in
+        card.alpha = 0
+        card.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+
+        UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseOut) {
+            card.alpha = 1
+            card.transform = .identity
+        }
+    }
+
+    private func removeQuoteLinkPreview() {
+        currentlyHoveredPostNumber = nil
+
+        let preview = quoteLinkPreviewView
+        let overlay = quoteLinkOverlayView
+
+        guard preview != nil || overlay != nil else { return }
+
+        UIView.animate(withDuration: 0.15, animations: {
+            preview?.alpha = 0
+            preview?.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            overlay?.alpha = 0
+        }, completion: { _ in
+            preview?.removeFromSuperview()
+            overlay?.removeFromSuperview()
+
+            if let preview = preview, self.quoteLinkPreviewView === preview {
+                self.quoteLinkPreviewView = nil
+            }
+            if let overlay = overlay, self.quoteLinkOverlayView === overlay {
+                self.quoteLinkOverlayView = nil
+            }
+        })
+    }
+
     func setImageURL(_ url: String?) {
         // Only store the URL for later use (tap actions, hover preview)
         // Image loading is handled by configureImage in threadRepliesTV

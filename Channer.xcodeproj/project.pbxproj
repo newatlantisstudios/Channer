@@ -96,6 +96,7 @@
 		943C1B0FE8E2F861AF0D5E8D /* ThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7F196FC7ADB74431A026D5 /* ThemeManagerTests.swift */; };
 		9857759C52EA1EFB8C79A9D8 /* XCTestCase+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDA5813C4F3AC4933EE79F6 /* XCTestCase+Helpers.swift */; };
 		9C2E301682B7B21B349D7F20 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F21 /* NotificationManager.swift */; };
+		17CATALYSTNAVBUILD1234AB /* CatalystNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CATALYSTNAV123456789AB /* CatalystNavigationController.swift */; };
 		9C2E301682B7B21B349D7F24 /* WatchedPostsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */; };
 		29D75CA684814E9091D214D9 /* WatchRulesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */; };
 		9C2E301682B7B21B349D7F26 /* ReverseImageSearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */; };
@@ -237,6 +238,7 @@
 		8FBBB14E76514DD70F5D6CC5 /* TestHelpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestHelpers.swift; path = Helpers/TestHelpers.swift; sourceTree = "<group>"; };
 		92384100D50DF2DC8905F7E0 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NotificationManagerTests.swift; path = Managers/NotificationManagerTests.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F21 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		17CATALYSTNAV123456789AB /* CatalystNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalystNavigationController.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F25 /* WatchedPostsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchedPostsManager.swift; sourceTree = "<group>"; };
 		C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRulesManager.swift; sourceTree = "<group>"; };
 		9D2E301682B7B21B349D7F27 /* ReverseImageSearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReverseImageSearchManager.swift; sourceTree = "<group>"; };
@@ -291,6 +293,7 @@
 			isa = PBXGroup;
 			children = (
 				9D2E301682B7B21B349D7F29 /* BatchImageDownloadManager.swift */,
+				17CATALYSTNAV123456789AB /* CatalystNavigationController.swift */,
 				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
 				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
@@ -807,6 +810,7 @@
 				3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */,
 				A9B8C7D6E5F4A3B2C1D0E9F8 /* FontScaleManager.swift in Sources */,
 				EFC932FCD2334941542906FA /* DebugViewController.swift in Sources */,
+				17CATALYSTNAVBUILD1234AB /* CatalystNavigationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

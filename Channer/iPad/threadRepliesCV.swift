@@ -12,7 +12,7 @@ import UserNotifications
 
 /// iPad-optimized collection view controller for displaying thread replies
 /// Uses collection view layout for better performance on larger iPad screens
-class threadRepliesCV: UICollectionViewController {
+class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     
     // MARK: - HTML Parsing Methods
     
@@ -141,6 +141,8 @@ class threadRepliesCV: UICollectionViewController {
     
     /// Flag indicating if current view is a reply
     var isReply: Bool = false
+    /// Thread subject from OP
+    var threadSubject: String = ""
 
     private lazy var postInfoDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -248,11 +250,21 @@ class threadRepliesCV: UICollectionViewController {
             let json = try! JSONSerialization.jsonObject(with: html, options: []) as! [String:Any]
             let posts = json["posts"] as! [[String:Any]]
 
+            // Extract thread subject from OP (decode HTML entities)
+            if let firstPost = posts.first, let sub = firstPost["sub"] as? String {
+                threadSubject = sub
+                    .replacingOccurrences(of: "&#039;", with: "'")
+                    .replacingOccurrences(of: "&gt;", with: ">")
+                    .replacingOccurrences(of: "&lt;", with: "<")
+                    .replacingOccurrences(of: "&quot;", with: "\"")
+                    .replacingOccurrences(of: "&amp;", with: "&")
+            }
+
             threadRepliesFileNames = []
             threadRepliesTimestamps = []
             threadRepliesPosterIds = []
             threadRepliesFileHashes = []
-            
+
             for dict in posts {
                 
                 if let imgName = dict["tim"] as? Int, let ext = dict["ext"] as? String {
@@ -367,7 +379,8 @@ class threadRepliesCV: UICollectionViewController {
     
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "threadReplyCell", for: indexPath) as! threadReplyCell
-        
+        cell.quoteLinkHoverDelegate = self
+
         // Set up hover features for Apple Pencil
         if #available(iOS 13.4, *) {
             // Configure hover for thread image button if we have an image URL
@@ -539,6 +552,9 @@ class threadRepliesCV: UICollectionViewController {
     private func configureCell(_ cell: threadReplyCell, at indexPath: IndexPath) {
         // Reply button hidden - feature moved to long press menu
         cell.thread.isHidden = true
+
+        // Show subject for first cell (OP)
+        cell.configureSubject(indexPath.row == 0 ? threadSubject : nil)
 
         // Set post number
         let boardNumber = threadBoardReplyNumber[indexPath.row]
@@ -822,6 +838,31 @@ class threadRepliesCV: UICollectionViewController {
         replyVC.modalPresentationStyle = .fullScreen
 
         present(replyVC, animated: true, completion: nil)
+    }
+}
+
+// MARK: - QuoteLinkHoverDelegate
+extension threadRepliesCV {
+    func attributedTextForPost(number: String) -> NSAttributedString? {
+        guard let index = threadBoardReplyNumber.firstIndex(of: number),
+              index < threadReplies.count else { return nil }
+        let rawText = threadReplies[index]
+        return TextFormatter.formatText(rawText)
+    }
+
+    func thumbnailURLForPost(number: String) -> URL? {
+        guard let index = threadBoardReplyNumber.firstIndex(of: number),
+              index < threadRepliesImages.count else { return nil }
+        let imageUrl = threadRepliesImages[index]
+        if imageUrl == "https://i.4cdn.org/\(boardAbv)/" { return nil }
+        let components = imageUrl.components(separatedBy: "/")
+        guard let last = components.last, let dotRange = last.range(of: ".") else {
+            return URL(string: imageUrl)
+        }
+        let filename = String(last[..<dotRange.lowerBound])
+        let thumbnailFilename = filename + "s.jpg"
+        let thumbnailUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+        return URL(string: thumbnailUrl)
     }
 }
 

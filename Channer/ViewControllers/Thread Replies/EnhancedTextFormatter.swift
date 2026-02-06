@@ -497,6 +497,12 @@ protocol SpoilerTapHandler: AnyObject {
     func didTapSpoiler(at index: Int, in postNumber: String)
 }
 
+// MARK: - Quote Link Hover Delegate Protocol
+protocol QuoteLinkHoverDelegate: AnyObject {
+    func attributedTextForPost(number: String) -> NSAttributedString?
+    func thumbnailURLForPost(number: String) -> URL?
+}
+
 // MARK: - Spoiler-Aware Text View
 /// A UITextView subclass that handles tap-to-reveal for spoilers
 class SpoilerTextView: UITextView {

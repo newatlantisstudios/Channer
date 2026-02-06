@@ -261,15 +261,46 @@ class NotificationsViewController: UITableViewController {
 
         let notification = notifications[indexPath.row]
 
+        // Debug: log notification details
+        print("[NotificationsVC] Tapped notification: type=\(notification.notificationType.rawValue), id=\(notification.id)")
+        print("[NotificationsVC] boardAbv=\(notification.boardAbv), threadNo=\(notification.threadNo)")
+        print("[NotificationsVC] newReplyCount=\(notification.newReplyCount ?? -1)")
+        print("[NotificationsVC] matchedThreads is nil: \(notification.matchedThreads == nil)")
+        if let matchedThreads = notification.matchedThreads {
+            print("[NotificationsVC] matchedThreads.count=\(matchedThreads.count)")
+            for (i, mt) in matchedThreads.enumerated() {
+                print("[NotificationsVC]   match[\(i)]: /\(mt.boardAbv)/ No.\(mt.threadNo) title=\(mt.title)")
+            }
+        }
+        print("[NotificationsVC] searchId=\(notification.searchId ?? "nil")")
+
         // Mark as read
         NotificationManager.shared.markAsRead(notification.id)
 
-        // Navigate to the thread
+        // For saved search alerts with multiple matches, show the matches list
+        if notification.notificationType == .savedSearchAlert,
+           let matchedThreads = notification.matchedThreads,
+           matchedThreads.count > 1 {
+            print("[NotificationsVC] Showing matches list for \(matchedThreads.count) threads")
+            let matchesVC = SavedSearchMatchesViewController(
+                searchName: notification.threadTitle ?? "Saved Search",
+                matchedThreads: matchedThreads
+            )
+            navigationController?.pushViewController(matchesVC, animated: true)
+            return
+        }
+
+        print("[NotificationsVC] Navigating directly to thread /\(notification.boardAbv)/\(notification.threadNo)")
+        // Navigate to the thread directly
+        navigateToThread(boardAbv: notification.boardAbv, threadNo: notification.threadNo, scrollTo: notification.replyNo)
+    }
+
+    private func navigateToThread(boardAbv: String, threadNo: String, scrollTo: String? = nil) {
         let threadVC = threadRepliesTV()
-        threadVC.boardAbv = notification.boardAbv
-        threadVC.threadNumber = notification.threadNo
-        threadVC.scrollToPostNumber = notification.replyNo.isEmpty ? nil : notification.replyNo
-        threadVC.title = "/\(notification.boardAbv)/ - Thread \(notification.threadNo)"
+        threadVC.boardAbv = boardAbv
+        threadVC.threadNumber = threadNo
+        threadVC.scrollToPostNumber = (scrollTo?.isEmpty ?? true) ? nil : scrollTo
+        threadVC.title = "/\(boardAbv)/ - Thread \(threadNo)"
 
         // Dismiss and navigate
         dismiss(animated: true) {
@@ -452,7 +483,10 @@ class NotificationCell: UITableViewCell {
             } else {
                 countText = "New matches"
             }
-            if notification.boardAbv.isEmpty || notification.threadNo.isEmpty {
+            if let matchedThreads = notification.matchedThreads, matchedThreads.count > 1 {
+                // Multiple matches — show count only, user will see the list on tap
+                replyInfoLabel.text = countText
+            } else if notification.boardAbv.isEmpty || notification.threadNo.isEmpty {
                 replyInfoLabel.text = countText
             } else {
                 replyInfoLabel.text = "\(countText) in /\(notification.boardAbv)/ No. \(notification.threadNo)"
@@ -503,5 +537,78 @@ class NotificationCell: UITableViewCell {
         replyInfoLabel.text = nil
         textPreviewLabel.text = nil
         timeLabel.text = nil
+    }
+}
+
+// MARK: - SavedSearchMatchesViewController
+
+class SavedSearchMatchesViewController: UITableViewController {
+
+    private let searchName: String
+    private let matchedThreads: [MatchedThread]
+
+    init(searchName: String, matchedThreads: [MatchedThread]) {
+        self.searchName = searchName
+        self.matchedThreads = matchedThreads
+        super.init(style: .plain)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        title = searchName
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "MatchCell")
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 72
+    }
+
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return matchedThreads.count
+    }
+
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "MatchCell", for: indexPath)
+        let match = matchedThreads[indexPath.row]
+
+        var config = cell.defaultContentConfiguration()
+        config.text = "/\(match.boardAbv)/ - No. \(match.threadNo)"
+        config.textProperties.font = .systemFont(ofSize: 14, weight: .medium)
+        config.textProperties.color = ThemeManager.shared.primaryTextColor
+
+        let displayText = match.title.isEmpty ? match.preview : match.title
+        config.secondaryText = displayText
+        config.secondaryTextProperties.font = .systemFont(ofSize: 13)
+        config.secondaryTextProperties.color = .systemGray
+        config.secondaryTextProperties.numberOfLines = 2
+
+        cell.contentConfiguration = config
+        cell.backgroundColor = ThemeManager.shared.backgroundColor
+        cell.accessoryType = .disclosureIndicator
+        return cell
+    }
+
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let match = matchedThreads[indexPath.row]
+
+        let threadVC = threadRepliesTV()
+        threadVC.boardAbv = match.boardAbv
+        threadVC.threadNumber = match.threadNo
+        threadVC.title = "/\(match.boardAbv)/ - Thread \(match.threadNo)"
+
+        // Dismiss the entire modal and navigate to the thread
+        dismiss(animated: true) {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first,
+               let navController = window.rootViewController as? UINavigationController {
+                navController.pushViewController(threadVC, animated: true)
+            }
+        }
     }
 }

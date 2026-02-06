@@ -141,7 +141,7 @@ extension threadRepliesTV {
 /// Main view controller for displaying thread replies
 /// Supports search, filtering, favorites, gallery mode, and offline caching
 /// Includes keyboard shortcuts for iPad and optimized scrolling performance
-class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate, SpoilerTapHandler {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate, SpoilerTapHandler, QuoteLinkHoverDelegate {
     
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -287,6 +287,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Thread Data
     /// Data structures for storing thread replies and related information
     var replyCount = 0
+    var threadSubject: String = ""
     var threadReplies = [NSAttributedString]()
     var threadBoardReplyNumber = [String]()
     var threadBoardReplies = [String: [String]]()
@@ -313,6 +314,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var threadBoardReplyNumberOld = [String]()
     private var threadRepliesImagesOld = [String]()
     
+    // Thread creation timestamp (from OP's "time" field, stored for dead thread info)
+    private var threadCreatedTimestamp: Int?
+
+    // Dead thread overlay view
+    private var deadThreadView: UIView?
+
     // Auto-refresh timer
     private var refreshTimer: Timer?
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
@@ -1429,7 +1436,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             cell.postNumber = threadBoardReplyNumber[actualIndex]
         }
         cell.spoilerDelegate = self
-        
+        cell.quoteLinkHoverDelegate = self
+
         // Add visual indicator for hover functionality
         if #available(iOS 13.4, *) {
             if actualIndex < threadRepliesImages.count {
@@ -1465,12 +1473,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Debug: Content of the reply
             //print("Debug: Configuring cell with image: \(hasImage), text: \(attributedText.string), boardNumber: \(boardNumber)")
 
+            // Pass subject only for the first cell (OP)
+            let subject = actualIndex == 0 ? threadSubject : nil
+
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
                            text: attributedText,
                            boardNumber: boardNumber,
                            isFiltered: isFiltered,
-                           replyCount: replyCount)
+                           replyCount: replyCount,
+                           subject: subject)
             
             // Set the attributed text based on whether the cell has an image
             if hasImage {
@@ -1761,32 +1773,112 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         isLoading = false
         loadingIndicator.stopAnimating()
         removeReplyButton()
+        stopAutoRefreshTimer()
+        showDeadThreadView()
+    }
+
+    private func showDeadThreadView() {
+        // Remove existing dead thread view if any
+        deadThreadView?.removeFromSuperview()
+
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = ThemeManager.shared.backgroundColor
+        view.addSubview(container)
+        view.bringSubviewToFront(container)
+
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            container.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        // Icon
+        let iconImageView = UIImageView()
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconImageView.image = UIImage(systemName: "exclamationmark.triangle")
+        iconImageView.tintColor = ThemeManager.shared.secondaryTextColor
+        iconImageView.contentMode = .scaleAspectFit
+        container.addSubview(iconImageView)
+
+        // Message label
+        let messageLabel = UILabel()
+        messageLabel.translatesAutoresizingMaskIntoConstraints = false
+        messageLabel.text = "This thread is no longer available"
+        messageLabel.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+        messageLabel.textColor = ThemeManager.shared.primaryTextColor
+        messageLabel.textAlignment = .center
+        messageLabel.numberOfLines = 0
+        container.addSubview(messageLabel)
+
+        // Info button
+        let infoButton = UIButton(type: .system)
+        infoButton.translatesAutoresizingMaskIntoConstraints = false
+        let infoImage = UIImage(systemName: "info.circle")
+        infoButton.setImage(infoImage, for: .normal)
+        infoButton.setTitle(" Thread Info", for: .normal)
+        infoButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
+        infoButton.tintColor = .systemBlue
+        infoButton.addTarget(self, action: #selector(showDeadThreadInfo), for: .touchUpInside)
+        container.addSubview(infoButton)
+
+        NSLayoutConstraint.activate([
+            iconImageView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            iconImageView.bottomAnchor.constraint(equalTo: messageLabel.topAnchor, constant: -16),
+            iconImageView.widthAnchor.constraint(equalToConstant: 48),
+            iconImageView.heightAnchor.constraint(equalToConstant: 48),
+
+            messageLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            messageLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: -10),
+            messageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 32),
+            messageLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -32),
+
+            infoButton.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            infoButton.topAnchor.constraint(equalTo: messageLabel.bottomAnchor, constant: 16)
+        ])
+
+        deadThreadView = container
+    }
+
+    @objc private func showDeadThreadInfo() {
+        var infoLines: [String] = []
+
+        infoLines.append("Board: /\(boardAbv)/")
+        infoLines.append("Thread ID: \(threadNumber)")
+
+        if let timestamp = threadCreatedTimestamp {
+            let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
+            let formatted = postInfoDateFormatter.string(from: date)
+            infoLines.append("Created: \(formatted)")
+        }
 
         let alert = UIAlertController(
-            title: "Thread Unavailable",
-            message: "This thread no longer exists.",
+            title: "Thread Information",
+            message: infoLines.joined(separator: "\n"),
             preferredStyle: .alert
         )
-
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
 
     private func handleLoadError() {
         isLoading = false
-        
+
         let alert = UIAlertController(
             title: "Loading Error",
             message: "Failed to load thread data. Please try again.",
             preferredStyle: .alert
         )
-        
+
         alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
             self?.loadInitialData()
         })
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        })
+
         present(alert, animated: true)
     }
     
@@ -1815,7 +1907,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadBoardReplies.removeAll()
         originalTexts.removeAll()
         postMetadataList.removeAll()
-        
+
+        // Extract thread subject from OP (decode HTML entities)
+        threadSubject = json["posts"][0]["sub"].stringValue
+            .replacingOccurrences(of: "&#039;", with: "'")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&amp;", with: "&")
+
+        // Store OP creation timestamp for dead thread info
+        threadCreatedTimestamp = json["posts"][0]["time"].int
+
         // Get original reply count
         replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
         
@@ -2114,6 +2217,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Reload the table view
         debugReloadData(context: "Search filter update")
+    }
+
+    // MARK: - QuoteLinkHoverDelegate
+    func attributedTextForPost(number: String) -> NSAttributedString? {
+        let replyNumbers = fullThreadBoardReplyNumber ?? threadBoardReplyNumber
+        let replies = fullThreadReplies ?? threadReplies
+        guard let index = replyNumbers.firstIndex(of: number),
+              index < replies.count else { return nil }
+        return replies[index]
+    }
+
+    func thumbnailURLForPost(number: String) -> URL? {
+        let replyNumbers = fullThreadBoardReplyNumber ?? threadBoardReplyNumber
+        let images = fullThreadRepliesImages ?? threadRepliesImages
+        guard let index = replyNumbers.firstIndex(of: number),
+              index < images.count else { return nil }
+        let imageUrl = images[index]
+        // Empty placeholder means no image
+        if imageUrl == "https://i.4cdn.org/\(boardAbv)/" { return nil }
+        // Generate thumbnail: replace filename.ext with filenames.jpg
+        let components = imageUrl.components(separatedBy: "/")
+        guard let last = components.last, let dotRange = last.range(of: ".") else {
+            return URL(string: imageUrl)
+        }
+        let filename = String(last[..<dotRange.lowerBound])
+        let thumbnailFilename = filename + "s.jpg"
+        let thumbnailUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
+        return URL(string: thumbnailUrl)
     }
 
     // MARK: - SpoilerTapHandler Protocol
@@ -3419,10 +3550,22 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             guard let self = self else { return }
 
             DispatchQueue.main.async {
+                // Check for 404 during auto-refresh
+                if let statusCode = response.response?.statusCode, statusCode == 404 {
+                    self.handleThreadUnavailable()
+                    return
+                }
+
                 switch response.result {
                 case .success(let data):
                     do {
                         let json = try JSON(data: data)
+
+                        guard !json["posts"].arrayValue.isEmpty else {
+                            self.handleThreadUnavailable()
+                            return
+                        }
+
                         self.processThreadData(json)
                         self.structureThreadReplies()
                         self.isLoading = false

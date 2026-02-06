@@ -8,7 +8,7 @@ Channer is a native iOS/iPadOS image board client using Swift, UIKit, and MVC ar
 
 ## Development Environment
 
-- **Platform**: iOS/iPadOS 15.6+ (platform target 18.0)
+- **Platform**: iOS/iPadOS 15.6+ (deployment target 18.0)
 - **Language**: Swift 5.0+
 - **Build System**: Xcode with Swift Package Manager
 - **Workspace**: Use `Channer.xcworkspace` or `Channer.xcodeproj`
@@ -16,16 +16,16 @@ Channer is a native iOS/iPadOS image board client using Swift, UIKit, and MVC ar
 ## Build Commands
 
 ```bash
-# Open workspace (SPM packages resolve automatically)
-open Channer.xcworkspace
-
 # Build scripts
 ./build.sh                    # Simple build with xcbeautify
 ./build-advanced.sh -c        # Clean build
 ./build-advanced.sh -r        # Release build
 ./build-advanced.sh -d        # Device build (not simulator)
+./build-advanced.sh -m        # Mac Catalyst build
 ./build-advanced.sh -v        # Verbose build (no xcbeautify)
 ```
+
+Both scripts use an isolated local cache at `build/.xcode-cache/` (DerivedData, SourcePackages, etc.) to avoid system cache permission issues. The `build/` directory is a build artifact — do not commit it.
 
 ## Testing
 
@@ -59,9 +59,18 @@ MVC architecture with singleton managers in `Utilities/` for shared state.
 ```
 boardsCV (boards list)
   → boardTV (threads in board)
-    → threadRepliesTV (thread replies)
+    → threadRepliesTV (thread replies, iPhone = UITableView)
+    → threadRepliesCV (thread replies, iPad = UICollectionView)
       → ImageGalleryVC / WebMViewController (media viewing)
 ```
+
+### iPhone vs iPad
+
+The iPhone and iPad use separate view controller implementations for thread replies:
+- **iPhone**: `ViewControllers/Thread Replies/threadRepliesTV.swift` — UITableViewController (~181KB, the largest file in the project)
+- **iPad**: `iPad/threadRepliesCV.swift` — UICollectionViewController with split view, hover support (`threadRepliesCV+HoverSupport.swift`), keyboard shortcuts, and Apple Pencil support
+
+`ThreadViewControllerFactory` in `Utilities/` selects the correct implementation at runtime.
 
 ### Key Singleton Managers
 Located in `Utilities/` except where noted:
@@ -81,6 +90,12 @@ Some models are defined inline within view controller files:
 - `ThreadData` struct: `ViewControllers/Board/boardTV.swift`
 - `BookmarkCategory`: `ViewControllers/Home/BookmarkCategory.swift`
 - `Reachability`, `TextFormatter`: `ViewControllers/Thread Replies/threadRepliesTV.swift`
+
+### Storage Architecture
+- **UserDefaults**: Simple preferences and feature flags (e.g., `faceIDEnabledKey`)
+- **Keychain** (`KeychainHelper`): Sensitive credentials (4chan Pass via `PassAuthManager`)
+- **iCloud** (`NSUbiquitousKeyValueStore`): Cross-device sync for favorites, history, settings
+- **Codable**: Complex objects (themes, filters, bookmark categories) serialized to UserDefaults/iCloud
 
 ## Key Dependencies
 
@@ -102,10 +117,8 @@ Some models are defined inline within view controller files:
 - iCloud sync callbacks arrive on background threads
 - Test with `DispatchQueue.concurrentPerform` (see existing tests)
 
-### iPad-Specific
-- Split view controllers, keyboard shortcuts (`KeyboardShortcutManager`)
-- Apple Pencil support (`PencilInteractionManager`)
-- Hover support: `threadRepliesCV+HoverSupport.swift`
+### Large Files
+`threadRepliesTV.swift` (~181KB) and `settings.swift` (~145KB) are very large. When editing these, read only the relevant sections with line offsets rather than the entire file.
 
 ### Authentication
 FaceID/TouchID protection via LocalAuthentication. Controlled by `faceIDEnabledKey` in UserDefaults.

@@ -9,6 +9,14 @@ enum NotificationType: String, Codable {
     case watchRuleMatch     // New matches for watch rules
 }
 
+/// A lightweight reference to a matched thread for saved search alerts
+struct MatchedThread: Codable {
+    let boardAbv: String
+    let threadNo: String
+    let title: String
+    let preview: String
+}
+
 /// Represents a reply notification with tracking metadata
 struct ReplyNotification: Codable, Identifiable {
     let id: String
@@ -24,10 +32,11 @@ struct ReplyNotification: Codable, Identifiable {
     let newReplyCount: Int?
     let searchId: String?
     let watchRuleId: String?
+    let matchedThreads: [MatchedThread]?
 
     /// Full initializer with all fields
     init(boardAbv: String, threadNo: String, replyNo: String, replyToNo: String, replyText: String,
-         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil, searchId: String? = nil, watchRuleId: String? = nil) {
+         notificationType: NotificationType = .watchedPostReply, threadTitle: String? = nil, newReplyCount: Int? = nil, searchId: String? = nil, watchRuleId: String? = nil, matchedThreads: [MatchedThread]? = nil) {
         self.id = UUID().uuidString
         self.boardAbv = boardAbv
         self.threadNo = threadNo
@@ -41,6 +50,7 @@ struct ReplyNotification: Codable, Identifiable {
         self.newReplyCount = newReplyCount
         self.searchId = searchId
         self.watchRuleId = watchRuleId
+        self.matchedThreads = matchedThreads
     }
 
     /// Backward-compatible decoding with defaults for missing fields
@@ -60,6 +70,7 @@ struct ReplyNotification: Codable, Identifiable {
         newReplyCount = try container.decodeIfPresent(Int.self, forKey: .newReplyCount)
         searchId = try container.decodeIfPresent(String.self, forKey: .searchId)
         watchRuleId = try container.decodeIfPresent(String.self, forKey: .watchRuleId)
+        matchedThreads = try container.decodeIfPresent([MatchedThread].self, forKey: .matchedThreads)
     }
 }
 
@@ -123,6 +134,10 @@ class NotificationManager {
     /// Helper method to fetch notifications from UserDefaults
     private func fetchNotificationsFromDefaults() -> [ReplyNotification] {
         if let notifications = ICloudSyncManager.shared.load([ReplyNotification].self, forKey: notificationsKey) {
+            let searchAlerts = notifications.filter { $0.notificationType == .savedSearchAlert }
+            for n in searchAlerts {
+                print("[NotificationManager] Loaded savedSearchAlert: id=\(n.id), matchCount=\(n.newReplyCount ?? -1), matchedThreads is nil=\(n.matchedThreads == nil), matchedThreads count=\(n.matchedThreads?.count ?? -1)")
+            }
             return notifications.sorted { $0.timestamp > $1.timestamp }
         }
         return []
@@ -298,7 +313,8 @@ class NotificationManager {
         boardAbv: String,
         threadNo: String,
         previewText: String,
-        matchCount: Int
+        matchCount: Int,
+        matchedThreads: [MatchedThread]? = nil
     ) {
         var notifications = getNotifications()
 
@@ -311,6 +327,13 @@ class NotificationManager {
             saveNotifications(notifications)
         }
 
+        print("[NotificationManager] addSavedSearchNotification: searchId=\(searchId), matchCount=\(matchCount), matchedThreads count=\(matchedThreads?.count ?? -1)")
+        if let threads = matchedThreads {
+            for (i, mt) in threads.enumerated() {
+                print("[NotificationManager]   thread[\(i)]: /\(mt.boardAbv)/ No.\(mt.threadNo)")
+            }
+        }
+
         let notification = ReplyNotification(
             boardAbv: boardAbv,
             threadNo: threadNo,
@@ -320,8 +343,10 @@ class NotificationManager {
             notificationType: .savedSearchAlert,
             threadTitle: searchName,
             newReplyCount: matchCount,
-            searchId: searchId
+            searchId: searchId,
+            matchedThreads: matchedThreads
         )
+        print("[NotificationManager] Created notification: matchedThreads is nil=\(notification.matchedThreads == nil), count=\(notification.matchedThreads?.count ?? -1)")
         addNotification(notification)
     }
 

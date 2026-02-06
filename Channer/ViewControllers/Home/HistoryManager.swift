@@ -99,7 +99,7 @@ class HistoryManager {
     /// - Parameter completion: Closure called with the array of valid `ThreadData` objects with updated stats.
     func verifyAndRemoveInvalidHistory(completion: @escaping ([ThreadData]) -> Void) {
         let dispatchGroup = DispatchGroup()
-        var validHistory: [ThreadData] = []
+        var updatedHistory: [ThreadData] = []
         let serialQueue = DispatchQueue(label: "com.channer.historyValidation")
 
         for thread in history {
@@ -120,22 +120,28 @@ class HistoryManager {
                         updatedThread.stats = freshStats
 
                         serialQueue.sync {
-                            validHistory.append(updatedThread)
+                            updatedHistory.append(updatedThread)
                         }
                     } else {
-                        self.removeThreadFromHistory(thread)
+                        // Keep thread in history even if it no longer exists
+                        serialQueue.sync {
+                            updatedHistory.append(thread)
+                        }
                     }
                 case .failure:
-                    self.removeThreadFromHistory(thread)
+                    // Keep thread in history even if the API request fails
+                    serialQueue.sync {
+                        updatedHistory.append(thread)
+                    }
                 }
             }
         }
 
         dispatchGroup.notify(queue: .main) {
-            // Update stored history with fresh stats
-            self.history = validHistory
+            // Update stored history with fresh stats where available
+            self.history = updatedHistory
             self.saveHistory()
-            completion(validHistory)
+            completion(updatedHistory)
         }
     }
     

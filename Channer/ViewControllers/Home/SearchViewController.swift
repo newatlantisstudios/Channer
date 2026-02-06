@@ -751,7 +751,7 @@ extension SearchViewController: UITableViewDataSource {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let shortPreview = String(preview.prefix(100))
 
-            cell.detailTextLabel?.text = "/\(result.boardAbv)/ • \(result.stats) • \(shortPreview)..."
+            cell.detailTextLabel?.text = "/\(result.boardAbv)/ • \(result.createdAt) • \(result.stats) • \(shortPreview)..."
 
             cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
             return cell

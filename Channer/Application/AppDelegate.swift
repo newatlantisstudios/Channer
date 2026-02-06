@@ -699,7 +699,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // Create a UINavigationController with customized back button
-        let navigationController = UINavigationController(rootViewController: rootViewController)
+        let navigationController = CatalystNavigationController(rootViewController: rootViewController)
         
         // Set the default back button title to an empty string
         // This removes the text but keeps the back arrow
