@@ -45,6 +45,9 @@ class settings: UIViewController {
     private let gridItemSizeLabel = UILabel()
     private let gridItemSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
     private var gridItemSizeHeightConstraint: NSLayoutConstraint!
+    private let galleryCellSizeView = UIView()
+    private let galleryCellSizeLabel = UILabel()
+    private let galleryCellSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
@@ -735,6 +738,9 @@ class settings: UIViewController {
         // Setup Thumbnail Size view
         setupThumbnailSizeView()
 
+        // Setup Gallery Cell Size view
+        setupGalleryCellSizeView()
+
         // Setup Preload Videos view
         setupPreloadVideosView()
 
@@ -1026,6 +1032,13 @@ class settings: UIViewController {
 
     @objc private func gridItemSizeSegmentChanged(_ sender: UISegmentedControl) {
         GridItemSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func galleryCellSizeSegmentChanged(_ sender: UISegmentedControl) {
+        GalleryCellSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
 
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
@@ -1496,6 +1509,52 @@ class settings: UIViewController {
         ])
     }
 
+    private func setupGalleryCellSizeView() {
+        galleryCellSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        galleryCellSizeView.layer.cornerRadius = 10
+        galleryCellSizeView.clipsToBounds = true
+        galleryCellSizeView.translatesAutoresizingMaskIntoConstraints = false
+
+        galleryCellSizeLabel.text = "Gallery Cell Size"
+        galleryCellSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        galleryCellSizeLabel.textAlignment = .left
+        galleryCellSizeLabel.numberOfLines = 1
+        galleryCellSizeLabel.adjustsFontSizeToFitWidth = true
+        galleryCellSizeLabel.minimumScaleFactor = 0.8
+        galleryCellSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        galleryCellSizeSegment.selectedSegmentIndex = GalleryCellSizeManager.shared.sizeIndex
+        galleryCellSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        galleryCellSizeSegment.addTarget(self, action: #selector(galleryCellSizeSegmentChanged), for: .valueChanged)
+
+        let galleryCellSizeFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        galleryCellSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: galleryCellSizeFont, weight: .medium)],
+            for: .normal)
+        galleryCellSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: galleryCellSizeFont, weight: .medium)],
+            for: .selected)
+
+        contentView.addSubview(galleryCellSizeView)
+        galleryCellSizeView.addSubview(galleryCellSizeLabel)
+        galleryCellSizeView.addSubview(galleryCellSizeSegment)
+
+        NSLayoutConstraint.activate([
+            galleryCellSizeView.topAnchor.constraint(equalTo: thumbnailSizeView.bottomAnchor, constant: 16),
+            galleryCellSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            galleryCellSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            galleryCellSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            galleryCellSizeLabel.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
+            galleryCellSizeLabel.leadingAnchor.constraint(equalTo: galleryCellSizeView.leadingAnchor, constant: 20),
+            galleryCellSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: galleryCellSizeSegment.leadingAnchor, constant: -15),
+
+            galleryCellSizeSegment.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
+            galleryCellSizeSegment.trailingAnchor.constraint(equalTo: galleryCellSizeView.trailingAnchor, constant: -20),
+            galleryCellSizeSegment.widthAnchor.constraint(equalToConstant: 220)
+        ])
+    }
+
     private func setupPreloadVideosView() {
         // Set up the preload videos view
         preloadVideosView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -1527,7 +1586,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Preload Videos View
-            preloadVideosView.topAnchor.constraint(equalTo: thumbnailSizeView.bottomAnchor, constant: 16),
+            preloadVideosView.topAnchor.constraint(equalTo: galleryCellSizeView.bottomAnchor, constant: 16),
             preloadVideosView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             preloadVideosView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             preloadVideosView.heightAnchor.constraint(equalToConstant: scaledRowHeight),

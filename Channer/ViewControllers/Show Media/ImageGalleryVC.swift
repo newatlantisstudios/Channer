@@ -253,6 +253,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         } else {
             collectionView.reloadData()
         }
+
+        NotificationCenter.default.addObserver(self, selector: #selector(galleryCellSizeDidChange), name: .galleryCellSizeDidChange, object: nil)
+    }
+
+    @objc private func galleryCellSizeDidChange() {
+        collectionView.collectionViewLayout.invalidateLayout()
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -1203,8 +1209,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     /// Returns the size for the item at the given index path.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let padding: CGFloat = 5
-        let availableWidth = collectionView.frame.width - padding * 5 // Adjusted for 4 items with 5 paddings
-        let widthPerItem = availableWidth / 4 // Changed from 2 to 4 columns
+        let columns = GalleryCellSizeManager.shared.columns
+        let availableWidth = collectionView.frame.width - padding * (columns + 1)
+        let widthPerItem = availableWidth / columns
         return CGSize(width: widthPerItem, height: widthPerItem)
     }
     
