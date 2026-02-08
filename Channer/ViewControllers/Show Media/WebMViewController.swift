@@ -299,7 +299,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
 
-        // Stop playback and remove observer
+        // Detach drawable and delegate before stopping to prevent VLCSampleBufferDisplay
+        // from dispatching blocks that reference freed resources (EXC_BAD_ACCESS crash)
+        vlcPlayer.delegate = nil
+        vlcPlayer.drawable = nil
         vlcPlayer.stop()
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
 
@@ -479,6 +482,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     
     /// Sets up VLC player with the given URL
     private func setupVLCPlayer(with url: URL) {
+        // Restore drawable in case it was nilled during cleanup
+        vlcPlayer.drawable = videoView
+
         // Create VLC media object
         let media = VLCMedia(url: url)
         vlcPlayer.media = media
@@ -1641,7 +1647,9 @@ extension WebMViewController {
 
         print("DEBUG: WebMViewController - Loading video at index \(index)")
 
-        // Stop current playback
+        // Detach drawable before stopping to prevent VLCSampleBufferDisplay crash
+        vlcPlayer.delegate = nil
+        vlcPlayer.drawable = nil
         vlcPlayer.stop()
         stopLoopMonitoring()
         stopSeekBarUpdates()

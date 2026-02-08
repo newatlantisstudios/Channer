@@ -101,9 +101,15 @@ class boardTVCell: UITableViewCell {
             return view
         }()
     
+    // MARK: - Dynamic Thumbnail Constraints
+    private var imageWidthConstraint: NSLayoutConstraint!
+    private var imageHeightConstraint: NSLayoutConstraint!
+    private var statsWidthConstraint: NSLayoutConstraint!
+    private var bgHeightConstraint: NSLayoutConstraint!
+
     // MARK: - Lifecycle Methods
     /// Methods related to the cell's lifecycle.
-    
+
     // MARK: - Initializers
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
             super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -127,6 +133,16 @@ class boardTVCell: UITableViewCell {
         topicTextTitle.text = nil
         topicTextNoTitle.text = nil
         topicTitle.text = nil
+        updateThumbnailSize()
+    }
+
+    func updateThumbnailSize() {
+        let thumbSize = ThumbnailSizeManager.shared.thumbnailSize
+        let cellHeight = ThumbnailSizeManager.shared.boardCellHeight
+        imageWidthConstraint.constant = thumbSize
+        imageHeightConstraint.constant = thumbSize
+        statsWidthConstraint.constant = thumbSize
+        bgHeightConstraint.constant = cellHeight
     }
 
     override func layoutSubviews() {
@@ -233,24 +249,32 @@ class boardTVCell: UITableViewCell {
             let borderInset: CGFloat = 14
             let trailingInset: CGFloat = 20  // Extra inset on trailing edge for rounded corner
 
+            let thumbSize = ThumbnailSizeManager.shared.thumbnailSize
+            let cellHeight = ThumbnailSizeManager.shared.boardCellHeight
+
+            imageWidthConstraint = topicImage.widthAnchor.constraint(equalToConstant: thumbSize)
+            imageHeightConstraint = topicImage.heightAnchor.constraint(equalToConstant: thumbSize)
+            statsWidthConstraint = topicStats.widthAnchor.constraint(equalToConstant: thumbSize)
+            bgHeightConstraint = customBackgroundView.heightAnchor.constraint(equalToConstant: cellHeight)
+
                 NSLayoutConstraint.activate([
                     // Custom Background View
                     customBackgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 7),
                     customBackgroundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -7),
                     customBackgroundView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 1),
-                    customBackgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6), // Adjusted for 5px padding
-                    customBackgroundView.heightAnchor.constraint(equalToConstant: 166), // Fixed height
+                    customBackgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
+                    bgHeightConstraint,
 
                     // Topic Image - constrained to customBackgroundView with border inset
                     topicImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: borderInset),
                     topicImage.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: borderInset),
-                    topicImage.widthAnchor.constraint(equalToConstant: 120),
-                    topicImage.heightAnchor.constraint(equalToConstant: 120),
+                    imageWidthConstraint,
+                    imageHeightConstraint,
 
                     // Topic Stats (positioned lower to avoid border)
                     topicStats.centerXAnchor.constraint(equalTo: topicImage.centerXAnchor),
                     topicStats.topAnchor.constraint(equalTo: topicImage.bottomAnchor, constant: 4),
-                    topicStats.widthAnchor.constraint(equalToConstant: 120),
+                    statsWidthConstraint,
                     topicStats.heightAnchor.constraint(equalToConstant: 21),
 
                     // Topic Title (when visible) - constrained to customBackgroundView

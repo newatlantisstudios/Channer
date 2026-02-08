@@ -9,6 +9,7 @@
 import UIKit
 import Kingfisher
 import WebKit
+import VLCKit
 
 class threadReplyCell: UICollectionViewCell {
     
@@ -25,6 +26,7 @@ class threadReplyCell: UICollectionViewCell {
     private var hoverOverlayView: UIView?
     private var pointerInteraction: UIPointerInteraction?
     private var hoverProgressTimer: Timer?
+    private var hoverVLCPlayer: VLCMediaPlayer?
 
     // Quote link hover preview
     weak var quoteLinkHoverDelegate: QuoteLinkHoverDelegate?
@@ -137,7 +139,8 @@ class threadReplyCell: UICollectionViewCell {
         let previewSize: CGFloat = isVideo ? 650 : 850
         let previewView: UIView
         if isVideo, let urlString = imageURL, let url = URL(string: urlString) {
-            // Container holds WKWebView + native poster/progress overlays
+            print("[HoverVideo] Starting video hover preview for URL: \(urlString)")
+            // Container holds VLC video view + native poster/progress overlays
             let container = UIView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
             container.backgroundColor = .black
             container.layer.cornerRadius = 15
@@ -146,20 +149,22 @@ class threadReplyCell: UICollectionViewCell {
             container.layer.borderColor = UIColor.label.cgColor
             container.layer.borderWidth = 1.0
 
-            // WKWebView for video playback
-            let config = WKWebViewConfiguration()
-            config.allowsInlineMediaPlayback = true
-            config.mediaTypesRequiringUserActionForPlayback = []
+            // VLC video view
+            let vlcVideoView = UIView(frame: container.bounds)
+            vlcVideoView.backgroundColor = .black
+            container.addSubview(vlcVideoView)
 
-            let webView = WKWebView(frame: container.bounds, configuration: config)
-            webView.isUserInteractionEnabled = false
-            webView.scrollView.isScrollEnabled = false
-            webView.scrollView.bounces = false
-            webView.isOpaque = false
-            webView.backgroundColor = .black
-            container.addSubview(webView)
+            // Create VLC player (muted for hover preview)
+            let player = VLCMediaPlayer()
+            player.drawable = vlcVideoView
+            player.audio?.isMuted = true
+            player.audio?.volume = 0
+            let media = VLCMedia(url: url)
+            media?.addOption(":input-repeat=65535")
+            player.media = media
+            hoverVLCPlayer = player
 
-            // Native poster overlay (shows thumbnail immediately, no WKWebView load delay)
+            // Native poster overlay (shows thumbnail immediately while VLC loads)
             let posterView = UIImageView(frame: container.bounds)
             posterView.image = thumbnailImage
             posterView.contentMode = .scaleAspectFit
@@ -203,73 +208,45 @@ class threadReplyCell: UICollectionViewCell {
                 shimmerView.frame.origin.x = trackWidth
             }
 
-            // Load video HTML (simple version, poster/progress handled natively)
-            let mimeType = urlString.hasSuffix(".mp4") ? "video/mp4" : "video/webm"
-            let videoHTML = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-                video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-              </style>
-            </head>
-            <body>
-              <video autoplay loop muted playsinline webkit-playsinline preload="auto">
-                <source src="\(url.absoluteString)" type="\(mimeType)">
-              </video>
-              <script>
-                var v = document.querySelector('video');
-                function play() { if (v && v.paused) { v.muted = true; v.play().catch(function(){}); } }
-                play(); setTimeout(play, 100); setTimeout(play, 500);
-                v.addEventListener('pause', play);
-              </script>
-            </body>
-            </html>
-            """
-            webView.loadHTMLString(videoHTML, baseURL: nil)
+            // Start VLC playback
+            player.play()
+            print("[HoverVideo] VLC player.play() called")
 
-            // Poll video state to update native progress overlay
+            // Poll VLC player state to update native progress overlay
             hoverProgressTimer?.invalidate()
-            hoverProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak webView, weak posterView, weak progressFill, weak shimmerView, weak gradientView, weak progressTrack] _ in
-                guard let webView = webView else {
+            hoverProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak player, weak posterView, weak progressFill, weak shimmerView, weak gradientView, weak progressTrack] _ in
+                guard let player = player else {
                     self?.hoverProgressTimer?.invalidate()
                     self?.hoverProgressTimer = nil
                     return
                 }
-                let js = "(function(){var v=document.querySelector('video');if(!v)return'{}';var b=v.buffered.length>0?v.buffered.end(v.buffered.length-1):0;return JSON.stringify({p:!v.paused,b:b,d:v.duration||0,t:v.currentTime})})()"
-                webView.evaluateJavaScript(js) { result, _ in
-                    guard let jsonString = result as? String,
-                          let data = jsonString.data(using: .utf8),
-                          let jsonObj = try? JSONSerialization.jsonObject(with: data),
-                          let json = jsonObj as? [String: Any] else { return }
 
-                    let playing = json["p"] as? Bool ?? false
-                    let buffered = json["b"] as? Double ?? 0
-                    let duration = json["d"] as? Double ?? 0
-                    let currentTime = json["t"] as? Double ?? 0
+                let isPlaying = player.isPlaying
+                let position = player.position
+                let timeMs = player.time.intValue
 
-                    if duration > 0 && buffered > 0 {
-                        let pct = CGFloat(min(buffered / duration, 1.0))
-                        let tw = progressTrack?.bounds.width ?? 0
-                        UIView.animate(withDuration: 0.2) {
-                            progressFill?.frame.size.width = tw * pct
-                        }
-                        if pct > 0.1 {
-                            shimmerView?.layer.removeAllAnimations()
-                            shimmerView?.isHidden = true
-                        }
+                print("[HoverVideo] Poll: isPlaying=\(isPlaying) position=\(position) time=\(timeMs)ms state=\(player.state.rawValue)")
+
+                // Update progress bar with playback position
+                if isPlaying && position > 0 {
+                    let pct = CGFloat(min(max(position, 0), 1))
+                    let tw = progressTrack?.bounds.width ?? 0
+                    UIView.animate(withDuration: 0.2) {
+                        progressFill?.frame.size.width = tw * pct
                     }
+                    shimmerView?.layer.removeAllAnimations()
+                    shimmerView?.isHidden = true
+                }
 
-                    if playing || currentTime > 0 {
-                        self?.hoverProgressTimer?.invalidate()
-                        self?.hoverProgressTimer = nil
-                        UIView.animate(withDuration: 0.3) {
-                            posterView?.alpha = 0
-                            gradientView?.alpha = 0
-                            progressTrack?.alpha = 0
-                        }
+                // Fade out poster once VLC is actually rendering frames
+                if isPlaying && timeMs > 0 {
+                    print("[HoverVideo] Video ready! Fading out poster overlay.")
+                    self?.hoverProgressTimer?.invalidate()
+                    self?.hoverProgressTimer = nil
+                    UIView.animate(withDuration: 0.3) {
+                        posterView?.alpha = 0
+                        gradientView?.alpha = 0
+                        progressTrack?.alpha = 0
                     }
                 }
             }
@@ -378,12 +355,10 @@ class threadReplyCell: UICollectionViewCell {
 
         // Cancel any in-flight full-res image download
         (previewView as? UIImageView)?.kf.cancelDownloadTask()
-        // Stop WKWebView (may be nested in a container)
-        if let webView = previewView as? WKWebView {
-            webView.stopLoading()
-        } else if let container = previewView {
-            container.subviews.compactMap { $0 as? WKWebView }.first?.stopLoading()
-        }
+
+        // Stop VLC player
+        hoverVLCPlayer?.stop()
+        hoverVLCPlayer = nil
 
         // Animate out
         UIView.animate(withDuration: 0.15, animations: {
@@ -406,6 +381,8 @@ class threadReplyCell: UICollectionViewCell {
     
     deinit {
         hoverProgressTimer?.invalidate()
+        hoverVLCPlayer?.stop()
+        hoverVLCPlayer = nil
 
         // Ensure we clean up any previews when cell is deallocated
         if let previewView = hoveredPreviewView {
@@ -494,7 +471,7 @@ class threadReplyCell: UICollectionViewCell {
         // Card dimensions
         let maxWidth = min(window.bounds.width - 40, 500)
         let maxHeight = window.bounds.height * 0.7
-        let thumbnailSize: CGFloat = 120
+        let thumbnailSize = ThumbnailSizeManager.shared.thumbnailSize
         let padding: CGFloat = 16
 
         // Calculate text height to size the card properly

@@ -17,6 +17,7 @@
 		171A75E62DD6F9FF00D75B34 /* ThreadCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */; };
 		17FONTSCALEBUILD1234567890 /* FontScaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17FONTSCALE123456789012 /* FontScaleManager.swift */; };
 		17GRIDITEMSIZEBUILD1234 /* GridItemSizeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */; };
+		17THUMBNAILSIZEBUILD1234 /* ThumbnailSizeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */; };
 		171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */; };
 		171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */; };
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
@@ -158,6 +159,7 @@
 		1A2B3C4D5E6F708190A1B2D1 /* ThreadViewControllerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadViewControllerFactory.swift; sourceTree = "<group>"; };
 		17FONTSCALE123456789012 /* FontScaleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontScaleManager.swift; sourceTree = "<group>"; };
 		17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridItemSizeManager.swift; sourceTree = "<group>"; };
+		17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailSizeManager.swift; sourceTree = "<group>"; };
 		171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategorizedFavoritesViewController.swift; sourceTree = "<group>"; };
 		171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryManagerViewController.swift; sourceTree = "<group>"; };
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
@@ -311,6 +313,7 @@
 				171A75E02DD6F9FF00D75B34 /* ThreadCacheManager.swift */,
 				17FONTSCALE123456789012 /* FontScaleManager.swift */,
 				17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */,
+				17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */,
 				9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
 				17STAT0012DE9000000000002 /* StatisticsManager.swift */,
 				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
@@ -776,6 +779,7 @@
 				1A2B3C4D5E6F708190A1B2E1 /* ThreadViewControllerFactory.swift in Sources */,
 				17FONTSCALEBUILD1234567890 /* FontScaleManager.swift in Sources */,
 				17GRIDITEMSIZEBUILD1234 /* GridItemSizeManager.swift in Sources */,
+				17THUMBNAILSIZEBUILD1234 /* ThumbnailSizeManager.swift in Sources */,
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,

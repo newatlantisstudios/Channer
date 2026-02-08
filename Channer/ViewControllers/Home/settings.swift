@@ -39,7 +39,8 @@ class settings: UIViewController {
     private let themeSettingsButton = UIButton(type: .system)
     private let fontSizeView = UIView()
     private let fontSizeLabel = UILabel()
-    private let fontSizeSegment = UISegmentedControl(items: ["Default", "Large", "XL", "XXL", "XXXL"])
+    private let fontSizeStepper = UIStepper()
+    private let fontSizeValueLabel = UILabel()
     private let gridItemSizeView = UIView()
     private let gridItemSizeLabel = UILabel()
     private let gridItemSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
@@ -71,6 +72,10 @@ class settings: UIViewController {
     private let highQualityThumbnailsView = UIView()
     private let highQualityThumbnailsLabel = UILabel()
     private let highQualityThumbnailsToggle = UISwitch()
+
+    private let thumbnailSizeView = UIView()
+    private let thumbnailSizeLabel = UILabel()
+    private let thumbnailSizeSegment = UISegmentedControl(items: ["S", "M", "L", "XL", "2XL", "3XL"])
     
     private var boardsDisplayModeView: UIView!
     private var boardsDisplayModeLabel: UILabel!
@@ -104,6 +109,24 @@ class settings: UIViewController {
     private let debugLabel = UILabel()
     private let debugButton = UIButton(type: .system)
     #endif
+
+    // Scaled row heights based on font scale
+    private var scaledRowHeight: CGFloat {
+        let scale = FontScaleManager.shared.scaleFactor
+        return max(44, round(44 * scale))
+    }
+    private var scaledSubtitleRowHeight: CGFloat {
+        let scale = FontScaleManager.shared.scaleFactor
+        return max(60, round(60 * scale))
+    }
+    private var scaledICloudRowHeight: CGFloat {
+        let scale = FontScaleManager.shared.scaleFactor
+        return max(64, round(64 * scale))
+    }
+    private var scaledNewPostRowHeight: CGFloat {
+        let scale = FontScaleManager.shared.scaleFactor
+        return max(70, round(70 * scale))
+    }
 
     // Constants
     private let userDefaultsKey = "defaultBoard"
@@ -494,20 +517,22 @@ class settings: UIViewController {
         fontSizeLabel.translatesAutoresizingMaskIntoConstraints = false
         fontSizeView.addSubview(fontSizeLabel)
 
-        // Font Size Segment
-        fontSizeSegment.selectedSegmentIndex = FontScaleManager.shared.scaleIndex
-        fontSizeSegment.translatesAutoresizingMaskIntoConstraints = false
-        fontSizeSegment.addTarget(self, action: #selector(fontSizeSegmentChanged), for: .valueChanged)
-        let fontSizeSegmentFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
-        fontSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: fontSizeSegmentFont, weight: .medium)],
-            for: .normal
-        )
-        fontSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: fontSizeSegmentFont, weight: .medium)],
-            for: .selected
-        )
-        fontSizeView.addSubview(fontSizeSegment)
+        // Font Size Value Label
+        fontSizeValueLabel.text = "\(FontScaleManager.shared.scalePercent)%"
+        fontSizeValueLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        fontSizeValueLabel.textAlignment = .center
+        fontSizeValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        fontSizeView.addSubview(fontSizeValueLabel)
+
+        // Font Size Stepper
+        fontSizeStepper.minimumValue = Double(FontScaleManager.minimumPercent)
+        fontSizeStepper.maximumValue = Double(FontScaleManager.maximumPercent)
+        fontSizeStepper.stepValue = Double(FontScaleManager.stepPercent)
+        fontSizeStepper.value = Double(FontScaleManager.shared.scalePercent)
+        fontSizeStepper.wraps = false
+        fontSizeStepper.translatesAutoresizingMaskIntoConstraints = false
+        fontSizeStepper.addTarget(self, action: #selector(fontSizeStepperChanged), for: .valueChanged)
+        fontSizeView.addSubview(fontSizeStepper)
         
         // Content Filtering View
         contentFilteringView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -706,7 +731,10 @@ class settings: UIViewController {
         
         // Setup High Quality Thumbnails view
         setupHighQualityThumbnailsView()
-        
+
+        // Setup Thumbnail Size view
+        setupThumbnailSizeView()
+
         // Setup Preload Videos view
         setupPreloadVideosView()
 
@@ -987,10 +1015,12 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
-    @objc private func fontSizeSegmentChanged(_ sender: UISegmentedControl) {
-        FontScaleManager.shared.setScaleIndex(sender.selectedSegmentIndex)
+    @objc private func fontSizeStepperChanged(_ sender: UIStepper) {
+        let percent = Int(sender.value)
+        fontSizeValueLabel.text = "\(percent)%"
+        FontScaleManager.shared.setScalePercent(percent)
 
-        let generator = UIImpactFeedbackGenerator(style: .medium)
+        let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
     }
 
@@ -1251,12 +1281,19 @@ class settings: UIViewController {
         // Show confirmation alert
         let title = sender.isOn ? "High-Quality Thumbnails Enabled" : "High-Quality Thumbnails Disabled"
         let message = sender.isOn ? "Thread thumbnails will now display in high quality. This may use more bandwidth." : "Thread thumbnails will now display in standard quality."
-        
+
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
-        
+
         // Provide haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func thumbnailSizeSegmentChanged(_ sender: UISegmentedControl) {
+        ThumbnailSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
+
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
@@ -1400,7 +1437,7 @@ class settings: UIViewController {
             highQualityThumbnailsView.topAnchor.constraint(equalTo: threadsDisplayModeView.bottomAnchor, constant: 16),
             highQualityThumbnailsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             highQualityThumbnailsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            highQualityThumbnailsView.heightAnchor.constraint(equalToConstant: 44),
+            highQualityThumbnailsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             
             // High Quality Thumbnails Label
             highQualityThumbnailsLabel.centerYAnchor.constraint(equalTo: highQualityThumbnailsView.centerYAnchor),
@@ -1413,6 +1450,52 @@ class settings: UIViewController {
         ])
     }
     
+    private func setupThumbnailSizeView() {
+        thumbnailSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        thumbnailSizeView.layer.cornerRadius = 10
+        thumbnailSizeView.clipsToBounds = true
+        thumbnailSizeView.translatesAutoresizingMaskIntoConstraints = false
+
+        thumbnailSizeLabel.text = "Thumbnail Size"
+        thumbnailSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        thumbnailSizeLabel.textAlignment = .left
+        thumbnailSizeLabel.numberOfLines = 1
+        thumbnailSizeLabel.adjustsFontSizeToFitWidth = true
+        thumbnailSizeLabel.minimumScaleFactor = 0.8
+        thumbnailSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        thumbnailSizeSegment.selectedSegmentIndex = ThumbnailSizeManager.shared.sizeIndex
+        thumbnailSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        thumbnailSizeSegment.addTarget(self, action: #selector(thumbnailSizeSegmentChanged), for: .valueChanged)
+
+        let segFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        thumbnailSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .normal)
+        thumbnailSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .selected)
+
+        contentView.addSubview(thumbnailSizeView)
+        thumbnailSizeView.addSubview(thumbnailSizeLabel)
+        thumbnailSizeView.addSubview(thumbnailSizeSegment)
+
+        NSLayoutConstraint.activate([
+            thumbnailSizeView.topAnchor.constraint(equalTo: highQualityThumbnailsView.bottomAnchor, constant: 16),
+            thumbnailSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            thumbnailSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            thumbnailSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            thumbnailSizeLabel.centerYAnchor.constraint(equalTo: thumbnailSizeView.centerYAnchor),
+            thumbnailSizeLabel.leadingAnchor.constraint(equalTo: thumbnailSizeView.leadingAnchor, constant: 20),
+            thumbnailSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: thumbnailSizeSegment.leadingAnchor, constant: -15),
+
+            thumbnailSizeSegment.centerYAnchor.constraint(equalTo: thumbnailSizeView.centerYAnchor),
+            thumbnailSizeSegment.trailingAnchor.constraint(equalTo: thumbnailSizeView.trailingAnchor, constant: -20),
+            thumbnailSizeSegment.widthAnchor.constraint(equalToConstant: 260),
+        ])
+    }
+
     private func setupPreloadVideosView() {
         // Set up the preload videos view
         preloadVideosView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -1444,10 +1527,10 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Preload Videos View
-            preloadVideosView.topAnchor.constraint(equalTo: highQualityThumbnailsView.bottomAnchor, constant: 16),
+            preloadVideosView.topAnchor.constraint(equalTo: thumbnailSizeView.bottomAnchor, constant: 16),
             preloadVideosView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             preloadVideosView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            preloadVideosView.heightAnchor.constraint(equalToConstant: 44),
+            preloadVideosView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             
             // Preload Videos Label
             preloadVideosLabel.centerYAnchor.constraint(equalTo: preloadVideosView.centerYAnchor),
@@ -1488,7 +1571,7 @@ class settings: UIViewController {
             defaultVideoMutedView.topAnchor.constraint(equalTo: preloadVideosView.bottomAnchor, constant: 16),
             defaultVideoMutedView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             defaultVideoMutedView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            defaultVideoMutedView.heightAnchor.constraint(equalToConstant: 44),
+            defaultVideoMutedView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
 
             defaultVideoMutedLabel.centerYAnchor.constraint(equalTo: defaultVideoMutedView.centerYAnchor),
             defaultVideoMutedLabel.leadingAnchor.constraint(equalTo: defaultVideoMutedView.leadingAnchor, constant: 20),
@@ -1526,7 +1609,7 @@ class settings: UIViewController {
             mediaPrefetchSettingsView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
             mediaPrefetchSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             mediaPrefetchSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            mediaPrefetchSettingsView.heightAnchor.constraint(equalToConstant: 44),
+            mediaPrefetchSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
 
             mediaPrefetchSettingsLabel.centerYAnchor.constraint(equalTo: mediaPrefetchSettingsView.centerYAnchor),
             mediaPrefetchSettingsLabel.leadingAnchor.constraint(equalTo: mediaPrefetchSettingsView.leadingAnchor, constant: 20),
@@ -1623,7 +1706,7 @@ class settings: UIViewController {
             boardsDisplayModeView.topAnchor.constraint(equalTo: newPostBehaviorView.bottomAnchor, constant: 16),
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            boardsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
+            boardsDisplayModeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             
             // Boards Display Mode Label
             boardsDisplayModeLabel.centerYAnchor.constraint(equalTo: boardsDisplayModeView.centerYAnchor),
@@ -1669,7 +1752,7 @@ class settings: UIViewController {
         gridItemSizeView.addSubview(gridItemSizeLabel)
         gridItemSizeView.addSubview(gridItemSizeSegment)
 
-        gridItemSizeHeightConstraint = gridItemSizeView.heightAnchor.constraint(equalToConstant: 44)
+        gridItemSizeHeightConstraint = gridItemSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight)
 
         NSLayoutConstraint.activate([
             gridItemSizeView.topAnchor.constraint(equalTo: boardsDisplayModeView.bottomAnchor, constant: 16),
@@ -1732,7 +1815,7 @@ class settings: UIViewController {
             threadsDisplayModeView.topAnchor.constraint(equalTo: gridItemSizeView.bottomAnchor, constant: 16),
             threadsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             threadsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            threadsDisplayModeView.heightAnchor.constraint(equalToConstant: 44),
+            threadsDisplayModeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
 
             threadsDisplayModeLabel.centerYAnchor.constraint(equalTo: threadsDisplayModeView.centerYAnchor),
             threadsDisplayModeLabel.leadingAnchor.constraint(equalTo: threadsDisplayModeView.leadingAnchor, constant: 20),
@@ -1798,7 +1881,7 @@ class settings: UIViewController {
 
     private func updateGridItemSizeVisibility(isVisible: Bool) {
         gridItemSizeView.isHidden = !isVisible
-        gridItemSizeHeightConstraint.constant = isVisible ? 44 : 0
+        gridItemSizeHeightConstraint.constant = isVisible ? scaledRowHeight : 0
         view.layoutIfNeeded()
     }
     
@@ -1821,7 +1904,7 @@ class settings: UIViewController {
             selectedBoardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             selectedBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             selectedBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            selectedBoardView.heightAnchor.constraint(equalToConstant: 44),
+            selectedBoardView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             selectedBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Selected Board Label
@@ -1837,7 +1920,7 @@ class settings: UIViewController {
             launchWithStartupBoardView.topAnchor.constraint(equalTo: selectedBoardView.bottomAnchor, constant: 16),
             launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: 44),
+            launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Launch With Startup Board Label
@@ -1853,7 +1936,7 @@ class settings: UIViewController {
             hiddenBoardsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
             hiddenBoardsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             hiddenBoardsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            hiddenBoardsView.heightAnchor.constraint(equalToConstant: 44),
+            hiddenBoardsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             hiddenBoardsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Hidden Boards Label
@@ -1872,7 +1955,7 @@ class settings: UIViewController {
             faceIDView.topAnchor.constraint(equalTo: hiddenBoardsView.bottomAnchor, constant: 16),
             faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            faceIDView.heightAnchor.constraint(equalToConstant: 44),
+            faceIDView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             // Ensure the view is wide enough
             faceIDView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
@@ -1890,7 +1973,7 @@ class settings: UIViewController {
             notificationsView.topAnchor.constraint(equalTo: faceIDView.bottomAnchor, constant: 16),
             notificationsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             notificationsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            notificationsView.heightAnchor.constraint(equalToConstant: 44),
+            notificationsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             notificationsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Notifications Label
@@ -1906,7 +1989,7 @@ class settings: UIViewController {
             offlineReadingView.topAnchor.constraint(equalTo: notificationsView.bottomAnchor, constant: 16),
             offlineReadingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             offlineReadingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            offlineReadingView.heightAnchor.constraint(equalToConstant: 60),
+            offlineReadingView.heightAnchor.constraint(equalToConstant: scaledSubtitleRowHeight),
             offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Offline Reading Label
@@ -1927,7 +2010,7 @@ class settings: UIViewController {
             iCloudSyncView.topAnchor.constraint(equalTo: offlineReadingView.bottomAnchor, constant: 16),
             iCloudSyncView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             iCloudSyncView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            iCloudSyncView.heightAnchor.constraint(equalToConstant: 64),
+            iCloudSyncView.heightAnchor.constraint(equalToConstant: scaledICloudRowHeight),
             iCloudSyncView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // iCloud Sync Label
@@ -1952,7 +2035,7 @@ class settings: UIViewController {
             themeSettingsView.topAnchor.constraint(equalTo: iCloudSyncView.bottomAnchor, constant: 16),
             themeSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            themeSettingsView.heightAnchor.constraint(equalToConstant: 44),
+            themeSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             themeSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Theme Settings Label
@@ -1968,24 +2051,28 @@ class settings: UIViewController {
             fontSizeView.topAnchor.constraint(equalTo: themeSettingsView.bottomAnchor, constant: 16),
             fontSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             fontSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            fontSizeView.heightAnchor.constraint(equalToConstant: 44),
+            fontSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             fontSizeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Font Size Label
             fontSizeLabel.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
             fontSizeLabel.leadingAnchor.constraint(equalTo: fontSizeView.leadingAnchor, constant: 20),
-            fontSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: fontSizeSegment.leadingAnchor, constant: -15),
+            fontSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: fontSizeValueLabel.leadingAnchor, constant: -10),
 
-            // Font Size Segment
-            fontSizeSegment.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
-            fontSizeSegment.trailingAnchor.constraint(equalTo: fontSizeView.trailingAnchor, constant: -20),
-            fontSizeSegment.widthAnchor.constraint(equalToConstant: 240),
+            // Font Size Value Label
+            fontSizeValueLabel.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
+            fontSizeValueLabel.trailingAnchor.constraint(equalTo: fontSizeStepper.leadingAnchor, constant: -10),
+            fontSizeValueLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+
+            // Font Size Stepper
+            fontSizeStepper.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
+            fontSizeStepper.trailingAnchor.constraint(equalTo: fontSizeView.trailingAnchor, constant: -20),
             
             // Content Filtering View
             contentFilteringView.topAnchor.constraint(equalTo: fontSizeView.bottomAnchor, constant: 16),
             contentFilteringView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             contentFilteringView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            contentFilteringView.heightAnchor.constraint(equalToConstant: 44),
+            contentFilteringView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             contentFilteringView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Content Filtering Label
@@ -2001,7 +2088,7 @@ class settings: UIViewController {
             watchRulesView.topAnchor.constraint(equalTo: contentFilteringView.bottomAnchor, constant: 16),
             watchRulesView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             watchRulesView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            watchRulesView.heightAnchor.constraint(equalToConstant: 44),
+            watchRulesView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             watchRulesView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Watch Rules Label
@@ -2017,7 +2104,7 @@ class settings: UIViewController {
             autoRefreshView.topAnchor.constraint(equalTo: watchRulesView.bottomAnchor, constant: 16),
             autoRefreshView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             autoRefreshView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            autoRefreshView.heightAnchor.constraint(equalToConstant: 44),
+            autoRefreshView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             autoRefreshView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Auto-refresh Label
@@ -2033,7 +2120,7 @@ class settings: UIViewController {
             statisticsView.topAnchor.constraint(equalTo: autoRefreshView.bottomAnchor, constant: 16),
             statisticsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             statisticsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            statisticsView.heightAnchor.constraint(equalToConstant: 44),
+            statisticsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             statisticsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Statistics Label
@@ -2049,7 +2136,7 @@ class settings: UIViewController {
             passSettingsView.topAnchor.constraint(equalTo: statisticsView.bottomAnchor, constant: 16),
             passSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             passSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            passSettingsView.heightAnchor.constraint(equalToConstant: 44),
+            passSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
             passSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Pass Status Indicator
@@ -2071,7 +2158,7 @@ class settings: UIViewController {
             newPostBehaviorView.topAnchor.constraint(equalTo: passSettingsView.bottomAnchor, constant: 16),
             newPostBehaviorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             newPostBehaviorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            newPostBehaviorView.heightAnchor.constraint(equalToConstant: 70),
+            newPostBehaviorView.heightAnchor.constraint(equalToConstant: scaledNewPostRowHeight),
             newPostBehaviorView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // New Post Behavior Label
@@ -2093,7 +2180,7 @@ class settings: UIViewController {
                 keyboardShortcutsView.topAnchor.constraint(equalTo: mediaPrefetchSettingsView.bottomAnchor, constant: 16),
                 keyboardShortcutsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 keyboardShortcutsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-                keyboardShortcutsView.heightAnchor.constraint(equalToConstant: 44),
+                keyboardShortcutsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
                 keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
                 // Keyboard Shortcuts Label
@@ -2112,7 +2199,7 @@ class settings: UIViewController {
                 debugView.topAnchor.constraint(equalTo: keyboardShortcutsView.bottomAnchor, constant: 16),
                 debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-                debugView.heightAnchor.constraint(equalToConstant: 44),
+                debugView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
 
                 debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),
@@ -2137,7 +2224,7 @@ class settings: UIViewController {
                 debugView.topAnchor.constraint(equalTo: mediaPrefetchSettingsView.bottomAnchor, constant: 16),
                 debugView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 debugView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-                debugView.heightAnchor.constraint(equalToConstant: 44),
+                debugView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
 
                 debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),

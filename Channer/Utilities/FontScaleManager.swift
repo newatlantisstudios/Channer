@@ -6,40 +6,53 @@ final class FontScaleManager {
     static let shared = FontScaleManager()
 
     private let fontScaleKey = "channer_font_scale_index"
+    private let fontScalePercentKey = "channer_font_scale_percent"
     private let scaleOptions: [CGFloat] = [1.0, 1.2, 1.35, 1.5, 1.65]
     private var currentScale: CGFloat = 1.0
 
+    static let minimumPercent: Int = 80
+    static let maximumPercent: Int = 200
+    static let stepPercent: Int = 5
+    static let defaultPercent: Int = 100
+
     private init() {
-        if UserDefaults.standard.object(forKey: fontScaleKey) == nil {
-            UserDefaults.standard.set(0, forKey: fontScaleKey)
+        // Migrate from old index-based storage if needed
+        if UserDefaults.standard.object(forKey: fontScalePercentKey) == nil {
+            if let _ = UserDefaults.standard.object(forKey: fontScaleKey) {
+                let savedIndex = UserDefaults.standard.integer(forKey: fontScaleKey)
+                let clampedIndex = max(0, min(savedIndex, scaleOptions.count - 1))
+                let percent = Int(scaleOptions[clampedIndex] * 100)
+                UserDefaults.standard.set(percent, forKey: fontScalePercentKey)
+            } else {
+                UserDefaults.standard.set(FontScaleManager.defaultPercent, forKey: fontScalePercentKey)
+            }
         }
 
-        let savedIndex = UserDefaults.standard.integer(forKey: fontScaleKey)
-        let clampedIndex = clampIndex(savedIndex)
-        currentScale = scaleOptions[clampedIndex]
+        let savedPercent = UserDefaults.standard.integer(forKey: fontScalePercentKey)
+        currentScale = CGFloat(clampPercent(savedPercent)) / 100.0
     }
 
     func enableFontScaling() {
         UIFont.enableFontScaling()
     }
 
-    var scaleIndex: Int {
-        let savedIndex = UserDefaults.standard.integer(forKey: fontScaleKey)
-        return clampIndex(savedIndex)
+    var scalePercent: Int {
+        let saved = UserDefaults.standard.integer(forKey: fontScalePercentKey)
+        return clampPercent(saved)
     }
 
     var scaleFactor: CGFloat {
         return currentScale
     }
 
-    func setScaleIndex(_ index: Int) {
-        let clampedIndex = clampIndex(index)
-        let newScale = scaleOptions[clampedIndex]
+    func setScalePercent(_ percent: Int) {
+        let clamped = clampPercent(percent)
+        let newScale = CGFloat(clamped) / 100.0
         let oldScale = currentScale
 
         guard newScale != oldScale else { return }
 
-        UserDefaults.standard.set(clampedIndex, forKey: fontScaleKey)
+        UserDefaults.standard.set(clamped, forKey: fontScalePercentKey)
         currentScale = newScale
 
         DispatchQueue.main.async {
@@ -52,8 +65,8 @@ final class FontScaleManager {
         return size * currentScale
     }
 
-    private func clampIndex(_ index: Int) -> Int {
-        return max(0, min(index, scaleOptions.count - 1))
+    private func clampPercent(_ percent: Int) -> Int {
+        return max(FontScaleManager.minimumPercent, min(percent, FontScaleManager.maximumPercent))
     }
 
     private func applyScaleChange(from oldScale: CGFloat, to newScale: CGFloat) {

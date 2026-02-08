@@ -191,6 +191,10 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         // This will trigger recreation of the keyCommands array
         self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
+
+    @objc private func thumbnailSizeDidChange() {
+        tableView.reloadData()
+    }
     
     // MARK: - Properties
     // This section contains properties and variables used throughout the class,
@@ -249,9 +253,15 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         super.viewDidLoad()
         
         // Register for keyboard shortcuts notifications
-        NotificationCenter.default.addObserver(self, 
-                                             selector: #selector(keyboardShortcutsToggled(_:)), 
-                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(keyboardShortcutsToggled(_:)),
+                                             name: NSNotification.Name("KeyboardShortcutsToggled"),
+                                             object: nil)
+
+        // Register for thumbnail size changes
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(thumbnailSizeDidChange),
+                                             name: .thumbnailSizeDidChange,
                                              object: nil)
         
         print("=== boardTV viewDidLoad ===")

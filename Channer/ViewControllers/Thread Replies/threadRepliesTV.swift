@@ -60,9 +60,10 @@ extension threadRepliesTV {
 
         DispatchQueue.global(qos: .userInitiated).async {
             var newHeights: [Int: CGFloat] = [:]
-            let baseMin: CGFloat = 172
+            let thumbSize = ThumbnailSizeManager.shared.thumbnailSize
+            let baseMin = ThumbnailSizeManager.shared.replyCellMinHeight
             let verticalPadding: CGFloat = 56 // derived from layout
-            let textWidthWithImage = max(0, width - 164) // 8+12+120+8 left, 16 right
+            let textWidthWithImage = max(0, width - (44 + thumbSize)) // 8+12+thumbSize+8 left, 16 right
             let textWidthNoImage = max(0, width - 36)    // 8+12 left, 16 right
 
             for i in 0..<replies.count {
@@ -238,7 +239,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // This will trigger recreation of the keyCommands array
         self.setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
-    
+
+    @objc private func thumbnailSizeDidChange() {
+        // Reset preloaded state so heights are recalculated with new thumbnail size
+        hasPreloadedContent = false
+        preloadThreadContent { [weak self] in
+            DispatchQueue.main.async {
+                self?.tableView.reloadData()
+            }
+        }
+    }
+
     // MARK: - Properties
     /// Outlets and general properties for the thread view
     let tableView = UITableView()
@@ -470,9 +481,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         TextFormatter.currentBoard = boardAbv
 
         // Register for keyboard shortcuts notifications
-        NotificationCenter.default.addObserver(self, 
-                                             selector: #selector(keyboardShortcutsToggled(_:)), 
-                                             name: NSNotification.Name("KeyboardShortcutsToggled"), 
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(keyboardShortcutsToggled(_:)),
+                                             name: NSNotification.Name("KeyboardShortcutsToggled"),
+                                             object: nil)
+
+        // Register for thumbnail size changes
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(thumbnailSizeDidChange),
+                                             name: .thumbnailSizeDidChange,
                                              object: nil)
                                              
         // Enable hover interactions for Apple Pencil

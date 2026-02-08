@@ -8,7 +8,7 @@ Channer is a native iOS/iPadOS image board client using Swift, UIKit, and MVC ar
 
 ## Development Environment
 
-- **Platform**: iOS/iPadOS 15.6+ (deployment target 18.0)
+- **Platform**: iOS/iPadOS (deployment target 15.6)
 - **Language**: Swift 5.0+
 - **Build System**: Xcode with Swift Package Manager
 - **Workspace**: Use `Channer.xcworkspace` or `Channer.xcodeproj`
@@ -22,6 +22,7 @@ Channer is a native iOS/iPadOS image board client using Swift, UIKit, and MVC ar
 ./build-advanced.sh -r        # Release build
 ./build-advanced.sh -d        # Device build (not simulator)
 ./build-advanced.sh -m        # Mac Catalyst build
+./build-advanced.sh -t 'platform=iOS Simulator,name=iPhone 16'  # Custom destination
 ./build-advanced.sh -v        # Verbose build (no xcbeautify)
 ```
 
@@ -84,6 +85,12 @@ Located in `Utilities/` except where noted:
 - **WatchedPostsManager**: Watch individual posts for replies
 - **StatisticsManager**: Tracks browsing analytics (boards visited, threads read, time spent)
 - **ThreadCacheManager**: Offline thread caching
+- **BackgroundTaskManager**: BGTaskScheduler with 3 tasks (thread refresh, watched posts, saved searches)
+- **DownloadManagerService**: File download queue management
+- **KeyboardShortcutManager**: Keyboard navigation (iPad)
+- **WatchRulesManager**: Advanced watch rules for thread monitoring
+- **MyPostsManager**: Tracks user's own posts
+- **HiddenBoardsManager**: Board visibility management
 
 ### Data Models Location
 Some models are defined inline within view controller files:
