@@ -3,7 +3,7 @@ import Kingfisher
 import WebKit
 import VLCKit
 
-class threadRepliesCell: UITableViewCell {
+class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     // Variables for hover functionality
     private var imageURL: String?
     private var hoveredPreviewView: UIView?
@@ -581,7 +581,7 @@ class threadRepliesCell: UITableViewCell {
         }
 
         // Bigger preview for images, smaller for video thumbnails
-        let previewSize: CGFloat = isVideo ? 550 : 750
+        let previewSize: CGFloat = isVideo ? HoverPreviewManager.shared.videoPreviewSize : HoverPreviewManager.shared.imagePreviewSize
         // Use device corner radius for preview
         let deviceCornerRadius: CGFloat
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -609,14 +609,21 @@ class threadRepliesCell: UITableViewCell {
             vlcVideoView.backgroundColor = .black
             container.addSubview(vlcVideoView)
 
-            // Create VLC player (muted for hover preview)
+            // Create VLC player
             let player = VLCMediaPlayer()
+            print("[HoverVLC] Created new VLCMediaPlayer \(Unmanaged.passUnretained(player).toOpaque()) on thread: \(Thread.isMainThread ? "main" : "bg") for URL: \(urlString)")
             player.drawable = vlcVideoView
-            player.audio?.isMuted = true
-            player.audio?.volume = 0
+            let hoverSoundEnabled = HoverPreviewManager.shared.videoSoundEnabled
             let media = VLCMedia(url: url)
             media?.addOption(":input-repeat=65535")
+            if !hoverSoundEnabled {
+                media?.addOption(":no-audio")
+            }
             player.media = media
+            if let oldPlayer = hoverVLCPlayer {
+                print("[HoverVLC] WARNING: replacing existing hoverVLCPlayer \(Unmanaged.passUnretained(oldPlayer).toOpaque()) without cleanup!")
+            }
+            player.delegate = self
             hoverVLCPlayer = player
 
             // Native poster overlay (shows thumbnail immediately while VLC loads)
@@ -665,7 +672,10 @@ class threadRepliesCell: UITableViewCell {
 
             // Start VLC playback
             player.play()
-            print("[HoverVideo] VLC player.play() called")
+            // Enforce mute right after play() — audio subsystem may now be available
+            player.audio?.isMuted = !hoverSoundEnabled
+            player.audio?.volume = hoverSoundEnabled ? 100 : 0
+            print("[HoverVideo] VLC player.play() called, hoverSoundEnabled=\(hoverSoundEnabled) audio=\(player.audio != nil ? "available" : "nil")")
 
             // Poll VLC player state to update native progress overlay
             hoverProgressTimer?.invalidate()
@@ -674,6 +684,15 @@ class threadRepliesCell: UITableViewCell {
                     self?.hoverProgressTimer?.invalidate()
                     self?.hoverProgressTimer = nil
                     return
+                }
+
+                // Enforce mute setting on every poll tick until audio subsystem is ready
+                if !hoverSoundEnabled {
+                    if let audio = player.audio, !audio.isMuted {
+                        audio.isMuted = true
+                        audio.volume = 0
+                        print("[HoverVideo] Enforced mute on poll tick (audio was unexpectedly unmuted)")
+                    }
                 }
 
                 let isPlaying = player.isPlaying
@@ -799,6 +818,13 @@ class threadRepliesCell: UITableViewCell {
         }
     }
     
+    // MARK: - VLCMediaPlayerDelegate (hover video looping)
+    func mediaPlayerStateChanged(_ newState: VLCMediaPlayerState) {
+        guard newState == .stopped, let player = hoverVLCPlayer else { return }
+        player.position = 0
+        player.play()
+    }
+
     // Remove hover preview
     private func removeHoverPreview() {
         hoverProgressTimer?.invalidate()
@@ -812,9 +838,25 @@ class threadRepliesCell: UITableViewCell {
         // Cancel any in-flight full-res image download
         (previewView as? UIImageView)?.kf.cancelDownloadTask()
 
-        // Stop VLC player
-        hoverVLCPlayer?.stop()
-        hoverVLCPlayer = nil
+        // Detach VLC player from this cell immediately, then tear down on a
+        // background queue so the blocking stop()/media-nil calls don't freeze
+        // the main thread (beach-ball on macOS Catalyst).  Final dealloc is
+        // bounced back to main to avoid the VLC timer-lock assertion.
+        if let player = hoverVLCPlayer {
+            let playerPtr = Unmanaged.passUnretained(player).toOpaque()
+            print("[HoverVLC] removeHoverPreview: detaching player \(playerPtr) state=\(player.state.rawValue) isPlaying=\(player.isPlaying)")
+            hoverVLCPlayer = nil
+            player.drawable = nil
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                player.stop()
+                print("[HoverVLC] removeHoverPreview: stop() returned for \(playerPtr)")
+                // Keep player alive so dealloc happens on main thread
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    _ = player
+                }
+            }
+        }
 
         // Animate out
         UIView.animate(withDuration: 0.15, animations: {
@@ -837,8 +879,17 @@ class threadRepliesCell: UITableViewCell {
     
     deinit {
         hoverProgressTimer?.invalidate()
-        hoverVLCPlayer?.stop()
-        hoverVLCPlayer = nil
+        if let player = hoverVLCPlayer {
+            print("[HoverVLC] deinit: stopping player \(Unmanaged.passUnretained(player).toOpaque())")
+            hoverVLCPlayer = nil
+            player.drawable = nil
+            DispatchQueue.global(qos: .userInitiated).async {
+                player.stop()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    _ = player
+                }
+            }
+        }
 
         // Ensure we clean up any previews when cell is deallocated
         if let previewView = hoveredPreviewView {

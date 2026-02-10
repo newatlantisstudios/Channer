@@ -19,6 +19,7 @@
 		17GRIDITEMSIZEBUILD1234 /* GridItemSizeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */; };
 		17GALCELLSZBLD682AB7B18D /* GalleryCellSizeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17GALCELLSZE514C4FCA3407 /* GalleryCellSizeManager.swift */; };
 		17THUMBNAILSIZEBUILD1234 /* ThumbnailSizeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */; };
+		17HOVERPREVBLD1234567890 /* HoverPreviewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17HOVERPREVM1234567890AB /* HoverPreviewManager.swift */; };
 		171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */; };
 		171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */; };
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
@@ -162,6 +163,7 @@
 		17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridItemSizeManager.swift; sourceTree = "<group>"; };
 		17GALCELLSZE514C4FCA3407 /* GalleryCellSizeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryCellSizeManager.swift; sourceTree = "<group>"; };
 		17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailSizeManager.swift; sourceTree = "<group>"; };
+		17HOVERPREVM1234567890AB /* HoverPreviewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoverPreviewManager.swift; sourceTree = "<group>"; };
 		171A75F32DD7B19600D75B34 /* CategorizedFavoritesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategorizedFavoritesViewController.swift; sourceTree = "<group>"; };
 		171A75F52DD7B1D400D75B34 /* CategoryManagerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryManagerViewController.swift; sourceTree = "<group>"; };
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
@@ -317,6 +319,7 @@
 				17GRIDITEMSIZE1234567890 /* GridItemSizeManager.swift */,
 				17GALCELLSZE514C4FCA3407 /* GalleryCellSizeManager.swift */,
 				17THUMBNAILSIZE1234567890 /* ThumbnailSizeManager.swift */,
+				17HOVERPREVM1234567890AB /* HoverPreviewManager.swift */,
 				9D2E301682B7B21B349D7F30 /* DownloadedMediaTracker.swift */,
 				17STAT0012DE9000000000002 /* StatisticsManager.swift */,
 				17KEYCHAIN1234567890123456 /* KeychainHelper.swift */,
@@ -784,6 +787,7 @@
 				17GRIDITEMSIZEBUILD1234 /* GridItemSizeManager.swift in Sources */,
 				17GALCELLSZBLD682AB7B18D /* GalleryCellSizeManager.swift in Sources */,
 				17THUMBNAILSIZEBUILD1234 /* ThumbnailSizeManager.swift in Sources */,
+				17HOVERPREVBLD1234567890 /* HoverPreviewManager.swift in Sources */,
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */,
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,

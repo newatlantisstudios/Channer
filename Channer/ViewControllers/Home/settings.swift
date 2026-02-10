@@ -102,6 +102,18 @@ class settings: UIViewController {
     private let defaultVideoMutedLabel = UILabel()
     private let defaultVideoMutedToggle = UISwitch()
 
+    private let hoverVideoSoundView = UIView()
+    private let hoverVideoSoundLabel = UILabel()
+    private let hoverVideoSoundToggle = UISwitch()
+
+    private let hoverVideoSizeView = UIView()
+    private let hoverVideoSizeLabel = UILabel()
+    private let hoverVideoSizeSegment = UISegmentedControl(items: ["S", "M", "L", "XL"])
+
+    private let hoverImageSizeView = UIView()
+    private let hoverImageSizeLabel = UILabel()
+    private let hoverImageSizeSegment = UISegmentedControl(items: ["S", "M", "L", "XL", "2XL"])
+
     private let mediaPrefetchSettingsView = UIView()
     private let mediaPrefetchSettingsLabel = UILabel()
     private let mediaPrefetchSettingsButton = UIButton(type: .system)
@@ -747,6 +759,11 @@ class settings: UIViewController {
         // Setup Default Video Mute view
         setupDefaultVideoMutedView()
 
+        // Setup Hover Preview settings
+        setupHoverVideoSoundView()
+        setupHoverVideoSizeView()
+        setupHoverImageSizeView()
+
         // Setup Media Prefetch Settings view
         setupMediaPrefetchSettingsView()
 
@@ -1341,6 +1358,27 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
+    @objc private func hoverVideoSoundToggleChanged(_ sender: UISwitch) {
+        HoverPreviewManager.shared.setVideoSoundEnabled(sender.isOn)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func hoverVideoSizeSegmentChanged(_ sender: UISegmentedControl) {
+        HoverPreviewManager.shared.setVideoSizeIndex(sender.selectedSegmentIndex)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    @objc private func hoverImageSizeSegmentChanged(_ sender: UISegmentedControl) {
+        HoverPreviewManager.shared.setImageSizeIndex(sender.selectedSegmentIndex)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     @objc private func mediaPrefetchSettingsButtonTapped() {
         let mediaPrefetchVC = MediaPrefetchSettingsViewController()
         navigationController?.pushViewController(mediaPrefetchVC, animated: true)
@@ -1641,6 +1679,136 @@ class settings: UIViewController {
         ])
     }
 
+    private func setupHoverVideoSoundView() {
+        hoverVideoSoundView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        hoverVideoSoundView.layer.cornerRadius = 10
+        hoverVideoSoundView.clipsToBounds = true
+        hoverVideoSoundView.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverVideoSoundLabel.text = "Hover Video Sound"
+        hoverVideoSoundLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        hoverVideoSoundLabel.textAlignment = .left
+        hoverVideoSoundLabel.numberOfLines = 1
+        hoverVideoSoundLabel.adjustsFontSizeToFitWidth = true
+        hoverVideoSoundLabel.minimumScaleFactor = 0.8
+        hoverVideoSoundLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverVideoSoundToggle.isOn = HoverPreviewManager.shared.videoSoundEnabled
+        hoverVideoSoundToggle.translatesAutoresizingMaskIntoConstraints = false
+        hoverVideoSoundToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        hoverVideoSoundToggle.addTarget(self, action: #selector(hoverVideoSoundToggleChanged), for: .valueChanged)
+
+        contentView.addSubview(hoverVideoSoundView)
+        hoverVideoSoundView.addSubview(hoverVideoSoundLabel)
+        hoverVideoSoundView.addSubview(hoverVideoSoundToggle)
+
+        NSLayoutConstraint.activate([
+            hoverVideoSoundView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
+            hoverVideoSoundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            hoverVideoSoundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            hoverVideoSoundView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            hoverVideoSoundLabel.centerYAnchor.constraint(equalTo: hoverVideoSoundView.centerYAnchor),
+            hoverVideoSoundLabel.leadingAnchor.constraint(equalTo: hoverVideoSoundView.leadingAnchor, constant: 20),
+            hoverVideoSoundLabel.trailingAnchor.constraint(lessThanOrEqualTo: hoverVideoSoundToggle.leadingAnchor, constant: -15),
+
+            hoverVideoSoundToggle.centerYAnchor.constraint(equalTo: hoverVideoSoundView.centerYAnchor),
+            hoverVideoSoundToggle.trailingAnchor.constraint(equalTo: hoverVideoSoundView.trailingAnchor, constant: -30),
+        ])
+    }
+
+    private func setupHoverVideoSizeView() {
+        hoverVideoSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        hoverVideoSizeView.layer.cornerRadius = 10
+        hoverVideoSizeView.clipsToBounds = true
+        hoverVideoSizeView.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverVideoSizeLabel.text = "Hover Video Size"
+        hoverVideoSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        hoverVideoSizeLabel.textAlignment = .left
+        hoverVideoSizeLabel.numberOfLines = 1
+        hoverVideoSizeLabel.adjustsFontSizeToFitWidth = true
+        hoverVideoSizeLabel.minimumScaleFactor = 0.8
+        hoverVideoSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverVideoSizeSegment.selectedSegmentIndex = HoverPreviewManager.shared.videoSizeIndex
+        hoverVideoSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        hoverVideoSizeSegment.addTarget(self, action: #selector(hoverVideoSizeSegmentChanged), for: .valueChanged)
+
+        let segFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        hoverVideoSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .normal)
+        hoverVideoSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .selected)
+
+        contentView.addSubview(hoverVideoSizeView)
+        hoverVideoSizeView.addSubview(hoverVideoSizeLabel)
+        hoverVideoSizeView.addSubview(hoverVideoSizeSegment)
+
+        NSLayoutConstraint.activate([
+            hoverVideoSizeView.topAnchor.constraint(equalTo: hoverVideoSoundView.bottomAnchor, constant: 16),
+            hoverVideoSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            hoverVideoSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            hoverVideoSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            hoverVideoSizeLabel.centerYAnchor.constraint(equalTo: hoverVideoSizeView.centerYAnchor),
+            hoverVideoSizeLabel.leadingAnchor.constraint(equalTo: hoverVideoSizeView.leadingAnchor, constant: 20),
+            hoverVideoSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: hoverVideoSizeSegment.leadingAnchor, constant: -15),
+
+            hoverVideoSizeSegment.centerYAnchor.constraint(equalTo: hoverVideoSizeView.centerYAnchor),
+            hoverVideoSizeSegment.trailingAnchor.constraint(equalTo: hoverVideoSizeView.trailingAnchor, constant: -20),
+            hoverVideoSizeSegment.widthAnchor.constraint(equalToConstant: 200),
+        ])
+    }
+
+    private func setupHoverImageSizeView() {
+        hoverImageSizeView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        hoverImageSizeView.layer.cornerRadius = 10
+        hoverImageSizeView.clipsToBounds = true
+        hoverImageSizeView.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverImageSizeLabel.text = "Hover Image Size"
+        hoverImageSizeLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        hoverImageSizeLabel.textAlignment = .left
+        hoverImageSizeLabel.numberOfLines = 1
+        hoverImageSizeLabel.adjustsFontSizeToFitWidth = true
+        hoverImageSizeLabel.minimumScaleFactor = 0.8
+        hoverImageSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        hoverImageSizeSegment.selectedSegmentIndex = HoverPreviewManager.shared.imageSizeIndex
+        hoverImageSizeSegment.translatesAutoresizingMaskIntoConstraints = false
+        hoverImageSizeSegment.addTarget(self, action: #selector(hoverImageSizeSegmentChanged), for: .valueChanged)
+
+        let segFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
+        hoverImageSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .normal)
+        hoverImageSizeSegment.setTitleTextAttributes(
+            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)],
+            for: .selected)
+
+        contentView.addSubview(hoverImageSizeView)
+        hoverImageSizeView.addSubview(hoverImageSizeLabel)
+        hoverImageSizeView.addSubview(hoverImageSizeSegment)
+
+        NSLayoutConstraint.activate([
+            hoverImageSizeView.topAnchor.constraint(equalTo: hoverVideoSizeView.bottomAnchor, constant: 16),
+            hoverImageSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            hoverImageSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            hoverImageSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            hoverImageSizeLabel.centerYAnchor.constraint(equalTo: hoverImageSizeView.centerYAnchor),
+            hoverImageSizeLabel.leadingAnchor.constraint(equalTo: hoverImageSizeView.leadingAnchor, constant: 20),
+            hoverImageSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: hoverImageSizeSegment.leadingAnchor, constant: -15),
+
+            hoverImageSizeSegment.centerYAnchor.constraint(equalTo: hoverImageSizeView.centerYAnchor),
+            hoverImageSizeSegment.trailingAnchor.constraint(equalTo: hoverImageSizeView.trailingAnchor, constant: -20),
+            hoverImageSizeSegment.widthAnchor.constraint(equalToConstant: 260),
+        ])
+    }
+
     private func setupMediaPrefetchSettingsView() {
         mediaPrefetchSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
         mediaPrefetchSettingsView.layer.cornerRadius = 10
@@ -1665,7 +1833,7 @@ class settings: UIViewController {
         mediaPrefetchSettingsView.addSubview(mediaPrefetchSettingsButton)
 
         NSLayoutConstraint.activate([
-            mediaPrefetchSettingsView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
+            mediaPrefetchSettingsView.topAnchor.constraint(equalTo: hoverImageSizeView.bottomAnchor, constant: 16),
             mediaPrefetchSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             mediaPrefetchSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             mediaPrefetchSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),

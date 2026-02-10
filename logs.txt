@@ -1,814 +1,196 @@
-Internal inconsistency in menus - menu <NSMenu: 0x75f91b9c0>
-    Title: Services
-    Supermenu: 0x75f91ba00 (Application), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) believes it has <NSMenu: 0x75f91ba00>
-    Title: Application
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f71a6c0>
-    Title: Spelling
-    Supermenu: 0x75f91b8c0 (Edit), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54c780 Show Spelling and Grammar, ke='Command-:'>",
-        "<NSMenuItem: 0x75e54c820 Check Document Now, ke='Command-;'>",
-        "<NSMenuItem: 0x75e54c8c0, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54c5a0 Check Spelling While Typing, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54ca00 Check Grammar With Spelling, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54caa0 Correct Spelling Automatically, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f91b8c0>
-    Title: Edit
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f91bd80>
-    Title: Substitutions
-    Supermenu: 0x75f91b8c0 (Edit), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54cd20 Smart Substitutions, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54cdc0, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54ce60 Smart Copy/Paste, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54cf00 Smart Quotes, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54cfa0 Smart Dashes, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d040 Smart Links, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54cc80 Text Replacement, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f91b8c0>
-    Title: Edit
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f91ba80>
-    Title: Transformations
-    Supermenu: 0x75f91b8c0 (Edit), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54d0e0 Make Upper Case, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d180 Make Lower Case, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d2c0 Capitalize, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f91b8c0>
-    Title: Edit
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f91b900>
-    Title: Speech
-    Supermenu: 0x75f91b8c0 (Edit), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54d900 Start Speaking, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d9a0 Stop Speaking, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f91b8c0>
-    Title: Edit
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f91ba00>
-    Title: Application
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54d360 About, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d400, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d4a0 Services, ke mask='<none>', submenu: 0x75f91b9c0 (Services)>",
-        "<NSMenuItem: 0x75e54d540, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d5e0 Hide, ke='Command-H'>",
-        "<NSMenuItem: 0x75e54d680 Hide Others, ke='Option-Command-H'>",
-        "<NSMenuItem: 0x75e54d720 Show All, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d7c0, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54d860 Quit, ke='Command-Q'>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f719440>
-    Title: File
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54e800 Close, ke='Command-W'>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f91b8c0>
-    Title: Edit
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54dae0 Undo, ke='Command-Z'>",
-        "<NSMenuItem: 0x75e54db80 Redo, ke='Shift-Command-Z'>",
-        "<NSMenuItem: 0x75e54dc20, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54dcc0 Cut, ke='Command-X'>",
-        "<NSMenuItem: 0x75e54dd60 Copy, ke='Command-C'>",
-        "<NSMenuItem: 0x75e54da40 Paste, ke='Command-V'>",
-        "<NSMenuItem: 0x75e54de00 Paste and Match Style, ke='Option-Shift-Command-V'>",
-        "<NSMenuItem: 0x75e54dea0 Delete, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54df40 Select All, ke='Command-A'>",
-        "<NSMenuItem: 0x75e54dfe0, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e080 Spelling and Grammar, ke mask='<none>', submenu: 0x75f71a6c0 (Spelling)>",
-        "<NSMenuItem: 0x75e54e120 Substitutions, ke mask='<none>', submenu: 0x75f91bd80 (Substitutions)>",
-        "<NSMenuItem: 0x75e54e1c0 Transformations, ke mask='<none>', submenu: 0x75f91ba80 (Transformations)>",
-        "<NSMenuItem: 0x75e54e260 Speech, ke mask='<none>', submenu: 0x75f91b900 (Speech)>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f7194c0>
-    Title: 
-    Supermenu: 0x75f719480 (Format), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54ebc0 Show Fonts, ke='Command-T'>",
-        "<NSMenuItem: 0x75e54ec60 Bold, ke='Command-B'>",
-        "<NSMenuItem: 0x75e54ed00 Italic, ke='Command-I'>",
-        "<NSMenuItem: 0x75e54eda0 Underline, ke='Command-U'>",
-        "<NSMenuItem: 0x75e54ee40, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54eee0 Bigger, ke='Command-+'>",
-        "<NSMenuItem: 0x75e54ef80 Smaller, ke='Command--'>",
-        "<NSMenuItem: 0x75e54f020, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f0c0 Show Colors, ke='Shift-Command-C'>",
-        "<NSMenuItem: 0x75e54f160, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f200 Copy Style, ke='Option-Command-C'>",
-        "<NSMenuItem: 0x75e54f2a0 Paste Style, ke='Option-Command-V'>"
-    ) believes it has <NSMenu: 0x75f719480>
-    Title: Format
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f719500>
-    Title: 
-    Supermenu: 0x75f71a240 (), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54f7a0 Default, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f840 Right to Left, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f8e0 Left to Right, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f71a240>
-    Title: 
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f71a240>
-    Title: 
-    Supermenu: 0x75f719480 (Format), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54f3e0 Align Left, ke='Command-{'>",
-        "<NSMenuItem: 0x75e54f480 Center, ke='Command-|'>",
-        "<NSMenuItem: 0x75e54f520 Justify, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f5c0 Align Right, ke='Command-}'>",
-        "<NSMenuItem: 0x75e54f660, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54f700 Writing Direction, ke mask='<none>', submenu: 0x75f719500 ()>"
-    ) believes it has <NSMenu: 0x75f719480>
-    Title: Format
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f719480>
-    Title: Format
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54eb20 Font, ke mask='<none>', submenu: 0x75f7194c0 ()>",
-        "<NSMenuItem: 0x75e54f340 Text, ke mask='<none>', submenu: 0x75f71a240 ()>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f7193c0>
-    Title: View
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54e300 Show Toolbar, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e3a0 Customize Toolbar\U2026, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e440, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e4e0 Enter Full Screen, ke='Control-Command-F'>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f719400>
-    Title: Window
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54e580 Minimize, ke='Command-M'>",
-        "<NSMenuItem: 0x75e54e620 Zoom, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e6c0, separator, ke mask='<none>'>",
-        "<NSMenuItem: 0x75e54e760 Bring All to Front, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-Internal inconsistency in menus - menu <NSMenu: 0x75f71a400>
-    Title: Help
-    Supermenu: 0x75f71a680 (Main Menu (only visble during early app launch)), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-        "<NSMenuItem: 0x75e54cbe0 Help, ke mask='<none>'>"
-    ) believes it has <NSMenu: 0x75f71a680>
-    Title: Main Menu (only visble during early app launch)
-    Supermenu: 0x0 (None), autoenable: YES
-    Previous menu: 0x0 (None)
-    Next menu: 0x0 (None)
-    Items:     (
-    ) as a supermenu, but the supermenu does not seem to have any item with that submenu
-`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future.
 Current boards display mode: Grid
+Current threads display mode: Catalog
 Loading cached threads from iCloud
-Loaded 4 categories
+Loaded 5 categories
 === loadFavorites called (cache miss) ===
-Loaded 2 favorites
-Migrating favorites. Found 2 favorites
+Loaded 9 favorites
+Migrating favorites. Found 9 favorites
 First category ID: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30187623 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30187623 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30186836 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30186836 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 945438747 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 945438747 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30188383 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30188383 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
 Thread 5082551 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
 Thread 5082551 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
-Thread 30131490 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
-Thread 30131490 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 22358364 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 22358364 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30196925 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30196925 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30207326 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30207326 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30220405 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30220405 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
 No migration needed
+Thread already cached
+Thread already cached
+Thread already cached
+Thread already cached
+Thread already cached
+Thread already cached
+Thread already cached
 Thread already cached
 Thread already cached
 BackgroundTaskManager: Registered background tasks
 DEBUG: Creating root view controller with display mode: 0
 DEBUG: UserDefaults value: 0
 DEBUG: Using collection view (grid) for boards
-NSBundle (null) initWithPath failed because the resolved path is empty or nil
+DEBUG MOUSE: NSEvent class found
+DEBUG MOUSE: Monitor installed, mouseMonitor=set
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
 Notification permission granted
-Device orientations are not supported in Mac Catalyst processes. Ignoring attempt to set UIDevice orientation to: 1
 Boards sorted alphabetically
 [DEBUG] Settings button created with accessibility label and identifier: 'Settings'
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
 UserDefaults changed notification - FaceID enabled: false
-Cached 2 favorites for offline reading, 0 failed
-Loaded 4 categories
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+UserDefaults changed notification - FaceID enabled: false
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+Cached 9 favorites for offline reading, 0 failed
+Loaded 5 categories
 === loadFavorites called (cache miss) ===
-Loaded 2 favorites
-Migrating favorites. Found 2 favorites
+Loaded 9 favorites
+Migrating favorites. Found 9 favorites
 First category ID: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30187623 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30187623 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30186836 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30186836 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 945438747 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 945438747 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30188383 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 30188383 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
 Thread 5082551 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
 Thread 5082551 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
-Thread 30131490 current category: 6A4CF36B-388A-4E7B-83AF-649EFC00628C
-Thread 30131490 already has category 6A4CF36B-388A-4E7B-83AF-649EFC00628C
+Thread 22358364 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 22358364 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30196925 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30196925 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30207326 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30207326 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30220405 current category: 5CAE624C-9253-438E-8F04-E5ABA3C13902
+Thread 30220405 already has category 5CAE624C-9253-438E-8F04-E5ABA3C13902
 No migration needed
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-DEBUG boardsCV viewDidAppear: Current display mode = 0 (0=Grid, 1=List)
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-Dropping request to update default evalution strategy of UIUserInterfaceIdiomPad because scene is moving screens: UIWindowScene: 0x75f7e7200; identity: com.apple.frontboard.systemappservices/FBSceneManager:FUScene%7Ccom.newatlantisstudios.channer.app(87224)%7Cdefault
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-AX Safe category class 'SFUnifiedBarRegistrationAccessibility' was not found!
-Failed to load item AXCodeItem<0x75f9d0ee0> [Rank:5900] ScreenTimeUI [AXBundle name:/System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle/ScreenTimeUI] [Platforms and Targets:{     iOS = ScreenTimeUI;     iosmac = ScreenTimeUI; } Framework] [Excluded: (null)]. error: Error Domain=AXLoading Code=0 "URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle" UserInfo={NSLocalizedDescription=URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle}
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
 UserDefaults changed notification - FaceID enabled: false
+DEBUG MOUSE NSEvent: type=13
+DEBUG boardsCV viewDidAppear: Current display mode = 0 (0=Grid, 1=List)
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+UserDefaults changed notification - FaceID enabled: false
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=14
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+UserDefaults changed notification - FaceID enabled: false
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
 UserDefaults changed notification - FaceID enabled: false
 Boards sorted alphabetically
-Failed to load item AXCodeItem<0x75f9d0ee0> [Rank:5900] ScreenTimeUI [AXBundle name:/System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle/ScreenTimeUI] [Platforms and Targets:{     iOS = ScreenTimeUI;     iosmac = ScreenTimeUI; } Framework] [Excluded: (null)]. error: Error Domain=AXLoading Code=0 "URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle" UserInfo={NSLocalizedDescription=URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle}
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-Unable to obtain a task name port right for pid 430: (os/kern) failure (0x5)
-Failed to load item AXCodeItem<0x75f9d0ee0> [Rank:5900] ScreenTimeUI [AXBundle name:/System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle/ScreenTimeUI] [Platforms and Targets:{     iOS = ScreenTimeUI;     iosmac = ScreenTimeUI; } Framework] [Excluded: (null)]. error: Error Domain=AXLoading Code=0 "URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle" UserInfo={NSLocalizedDescription=URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle}
-0
-=== boardTV viewDidLoad ===
-Is favorites view: false
-Is searching: false
-Thread data count: 0
-Filtered thread data count: 0
-Setting up search bar for boardTV
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
-Loaded statistics: 429 threads viewed, 21 boards visited
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
-=== boardTV viewWillAppear ===
-Is favorites view: false
-Thread data count before: 0
-Filtered thread data count before: 0
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
+DEBUG MOUSE NSEvent: type=8
+DEBUG MOUSE NSEvent: type=8
+DEBUG MOUSE NSEvent: type=8
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=1 buttonNumber=0
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=14
+DEBUG MOUSE NSEvent: type=2 buttonNumber=0
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=8
+DEBUG MOUSE NSEvent: type=9
+DEBUG MOUSE NSEvent: type=14
+DEBUG MOUSE NSEvent: type=1 buttonNumber=0
+DEBUG MOUSE NSEvent: type=14
+DEBUG MOUSE NSEvent: type=2 buttonNumber=0
+21
+Loaded statistics: 813 threads viewed, 26 boards visited
 UserDefaults changed notification - FaceID enabled: false
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
 UserDefaults changed notification - FaceID enabled: false
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-UserDefaults changed notification - FaceID enabled: false
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 0
-Filtered thread data count: 0
-Is searching: false
-Is favorites view: false
-Errors loading threads: [Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength), Alamofire.AFError.responseSerializationFailed(reason: Alamofire.AFError.ResponseSerializationFailureReason.inputDataNilOrZeroLength)]
-=== boardTV numberOfRowsInSection called ===
-Thread data count: 75
-Filtered thread data count: 75
-Is searching: false
-Is favorites view: false
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768924607301561.mp4
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768919636767574.webm
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768919554580818.webm
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting placeholder image
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768913083933925.mp4
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768912295204683.webm
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768911027468626.mp4
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768903539218672.webm
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768891039244866.mp4
-boardTVCell - Image constraints - width: 120, height: 120
-boardTVCell - Device corner radius: 39.0
-boardTVCell - Image frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-boardTVCell - Content mode: 2, clips to bounds: true
-boardTVCell - Setting image from URL: https://i.4cdn.org/gif/1768886013391693.mp4
-boardTVCell - Image constraints - width: 120, height: 120
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-Failed to load item AXCodeItem<0x75f9d0ee0> [Rank:5900] ScreenTimeUI [AXBundle name:/System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle/ScreenTimeUI] [Platforms and Targets:{     iOS = ScreenTimeUI;     iosmac = ScreenTimeUI; } Framework] [Excluded: (null)]. error: Error Domain=AXLoading Code=0 "URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle" UserInfo={NSLocalizedDescription=URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle}
-Loaded 60 history items
-Thread added to history.
-Pushed threadRepliesTV on navigation stack.
-Loading data from: https://a.4cdn.org/gif/thread/30140483.json
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-cannot add handler to 4 from 1 - dropping
-cannot add handler to 3 from 1 - dropping
-📱 SCROLL: Velocity = 0.0, isScrolling = false
-📱 SCROLL: Velocity = 0.0, isScrolling = false
-📱 SCROLL: Velocity = 0.0, isScrolling = false
-🔄 RELOAD: Preload complete
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x75fb55220 V:|-(8)-[UIView:0x7605896c0]   (active, names: '|':UITableViewCellContentView:0x760589a40 )>",
-    "<NSLayoutConstraint:0x75fb55ae0 UIView:0x7605896c0.bottom == UITableViewCellContentView:0x760589a40.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x75fb56260 UILabel:0x75d61d180.top == UIView:0x7605896c0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x75fb568f0 V:[UILabel:0x75d61d180]-(4)-[UITextView:0x75ea38000]   (active)>",
-    "<NSLayoutConstraint:0x75fb56bc0 UITextView:0x75ea38000.bottom <= UIView:0x7605896c0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x75fb57070 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x760589a40.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x75fb568f0 V:[UILabel:0x75d61d180]-(4)-[UITextView:0x75ea38000]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 0 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919554580818.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919554580818s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919554580818s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919554580818.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919554580818s.jpg
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x75fb57700 V:|-(8)-[UIView:0x76058b9c0]   (active, names: '|':UITableViewCellContentView:0x76058bd40 )>",
-    "<NSLayoutConstraint:0x75fb57930 UIView:0x76058b9c0.bottom == UITableViewCellContentView:0x76058bd40.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x75fb57b10 UILabel:0x75d61dc00.top == UIView:0x76058b9c0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x760578500 V:[UILabel:0x75d61dc00]-(4)-[UITextView:0x75ea39800]   (active)>",
-    "<NSLayoutConstraint:0x760578460 UITextView:0x75ea39800.bottom <= UIView:0x76058b9c0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x760578730 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x76058bd40.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x760578500 V:[UILabel:0x75d61dc00]-(4)-[UITextView:0x75ea39800]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 1 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919621910759.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919621910759s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919621910759s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919621910759.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919621910759s.jpg
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x7605788c0 V:|-(8)-[UIView:0x7605b9dc0]   (active, names: '|':UITableViewCellContentView:0x7605ba140 )>",
-    "<NSLayoutConstraint:0x760578690 UIView:0x7605b9dc0.bottom == UITableViewCellContentView:0x7605ba140.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x760578a00 UILabel:0x75d61e680.top == UIView:0x7605b9dc0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x760579270 V:[UILabel:0x75d61e680]-(4)-[UITextView:0x75ea3b000]   (active)>",
-    "<NSLayoutConstraint:0x7605790e0 UITextView:0x75ea3b000.bottom <= UIView:0x7605b9dc0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x76057a080 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x7605ba140.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x760579270 V:[UILabel:0x75d61e680]-(4)-[UITextView:0x75ea3b000]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 2 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919681429774.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919681429774s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919681429774s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919681429774.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919681429774s.jpg
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x760545040 V:|-(8)-[UIView:0x7608081c0]   (active, names: '|':UITableViewCellContentView:0x760808540 )>",
-    "<NSLayoutConstraint:0x760545130 UIView:0x7608081c0.bottom == UITableViewCellContentView:0x760808540.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x760545310 UILabel:0x75d61f100.top == UIView:0x7608081c0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x760545860 V:[UILabel:0x75d61f100]-(4)-[UITextView:0x75e7ccc00]   (active)>",
-    "<NSLayoutConstraint:0x760545900 UITextView:0x75e7ccc00.bottom <= UIView:0x7608081c0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x760545bd0 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x760808540.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x760545860 V:[UILabel:0x75d61f100]-(4)-[UITextView:0x75e7ccc00]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 3 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919781365641.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919781365641s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919781365641s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919781365641.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919781365641s.jpg
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x76057a440 V:|-(8)-[UIView:0x76080a4c0]   (active, names: '|':UITableViewCellContentView:0x76080a840 )>",
-    "<NSLayoutConstraint:0x76057a530 UIView:0x76080a4c0.bottom == UITableViewCellContentView:0x76080a840.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x76057a760 UILabel:0x75d61fb80.top == UIView:0x76080a4c0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x76057ae90 V:[UILabel:0x75d61fb80]-(4)-[UITextView:0x75e7ce400]   (active)>",
-    "<NSLayoutConstraint:0x76057af30 UITextView:0x75e7ce400.bottom <= UIView:0x76080a4c0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x76057b200 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x76080a840.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x76057ae90 V:[UILabel:0x75d61fb80]-(4)-[UITextView:0x75e7ce400]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 4 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919844069042.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919844069042s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919844069042s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919844069042.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919844069042s.jpg
-threadRepliesCell - Device corner radius: 39.0
-threadRepliesCell - Button frame: (0.0, 0.0, 0.0, 0.0), bounds: (0.0, 0.0, 0.0, 0.0)
-threadRepliesCell - ImageView content mode: 2, clips to bounds: true
-threadRepliesCell - Button clips to bounds: true, masksToBounds: true
-threadRepliesCell - Configure called with withImage: true
-threadRepliesCell - Image constraints - width: 120, height: 120
-threadRepliesCell - Final image frame after constraints: (0.0, 0.0, 0.0, 0.0)
-Unable to simultaneously satisfy constraints.
-	Probably at least one of the constraints in the following list is one you don't want. 
-	Try this: 
-		(1) look at each constraint and try to figure out which you don't expect; 
-		(2) find the code that added the unwanted constraint or constraints and fix it. 
-(
-    "<NSLayoutConstraint:0x760546080 V:|-(8)-[UIView:0x76081c8c0]   (active, names: '|':UITableViewCellContentView:0x76081cc40 )>",
-    "<NSLayoutConstraint:0x760546170 UIView:0x76081c8c0.bottom == UITableViewCellContentView:0x76081cc40.bottom - 8   (active)>",
-    "<NSLayoutConstraint:0x760546350 UILabel:0x75d608000.top == UIView:0x76081c8c0.top + 18   (active)>",
-    "<NSLayoutConstraint:0x7605468a0 V:[UILabel:0x75d608000]-(4)-[UITextView:0x75d6f8000]   (active)>",
-    "<NSLayoutConstraint:0x760546940 UITextView:0x75d6f8000.bottom <= UIView:0x76081c8c0.bottom - 14   (active)>",
-    "<NSLayoutConstraint:0x76057b5c0 'UIView-Encapsulated-Layout-Height' UITableViewCellContentView:0x76081cc40.height == 44   (active)>"
-)
-
-Will attempt to recover by breaking constraint 
-<NSLayoutConstraint:0x7605468a0 V:[UILabel:0x75d608000]-(4)-[UITextView:0x75d6f8000]   (active)>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-🔄 CELL: Cell 5 has image, calling configureImage
-Debug: Starting image configuration for URL: https://i.4cdn.org/gif/1768919939802888.webm
-Debug: Video thumbnail URL: https://i.4cdn.org/gif/1768919939802888s.jpg
-Debug: Generated valid URL: https://i.4cdn.org/gif/1768919939802888s.jpg
-Debug: Set full image URL for tap action: https://i.4cdn.org/gif/1768919939802888.webm
-Debug: Loading image with URL: https://i.4cdn.org/gif/1768919939802888s.jpg
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919554580818s.jpg
-Debug: Image size: (70.0, 125.0), hasAlpha: true
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919621910759s.jpg
-Debug: Image size: (35.0, 62.5), hasAlpha: true
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919681429774s.jpg
-Debug: Image size: (28.0, 62.5), hasAlpha: true
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919781365641s.jpg
-Debug: Image size: (35.0, 62.5), hasAlpha: true
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919844069042s.jpg
-Debug: Image size: (46.5, 62.5), hasAlpha: true
-Debug: Successfully loaded image for URL: https://i.4cdn.org/gif/1768919939802888s.jpg
-Debug: Image size: (35.0, 62.5), hasAlpha: true
-threadContentOpen: https://i.4cdn.org/gif/1768919554580818.webm
-MUTE DEBUG: threadContentOpen tag=0 board=gif thread=30140483
-MUTE DEBUG: threadContentOpen resolved extension=webm
-Debug: Opening video with WebMViewController
-MUTE DEBUG: opening video via WebMViewController index=0 count=6 url=https://i.4cdn.org/gif/1768919554580818.webm
-DEBUG: WebMViewController - viewDidLoad started
-DEBUG: WebMViewController - Video URL: https://i.4cdn.org/gif/1768919554580818.webm
-DEBUG: WebMViewController - Hide download button: false
-MUTE DEBUG: viewDidLoad isMuted=true shouldForceMuteOnNextPlay=true
-DEBUG: WebMViewController - setupVideo called with URL: https://i.4cdn.org/gif/1768919554580818.webm
-DEBUG: WebMViewController - Successfully created URL: https://i.4cdn.org/gif/1768919554580818.webm
-DEBUG: WebMViewController - Checking if this is VP9...
-DEBUG: WebMViewController - Remote file, cannot detect codec beforehand
-creating player instance using shared library
-🎵 DEBUG: WebMViewController - VLC Player created
-🎵 DEBUG: WebMViewController - Initial Audio Muted: true
-🎵 DEBUG: WebMViewController - Initial Audio Volume: 0
-MUTE DEBUG: setupVLCPlayer url=https://i.4cdn.org/gif/1768919554580818.webm isMuted=true shouldForceMuteOnNextPlay=true
-MUTE DEBUG: audio tracks pre-play count=0
-DEBUG: WebMViewController - VLC Media created
-DEBUG: WebMViewController - VLC Version: 0
-🎵 DEBUG: WebMViewController - Pre-delegate Audio Muted: true
-🎵 DEBUG: WebMViewController - Pre-delegate Audio Volume: 0
-🎵 DEBUG: WebMViewController - Audio available: true
-AddInstanceForFactory: No factory registered for id <CFUUID 0x75fb52ce0> F8BB1C28-BAE8-11D6-9C31-00039315CD46
-Reporter disconnected. { function=sendMessage, reporterID=374624227426305 }
-MUTE DEBUG: setupVLCPlayer-preDelegate isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=0 selected=[]
-MUTE DEBUG: setupVLCPlayer-preDelegate session category=AVAudioSessionCategorySoloAmbient mode=AVAudioSessionModeDefault otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-MUTE DEBUG: after disableAudioTracksForMutedStart isMuted=true vlcMuted=true vlcVolume=0
-MUTE DEBUG: setupVLCPlayer-prePlay isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=0 selected=[]
-MUTE DEBUG: setupVLCPlayer-prePlay session category=AVAudioSessionCategorySoloAmbient mode=AVAudioSessionModeDefault otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-🎵 DEBUG: WebMViewController - NUCLEAR AUDIO DISABLING - videos always start muted
-🎵 DEBUG: WebMViewController - Pre-play Audio Muted: true
-🎵 DEBUG: WebMViewController - Pre-play Audio Volume: 0
-DEBUG: WebMViewController - Starting VLC playback
-MUTE DEBUG: setupVLCPlayer-postPlay isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=0 selected=[]
-MUTE DEBUG: setupVLCPlayer-postPlay session category=AVAudioSessionCategorySoloAmbient mode=AVAudioSessionModeDefault otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #1
-🎵 DEBUG: WebMViewController - Post-play() Audio Muted: true
-🎵 DEBUG: WebMViewController - Post-play() Audio Volume: 0
-DEBUG: WebMViewController - Starting loop monitoring timer
-WebM directory already exists
-UserDefaults changed notification - FaceID enabled: false
-🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #2 (async)
-📱 SCROLL: Velocity = 0.0, isScrolling = false
-🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #3 (0.001s)
-🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #4 (0.005s)
-🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #5 (0.01s)
-🎵 DEBUG: WebMViewController - 0.1s delay check - Audio Muted: true
-🎵 DEBUG: WebMViewController - 0.1s delay check - Audio Volume: 0
-🎵 DEBUG: WebMViewController - 0.1s delay check - Player State: 3
-🎵 DEBUG: WebMViewController - 0.1s delay check - isMuted variable: true
-MUTE DEBUG: delay-0.1s isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=0 selected=[]
-MUTE DEBUG: delay-0.1s session category=AVAudioSessionCategorySoloAmbient mode=AVAudioSessionModeDefault otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-[000000016c0d2cb0] http generic error: local stream 1 error: Cancellation (0x8)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016bfc6df0] http generic error: local stream 1 error: Stream closed (0x5)
-[000000016c0d2cb0] http generic error: local stream 5 error: Cancellation (0x8)
-[000000075d631e00] libvlc decoder error: 'VP90' is not supported
-<<<< VT-DS >>>> signalled err=-12906 at <>:2615
-[000000075d5fd900] libvlc generic: Trying to use chroma_chain: [c=18|q=100] I420 -> CVPN -> CVPB...
-[000000075d5fd900] libvlc generic error: Failed to create video converter
-[000000075d5fd900] libvlc generic: Trying to use chroma_chain: [c=18|q=100] I420 -> CVPI -> CVPB...
-[000000075d5fd900] libvlc generic error: Failed to create video converter
-[000000075d5fd900] libvlc generic: Trying to use chroma_chain: [c=118|q=90] I420 -> BGRA -> CVPB...
-[000000075d5fd900] libvlc generic: success
-🎵 DEBUG: WebMViewController - 0.2s delay check - Audio Muted: true
-🎵 DEBUG: WebMViewController - 0.2s delay check - Audio Volume: 0
-🎵 DEBUG: WebMViewController - 0.2s delay check - Player State: 3
-🎵 DEBUG: WebMViewController - 0.2s delay check - isMuted variable: true
-MUTE DEBUG: delay-0.2s isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=1 selected=["0:Track 0"]
-MUTE DEBUG: delay-0.2s session category=AVAudioSessionCategoryPlayback mode=AVAudioSessionModeMoviePlayback otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-cannot open file at line 51043 of [f0ca7bba1c]
-os_unix.c:51043: (2) open(/private/var/db/DetachedSignatures) - No such file or directory
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.0011056076419600212
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.0011056076419600212
-🎵 DEBUG: WebMViewController - 0.5s delay check - Audio Muted: true
-🎵 DEBUG: WebMViewController - 0.5s delay check - Audio Volume: 0
-🎵 DEBUG: WebMViewController - 0.5s delay check - Player State: 3
-🎵 DEBUG: WebMViewController - 0.5s delay check - isMuted variable: true
-MUTE DEBUG: delay-0.5s isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=1 selected=["0:Track 0"]
-MUTE DEBUG: delay-0.5s session category=AVAudioSessionCategoryPlayback mode=AVAudioSessionModeMoviePlayback otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-Failed to load item AXCodeItem<0x75f9d0ee0> [Rank:5900] ScreenTimeUI [AXBundle name:/System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle/ScreenTimeUI] [Platforms and Targets:{     iOS = ScreenTimeUI;     iosmac = ScreenTimeUI; } Framework] [Excluded: (null)]. error: Error Domain=AXLoading Code=0 "URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle" UserInfo={NSLocalizedDescription=URL does not exist: file:///System/iOSSupport/System/Library/AccessibilityBundles/ScreenTimeUI.axbundle}
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.0011056076419600212
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.04532991332036087
-🎵 DEBUG: WebMViewController - 1.0s delay check - Audio Muted: true
-🎵 DEBUG: WebMViewController - 1.0s delay check - Audio Volume: 0
-🎵 DEBUG: WebMViewController - 1.0s delay check - Player State: 3
-🎵 DEBUG: WebMViewController - 1.0s delay check - isMuted variable: true
-MUTE DEBUG: delay-1.0s isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=1 selected=["0:Track 0"]
-MUTE DEBUG: delay-1.0s session category=AVAudioSessionCategoryPlayback mode=AVAudioSessionModeMoviePlayback otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.08058995223774987
-DEBUG: WebMViewController - Loop monitor tick - state: 3, position: 0.08955421899876172
-🎵 DEBUG: WebMViewController - Stopping periodic audio checking
-DEBUG: WebMViewController - Stopping loop monitoring timer
-📱 SCROLL: Velocity = 0.0, isScrolling = false
-UIColor created with component values far outside the expected range. Set a breakpoint on UIColorBreakForOutOfRangeColorComponents to debug. This message will only be logged once.
-🎵 DEBUG: WebMViewController - 2.0s delay check - Audio Muted: true
-🎵 DEBUG: WebMViewController - 2.0s delay check - Audio Volume: 0
-🎵 DEBUG: WebMViewController - 2.0s delay check - Player State: 0
-🎵 DEBUG: WebMViewController - 2.0s delay check - isMuted variable: true
-MUTE DEBUG: delay-2.0s isMutedVar=true shouldForceMuteOnNextPlay=true vlcMuted=true vlcVolume=0 audioTracks=0 selected=[]
-MUTE DEBUG: delay-2.0s session category=AVAudioSessionCategoryPlayback mode=AVAudioSessionModeMoviePlayback otherAudio=false silencedHint=false outputVolume=1.0 route=Speaker
+DEBUG MOUSE NSEvent: type=8
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=55AADB9E-6E51-44FC-993C-155BAF3D9034, matchCount=1, matchedThreads is nil=true, matchedThreads count=-1
+[NotificationManager] Loaded savedSearchAlert: id=8DDA9520-8663-4FD9-BF48-635AB007B243, matchCount=2, matchedThreads is nil=true, matchedThreads count=-1
+DEBUG MOUSE NSEvent: type=9
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=31
+DEBUG MOUSE NSEvent: type=9
+DEBUG MOUSE NSEvent: type=9
+DEBUG MOUSE NSEvent: type=9
+DEBUG MOUSE NSEvent: type=14
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
+DEBUG MOUSE NSEvent: type=13
