@@ -3535,9 +3535,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func refreshThreadContent() {
         // Only refresh if not currently loading and not searching
         guard !isLoading && !isSearchActive else { return }
-        
+
         // Check if user is actively interacting with the table
         guard !tableView.isDragging && !tableView.isDecelerating else { return }
+
+        // Skip refresh if any visible cell has an active hover preview
+        // (reloadData triggers prepareForReuse which dismisses the preview)
+        let hasHoverPreview = tableView.visibleCells.contains { cell in
+            (cell as? threadRepliesCell)?.hasActiveHoverPreview == true
+        }
+        if hasHoverPreview {
+            // Still reset the progress bar so it counts down to the next cycle
+            nextRefreshTime = Date().addingTimeInterval(TimeInterval(UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)))
+            updateRefreshStatus()
+            return
+        }
         
         // Update refresh status
         lastRefreshTime = Date()

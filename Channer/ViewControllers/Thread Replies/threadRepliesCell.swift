@@ -6,6 +6,7 @@ import AVFoundation
 
 class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     // Variables for hover functionality
+    var hasActiveHoverPreview: Bool { hoveredPreviewView != nil }
     private var imageURL: String?
     private var hoveredPreviewView: UIView?
     private var hoverOverlayView: UIView?
