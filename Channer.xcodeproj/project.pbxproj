@@ -86,6 +86,23 @@
 		17STAT0012DE9000000000005 /* StatisticsDashboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */; };
 		17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; };
 		17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17VLC001A2DD8000000000001 /* VLCKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0001000000000002 /* ffmpegkit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0001000000000001 /* ffmpegkit.xcframework */; };
+		17FFMPEG0001000000000003 /* ffmpegkit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0001000000000001 /* ffmpegkit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0002000000000002 /* libavcodec.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0002000000000001 /* libavcodec.xcframework */; };
+		17FFMPEG0002000000000003 /* libavcodec.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0002000000000001 /* libavcodec.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0003000000000002 /* libavdevice.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0003000000000001 /* libavdevice.xcframework */; };
+		17FFMPEG0003000000000003 /* libavdevice.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0003000000000001 /* libavdevice.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0004000000000002 /* libavfilter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0004000000000001 /* libavfilter.xcframework */; };
+		17FFMPEG0004000000000003 /* libavfilter.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0004000000000001 /* libavfilter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0005000000000002 /* libavformat.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0005000000000001 /* libavformat.xcframework */; };
+		17FFMPEG0005000000000003 /* libavformat.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0005000000000001 /* libavformat.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0006000000000002 /* libavutil.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0006000000000001 /* libavutil.xcframework */; };
+		17FFMPEG0006000000000003 /* libavutil.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0006000000000001 /* libavutil.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0007000000000002 /* libswresample.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0007000000000001 /* libswresample.xcframework */; };
+		17FFMPEG0007000000000003 /* libswresample.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0007000000000001 /* libswresample.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17FFMPEG0008000000000002 /* libswscale.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0008000000000001 /* libswscale.xcframework */; };
+		17FFMPEG0008000000000003 /* libswscale.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 17FFMPEG0008000000000001 /* libswscale.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		17WEBMCONVBUILD0000000001 /* WebMConversionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17WEBMCONV00000000000001 /* WebMConversionService.swift */; };
 		398C079F757502D0249990B4 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA66EA9C6A1157602363084 /* TestData.swift */; };
 		3DFA04AEDE7C021FCD1F4204 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */; };
 		A9B8C7D6E5F4A3B2C1D0E9F8 /* FontScaleManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C1A9B0D3E4F5A6B7C8D9E0 /* FontScaleManager.swift */; };
@@ -143,6 +160,14 @@
 			dstSubfolderSpec = 10;
 			files = (
 				17VLC001A2DD8000000000003 /* VLCKit.xcframework in Embed Frameworks */,
+				17FFMPEG0001000000000003 /* ffmpegkit.xcframework in Embed Frameworks */,
+				17FFMPEG0002000000000003 /* libavcodec.xcframework in Embed Frameworks */,
+				17FFMPEG0003000000000003 /* libavdevice.xcframework in Embed Frameworks */,
+				17FFMPEG0004000000000003 /* libavfilter.xcframework in Embed Frameworks */,
+				17FFMPEG0005000000000003 /* libavformat.xcframework in Embed Frameworks */,
+				17FFMPEG0006000000000003 /* libavutil.xcframework in Embed Frameworks */,
+				17FFMPEG0007000000000003 /* libswresample.xcframework in Embed Frameworks */,
+				17FFMPEG0008000000000003 /* libswscale.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -232,6 +257,15 @@
 		17STAT0012DE9000000000004 /* ChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartViews.swift; sourceTree = "<group>"; };
 		17STAT0012DE9000000000006 /* StatisticsDashboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsDashboardViewController.swift; sourceTree = "<group>"; };
 		17VLC001A2DD8000000000001 /* VLCKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = VLCKit.xcframework; path = Frameworks/VLCKit.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0001000000000001 /* ffmpegkit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = ffmpegkit.xcframework; path = Frameworks/ffmpegkit.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0002000000000001 /* libavcodec.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libavcodec.xcframework; path = Frameworks/libavcodec.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0003000000000001 /* libavdevice.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libavdevice.xcframework; path = Frameworks/libavdevice.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0004000000000001 /* libavfilter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libavfilter.xcframework; path = Frameworks/libavfilter.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0005000000000001 /* libavformat.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libavformat.xcframework; path = Frameworks/libavformat.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0006000000000001 /* libavutil.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libavutil.xcframework; path = Frameworks/libavutil.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0007000000000001 /* libswresample.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libswresample.xcframework; path = Frameworks/libswresample.xcframework; sourceTree = "<group>"; };
+		17FFMPEG0008000000000001 /* libswscale.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = libswscale.xcframework; path = Frameworks/libswscale.xcframework; sourceTree = "<group>"; };
+		17WEBMCONV00000000000001 /* WebMConversionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebMConversionService.swift; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
 		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		F2C1A9B0D3E4F5A6B7C8D9E0 /* FontScaleManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FontScaleManager.swift; sourceTree = "<group>"; };
@@ -275,6 +309,14 @@
 				17D1A7C22F1987D0007FD2E5 /* SwiftyJSON in Frameworks */,
 				17VLC001A2DD8000000000002 /* VLCKit.xcframework in Frameworks */,
 				1797989A2CF7A37300486211 /* LocalAuthentication.framework in Frameworks */,
+				17FFMPEG0001000000000002 /* ffmpegkit.xcframework in Frameworks */,
+				17FFMPEG0002000000000002 /* libavcodec.xcframework in Frameworks */,
+				17FFMPEG0003000000000002 /* libavdevice.xcframework in Frameworks */,
+				17FFMPEG0004000000000002 /* libavfilter.xcframework in Frameworks */,
+				17FFMPEG0005000000000002 /* libavformat.xcframework in Frameworks */,
+				17FFMPEG0006000000000002 /* libavutil.xcframework in Frameworks */,
+				17FFMPEG0007000000000002 /* libswresample.xcframework in Frameworks */,
+				17FFMPEG0008000000000002 /* libswscale.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,6 +370,7 @@
 				4942D923E23CA6525D9C7DF8 /* MyPostsManager.swift */,
 				2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */,
 				F2C1A9B0D3E4F5A6B7C8D9E0 /* FontScaleManager.swift */,
+				17WEBMCONV00000000000001 /* WebMConversionService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -579,6 +622,14 @@
 			children = (
 				17VLC001A2DD8000000000001 /* VLCKit.xcframework */,
 				179798992CF7A37300486211 /* LocalAuthentication.framework */,
+				17FFMPEG0001000000000001 /* ffmpegkit.xcframework */,
+				17FFMPEG0002000000000001 /* libavcodec.xcframework */,
+				17FFMPEG0003000000000001 /* libavdevice.xcframework */,
+				17FFMPEG0004000000000001 /* libavfilter.xcframework */,
+				17FFMPEG0005000000000001 /* libavformat.xcframework */,
+				17FFMPEG0006000000000001 /* libavutil.xcframework */,
+				17FFMPEG0007000000000001 /* libswresample.xcframework */,
+				17FFMPEG0008000000000001 /* libswscale.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -823,6 +874,7 @@
 				A9B8C7D6E5F4A3B2C1D0E9F8 /* FontScaleManager.swift in Sources */,
 				EFC932FCD2334941542906FA /* DebugViewController.swift in Sources */,
 				17CATALYSTNAVBUILD1234AB /* CatalystNavigationController.swift in Sources */,
+				17WEBMCONVBUILD0000000001 /* WebMConversionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

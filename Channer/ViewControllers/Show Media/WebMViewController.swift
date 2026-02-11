@@ -5,7 +5,7 @@ import VLCKit
 // MARK: - WebMViewController
 /// A view controller responsible for playing and optionally downloading WebM videos.
 class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
-    
+
     // MARK: - Properties
     /// The URL string of the video to be played.
     var videoURL: String = ""
@@ -16,7 +16,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     var videoURLs: [URL] = []
     /// Current index in the videoURLs array
     var currentIndex: Int = 0
-    
+
     /// Timer for periodic audio checking
     private var audioCheckTimer: Timer?
     /// Timer for aggressive mute enforcement on playback start
@@ -27,7 +27,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private let aggressiveMuteDuration: TimeInterval = 1.0
     /// Interval for aggressive mute enforcement ticks
     private let aggressiveMuteInterval: TimeInterval = 0.05
-    
+
     /// Current mute state - default comes from settings
     private var isMuted: Bool = MediaSettings.defaultMuted
     /// Remembers the preferred audio track so we can re-enable it after mute
@@ -51,6 +51,67 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private var controlsVisible: Bool = true
     /// Duration before controls auto-hide (in seconds)
     private let controlsHideDelay: TimeInterval = 1.5
+
+    // MARK: - AVPlayer Properties (for Mac Catalyst converted playback)
+    /// Whether the current video is being played via AVPlayer (converted MP4)
+    private var isUsingAVPlayer: Bool = false
+    /// Native AVPlayer for converted MP4 playback on Mac Catalyst
+    private lazy var avPlayer: AVPlayer = {
+        let player = AVPlayer()
+        player.automaticallyWaitsToMinimizeStalling = true
+        player.allowsExternalPlayback = true
+        let startMuted = MediaSettings.defaultMuted
+        player.isMuted = startMuted
+        player.volume = startMuted ? 0.0 : 0.5
+        return player
+    }()
+    /// AVPlayerLayer for rendering converted video
+    private lazy var avPlayerLayer: AVPlayerLayer = {
+        let layer = AVPlayerLayer(player: avPlayer)
+        layer.videoGravity = .resizeAspect
+        return layer
+    }()
+    /// Observer for AVPlayer end-of-playback notification
+    private var avPlayerEndObserver: NSObjectProtocol?
+    /// Time observer for AVPlayer seek bar updates
+    private var avPlayerTimeObserver: Any?
+
+    // MARK: - Conversion Overlay UI
+    /// Semi-transparent overlay shown during WebM-to-MP4 conversion
+    private lazy var conversionOverlay: UIView = {
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        overlay.isHidden = true
+        return overlay
+    }()
+    /// Activity indicator shown during conversion
+    private lazy var conversionSpinner: UIActivityIndicatorView = {
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.color = .white
+        return spinner
+    }()
+    /// Label showing "Converting video..." text
+    private lazy var conversionLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Converting video..."
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.textAlignment = .center
+        return label
+    }()
+    /// Label showing conversion progress percentage
+    private lazy var conversionProgressLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "0%"
+        label.textColor = UIColor.white.withAlphaComponent(0.7)
+        label.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
+        label.textAlignment = .center
+        return label
+    }()
 
     // MARK: - UI Elements
     /// The view that displays the video content.
@@ -262,7 +323,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // VLC player automatically handles view resizing
+        // Update AVPlayerLayer frame when layout changes (rotation, etc.)
+        if isUsingAVPlayer {
+            avPlayerLayer.frame = videoView.bounds
+        }
     }
 
     /// Called just before the view controller is dismissed, covered, or otherwise hidden.
@@ -299,24 +363,33 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
 
-        // Detach drawable and delegate before stopping to prevent VLCSampleBufferDisplay
-        // from dispatching blocks that reference freed resources (EXC_BAD_ACCESS crash)
-        vlcPlayer.delegate = nil
-        vlcPlayer.drawable = nil
-        vlcPlayer.stop()
-        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
+        // Cancel any active WebM conversion
+        WebMConversionService.shared.cancelConversion()
 
-        // Stop periodic audio checking
-        stopPeriodicAudioChecking()
+        if isUsingAVPlayer {
+            // Clean up AVPlayer
+            cleanupAVPlayer()
+        } else {
+            // Detach drawable and delegate before stopping to prevent VLCSampleBufferDisplay
+            // from dispatching blocks that reference freed resources (EXC_BAD_ACCESS crash)
+            vlcPlayer.delegate = nil
+            vlcPlayer.drawable = nil
+            vlcPlayer.stop()
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
 
-        // Stop aggressive mute enforcement
-        stopAggressiveMuteEnforcement()
+            // Stop periodic audio checking
+            stopPeriodicAudioChecking()
 
-        // Stop loop monitoring
-        stopLoopMonitoring()
+            // Stop aggressive mute enforcement
+            stopAggressiveMuteEnforcement()
+
+            // Stop loop monitoring
+            stopLoopMonitoring()
+        }
 
         // Stop seek bar updates
         stopSeekBarUpdates()
+        stopAVPlayerSeekBarUpdates()
 
         // Stop controls hide timer
         stopControlsHideTimer()
@@ -347,6 +420,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.addSubview(upHint)
         view.addSubview(downHint)
         view.addSubview(mediaCounterLabel)
+
+        // Add conversion overlay (above everything)
+        view.addSubview(conversionOverlay)
+        conversionOverlay.addSubview(conversionSpinner)
+        conversionOverlay.addSubview(conversionLabel)
+        conversionOverlay.addSubview(conversionProgressLabel)
 
         NSLayoutConstraint.activate([
             videoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -409,28 +488,69 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             mediaCounterLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             mediaCounterLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             mediaCounterLabel.heightAnchor.constraint(equalToConstant: 28),
-            mediaCounterLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60)
+            mediaCounterLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
+
+            // Conversion overlay (fills the video area)
+            conversionOverlay.topAnchor.constraint(equalTo: videoView.topAnchor),
+            conversionOverlay.leadingAnchor.constraint(equalTo: videoView.leadingAnchor),
+            conversionOverlay.trailingAnchor.constraint(equalTo: videoView.trailingAnchor),
+            conversionOverlay.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
+
+            conversionSpinner.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor),
+            conversionSpinner.centerYAnchor.constraint(equalTo: conversionOverlay.centerYAnchor, constant: -20),
+
+            conversionLabel.topAnchor.constraint(equalTo: conversionSpinner.bottomAnchor, constant: 16),
+            conversionLabel.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor),
+
+            conversionProgressLabel.topAnchor.constraint(equalTo: conversionLabel.bottomAnchor, constant: 8),
+            conversionProgressLabel.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor)
         ])
     }
-    
-    /// Initializes the VLC video player with the provided video URL.
+
+    /// Initializes the video player with the provided video URL.
+    /// On Mac Catalyst with WebM files, converts to MP4 first and uses AVPlayer.
+    /// On iOS/iPadOS, uses VLCKit directly.
     private func setupVideo() {
         print("DEBUG: WebMViewController - setupVideo called with URL: \(videoURL)")
-        guard let url = URL(string: videoURL) else { 
+        guard let url = URL(string: videoURL) else {
             print("DEBUG: WebMViewController - Failed to create URL from string: \(videoURL)")
-            return 
+            return
         }
         print("DEBUG: WebMViewController - Successfully created URL: \(url)")
-        
-        
-        // VP9 detection for local files only (remote detection handled in urlWeb)
+
+        // Mac Catalyst: convert WebM to MP4 and use native AVPlayer
+        if WebMConversionService.shared.needsConversion(url: url) {
+            print("DEBUG: WebMViewController - Mac Catalyst WebM detected, starting conversion")
+            isUsingAVPlayer = true
+            showConversionOverlay()
+
+            WebMConversionService.shared.convertWebMToMP4(source: url, progress: { [weak self] progressValue in
+                self?.conversionProgressLabel.text = "\(Int(progressValue * 100))%"
+            }) { [weak self] result in
+                guard let self = self else { return }
+                self.hideConversionOverlay()
+                switch result {
+                case .success(let mp4URL):
+                    print("DEBUG: WebMViewController - Conversion succeeded, playing MP4: \(mp4URL)")
+                    self.setupAVPlayer(with: mp4URL)
+                case .failure(let error):
+                    print("DEBUG: WebMViewController - Conversion failed: \(error), falling back to VLC")
+                    self.isUsingAVPlayer = false
+                    self.setupVLCPlayer(with: url)
+                }
+            }
+            return
+        }
+
+        // iOS/iPadOS: VP9 detection for local files only (remote detection handled in urlWeb)
+        isUsingAVPlayer = false
         print("DEBUG: WebMViewController - Checking if this is VP9...")
         var isVP9 = false
-        
+
         if url.isFileURL {
             Task {
                 isVP9 = await detectVP9Codec(fileURL: url)
-                
+
                 DispatchQueue.main.async {
                     if isVP9 {
                         print("DEBUG: WebMViewController - VP9 codec detected! VLCKit may have compatibility issues.")
@@ -439,7 +559,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     } else {
                         print("DEBUG: WebMViewController - VP8 or other VLC-compatible codec detected")
                     }
-                    
+
                     // Continue with VLC setup after detection
                     self.setupVLCPlayer(with: url)
                 }
@@ -449,12 +569,20 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             // For remote files, we can't easily detect codec without downloading
             print("DEBUG: WebMViewController - Remote file, cannot detect codec beforehand")
         }
-        
+
         // For remote files, continue immediately with VLC setup
         setupVLCPlayer(with: url)
     }
 
     private func resumePlaybackAfterCancelledTransition() {
+        if isUsingAVPlayer {
+            avPlayer.play()
+            startAVPlayerSeekBarUpdates()
+            resetControlsHideTimer()
+            setupNavigationButtons()
+            return
+        }
+
         // Restore observer removed in viewWillDisappear
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
         NotificationCenter.default.addObserver(self,
@@ -597,7 +725,116 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self?.startSeekBarUpdates()
         }
     }
-    
+
+    // MARK: - AVPlayer Setup (Mac Catalyst converted playback)
+
+    /// Sets up native AVPlayer for playing a converted MP4 file
+    private func setupAVPlayer(with mp4URL: URL) {
+        print("DEBUG: WebMViewController - setupAVPlayer with URL: \(mp4URL)")
+
+        // Add player layer to videoView
+        avPlayerLayer.frame = videoView.bounds
+        videoView.layer.addSublayer(avPlayerLayer)
+
+        // Create player item and replace current
+        let playerItem = AVPlayerItem(url: mp4URL)
+        avPlayer.replaceCurrentItem(with: playerItem)
+
+        // Apply mute settings
+        avPlayer.isMuted = isMuted
+        avPlayer.volume = isMuted ? 0.0 : 0.5
+
+        // Observe end of playback for looping
+        avPlayerEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] _ in
+            self?.avPlayer.seek(to: .zero)
+            self?.avPlayer.play()
+        }
+
+        // Start playback
+        avPlayer.play()
+
+        // Start seek bar updates
+        startAVPlayerSeekBarUpdates()
+
+        // Auto-hide controls
+        resetControlsHideTimer()
+
+        // Update play/pause button
+        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
+    }
+
+    /// Starts periodic seek bar updates for AVPlayer
+    private func startAVPlayerSeekBarUpdates() {
+        stopSeekBarUpdates()
+        let interval = CMTime(seconds: 0.25, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+        avPlayerTimeObserver = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+            self?.updateAVPlayerSeekBar()
+        }
+    }
+
+    /// Stops AVPlayer seek bar updates
+    private func stopAVPlayerSeekBarUpdates() {
+        if let observer = avPlayerTimeObserver {
+            avPlayer.removeTimeObserver(observer)
+            avPlayerTimeObserver = nil
+        }
+    }
+
+    /// Updates the seek bar position and time labels for AVPlayer
+    private func updateAVPlayerSeekBar() {
+        guard !isSeeking else { return }
+        guard let currentItem = avPlayer.currentItem else { return }
+
+        let currentTime = CMTimeGetSeconds(avPlayer.currentTime())
+        let duration = CMTimeGetSeconds(currentItem.duration)
+
+        guard duration.isFinite && duration > 0 else { return }
+
+        // Skip slider updates briefly after a seek to prevent snap-back
+        let recentlySeekd = lastSeekTime.map { Date().timeIntervalSince($0) < 0.5 } ?? false
+        if !recentlySeekd {
+            seekBar.value = Float(currentTime / duration)
+        }
+
+        currentTimeLabel.text = formatTime(milliseconds: Int32(currentTime * 1000))
+        durationLabel.text = formatTime(milliseconds: Int32(duration * 1000))
+    }
+
+    /// Cleans up AVPlayer resources
+    private func cleanupAVPlayer() {
+        stopAVPlayerSeekBarUpdates()
+
+        if let observer = avPlayerEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+            avPlayerEndObserver = nil
+        }
+
+        avPlayer.pause()
+        avPlayer.replaceCurrentItem(with: nil)
+        avPlayerLayer.removeFromSuperlayer()
+    }
+
+    // MARK: - Conversion Overlay
+
+    /// Shows the conversion overlay with spinner
+    private func showConversionOverlay() {
+        conversionOverlay.isHidden = false
+        conversionSpinner.startAnimating()
+        conversionProgressLabel.text = "0%"
+        view.bringSubviewToFront(conversionOverlay)
+    }
+
+    /// Hides the conversion overlay
+    private func hideConversionOverlay() {
+        conversionOverlay.isHidden = true
+        conversionSpinner.stopAnimating()
+    }
+
     /// Called when the VLC player state changes.
     @objc func vlcPlayerDidReachEnd(notification: Notification) {
         guard let player = notification.object as? VLCMediaPlayer else { return }
@@ -783,14 +1020,23 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     @objc private func toggleMute() {
         print("🎵 DEBUG: WebMViewController - === TOGGLE MUTE CALLED ===")
         print("🎵 DEBUG: WebMViewController - toggleMute() - isMuted BEFORE toggle: \(isMuted)")
-        print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Muted BEFORE: \(vlcPlayer.audio?.isMuted ?? false)")
-        print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Volume BEFORE: \(vlcPlayer.audio?.volume ?? -1)")
-        
+
         let wasMuted = isMuted
         isMuted.toggle()
-        
+
         print("🎵 DEBUG: WebMViewController - toggleMute() - isMuted AFTER toggle: \(isMuted) (was: \(wasMuted))")
-        
+
+        if isUsingAVPlayer {
+            avPlayer.isMuted = isMuted
+            avPlayer.volume = isMuted ? 0.0 : 0.5
+            setupNavigationButtons()
+            print("🎵 DEBUG: WebMViewController - toggleMute() - Applied to AVPlayer, muted=\(avPlayer.isMuted)")
+            return
+        }
+
+        print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Muted BEFORE: \(vlcPlayer.audio?.isMuted ?? false)")
+        print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Volume BEFORE: \(vlcPlayer.audio?.volume ?? -1)")
+
         if isMuted {
             disableAudioTracksForMutedStart()
         } else {
@@ -798,14 +1044,14 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             stopAggressiveMuteEnforcement()
             enableAudioTracksForUnmute()
         }
-        
+
         print("🎵 DEBUG: WebMViewController - toggleMute() - Applied settings to VLC")
         print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Muted AFTER: \(vlcPlayer.audio?.isMuted ?? false)")
         print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Volume AFTER: \(vlcPlayer.audio?.volume ?? -1)")
-        
+
         // Update the navigation bar button
         setupNavigationButtons()
-        
+
         print("🎵 DEBUG: WebMViewController - toggleMute() - Updated navigation buttons")
         print("🎵 DEBUG: WebMViewController - === TOGGLE MUTE COMPLETE ===")
     }
@@ -823,6 +1069,20 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Toggles the play/pause state of the video
     @objc private func togglePlayPause() {
         let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+
+        if isUsingAVPlayer {
+            if avPlayer.rate > 0 {
+                avPlayer.pause()
+                playPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: config), for: .normal)
+                showControls(autoHide: false)
+            } else {
+                avPlayer.play()
+                playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
+                resetControlsHideTimer()
+            }
+            return
+        }
+
         if vlcPlayer.isPlaying {
             vlcPlayer.pause()
             playPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: config), for: .normal)
@@ -839,7 +1099,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Updates the play/pause button icon based on player state
     private func updatePlayPauseButton() {
         let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
-        let imageName = vlcPlayer.isPlaying ? "pause.fill" : "play.fill"
+        let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
+        let imageName = isPlaying ? "pause.fill" : "play.fill"
         playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
     }
 
@@ -909,16 +1170,54 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         isSeeking = false
         // Record seek time to prevent slider snap-back
         lastSeekTime = Date()
-        // Perform the seek when user releases - VLCKit 4.x position is Double (0.0-1.0)
-        vlcPlayer.position = Double(sender.value)
-        // Reset auto-hide timer after seeking
-        if vlcPlayer.isPlaying {
-            resetControlsHideTimer()
+
+        if isUsingAVPlayer {
+            if let duration = avPlayer.currentItem?.duration {
+                let totalSeconds = CMTimeGetSeconds(duration)
+                if totalSeconds.isFinite && totalSeconds > 0 {
+                    let seekTime = CMTime(seconds: Double(sender.value) * totalSeconds, preferredTimescale: 600)
+                    avPlayer.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+                }
+            }
+            if avPlayer.rate > 0 {
+                resetControlsHideTimer()
+            }
+        } else {
+            // Perform the seek when user releases - VLCKit 4.x position is Double (0.0-1.0)
+            vlcPlayer.position = Double(sender.value)
+            // Reset auto-hide timer after seeking
+            if vlcPlayer.isPlaying {
+                resetControlsHideTimer()
+            }
         }
     }
 
     /// Called when seek bar value changes during dragging
     @objc private func seekBarValueChanged(_ sender: UISlider) {
+        if isUsingAVPlayer {
+            if let duration = avPlayer.currentItem?.duration {
+                let totalMs = CMTimeGetSeconds(duration) * 1000
+                if totalMs.isFinite && totalMs > 0 {
+                    let currentMs = Int32(Double(sender.value) * totalMs)
+                    currentTimeLabel.text = formatTime(milliseconds: currentMs)
+                }
+            }
+            // Fast scrub for AVPlayer
+            guard isSeeking else { return }
+            let now = Date()
+            if lastSeekTime == nil || now.timeIntervalSince(lastSeekTime!) > 0.05 {
+                lastSeekTime = now
+                if let duration = avPlayer.currentItem?.duration {
+                    let totalSeconds = CMTimeGetSeconds(duration)
+                    if totalSeconds.isFinite && totalSeconds > 0 {
+                        let seekTime = CMTime(seconds: Double(sender.value) * totalSeconds, preferredTimescale: 600)
+                        avPlayer.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+                    }
+                }
+            }
+            return
+        }
+
         // Update time label while dragging to show where user will seek to
         // Use calculated duration if available (more accurate for WebM files)
         let duration = calculatedDurationMs > 0 ? calculatedDurationMs : (vlcPlayer.media?.length.intValue ?? 0)
@@ -1601,6 +1900,11 @@ extension WebMViewController {
 
         currentIndex -= 1
         loadVideo(at: currentIndex)
+
+        // Pre-convert the next adjacent video
+        if currentIndex > 0 {
+            WebMConversionService.shared.preconvertIfNeeded(url: videoURLs[currentIndex - 1])
+        }
     }
 
     private func navigateToNextVideo(ignoreControls: Bool) {
@@ -1617,6 +1921,11 @@ extension WebMViewController {
 
         currentIndex += 1
         loadVideo(at: currentIndex)
+
+        // Pre-convert the next adjacent video
+        if currentIndex < videoURLs.count - 1 {
+            WebMConversionService.shared.preconvertIfNeeded(url: videoURLs[currentIndex + 1])
+        }
     }
 
     private var supportsHardwareNavigation: Bool {
@@ -1647,13 +1956,22 @@ extension WebMViewController {
 
         print("DEBUG: WebMViewController - Loading video at index \(index)")
 
-        // Detach drawable before stopping to prevent VLCSampleBufferDisplay crash
-        vlcPlayer.delegate = nil
-        vlcPlayer.drawable = nil
-        vlcPlayer.stop()
-        stopLoopMonitoring()
+        // Cancel any active conversion
+        WebMConversionService.shared.cancelConversion()
+
+        // Clean up current player
+        if isUsingAVPlayer {
+            cleanupAVPlayer()
+        } else {
+            // Detach drawable before stopping to prevent VLCSampleBufferDisplay crash
+            vlcPlayer.delegate = nil
+            vlcPlayer.drawable = nil
+            vlcPlayer.stop()
+            stopLoopMonitoring()
+            stopPeriodicAudioChecking()
+        }
         stopSeekBarUpdates()
-        stopPeriodicAudioChecking()
+        stopAVPlayerSeekBarUpdates()
 
         // Reset seek bar
         seekBar.value = 0
@@ -1664,6 +1982,7 @@ extension WebMViewController {
         isMuted = MediaSettings.defaultMuted
         preferredAudioTrackIndex = nil
         shouldForceMuteOnNextPlay = isMuted
+        isUsingAVPlayer = false
         setupNavigationButtons()
 
         // Update video URL

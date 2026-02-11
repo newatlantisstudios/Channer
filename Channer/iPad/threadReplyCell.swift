@@ -7,19 +7,20 @@
 //
 
 import UIKit
+import AVFoundation
 import Kingfisher
 import WebKit
 import VLCKit
 
 class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
-    
+
     @IBOutlet weak var threadImage: UIButton!
     @IBOutlet weak var replyText: UITextView!
     @IBOutlet weak var boardReplyCount: UILabel!
     @IBOutlet weak var threadReplyCount: UILabel!
     @IBOutlet weak var replyTextNoImage: UITextView!
     @IBOutlet weak var thread: UIButton!
-    
+
     // Variables for hover functionality
     private var imageURL: String?
     private var hoveredPreviewView: UIView?
@@ -27,6 +28,12 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     private var pointerInteraction: UIPointerInteraction?
     private var hoverProgressTimer: Timer?
     private var hoverVLCPlayer: VLCMediaPlayer?
+    /// AVPlayer used for hover preview on Mac Catalyst (after WebM conversion)
+    private var hoverAVPlayer: AVPlayer?
+    /// AVPlayerLayer for hover preview
+    private var hoverAVPlayerLayer: AVPlayerLayer?
+    /// Observer for AVPlayer looping in hover preview
+    private var hoverAVPlayerEndObserver: NSObjectProtocol?
 
     // Quote link hover preview
     weak var quoteLinkHoverDelegate: QuoteLinkHoverDelegate?
@@ -140,7 +147,7 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         let previewView: UIView
         if isVideo, let urlString = imageURL, let url = URL(string: urlString) {
             print("[HoverVideo] Starting video hover preview for URL: \(urlString)")
-            // Container holds VLC video view + native poster/progress overlays
+            // Container holds video view + native poster/progress overlays
             let container = UIView(frame: CGRect(x: 0, y: 0, width: previewSize, height: previewSize))
             container.backgroundColor = .black
             container.layer.cornerRadius = 15
@@ -149,29 +156,7 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
             container.layer.borderColor = UIColor.label.cgColor
             container.layer.borderWidth = 1.0
 
-            // VLC video view
-            let vlcVideoView = UIView(frame: container.bounds)
-            vlcVideoView.backgroundColor = .black
-            container.addSubview(vlcVideoView)
-
-            // Create VLC player
-            let player = VLCMediaPlayer()
-            print("[HoverVLC] Created new VLCMediaPlayer \(Unmanaged.passUnretained(player).toOpaque()) on thread: \(Thread.isMainThread ? "main" : "bg") for URL: \(urlString)")
-            player.drawable = vlcVideoView
-            let hoverSoundEnabled = HoverPreviewManager.shared.videoSoundEnabled
-            let media = VLCMedia(url: url)
-            media?.addOption(":input-repeat=65535")
-            if !hoverSoundEnabled {
-                media?.addOption(":no-audio")
-            }
-            player.media = media
-            if let oldPlayer = hoverVLCPlayer {
-                print("[HoverVLC] WARNING: replacing existing hoverVLCPlayer \(Unmanaged.passUnretained(oldPlayer).toOpaque()) without cleanup!")
-            }
-            player.delegate = self
-            hoverVLCPlayer = player
-
-            // Native poster overlay (shows thumbnail immediately while VLC loads)
+            // Native poster overlay (shows thumbnail immediately while video loads)
             let posterView = UIImageView(frame: container.bounds)
             posterView.image = thumbnailImage
             posterView.contentMode = .scaleAspectFit
@@ -215,60 +200,65 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
                 shimmerView.frame.origin.x = trackWidth
             }
 
-            // Start VLC playback
-            player.play()
-            // Enforce mute right after play() — audio subsystem may now be available
-            player.audio?.isMuted = !hoverSoundEnabled
-            player.audio?.volume = hoverSoundEnabled ? 100 : 0
-            print("[HoverVideo] VLC player.play() called, hoverSoundEnabled=\(hoverSoundEnabled) audio=\(player.audio != nil ? "available" : "nil")")
+            #if targetEnvironment(macCatalyst)
+            // Mac Catalyst: convert WebM to MP4 and use AVPlayer
+            if WebMConversionService.shared.needsConversion(url: url) {
+                let conversionStart = CFAbsoluteTimeGetCurrent()
+                print("[HoverVideo] Mac Catalyst: converting WebM for hover preview")
+                // Video view for AVPlayer
+                let videoView = UIView(frame: container.bounds)
+                videoView.backgroundColor = .black
+                container.insertSubview(videoView, at: 0)
 
-            // Poll VLC player state to update native progress overlay
-            hoverProgressTimer?.invalidate()
-            hoverProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak player, weak posterView, weak progressFill, weak shimmerView, weak gradientView, weak progressTrack] _ in
-                guard let player = player else {
-                    self?.hoverProgressTimer?.invalidate()
-                    self?.hoverProgressTimer = nil
-                    return
-                }
+                WebMConversionService.shared.convertWebMToMP4(source: url, progress: nil) { [weak self, weak container, weak posterView, weak gradientView, weak progressTrack, weak videoView] result in
+                    guard let self = self, let container = container, let videoView = videoView else { return }
+                    let elapsed = CFAbsoluteTimeGetCurrent() - conversionStart
+                    switch result {
+                    case .success(let mp4URL):
+                        print("[HoverVideo] Mac Catalyst: conversion done in \(String(format: "%.2f", elapsed))s, playing \(mp4URL)")
+                        let player = AVPlayer(url: mp4URL)
+                        let hoverSoundEnabled = HoverPreviewManager.shared.videoSoundEnabled
+                        player.isMuted = !hoverSoundEnabled
+                        player.volume = hoverSoundEnabled ? 1.0 : 0.0
 
-                // Enforce mute setting on every poll tick until audio subsystem is ready
-                if !hoverSoundEnabled {
-                    if let audio = player.audio, !audio.isMuted {
-                        audio.isMuted = true
-                        audio.volume = 0
-                        print("[HoverVideo] Enforced mute on poll tick (audio was unexpectedly unmuted)")
+                        let playerLayer = AVPlayerLayer(player: player)
+                        playerLayer.frame = videoView.bounds
+                        playerLayer.videoGravity = .resizeAspect
+                        videoView.layer.addSublayer(playerLayer)
+
+                        self.hoverAVPlayer = player
+                        self.hoverAVPlayerLayer = playerLayer
+
+                        // Loop playback
+                        self.hoverAVPlayerEndObserver = NotificationCenter.default.addObserver(
+                            forName: .AVPlayerItemDidPlayToEndTime,
+                            object: player.currentItem,
+                            queue: .main
+                        ) { [weak player] _ in
+                            player?.seek(to: .zero)
+                            player?.play()
+                        }
+
+                        player.play()
+
+                        // Fade out poster once ready
+                        UIView.animate(withDuration: 0.3) {
+                            posterView?.alpha = 0
+                            gradientView?.alpha = 0
+                            progressTrack?.alpha = 0
+                        }
+
+                    case .failure(let error):
+                        print("[HoverVideo] Mac Catalyst: conversion failed after \(String(format: "%.2f", elapsed))s (\(error)), falling back to VLC")
+                        self.setupVLCHoverPlayer(url: url, container: container, posterView: posterView, gradientView: gradientView, progressTrack: progressTrack, progressFill: progressFill, shimmerView: shimmerView, previewSize: previewSize)
                     }
                 }
-
-                let isPlaying = player.isPlaying
-                let position = player.position
-                let timeMs = player.time.intValue
-
-                print("[HoverVideo] Poll: isPlaying=\(isPlaying) position=\(position) time=\(timeMs)ms state=\(player.state.rawValue)")
-
-                // Update progress bar with playback position
-                if isPlaying && position > 0 {
-                    let pct = CGFloat(min(max(position, 0), 1))
-                    let tw = progressTrack?.bounds.width ?? 0
-                    UIView.animate(withDuration: 0.2) {
-                        progressFill?.frame.size.width = tw * pct
-                    }
-                    shimmerView?.layer.removeAllAnimations()
-                    shimmerView?.isHidden = true
-                }
-
-                // Fade out poster once VLC is actually rendering frames
-                if isPlaying && timeMs > 0 {
-                    print("[HoverVideo] Video ready! Fading out poster overlay.")
-                    self?.hoverProgressTimer?.invalidate()
-                    self?.hoverProgressTimer = nil
-                    UIView.animate(withDuration: 0.3) {
-                        posterView?.alpha = 0
-                        gradientView?.alpha = 0
-                        progressTrack?.alpha = 0
-                    }
-                }
+            } else {
+                setupVLCHoverPlayer(url: url, container: container, posterView: posterView, gradientView: gradientView, progressTrack: progressTrack, progressFill: progressFill, shimmerView: shimmerView, previewSize: previewSize)
             }
+            #else
+            setupVLCHoverPlayer(url: url, container: container, posterView: posterView, gradientView: gradientView, progressTrack: progressTrack, progressFill: progressFill, shimmerView: shimmerView, previewSize: previewSize)
+            #endif
 
             previewView = container
         } else {
@@ -370,6 +360,82 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     }
 
     // Remove hover preview
+    /// Sets up VLC-based hover video playback (used on iOS/iPadOS, or as fallback on Mac Catalyst)
+    private func setupVLCHoverPlayer(url: URL, container: UIView, posterView: UIImageView?, gradientView: UIView?, progressTrack: UIView?, progressFill: UIView?, shimmerView: UIView?, previewSize: CGFloat) {
+        // VLC video view
+        let vlcVideoView = UIView(frame: container.bounds)
+        vlcVideoView.backgroundColor = .black
+        container.insertSubview(vlcVideoView, at: 0)
+
+        // Create VLC player
+        let player = VLCMediaPlayer()
+        print("[HoverVLC] Created new VLCMediaPlayer \(Unmanaged.passUnretained(player).toOpaque()) on thread: \(Thread.isMainThread ? "main" : "bg") for URL: \(url)")
+        player.drawable = vlcVideoView
+        let hoverSoundEnabled = HoverPreviewManager.shared.videoSoundEnabled
+        let media = VLCMedia(url: url)
+        media?.addOption(":input-repeat=65535")
+        if !hoverSoundEnabled {
+            media?.addOption(":no-audio")
+        }
+        player.media = media
+        if let oldPlayer = hoverVLCPlayer {
+            print("[HoverVLC] WARNING: replacing existing hoverVLCPlayer \(Unmanaged.passUnretained(oldPlayer).toOpaque()) without cleanup!")
+        }
+        player.delegate = self
+        hoverVLCPlayer = player
+
+        // Start VLC playback
+        player.play()
+        player.audio?.isMuted = !hoverSoundEnabled
+        player.audio?.volume = hoverSoundEnabled ? 100 : 0
+        print("[HoverVideo] VLC player.play() called, hoverSoundEnabled=\(hoverSoundEnabled) audio=\(player.audio != nil ? "available" : "nil")")
+
+        // Poll VLC player state to update native progress overlay
+        hoverProgressTimer?.invalidate()
+        hoverProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self, weak player, weak posterView, weak progressFill, weak shimmerView, weak gradientView, weak progressTrack] _ in
+            guard let player = player else {
+                self?.hoverProgressTimer?.invalidate()
+                self?.hoverProgressTimer = nil
+                return
+            }
+
+            if !hoverSoundEnabled {
+                if let audio = player.audio, !audio.isMuted {
+                    audio.isMuted = true
+                    audio.volume = 0
+                    print("[HoverVideo] Enforced mute on poll tick (audio was unexpectedly unmuted)")
+                }
+            }
+
+            let isPlaying = player.isPlaying
+            let position = player.position
+            let timeMs = player.time.intValue
+
+            print("[HoverVideo] Poll: isPlaying=\(isPlaying) position=\(position) time=\(timeMs)ms state=\(player.state.rawValue)")
+
+            if isPlaying && position > 0 {
+                let pct = CGFloat(min(max(position, 0), 1))
+                let tw = progressTrack?.bounds.width ?? 0
+                UIView.animate(withDuration: 0.2) {
+                    progressFill?.frame.size.width = tw * pct
+                }
+                shimmerView?.layer.removeAllAnimations()
+                shimmerView?.isHidden = true
+            }
+
+            if isPlaying && timeMs > 0 {
+                print("[HoverVideo] Video ready! Fading out poster overlay.")
+                self?.hoverProgressTimer?.invalidate()
+                self?.hoverProgressTimer = nil
+                UIView.animate(withDuration: 0.3) {
+                    posterView?.alpha = 0
+                    gradientView?.alpha = 0
+                    progressTrack?.alpha = 0
+                }
+            }
+        }
+    }
+
     private func removeHoverPreview() {
         hoverProgressTimer?.invalidate()
         hoverProgressTimer = nil
@@ -381,6 +447,16 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
 
         // Cancel any in-flight full-res image download
         (previewView as? UIImageView)?.kf.cancelDownloadTask()
+
+        // Clean up AVPlayer if used for hover (Mac Catalyst WebM conversion path)
+        if let observer = hoverAVPlayerEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+            hoverAVPlayerEndObserver = nil
+        }
+        hoverAVPlayer?.pause()
+        hoverAVPlayerLayer?.removeFromSuperlayer()
+        hoverAVPlayer = nil
+        hoverAVPlayerLayer = nil
 
         // Detach VLC player from this cell immediately, then tear down on a
         // background queue so the blocking stop()/media-nil calls don't freeze
@@ -423,6 +499,17 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     
     deinit {
         hoverProgressTimer?.invalidate()
+
+        // Clean up AVPlayer hover resources
+        if let observer = hoverAVPlayerEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+            hoverAVPlayerEndObserver = nil
+        }
+        hoverAVPlayer?.pause()
+        hoverAVPlayerLayer?.removeFromSuperlayer()
+        hoverAVPlayer = nil
+        hoverAVPlayerLayer = nil
+
         if let player = hoverVLCPlayer {
             print("[HoverVLC] deinit: stopping player \(Unmanaged.passUnretained(player).toOpaque())")
             hoverVLCPlayer = nil
