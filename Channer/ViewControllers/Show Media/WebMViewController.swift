@@ -75,43 +75,43 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private var avPlayerEndObserver: NSObjectProtocol?
     /// Time observer for AVPlayer seek bar updates
     private var avPlayerTimeObserver: Any?
+    /// KVO observation for avPlayerLayer.isReadyForDisplay
+    private var layerReadyObservation: NSKeyValueObservation?
 
-    // MARK: - Conversion Overlay UI
-    /// Semi-transparent overlay shown during WebM-to-MP4 conversion
-    private lazy var conversionOverlay: UIView = {
-        let overlay = UIView()
-        overlay.translatesAutoresizingMaskIntoConstraints = false
-        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-        overlay.isHidden = true
-        return overlay
+    // MARK: - Conversion Progress Bar UI
+    /// Thin track bar shown during WebM-to-MP4 conversion
+    private lazy var conversionProgressTrack: UIView = {
+        let track = UIView()
+        track.translatesAutoresizingMaskIntoConstraints = false
+        track.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+        track.layer.cornerRadius = 1.5
+        track.clipsToBounds = true
+        track.isHidden = true
+        return track
     }()
-    /// Activity indicator shown during conversion
-    private lazy var conversionSpinner: UIActivityIndicatorView = {
-        let spinner = UIActivityIndicatorView(style: .large)
-        spinner.translatesAutoresizingMaskIntoConstraints = false
-        spinner.color = .white
-        return spinner
+    /// White fill bar showing determinate conversion progress
+    private lazy var conversionProgressFill: UIView = {
+        let fill = UIView()
+        fill.translatesAutoresizingMaskIntoConstraints = false
+        fill.backgroundColor = UIColor.white.withAlphaComponent(0.9)
+        fill.layer.cornerRadius = 1.5
+        return fill
     }()
-    /// Label showing "Converting video..." text
-    private lazy var conversionLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "Converting video..."
-        label.textColor = .white
-        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        label.textAlignment = .center
-        return label
+    /// Shimmer bar for indeterminate loading state
+    private lazy var conversionShimmer: UIView = {
+        let shimmer = UIView()
+        shimmer.translatesAutoresizingMaskIntoConstraints = false
+        shimmer.backgroundColor = UIColor.white.withAlphaComponent(0.4)
+        return shimmer
     }()
-    /// Label showing conversion progress percentage
-    private lazy var conversionProgressLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "0%"
-        label.textColor = UIColor.white.withAlphaComponent(0.7)
-        label.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
-        label.textAlignment = .center
-        return label
-    }()
+    /// Width constraint for the progress fill bar
+    private var conversionProgressFillWidth: NSLayoutConstraint?
+    /// Tracks whether conversion is currently in progress
+    private var isConversionInProgress = false
+    /// Tracks whether conversion was active when viewWillDisappear fired
+    private var wasConvertingWhenDisappeared = false
+    /// Generation counter to ignore stale conversion callbacks after rapid navigation
+    private var conversionGeneration: Int = 0
 
     // MARK: - UI Elements
     /// The view that displays the video content.
@@ -363,8 +363,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         navigationController?.navigationBar.compactAppearance = defaultAppearance
         navigationController?.navigationBar.isTranslucent = true
 
+        // Track whether conversion was in-flight before cancelling
+        wasConvertingWhenDisappeared = isConversionInProgress
+
         // Cancel any active WebM conversion
         WebMConversionService.shared.cancelConversion()
+        hideConversionOverlay()
 
         if isUsingAVPlayer {
             // Clean up AVPlayer
@@ -421,11 +425,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.addSubview(downHint)
         view.addSubview(mediaCounterLabel)
 
-        // Add conversion overlay (above everything)
-        view.addSubview(conversionOverlay)
-        conversionOverlay.addSubview(conversionSpinner)
-        conversionOverlay.addSubview(conversionLabel)
-        conversionOverlay.addSubview(conversionProgressLabel)
+        // Add conversion progress bar (above seek bar)
+        view.addSubview(conversionProgressTrack)
+        conversionProgressTrack.addSubview(conversionProgressFill)
+        conversionProgressTrack.addSubview(conversionShimmer)
 
         NSLayoutConstraint.activate([
             videoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -490,21 +493,25 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             mediaCounterLabel.heightAnchor.constraint(equalToConstant: 28),
             mediaCounterLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
 
-            // Conversion overlay (fills the video area)
-            conversionOverlay.topAnchor.constraint(equalTo: videoView.topAnchor),
-            conversionOverlay.leadingAnchor.constraint(equalTo: videoView.leadingAnchor),
-            conversionOverlay.trailingAnchor.constraint(equalTo: videoView.trailingAnchor),
-            conversionOverlay.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
+            // Conversion progress bar (slim bar above seek bar)
+            conversionProgressTrack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            conversionProgressTrack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            conversionProgressTrack.bottomAnchor.constraint(equalTo: seekBarContainer.topAnchor, constant: -12),
+            conversionProgressTrack.heightAnchor.constraint(equalToConstant: 3),
 
-            conversionSpinner.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor),
-            conversionSpinner.centerYAnchor.constraint(equalTo: conversionOverlay.centerYAnchor, constant: -20),
+            conversionProgressFill.leadingAnchor.constraint(equalTo: conversionProgressTrack.leadingAnchor),
+            conversionProgressFill.topAnchor.constraint(equalTo: conversionProgressTrack.topAnchor),
+            conversionProgressFill.bottomAnchor.constraint(equalTo: conversionProgressTrack.bottomAnchor),
 
-            conversionLabel.topAnchor.constraint(equalTo: conversionSpinner.bottomAnchor, constant: 16),
-            conversionLabel.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor),
-
-            conversionProgressLabel.topAnchor.constraint(equalTo: conversionLabel.bottomAnchor, constant: 8),
-            conversionProgressLabel.centerXAnchor.constraint(equalTo: conversionOverlay.centerXAnchor)
+            conversionShimmer.topAnchor.constraint(equalTo: conversionProgressTrack.topAnchor),
+            conversionShimmer.bottomAnchor.constraint(equalTo: conversionProgressTrack.bottomAnchor),
+            conversionShimmer.widthAnchor.constraint(equalTo: conversionProgressTrack.widthAnchor, multiplier: 0.3)
         ])
+
+        // Set initial zero-width for progress fill
+        let fillWidth = conversionProgressFill.widthAnchor.constraint(equalToConstant: 0)
+        fillWidth.isActive = true
+        conversionProgressFillWidth = fillWidth
     }
 
     /// Initializes the video player with the provided video URL.
@@ -520,20 +527,37 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Mac Catalyst: convert WebM to MP4 and use native AVPlayer
         if WebMConversionService.shared.needsConversion(url: url) {
-            print("DEBUG: WebMViewController - Mac Catalyst WebM detected, starting conversion")
             isUsingAVPlayer = true
+            conversionGeneration += 1
+            let expectedGeneration = conversionGeneration
             showConversionOverlay()
 
             WebMConversionService.shared.convertWebMToMP4(source: url, progress: { [weak self] progressValue in
-                self?.conversionProgressLabel.text = "\(Int(progressValue * 100))%"
+                guard let self = self, self.conversionGeneration == expectedGeneration else { return }
+                // Stop shimmer when first determinate progress arrives
+                if progressValue > 0 {
+                    self.conversionShimmer.layer.removeAllAnimations()
+                    self.conversionShimmer.isHidden = true
+                }
+                let trackWidth = self.conversionProgressTrack.bounds.width
+                self.conversionProgressFillWidth?.constant = CGFloat(progressValue) * trackWidth
+                UIView.animate(withDuration: 0.2) {
+                    self.conversionProgressTrack.layoutIfNeeded()
+                }
             }) { [weak self] result in
                 guard let self = self else { return }
-                self.hideConversionOverlay()
+                // Ignore stale callbacks from cancelled conversions after rapid navigation
+                guard self.conversionGeneration == expectedGeneration else { return }
                 switch result {
                 case .success(let mp4URL):
-                    print("DEBUG: WebMViewController - Conversion succeeded, playing MP4: \(mp4URL)")
+                    // Fill progress bar to 100%; setupAVPlayer will hide it once video renders
+                    self.conversionShimmer.layer.removeAllAnimations()
+                    self.conversionShimmer.isHidden = true
+                    self.conversionProgressFillWidth?.constant = self.conversionProgressTrack.bounds.width
+                    self.conversionProgressTrack.layoutIfNeeded()
                     self.setupAVPlayer(with: mp4URL)
                 case .failure(let error):
+                    self.hideConversionOverlay()
                     print("DEBUG: WebMViewController - Conversion failed: \(error), falling back to VLC")
                     self.isUsingAVPlayer = false
                     self.setupVLCPlayer(with: url)
@@ -576,6 +600,45 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     private func resumePlaybackAfterCancelledTransition() {
         if isUsingAVPlayer {
+            // If conversion was in-flight when the gesture started, restart it
+            if wasConvertingWhenDisappeared {
+                wasConvertingWhenDisappeared = false
+                guard let url = URL(string: videoURL) else { return }
+                conversionGeneration += 1
+                let expectedGeneration = conversionGeneration
+                showConversionOverlay()
+                WebMConversionService.shared.convertWebMToMP4(source: url, progress: { [weak self] progressValue in
+                    guard let self = self, self.conversionGeneration == expectedGeneration else { return }
+                    if progressValue > 0 {
+                        self.conversionShimmer.layer.removeAllAnimations()
+                        self.conversionShimmer.isHidden = true
+                    }
+                    let trackWidth = self.conversionProgressTrack.bounds.width
+                    self.conversionProgressFillWidth?.constant = CGFloat(progressValue) * trackWidth
+                    UIView.animate(withDuration: 0.2) {
+                        self.conversionProgressTrack.layoutIfNeeded()
+                    }
+                }) { [weak self] result in
+                    guard let self = self, self.conversionGeneration == expectedGeneration else { return }
+                    switch result {
+                    case .success(let mp4URL):
+                        self.conversionShimmer.layer.removeAllAnimations()
+                        self.conversionShimmer.isHidden = true
+                        self.conversionProgressFillWidth?.constant = self.conversionProgressTrack.bounds.width
+                        self.conversionProgressTrack.layoutIfNeeded()
+                        self.setupAVPlayer(with: mp4URL)
+                    case .failure(let error):
+                        self.hideConversionOverlay()
+                        print("DEBUG: WebMViewController - Conversion failed after resume: \(error), falling back to VLC")
+                        self.isUsingAVPlayer = false
+                        if let url = URL(string: self.videoURL) {
+                            self.setupVLCPlayer(with: url)
+                        }
+                    }
+                }
+                setupNavigationButtons()
+                return
+            }
             avPlayer.play()
             startAVPlayerSeekBarUpdates()
             resetControlsHideTimer()
@@ -730,7 +793,14 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Sets up native AVPlayer for playing a converted MP4 file
     private func setupAVPlayer(with mp4URL: URL) {
-        print("DEBUG: WebMViewController - setupAVPlayer with URL: \(mp4URL)")
+
+        // Cancel any stale layer-ready observation
+        layerReadyObservation?.invalidate()
+        layerReadyObservation = nil
+
+        // Reset player state so avPlayerLayer.isReadyForDisplay becomes false
+        // (prevents stale true from a previous session when cleanupAVPlayer wasn't called)
+        avPlayer.replaceCurrentItem(with: nil)
 
         // Add player layer to videoView
         avPlayerLayer.frame = videoView.bounds
@@ -752,6 +822,16 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         ) { [weak self] _ in
             self?.avPlayer.seek(to: .zero)
             self?.avPlayer.play()
+        }
+
+        // Keep progress bar visible until the player layer renders its first frame
+        layerReadyObservation = avPlayerLayer.observe(\.isReadyForDisplay, options: [.new]) { [weak self] layer, _ in
+            guard let self = self else { return }
+            if layer.isReadyForDisplay {
+                self.hideConversionOverlay()
+                self.layerReadyObservation?.invalidate()
+                self.layerReadyObservation = nil
+            }
         }
 
         // Start playback
@@ -807,6 +887,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Cleans up AVPlayer resources
     private func cleanupAVPlayer() {
+        layerReadyObservation?.invalidate()
+        layerReadyObservation = nil
         stopAVPlayerSeekBarUpdates()
 
         if let observer = avPlayerEndObserver {
@@ -821,18 +903,40 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     // MARK: - Conversion Overlay
 
-    /// Shows the conversion overlay with spinner
+    /// Shows the conversion progress bar with shimmer animation
     private func showConversionOverlay() {
-        conversionOverlay.isHidden = false
-        conversionSpinner.startAnimating()
-        conversionProgressLabel.text = "0%"
-        view.bringSubviewToFront(conversionOverlay)
+        isConversionInProgress = true
+
+        // Cancel any pending hide animation so its completion block doesn't clobber this show
+        conversionProgressTrack.layer.removeAllAnimations()
+
+        conversionProgressFillWidth?.constant = 0
+        conversionProgressTrack.isHidden = false
+        conversionProgressTrack.alpha = 1
+        conversionShimmer.isHidden = false
+        view.layoutIfNeeded()
+
+        // Start shimmer animation (left-to-right sweep)
+        conversionShimmer.transform = CGAffineTransform(translationX: -conversionProgressTrack.bounds.width * 0.3, y: 0)
+        UIView.animate(withDuration: 1.0, delay: 0, options: [.repeat, .curveEaseInOut]) {
+            self.conversionShimmer.transform = CGAffineTransform(translationX: self.conversionProgressTrack.bounds.width, y: 0)
+        }
     }
 
-    /// Hides the conversion overlay
+    /// Hides the conversion progress bar with fade-out
     private func hideConversionOverlay() {
-        conversionOverlay.isHidden = true
-        conversionSpinner.stopAnimating()
+        isConversionInProgress = false
+        conversionShimmer.layer.removeAllAnimations()
+        let hideGeneration = conversionGeneration
+        UIView.animate(withDuration: 0.3, animations: {
+            self.conversionProgressTrack.alpha = 0
+        }) { _ in
+            // Only apply if no new showConversionOverlay has been called since this hide started
+            guard !self.isConversionInProgress && self.conversionGeneration == hideGeneration else { return }
+            self.conversionProgressTrack.isHidden = true
+            self.conversionShimmer.isHidden = true
+            self.conversionProgressFillWidth?.constant = 0
+        }
     }
 
     /// Called when the VLC player state changes.
@@ -1954,10 +2058,9 @@ extension WebMViewController {
     private func loadVideo(at index: Int) {
         guard index >= 0, index < videoURLs.count else { return }
 
-        print("DEBUG: WebMViewController - Loading video at index \(index)")
-
-        // Cancel any active conversion
+        // Cancel any active conversion and hide progress bar
         WebMConversionService.shared.cancelConversion()
+        hideConversionOverlay()
 
         // Clean up current player
         if isUsingAVPlayer {

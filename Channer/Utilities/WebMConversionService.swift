@@ -16,6 +16,12 @@ final class WebMConversionService {
     /// Currently active FFmpeg session (for cancellation)
     private var activeSession: FFmpegSession?
 
+    /// Output URL of the currently active conversion (for cleanup on cancel)
+    private var activeOutputURL: URL?
+
+    /// Set of output paths currently being written by conversions (including preconversions)
+    private var inProgressOutputPaths: Set<String> = []
+
     /// Lock for thread-safe cache access
     private let cacheLock = NSLock()
 
@@ -66,7 +72,12 @@ final class WebMConversionService {
         let outputURL = tempDirectory.appendingPathComponent("\(cacheKey).mp4")
 
         // If output already exists from a previous session, return it
-        if FileManager.default.fileExists(atPath: outputURL.path) {
+        // BUT skip this if a conversion is actively writing to this file (race condition
+        // with preconversion: the file exists but may be incomplete/missing moov atom)
+        cacheLock.lock()
+        let isBeingWritten = inProgressOutputPaths.contains(outputURL.path)
+        cacheLock.unlock()
+        if !isBeingWritten && FileManager.default.fileExists(atPath: outputURL.path) {
             cacheLock.lock()
             conversionCache[cacheKey] = outputURL
             cacheLock.unlock()
@@ -123,6 +134,16 @@ final class WebMConversionService {
     func cancelConversion() {
         activeSession?.cancel()
         activeSession = nil
+
+        // Synchronously delete the partial output file to prevent corrupt cache hits
+        // (the async FFmpeg cancel callback also deletes, but that may race with the next conversion)
+        if let outputURL = activeOutputURL {
+            cacheLock.lock()
+            inProgressOutputPaths.remove(outputURL.path)
+            cacheLock.unlock()
+            try? FileManager.default.removeItem(at: outputURL)
+            activeOutputURL = nil
+        }
     }
 
     /// Remove all converted files from the temp directory
@@ -176,6 +197,11 @@ final class WebMConversionService {
 
     /// Run the FFmpeg conversion from WebM to MP4
     private func runConversion(input: URL, output: URL, cacheKey: String, progress: ((Double) -> Void)?, completion: @escaping (Result<URL, Error>) -> Void) {
+        // Track this output as in-progress to prevent corrupt cache hits
+        cacheLock.lock()
+        inProgressOutputPaths.insert(output.path)
+        cacheLock.unlock()
+
         // Remove any existing output file
         try? FileManager.default.removeItem(at: output)
 
@@ -198,6 +224,11 @@ final class WebMConversionService {
             guard let self = self, let session = session else { return }
 
             let returnCode = session.getReturnCode()
+
+            // Mark output as no longer in-progress
+            self.cacheLock.lock()
+            self.inProgressOutputPaths.remove(output.path)
+            self.cacheLock.unlock()
 
             if ReturnCode.isSuccess(returnCode) {
                 print("DEBUG: WebMConversionService - Conversion successful")
@@ -224,6 +255,7 @@ final class WebMConversionService {
             }
 
             self.activeSession = nil
+            self.activeOutputURL = nil
 
         }, withLogCallback: { log in
             if let message = log?.getMessage() {
@@ -241,10 +273,16 @@ final class WebMConversionService {
         })
 
         activeSession = session
+        activeOutputURL = output
     }
 
     /// Fallback to software encoding if hardware acceleration fails
     private func runSoftwareConversion(input: URL, output: URL, cacheKey: String, progress: ((Double) -> Void)?, completion: @escaping (Result<URL, Error>) -> Void) {
+        // Re-track as in-progress for software fallback
+        cacheLock.lock()
+        inProgressOutputPaths.insert(output.path)
+        cacheLock.unlock()
+
         try? FileManager.default.removeItem(at: output)
 
         let command = "-i \"\(input.path)\" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -movflags +faststart -y \"\(output.path)\""
@@ -255,6 +293,11 @@ final class WebMConversionService {
             guard let self = self, let session = session else { return }
 
             let returnCode = session.getReturnCode()
+
+            // Mark output as no longer in-progress
+            self.cacheLock.lock()
+            self.inProgressOutputPaths.remove(output.path)
+            self.cacheLock.unlock()
 
             if ReturnCode.isSuccess(returnCode) {
                 print("DEBUG: WebMConversionService - Software conversion successful")
@@ -275,6 +318,7 @@ final class WebMConversionService {
             }
 
             self.activeSession = nil
+            self.activeOutputURL = nil
 
         }, withLogCallback: nil, withStatisticsCallback: { statistics in
             guard let statistics = statistics else { return }
@@ -287,6 +331,7 @@ final class WebMConversionService {
         })
 
         activeSession = session
+        activeOutputURL = output
     }
 
     // MARK: - Error Types
