@@ -386,34 +386,26 @@ class boardTVCell: UITableViewCell {
         // Formats text by applying styles and processing HTML tags.
         var formattedText = text
         
-        // First handle all replacements except spoiler tags
-        let replacements = [
-            "<br>": "\n",
-            "&#039;": "'",
-            "&gt;": ">",
-            "&quot;": "\"",
-            "<wbr>": "",
-            "&amp;": "&",
-            "<a[^>]+>": "",
-            "</a>": "",
-            "<span[^>]+>": "",
-            "</span>": ""
-        ]
-        
-        for (key, value) in replacements {
-            if key.contains("[^>]+") {
-                if let regex = try? NSRegularExpression(pattern: key, options: []) {
-                    formattedText = regex.stringByReplacingMatches(
-                        in: formattedText,
-                        options: [],
-                        range: NSRange(location: 0, length: formattedText.count),
-                        withTemplate: value
-                    )
-                }
-            } else {
-                formattedText = formattedText.replacingOccurrences(of: key, with: value)
+        // First handle HTML tag replacements
+        formattedText = formattedText
+            .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(of: "<wbr>", with: "")
+
+        // Remove HTML tags except spoiler tags (handled below)
+        let tagPatterns = ["<a[^>]+>", "</a>", "<span[^>]+>", "</span>"]
+        for pattern in tagPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                formattedText = regex.stringByReplacingMatches(
+                    in: formattedText,
+                    options: [],
+                    range: NSRange(location: 0, length: formattedText.count),
+                    withTemplate: ""
+                )
             }
         }
+
+        // Decode all HTML entities (named + numeric character references)
+        formattedText = formattedText.decodingHTMLEntities()
         
         let attributedString = NSMutableAttributedString(string: "")
         

@@ -278,11 +278,7 @@ class BackgroundTaskManager {
             if threadTitle == nil || threadTitle?.isEmpty == true {
                 let comment = favorite.comment
                     .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                    .replacingOccurrences(of: "&quot;", with: "\"")
-                    .replacingOccurrences(of: "&amp;", with: "&")
-                    .replacingOccurrences(of: "&lt;", with: "<")
-                    .replacingOccurrences(of: "&gt;", with: ">")
-                    .replacingOccurrences(of: "&#039;", with: "'")
+                    .decodingHTMLEntities()
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 if !comment.isEmpty {
                     threadTitle = String(comment.prefix(50)) + (comment.count > 50 ? "..." : "")
@@ -312,11 +308,7 @@ class BackgroundTaskManager {
                         let cleanedComment = comment
                             .replacingOccurrences(of: "<br>", with: " ")
                             .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                            .replacingOccurrences(of: "&quot;", with: "\"")
-                            .replacingOccurrences(of: "&amp;", with: "&")
-                            .replacingOccurrences(of: "&lt;", with: "<")
-                            .replacingOccurrences(of: "&gt;", with: ">")
-                            .replacingOccurrences(of: "&#039;", with: "'")
+                            .decodingHTMLEntities()
                             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                             .trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -697,11 +689,7 @@ class BackgroundTaskManager {
         let cleaned = text
             .replacingOccurrences(of: "<br>", with: " ")
             .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&#039;", with: "'")
+            .decodingHTMLEntities()
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 

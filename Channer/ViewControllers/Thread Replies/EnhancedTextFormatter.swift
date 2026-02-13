@@ -263,14 +263,7 @@ class EnhancedTextFormatter {
     // MARK: - HTML Entity Decoding
 
     private func decodeHTMLEntities(_ text: String) -> String {
-        return text
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&#44;", with: ",")
-            .replacingOccurrences(of: "&nbsp;", with: " ")
+        return text.decodingHTMLEntities()
     }
 
     // MARK: - Text Attributes

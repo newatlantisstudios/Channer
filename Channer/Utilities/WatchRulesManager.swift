@@ -392,12 +392,7 @@ final class WatchRulesManager {
             stripped = preprocessed
         }
 
-        let decoded = stripped
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&amp;", with: "&")
+        let decoded = stripped.decodingHTMLEntities()
 
         let normalized: String
         if let whitespaceRegex = whitespaceRegex {

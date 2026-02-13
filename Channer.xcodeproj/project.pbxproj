@@ -20,6 +20,7 @@
 		171A76192DD83C6F00D75B34 /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76172DD83C6F00D75B34 /* SearchManager.swift */; };
 		171A761A2DD83C6F00D75B34 /* SearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76182DD83C6F00D75B34 /* SearchViewController.swift */; };
 		171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */; };
+		171A76B02DD8490100D75B34 /* String+HTMLEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */; };
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
@@ -188,6 +189,7 @@
 		171A76172DD83C6F00D75B34 /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
 		171A76182DD83C6F00D75B34 /* SearchViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewController.swift; sourceTree = "<group>"; };
 		171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
+		171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+HTMLEntities.swift"; sourceTree = "<group>"; };
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
@@ -344,6 +346,7 @@
 				17CATALYSTNAV123456789AB /* CatalystNavigationController.swift */,
 				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
+				171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */,
 				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
 				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
@@ -796,6 +799,7 @@
 				1776B0A82CE307A300B304E7 /* HistoryManager.swift in Sources */,
 				171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */,
 				171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */,
+				171A76B02DD8490100D75B34 /* String+HTMLEntities.swift in Sources */,
 				17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */,
 				17737E2C2CDC6F3600DF0874 /* threadRepliesTV.swift in Sources */,
 				171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */,

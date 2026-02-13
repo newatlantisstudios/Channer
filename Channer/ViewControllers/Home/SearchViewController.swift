@@ -742,11 +742,7 @@ extension SearchViewController: UITableViewDataSource {
             // Show stats and first bit of content - strip HTML tags and decode entities
             let preview = result.comment
                 .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-                .replacingOccurrences(of: "&#039;", with: "'")
-                .replacingOccurrences(of: "&quot;", with: "\"")
-                .replacingOccurrences(of: "&gt;", with: ">")
-                .replacingOccurrences(of: "&lt;", with: "<")
-                .replacingOccurrences(of: "&amp;", with: "&")
+                .decodingHTMLEntities()
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let shortPreview = String(preview.prefix(100))

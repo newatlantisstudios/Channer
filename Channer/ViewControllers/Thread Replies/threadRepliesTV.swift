@@ -1926,12 +1926,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         postMetadataList.removeAll()
 
         // Extract thread subject from OP (decode HTML entities)
-        threadSubject = json["posts"][0]["sub"].stringValue
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&amp;", with: "&")
+        threadSubject = json["posts"][0]["sub"].stringValue.decodingHTMLEntities()
 
         // Store OP creation timestamp for dead thread info
         threadCreatedTimestamp = json["posts"][0]["time"].int
@@ -2294,11 +2289,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Initial cleanup of HTML codes
         var text = comment
             .replacingOccurrences(of: "<br>", with: "\n")
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "<wbr>", with: "")
-            .replacingOccurrences(of: "&amp;", with: "&")
+            .decodingHTMLEntities()
         
         // Remove any remaining HTML tags
         let htmlPattern = "<[^>]+>"

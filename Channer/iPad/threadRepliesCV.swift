@@ -252,12 +252,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
             // Extract thread subject from OP (decode HTML entities)
             if let firstPost = posts.first, let sub = firstPost["sub"] as? String {
-                threadSubject = sub
-                    .replacingOccurrences(of: "&#039;", with: "'")
-                    .replacingOccurrences(of: "&gt;", with: ">")
-                    .replacingOccurrences(of: "&lt;", with: "<")
-                    .replacingOccurrences(of: "&quot;", with: "\"")
-                    .replacingOccurrences(of: "&amp;", with: "&")
+                threadSubject = sub.decodingHTMLEntities()
             }
 
             threadRepliesFileNames = []
