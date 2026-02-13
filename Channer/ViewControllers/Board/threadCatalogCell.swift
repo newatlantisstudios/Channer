@@ -6,6 +6,7 @@ class threadCatalogCell: UICollectionViewCell {
     private let thumbnailImageView = UIImageView()
     private let statsLabel = UILabel()
     private let titleLabel = UILabel()
+    private let commentLabel = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -26,6 +27,7 @@ class threadCatalogCell: UICollectionViewCell {
         thumbnailImageView.image = UIImage(named: "loadingBoardImage")
         statsLabel.text = nil
         titleLabel.text = nil
+        commentLabel.text = nil
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -40,11 +42,14 @@ class threadCatalogCell: UICollectionViewCell {
         statsLabel.text = thread.stats
 
         let titleText = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let commentText = plainText(from: thread.comment)
+
         if titleText.isEmpty {
-            let commentText = plainText(from: thread.comment)
             titleLabel.text = commentText.isEmpty ? "No Subject" : commentText
+            commentLabel.text = nil
         } else {
             titleLabel.text = titleText
+            commentLabel.text = commentText.isEmpty ? nil : commentText
         }
 
         if let url = thumbnailURL(from: thread.imageUrl) {
@@ -74,17 +79,23 @@ class threadCatalogCell: UICollectionViewCell {
 
         titleLabel.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
         titleLabel.textAlignment = .left
-        titleLabel.numberOfLines = 3
+        titleLabel.numberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
+
+        commentLabel.font = UIFont.systemFont(ofSize: 11, weight: .regular)
+        commentLabel.textAlignment = .left
+        commentLabel.numberOfLines = 3
+        commentLabel.lineBreakMode = .byTruncatingTail
 
         contentView.addSubview(containerView)
         containerView.addSubview(thumbnailImageView)
         containerView.addSubview(statsLabel)
         containerView.addSubview(titleLabel)
+        containerView.addSubview(commentLabel)
     }
 
     private func setupConstraints() {
-        [containerView, thumbnailImageView, statsLabel, titleLabel].forEach {
+        [containerView, thumbnailImageView, statsLabel, titleLabel, commentLabel].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
         }
 
@@ -106,7 +117,11 @@ class threadCatalogCell: UICollectionViewCell {
             titleLabel.topAnchor.constraint(equalTo: statsLabel.bottomAnchor, constant: 4),
             titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
             titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
-            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -8)
+
+            commentLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            commentLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
+            commentLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
+            commentLabel.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -8)
         ])
     }
 
@@ -115,6 +130,7 @@ class threadCatalogCell: UICollectionViewCell {
         containerView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         statsLabel.textColor = ThemeManager.shared.secondaryTextColor
         titleLabel.textColor = ThemeManager.shared.primaryTextColor
+        commentLabel.textColor = ThemeManager.shared.secondaryTextColor
     }
 
     private func thumbnailURL(from urlString: String) -> URL? {
