@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 
 // MARK: - WebMThumbnailCell
 /// A custom collection view cell that displays a thumbnail image.
@@ -181,11 +182,19 @@ class WebMThumbnailCell: UICollectionViewCell {
 // MARK: - FileThumbnailCell
 /// A custom collection view cell that displays a thumbnail image with filename for file browser.
 class FileThumbnailCell: UICollectionViewCell {
-    
+
     // MARK: - Reuse Identifier
     /// The reuse identifier for this cell.
     static let reuseIdentifier = "FileThumbnailCell"
-    
+
+    // MARK: - Video Preview Properties
+    private var player: AVPlayer?
+    private var playerLayer: AVPlayerLayer?
+    private var playerLooper: Any? // AVPlayerLooper requires AVQueuePlayer
+    private var queuePlayer: AVQueuePlayer?
+    private var looperItem: AVPlayerItem?
+    private var playerObserver: NSObjectProtocol?
+
     // MARK: - UI Components
     /// An image view to display the thumbnail image.
     let thumbnailImageView: UIImageView = {
@@ -194,6 +203,21 @@ class FileThumbnailCell: UICollectionViewCell {
         imageView.clipsToBounds = true
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.layer.cornerRadius = 8
+        return imageView
+    }()
+
+    /// A small play icon badge to indicate video files.
+    private let videoIconView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.image = UIImage(systemName: "play.fill")
+        imageView.tintColor = .white
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.isHidden = true
+        imageView.layer.shadowColor = UIColor.black.cgColor
+        imageView.layer.shadowOffset = CGSize(width: 0, height: 1)
+        imageView.layer.shadowOpacity = 0.6
+        imageView.layer.shadowRadius = 2
         return imageView
     }()
     
@@ -244,10 +268,11 @@ class FileThumbnailCell: UICollectionViewCell {
         super.init(frame: frame)
         contentView.addSubview(directoryIndicator)
         contentView.addSubview(thumbnailImageView)
+        contentView.addSubview(videoIconView)
         contentView.addSubview(filenameLabel)
         contentView.addSubview(selectionIndicator)
         selectionIndicator.addSubview(checkmarkImageView)
-        
+
         // Set up constraints
         NSLayoutConstraint.activate([
             // Directory indicator (background)
@@ -255,25 +280,31 @@ class FileThumbnailCell: UICollectionViewCell {
             directoryIndicator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             directoryIndicator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             directoryIndicator.heightAnchor.constraint(equalTo: contentView.widthAnchor),
-            
+
             // Thumbnail image view
             thumbnailImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             thumbnailImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
             thumbnailImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
             thumbnailImageView.heightAnchor.constraint(equalTo: contentView.widthAnchor, constant: -8),
-            
+
+            // Video icon (bottom-left of thumbnail)
+            videoIconView.leadingAnchor.constraint(equalTo: thumbnailImageView.leadingAnchor, constant: 4),
+            videoIconView.bottomAnchor.constraint(equalTo: thumbnailImageView.bottomAnchor, constant: -4),
+            videoIconView.widthAnchor.constraint(equalToConstant: 14),
+            videoIconView.heightAnchor.constraint(equalToConstant: 14),
+
             // Filename label
             filenameLabel.topAnchor.constraint(equalTo: thumbnailImageView.bottomAnchor, constant: 2),
             filenameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 2),
             filenameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -2),
             filenameLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -2),
-            
+
             // Selection indicator (top-right corner)
             selectionIndicator.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             selectionIndicator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
             selectionIndicator.widthAnchor.constraint(equalToConstant: 24),
             selectionIndicator.heightAnchor.constraint(equalToConstant: 24),
-            
+
             // Checkmark inside selection indicator
             checkmarkImageView.centerXAnchor.constraint(equalTo: selectionIndicator.centerXAnchor),
             checkmarkImageView.centerYAnchor.constraint(equalTo: selectionIndicator.centerYAnchor),
@@ -281,10 +312,15 @@ class FileThumbnailCell: UICollectionViewCell {
             checkmarkImageView.heightAnchor.constraint(equalToConstant: 12)
         ])
     }
-    
+
     /// Required initializer for decoding the cell from a storyboard or nib.
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer?.frame = thumbnailImageView.bounds
     }
     
     // MARK: - Configuration
@@ -388,15 +424,74 @@ class FileThumbnailCell: UICollectionViewCell {
         }
     }
 
+    // MARK: - Video Preview Methods
+
+    /// Starts playing a video preview in the cell thumbnail area.
+    func startVideoPreview(url: URL) {
+        stopVideoPreview()
+
+        let playerItem = AVPlayerItem(url: url)
+        let queue = AVQueuePlayer(playerItem: playerItem)
+        queue.isMuted = true
+        queue.preventsDisplaySleepDuringVideoPlayback = false
+
+        let looper = AVPlayerLooper(player: queue, templateItem: playerItem)
+
+        let layer = AVPlayerLayer(player: queue)
+        layer.videoGravity = .resizeAspectFill
+        layer.cornerRadius = 8
+        layer.masksToBounds = true
+        layer.frame = thumbnailImageView.bounds
+        thumbnailImageView.layer.addSublayer(layer)
+
+        self.queuePlayer = queue
+        self.playerLayer = layer
+        self.playerLooper = looper
+
+        queue.play()
+
+        // Hide the static thumbnail once video renders its first frame
+        videoIconView.isHidden = true
+    }
+
+    /// Stops the video preview and cleans up resources.
+    func stopVideoPreview() {
+        queuePlayer?.pause()
+        queuePlayer?.replaceCurrentItem(with: nil)
+        playerLayer?.removeFromSuperlayer()
+
+        if let observer = playerObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        queuePlayer = nil
+        playerLayer = nil
+        playerLooper = nil
+        looperItem = nil
+        playerObserver = nil
+    }
+
+    /// Whether a video preview is currently playing.
+    var isPlayingVideoPreview: Bool {
+        return queuePlayer != nil && queuePlayer?.rate != 0
+    }
+
+    /// Shows or hides the video icon badge.
+    func setVideoIconVisible(_ visible: Bool) {
+        videoIconView.isHidden = !visible
+    }
+
     // MARK: - Reuse
     override func prepareForReuse() {
         super.prepareForReuse()
+        stopVideoPreview()
         thumbnailImageView.image = nil
         filenameLabel.text = nil
         directoryIndicator.isHidden = true
         selectionIndicator.isHidden = true
         selectionIndicator.layer.borderWidth = 0
         checkmarkImageView.isHidden = false
+        videoIconView.isHidden = true
 
         // Reset gallery-style selection state
         contentView.layer.borderWidth = 0

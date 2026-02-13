@@ -43,6 +43,9 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     /// Set of selected index paths
     private var selectedIndexPaths: Set<IndexPath> = []
     
+    /// Maximum number of concurrent video previews to limit resource usage.
+    private let maxConcurrentVideoPreviews = 4
+
     /// Navigation bar buttons
     private var selectButton: UIBarButtonItem!
     private var cancelButton: UIBarButtonItem!
@@ -84,7 +87,19 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         // Load files from the current directory
         loadFiles()
     }
-    
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if MediaSettings.videoPreviewInDownloads && viewMode == .grid {
+            updateVideoPreviewsForVisibleCells()
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        stopAllVideoPreviews()
+    }
+
     // MARK: - Setup Methods
     /// Configures the collection view for thumbnail display.
     private func setupCollectionView() {
@@ -231,9 +246,16 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
 
     private func setViewMode(_ mode: ViewMode) {
         guard viewMode != mode else { return }
+        stopAllVideoPreviews()
         viewMode = mode
         updateLayout()
         refreshOptionsMenu()
+
+        if MediaSettings.videoPreviewInDownloads && mode == .grid {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.updateVideoPreviewsForVisibleCells()
+            }
+        }
     }
 
     private func setContentScope(_ scope: ContentScope) {
@@ -614,6 +636,13 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
 
         print("DEBUG: FilesListVC - Loaded \(items.count) items in scope: \(contentScope)")
         collectionView.reloadData()
+
+        // Start video previews after cells are laid out
+        if MediaSettings.videoPreviewInDownloads && viewMode == .grid {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.updateVideoPreviewsForVisibleCells()
+            }
+        }
     }
     
     // MARK: - UICollectionViewDataSource
@@ -645,8 +674,12 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         if item.isDirectory {
             let folderImage = UIImage(systemName: "folder.fill")
             cell.configure(with: folderImage, fileName: fileName, isDirectory: true)
+            cell.setVideoIconVisible(false)
         } else {
             configureFileCell(cell: cell, fileURL: fileURL, fileName: fileName, indexPath: indexPath, detailText: detailTextForItem(item))
+            let ext = fileURL.pathExtension.lowercased()
+            let isVideo = ext == "webm" || ext == "mp4" || ext == "mov"
+            cell.setVideoIconVisible(isVideo && !MediaSettings.videoPreviewInDownloads)
         }
 
         let isSelected = selectedIndexPaths.contains(indexPath)
@@ -1100,6 +1133,79 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             )
             errorAlert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
             present(errorAlert, animated: true, completion: nil)
+        }
+    }
+
+    // MARK: - Video Preview Management
+
+    /// Called when the user scrolls the collection view. Updates video previews for visible cells.
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if MediaSettings.videoPreviewInDownloads && viewMode == .grid {
+            updateVideoPreviewsForVisibleCells()
+        }
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate && MediaSettings.videoPreviewInDownloads && viewMode == .grid {
+            updateVideoPreviewsForVisibleCells()
+        }
+    }
+
+    /// Starts video previews for visible video cells and stops previews for cells that scrolled off-screen.
+    private func updateVideoPreviewsForVisibleCells() {
+        guard MediaSettings.videoPreviewInDownloads, viewMode == .grid else { return }
+
+        let visibleIndexPaths = collectionView.indexPathsForVisibleItems
+        var activeCount = 0
+
+        // Sort so we start previews for cells closest to center first
+        let center = collectionView.bounds.midY
+        let sorted = visibleIndexPaths.sorted { a, b in
+            guard let cellA = collectionView.cellForItem(at: a),
+                  let cellB = collectionView.cellForItem(at: b) else { return false }
+            return abs(cellA.frame.midY - center) < abs(cellB.frame.midY - center)
+        }
+
+        // Collect which index paths should be playing
+        var shouldPlaySet = Set<IndexPath>()
+        for indexPath in sorted {
+            guard indexPath.row < items.count else { continue }
+            let item = items[indexPath.row]
+            guard !item.isDirectory else { continue }
+            let ext = item.url.pathExtension.lowercased()
+            guard ext == "webm" || ext == "mp4" || ext == "mov" else { continue }
+
+            if activeCount < maxConcurrentVideoPreviews {
+                shouldPlaySet.insert(indexPath)
+                activeCount += 1
+            }
+        }
+
+        // Stop previews for cells no longer in the play set
+        for indexPath in visibleIndexPaths {
+            guard let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell else { continue }
+            if !shouldPlaySet.contains(indexPath) && cell.isPlayingVideoPreview {
+                cell.stopVideoPreview()
+            }
+        }
+
+        // Start previews for cells in the play set that aren't already playing
+        for indexPath in shouldPlaySet {
+            guard indexPath.row < items.count else { continue }
+            guard let cell = collectionView.cellForItem(at: indexPath) as? FileThumbnailCell else { continue }
+            if !cell.isPlayingVideoPreview {
+                let item = items[indexPath.row]
+                cell.startVideoPreview(url: item.url)
+            }
+        }
+    }
+
+    /// Stops all active video previews.
+    private func stopAllVideoPreviews() {
+        for cell in collectionView.visibleCells {
+            if let thumbnailCell = cell as? FileThumbnailCell {
+                thumbnailCell.stopVideoPreview()
+            }
         }
     }
 }
