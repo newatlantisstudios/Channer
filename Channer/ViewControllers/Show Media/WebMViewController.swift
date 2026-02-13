@@ -2,6 +2,27 @@ import UIKit
 import AVFoundation
 import VLCKit
 
+// MARK: - SeekSlider
+/// UISlider subclass that reliably detects tracking start/end on all platforms including Mac Catalyst,
+/// where standard .touchDown/.touchUpInside control events don't fire for mouse/trackpad input.
+private class SeekSlider: UISlider {
+    var onTrackingBegan: (() -> Void)?
+    var onTrackingEnded: (() -> Void)?
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let result = super.beginTracking(touch, with: event)
+        if result {
+            onTrackingBegan?()
+        }
+        return result
+    }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        super.endTracking(touch, with: event)
+        onTrackingEnded?()
+    }
+}
+
 // MARK: - WebMViewController
 /// A view controller responsible for playing and optionally downloading WebM videos.
 class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
@@ -145,9 +166,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return view
     }()
 
-    /// Seek bar slider
-    private lazy var seekBar: UISlider = {
-        let slider = UISlider()
+    /// Seek bar slider (SeekSlider subclass for reliable tracking on Mac Catalyst)
+    private lazy var seekBar: SeekSlider = {
+        let slider = SeekSlider()
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.minimumValue = 0
         slider.maximumValue = 1
@@ -158,6 +179,15 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         slider.addTarget(self, action: #selector(seekBarValueChanged(_:)), for: .valueChanged)
         slider.addTarget(self, action: #selector(seekBarTouchDown(_:)), for: .touchDown)
         slider.addTarget(self, action: #selector(seekBarTouchUp(_:)), for: [.touchUpInside, .touchUpOutside])
+        // beginTracking/endTracking callbacks work reliably on all platforms including Mac Catalyst
+        slider.onTrackingBegan = { [weak self] in
+            self?.isSeeking = true
+            self?.stopControlsHideTimer()
+        }
+        slider.onTrackingEnded = { [weak self] in
+            guard let self = self else { return }
+            self.seekBarTouchUp(self.seekBar)
+        }
         return slider
     }()
 
@@ -435,6 +465,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.addSubview(conversionProgressTrack)
         conversionProgressTrack.addSubview(conversionProgressFill)
         conversionProgressTrack.addSubview(conversionShimmer)
+
+        // Ensure seek bar container is above tap zones so mouse clicks reach the slider on Catalyst
+        view.bringSubviewToFront(seekBarContainer)
 
         NSLayoutConstraint.activate([
             videoView.topAnchor.constraint(equalTo: view.topAnchor),
