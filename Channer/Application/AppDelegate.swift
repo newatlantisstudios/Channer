@@ -209,12 +209,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         var hasUpdates = false
 
         for favorite in favorites {
+            // Skip threads already known to be dead
+            guard !favorite.isDead else { continue }
+
             dispatchGroup.enter()
 
             let url = "https://a.4cdn.org/\(favorite.boardAbv)/thread/\(favorite.number).json"
 
             AF.request(url).responseData { response in
                 defer { dispatchGroup.leave() }
+
+                // Check for 404 - thread no longer exists
+                if let statusCode = response.response?.statusCode, statusCode == 404 {
+                    FavoritesManager.shared.markThreadAsDead(threadNumber: favorite.number, boardAbv: favorite.boardAbv)
+                    return
+                }
 
                 switch response.result {
                 case .success(let data):

@@ -21,10 +21,11 @@ struct ThreadData: Codable {
     var categoryId: String? // Category ID for organizing favorites
     let lastReplyTime: Int? // Unix timestamp of last reply for sorting
     var bumpIndex: Int? // Original board bump order (position from top)
-    
+    var isDead: Bool = false // Flag to indicate thread no longer exists (404)
+
     // Custom coding keys to include all properties
     enum CodingKeys: String, CodingKey {
-        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId, lastReplyTime, bumpIndex
+        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId, lastReplyTime, bumpIndex, isDead
     }
 
     // Initializer from JSON
@@ -78,7 +79,7 @@ struct ThreadData: Codable {
     }
     
     // Extended initializer including all properties
-    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil, lastReplyTime: Int? = nil, bumpIndex: Int? = nil) {
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil, lastReplyTime: Int? = nil, bumpIndex: Int? = nil, isDead: Bool = false) {
         self.number = number
         self.stats = stats
         self.title = title
@@ -92,6 +93,7 @@ struct ThreadData: Codable {
         self.categoryId = categoryId
         self.lastReplyTime = lastReplyTime
         self.bumpIndex = bumpIndex
+        self.isDead = isDead
     }
 }
 
@@ -1197,6 +1199,11 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     }
     
     private func handleThreadUnavailable(at indexPath: IndexPath, thread: ThreadData) {
+        // Mark thread as dead so it won't be rechecked
+        if self.isFavoritesView {
+            FavoritesManager.shared.markThreadAsDead(threadNumber: thread.number, boardAbv: thread.boardAbv)
+        }
+
         // Handles the case when a thread is unavailable.
         let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in

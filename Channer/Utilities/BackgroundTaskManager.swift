@@ -259,10 +259,23 @@ class BackgroundTaskManager {
 
     /// Checks a single thread for updates
     private func checkSingleThread(_ favorite: ThreadData) async {
+        // Skip threads already known to be dead
+        guard !favorite.isDead else { return }
+
         let url = "https://a.4cdn.org/\(favorite.boardAbv)/thread/\(favorite.number).json"
 
         do {
-            let data = try await AF.request(url).serializingData().value
+            let dataResponse = await AF.request(url).serializingData().response
+
+            // Check for 404 - thread no longer exists
+            if let statusCode = dataResponse.response?.statusCode, statusCode == 404 {
+                await MainActor.run {
+                    FavoritesManager.shared.markThreadAsDead(threadNumber: favorite.number, boardAbv: favorite.boardAbv)
+                }
+                return
+            }
+
+            guard let data = dataResponse.value else { return }
             let json = try JSON(data: data)
 
             guard let firstPost = json["posts"].array?.first else { return }
