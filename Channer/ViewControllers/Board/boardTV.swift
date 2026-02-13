@@ -1141,6 +1141,40 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
     }
 
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard isFavoritesView else { return nil }
+
+        let deleteAction = UIContextualAction(style: .destructive, title: "Remove") { [weak self] _, _, completionHandler in
+            guard let self = self else {
+                completionHandler(false)
+                return
+            }
+
+            let threadToDelete = self.filteredThreadData[indexPath.row]
+
+            // Remove from FavoritesManager
+            FavoritesManager.shared.removeFavorite(threadNumber: threadToDelete.number, boardAbv: threadToDelete.boardAbv)
+
+            // Remove from local data sources
+            self.filteredThreadData.remove(at: indexPath.row)
+            if let index = self.threadData.firstIndex(where: { $0.number == threadToDelete.number && $0.boardAbv == threadToDelete.boardAbv }) {
+                self.threadData.remove(at: index)
+            }
+
+            // Update table view
+            if self.filteredThreadData.isEmpty {
+                self.tableView.reloadData()
+            } else {
+                self.tableView.deleteRows(at: [indexPath], with: .fade)
+            }
+
+            completionHandler(true)
+        }
+        deleteAction.image = UIImage(systemName: "trash")
+
+        return UISwipeActionsConfiguration(actions: [deleteAction])
+    }
+
     // MARK: - Helper Methods
     // Helper methods used throughout the class.
 
@@ -1198,40 +1232,70 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     
     private func handleThreadUnavailable(at indexPath: IndexPath, thread: ThreadData) {
         // Handles the case when a thread is unavailable.
-        let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
-            // Remove thread from favorites, history, or refresh if in default view
+        DispatchQueue.main.async {
             if self.isFavoritesView {
-                FavoritesManager.shared.verifyAndRemoveInvalidFavorites { updatedFavorites in
-                    self.threadData = updatedFavorites
-                    self.filteredThreadData = updatedFavorites
-                    DispatchQueue.main.async {
-                        self.tableView.reloadData()
-                    }
+                let hasCachedVersion = ThreadCacheManager.shared.isCached(boardAbv: thread.boardAbv, threadNumber: thread.number)
+                let alert = UIAlertController(
+                    title: "Thread Unavailable",
+                    message: hasCachedVersion
+                        ? "This thread is no longer available. A cached version is available for viewing."
+                        : "This thread is no longer available.",
+                    preferredStyle: .alert
+                )
+
+                if hasCachedVersion {
+                    alert.addAction(UIAlertAction(title: "View Cached Version", style: .default, handler: { _ in
+                        let vc = threadRepliesTV()
+                        vc.boardAbv = thread.boardAbv
+                        vc.threadNumber = thread.number
+                        vc.forceLoadFromCache = true
+                        vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+                        self.navigationController?.pushViewController(vc, animated: true)
+                    }))
                 }
+
+                alert.addAction(UIAlertAction(title: "Remove Favorite", style: .destructive, handler: { _ in
+                    FavoritesManager.shared.removeFavorite(threadNumber: thread.number, boardAbv: thread.boardAbv)
+                    self.filteredThreadData.remove(at: indexPath.row)
+                    if let index = self.threadData.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
+                        self.threadData.remove(at: index)
+                    }
+                    if self.filteredThreadData.isEmpty {
+                        self.tableView.reloadData()
+                    } else {
+                        self.tableView.deleteRows(at: [indexPath], with: .fade)
+                    }
+                }))
+
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+                self.present(alert, animated: true, completion: nil)
             } else if self.isHistoryView {
-                HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
-                    self.threadData = updatedHistory
-                    self.filteredThreadData = updatedHistory
+                let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
+                    HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
+                        self.threadData = updatedHistory
+                        self.filteredThreadData = updatedHistory
+                        DispatchQueue.main.async {
+                            self.tableView.reloadData()
+                        }
+                    }
+                }))
+                self.present(alert, animated: true, completion: nil)
+            } else {
+                let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
+                    self.filteredThreadData.remove(at: indexPath.row)
+                    if let index = self.threadData.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
+                        self.threadData.remove(at: index)
+                    }
                     DispatchQueue.main.async {
                         self.tableView.reloadData()
+                        self.refreshThreadList()
                     }
-                }
-            } else {
-                // Remove from local data sources
-                self.filteredThreadData.remove(at: indexPath.row)
-                if let index = self.threadData.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
-                    self.threadData.remove(at: index)
-                }
-    
-                // Update table view and refresh thread list
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                    self.refreshThreadList()
-                }
+                }))
+                self.present(alert, animated: true, completion: nil)
             }
-        }))
-        present(alert, animated: true, completion: nil)
+        }
     }
     
     private func refreshThreadList() {

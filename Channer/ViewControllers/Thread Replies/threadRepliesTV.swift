@@ -256,6 +256,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var onViewReady: (() -> Void)?
     var boardAbv = ""
     var threadNumber = ""
+    /// When true, loads thread data from cache instead of the network (e.g., for viewing dead favorited threads)
+    var forceLoadFromCache = false
     /// Post number to scroll to after thread loads (used for notification navigation)
     var scrollToPostNumber: String?
     let cellIdentifier = "threadRepliesCell"
@@ -1644,8 +1646,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         print("Loading data from: \(urlString)") // Debug print
         
-        // Check if thread is available in cache when offline
-        if ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork() {
+        // Check if thread should be loaded from cache (forced or offline)
+        if forceLoadFromCache || (ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork()) {
             print("Device is offline, checking cache")
             if let cachedData = ThreadCacheManager.shared.getCachedThread(boardAbv: boardAbv, threadNumber: threadNumber) {
                 print("Loading thread from cache")
