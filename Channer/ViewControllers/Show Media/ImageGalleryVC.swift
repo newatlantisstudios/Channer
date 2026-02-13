@@ -1153,19 +1153,48 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     /// Shares the image at the given index path
     private func shareImage(at indexPath: IndexPath) {
         let imageURL = images[indexPath.row]
-        var itemsToShare: [Any] = [imageURL]
 
-        // Add the image if loaded
+        // If the image is already loaded in the cell, share it directly
         if let cell = collectionView.cellForItem(at: indexPath) as? MediaCell,
            let image = cell.imageView?.image {
-            itemsToShare.insert(image, at: 0)
-        }
+            presentShareSheet(with: image, sourceIndexPath: indexPath)
+        } else {
+            // Download the image first, then share
+            Task {
+                do {
+                    var request = URLRequest(url: imageURL)
+                    request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
 
-        let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
+                    if let host = imageURL.host, host == "i.4cdn.org" {
+                        let pathComponents = imageURL.pathComponents
+                        if pathComponents.count > 1 {
+                            let board = pathComponents[1]
+                            request.setValue("https://boards.4chan.org/\(board)/", forHTTPHeaderField: "Referer")
+                        }
+                    }
+
+                    let (data, _) = try await URLSession.shared.data(for: request)
+                    if let image = UIImage(data: data) {
+                        await MainActor.run {
+                            self.presentShareSheet(with: image, sourceIndexPath: indexPath)
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.showToast("Failed to load image for sharing")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Presents the share sheet with the given image
+    private func presentShareSheet(with image: UIImage, sourceIndexPath: IndexPath) {
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
 
         // iPad support
         if let popover = activityVC.popoverPresentationController {
-            if let cell = collectionView.cellForItem(at: indexPath) {
+            if let cell = collectionView.cellForItem(at: sourceIndexPath) {
                 popover.sourceView = cell
                 popover.sourceRect = cell.bounds
             }
