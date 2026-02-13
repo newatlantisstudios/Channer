@@ -2959,6 +2959,97 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         present(actionSheet, animated: true)
     }
 
+    // MARK: - Mac Catalyst Right-Click Context Menu
+
+    #if targetEnvironment(macCatalyst)
+    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard indexPath.row < threadBoardReplyNumber.count else { return nil }
+
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            self?.buildCatalystContextMenu(for: indexPath)
+        }
+    }
+
+    private func buildCatalystContextMenu(for indexPath: IndexPath) -> UIMenu {
+        var actions: [UIMenuElement] = []
+
+        let postNo = threadBoardReplyNumber[indexPath.row]
+        let metadata = indexPath.row < postMetadataList.count ? postMetadataList[indexPath.row] : nil
+
+        // View replies option (only show if post has replies)
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let replyCount = replies.count
+            let title = replyCount == 1 ? "View 1 Reply" : "View \(replyCount) Replies"
+            actions.append(UIAction(title: title, image: UIImage(systemName: "arrowshape.turn.up.left.2")) { [weak self] _ in
+                self?.showThreadForIndex(indexPath.row)
+            })
+        }
+
+        // Reply to this post
+        actions.append(UIAction(title: "Reply to Post", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
+            self?.replyToPost(postNumber: postNo)
+        })
+
+        // Quote post
+        let isAlreadyQuoted = pendingQuotes.contains(postNo)
+        let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
+        let quoteImage = isAlreadyQuoted ? UIImage(systemName: "quote.bubble.fill") : UIImage(systemName: "quote.bubble")
+        actions.append(UIAction(title: quoteTitle, image: quoteImage) { [weak self] _ in
+            self?.toggleQuote(postNumber: postNo)
+        })
+
+        // Watch for replies
+        let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
+        let watchTitle = isWatching ? "Stop Watching for Replies" : "Watch for Replies"
+        let watchImage = isWatching ? UIImage(systemName: "eye.slash") : UIImage(systemName: "eye")
+        actions.append(UIAction(title: watchTitle, image: watchImage) { [weak self] _ in
+            self?.toggleWatchForReplies(at: indexPath.row)
+        })
+
+        // Watch keyword rule
+        actions.append(UIAction(title: "Watch Keyword...", image: UIImage(systemName: "magnifyingglass")) { [weak self] _ in
+            self?.showWatchKeywordPrompt()
+        })
+
+        // Watch poster ID rule
+        if let posterId = metadata?.posterId, !posterId.isEmpty {
+            let existing = WatchRulesManager.shared.findRule(type: .posterId, value: posterId)
+            let title = existing == nil ? "Watch Poster ID" : "Stop Watching Poster ID"
+            let image = existing == nil ? UIImage(systemName: "person.badge.plus") : UIImage(systemName: "person.badge.minus")
+            actions.append(UIAction(title: title, image: image) { [weak self] _ in
+                self?.toggleWatchRule(type: .posterId, value: posterId)
+            })
+        }
+
+        // Watch file hash rule
+        if let fileHash = metadata?.fileHash, !fileHash.isEmpty {
+            let existing = WatchRulesManager.shared.findRule(type: .fileHash, value: fileHash)
+            let title = existing == nil ? "Watch File Hash" : "Stop Watching File Hash"
+            let image = existing == nil ? UIImage(systemName: "doc.badge.plus") : UIImage(systemName: "doc.badge.minus")
+            actions.append(UIAction(title: title, image: image) { [weak self] _ in
+                self?.toggleWatchRule(type: .fileHash, value: fileHash)
+            })
+        }
+
+        // Filter menu
+        let filterActions: [UIAction] = [
+            UIAction(title: "Filter This Reply", image: UIImage(systemName: "eye.slash")) { [weak self] _ in
+                self?.toggleFilterForReply(at: indexPath.row)
+            },
+            UIAction(title: "Filter Similar Content", image: UIImage(systemName: "line.3.horizontal.decrease.circle")) { [weak self] _ in
+                self?.filterSimilarContent(to: indexPath.row)
+            },
+            UIAction(title: "Extract Keywords to Filter", image: UIImage(systemName: "text.magnifyingglass")) { [weak self] _ in
+                self?.extractKeywords(from: indexPath.row)
+            }
+        ]
+        let filterMenu = UIMenu(title: "Filter", image: UIImage(systemName: "line.3.horizontal.decrease"), children: filterActions)
+        actions.append(filterMenu)
+
+        return UIMenu(children: actions)
+    }
+    #endif
+
     /// Toggles watching for replies on a specific post
     private func toggleWatchForReplies(at index: Int) {
         guard index < threadBoardReplyNumber.count else { return }

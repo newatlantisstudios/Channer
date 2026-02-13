@@ -571,6 +571,16 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
                 return
             }
 
+            // Verify the pointer is actually over the glyph, not just near it
+            let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+            let glyphRect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyphIndex, length: 1), in: textContainer)
+            let textOffset = textView.textContainerInset
+            let adjustedRect = glyphRect.offsetBy(dx: textOffset.left, dy: textOffset.top)
+            guard adjustedRect.contains(location) else {
+                removeQuoteLinkPreview()
+                return
+            }
+
             // Find >>(\d+) patterns in the text and check if characterIndex is within one
             if let regex = try? NSRegularExpression(pattern: ">>(\\d+)"),
                let match = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))

@@ -1021,6 +1021,16 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
                 return
             }
 
+            // Verify the pointer is actually over the glyph, not just near it
+            let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+            let glyphRect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyphIndex, length: 1), in: textContainer)
+            let textOffset = textView.textContainerInset
+            let adjustedRect = glyphRect.offsetBy(dx: textOffset.left, dy: textOffset.top)
+            guard adjustedRect.contains(location) else {
+                removeQuoteLinkPreview()
+                return
+            }
+
             // Check for a .link attribute with post:// scheme
             if let link = attributedText.attribute(.link, at: characterIndex, effectiveRange: nil),
                let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),

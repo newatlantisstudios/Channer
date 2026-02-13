@@ -349,13 +349,19 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     self.navigationController?.navigationBar.compactAppearance = appearance
                     self.navigationController?.navigationBar.isTranslucent = false
 
+                    // Restore navigation bar hidden state based on controls visibility
+                    if !self.controlsVisible {
+                        self.navigationController?.setNavigationBarHidden(true, animated: false)
+                    }
+
                     // Restart video playback and restore audio state
                     self.resumePlaybackAfterCancelledTransition()
                 }
             }
         }
 
-        // Reset navigation bar to default appearance when leaving this view controller
+        // Restore navigation bar visibility and default appearance when leaving
+        navigationController?.setNavigationBarHidden(false, animated: animated)
         let defaultAppearance = UINavigationBarAppearance()
         defaultAppearance.configureWithDefaultBackground()
         navigationController?.navigationBar.standardAppearance = defaultAppearance
@@ -431,12 +437,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         conversionProgressTrack.addSubview(conversionShimmer)
 
         NSLayoutConstraint.activate([
-            videoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            videoView.topAnchor.constraint(equalTo: view.topAnchor),
             videoView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            videoView.bottomAnchor.constraint(equalTo: seekBarContainer.topAnchor),
+            videoView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Seek bar container at the bottom
+            // Seek bar container overlays the bottom of the video
             seekBarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             seekBarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             seekBarContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
@@ -1214,6 +1220,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         controlsVisible = true
         controlsHideTimer?.invalidate()
 
+        navigationController?.setNavigationBarHidden(false, animated: true)
+
         let hasMultipleVideos = videoURLs.count > 1
 
         UIView.animate(withDuration: 0.25) {
@@ -1225,7 +1233,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self.downHint.alpha = hasMultipleVideos ? 0.7 : 0.0
         }
 
-        if autoHide && vlcPlayer.isPlaying {
+        let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
+        if autoHide && isPlaying {
             resetControlsHideTimer()
         }
     }
@@ -1234,6 +1243,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private func hideControls() {
         controlsVisible = false
         controlsHideTimer?.invalidate()
+
+        navigationController?.setNavigationBarHidden(true, animated: true)
 
         UIView.animate(withDuration: 0.25) {
             self.playPauseButton.alpha = 0.0
@@ -1249,7 +1260,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         controlsHideTimer?.invalidate()
         controlsHideTimer = Timer.scheduledTimer(withTimeInterval: controlsHideDelay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            if self.vlcPlayer.isPlaying {
+            let isPlaying = self.isUsingAVPlayer ? (self.avPlayer.rate > 0) : self.vlcPlayer.isPlaying
+            if isPlaying {
                 self.hideControls()
             }
         }

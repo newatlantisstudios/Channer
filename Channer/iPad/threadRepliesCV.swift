@@ -824,6 +824,42 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         present(actionSheet, animated: true)
     }
 
+    // MARK: - Mac Catalyst Right-Click Context Menu
+
+    #if targetEnvironment(macCatalyst)
+    override func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard indexPath.row < threadBoardReplyNumber.count else { return nil }
+
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            self?.buildCatalystContextMenu(for: indexPath)
+        }
+    }
+
+    private func buildCatalystContextMenu(for indexPath: IndexPath) -> UIMenu {
+        var actions: [UIMenuElement] = []
+
+        let postNo = threadBoardReplyNumber[indexPath.row]
+
+        // View replies option (only show if post has replies)
+        if let replies = threadBoardReplies[postNo], !replies.isEmpty {
+            let replyCount = replies.count
+            let title = replyCount == 1 ? "View 1 Reply" : "View \(replyCount) Replies"
+            actions.append(UIAction(title: title, image: UIImage(systemName: "arrowshape.turn.up.left.2")) { [weak self] _ in
+                self?.showThreadForIndex(indexPath.row)
+            })
+        }
+
+        // Reply to this post
+        if let postNumber = Int(postNo) {
+            actions.append(UIAction(title: "Reply to Post", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
+                self?.showComposeView(quotePostNumber: postNumber)
+            })
+        }
+
+        return UIMenu(children: actions)
+    }
+    #endif
+
     /// Shows thread replies for the post at the given index (called from long press menu)
     private func showThreadForIndex(_ index: Int) {
         guard index < threadBoardReplyNumber.count else { return }
