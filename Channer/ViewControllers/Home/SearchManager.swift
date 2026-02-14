@@ -547,11 +547,7 @@ class SearchManager {
         }
 
         let decoded = stripped
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&amp;", with: "&")
+            .decodingHTMLEntities()
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 

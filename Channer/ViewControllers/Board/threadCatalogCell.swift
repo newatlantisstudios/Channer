@@ -41,7 +41,7 @@ class threadCatalogCell: UICollectionViewCell {
     func configure(with thread: ThreadData) {
         statsLabel.text = thread.stats
 
-        let titleText = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleText = thread.title.decodingHTMLEntities().trimmingCharacters(in: .whitespacesAndNewlines)
         let commentText = plainText(from: thread.comment)
 
         if titleText.isEmpty {
@@ -150,19 +150,9 @@ class threadCatalogCell: UICollectionViewCell {
     }
 
     private func plainText(from htmlText: String) -> String {
-        let replacements: [String: String] = [
-            "<br>": "\n",
-            "&#039;": "'",
-            "&gt;": ">",
-            "&quot;": "\"",
-            "<wbr>": "",
-            "&amp;": "&"
-        ]
-
         var cleanedText = htmlText
-        for (key, value) in replacements {
-            cleanedText = cleanedText.replacingOccurrences(of: key, with: value)
-        }
+            .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(of: "<wbr>", with: "")
 
         if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: []) {
             cleanedText = regex.stringByReplacingMatches(
@@ -173,6 +163,6 @@ class threadCatalogCell: UICollectionViewCell {
             )
         }
 
-        return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleanedText.decodingHTMLEntities().trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

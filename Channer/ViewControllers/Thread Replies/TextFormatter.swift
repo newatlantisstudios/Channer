@@ -159,16 +159,9 @@ class TextFormatter {
                MathBoards.isMathBoard(currentBoard)
     }
 
-    /// Decodes common HTML entities
+    /// Decodes HTML entities using the centralized String extension
     private static func decodeHTMLEntities(_ text: String) -> String {
-        return text
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&#44;", with: ",")
-            .replacingOccurrences(of: "&nbsp;", with: " ")
+        return text.decodingHTMLEntities()
     }
 
     // MARK: - Token Types
@@ -252,13 +245,6 @@ class TextFormatter {
             textContent.append(text[index])
             index = text.index(after: index)
         }
-        // Decode HTML entities
-        let decodedText = textContent
-            .replacingOccurrences(of: "&#039;", with: "'")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&amp;", with: "&")
-        return [.text(decodedText)]
+        return [.text(textContent.decodingHTMLEntities())]
     }
 }
