@@ -1,5 +1,6 @@
 import UIKit
 import AVFoundation
+import VLCKit
 
 // MARK: - WebMThumbnailCell
 /// A custom collection view cell that displays a thumbnail image.
@@ -195,6 +196,11 @@ class FileThumbnailCell: UICollectionViewCell {
     private var looperItem: AVPlayerItem?
     private var playerObserver: NSObjectProtocol?
 
+    // VLCKit properties for WebM preview
+    private var vlcPlayer: VLCMediaPlayer?
+    private var vlcDrawableView: UIView?
+    private var vlcEndObserver: NSObjectProtocol?
+
     // MARK: - UI Components
     /// An image view to display the thumbnail image.
     let thumbnailImageView: UIImageView = {
@@ -321,6 +327,7 @@ class FileThumbnailCell: UICollectionViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer?.frame = thumbnailImageView.bounds
+        vlcDrawableView?.frame = thumbnailImageView.bounds
     }
     
     // MARK: - Configuration
@@ -430,6 +437,18 @@ class FileThumbnailCell: UICollectionViewCell {
     func startVideoPreview(url: URL) {
         stopVideoPreview()
 
+        let ext = url.pathExtension.lowercased()
+        if ext == "webm" {
+            startVLCPreview(url: url)
+        } else {
+            startAVPreview(url: url)
+        }
+
+        videoIconView.isHidden = true
+    }
+
+    /// Starts an AVPlayer-based preview for MP4/MOV files.
+    private func startAVPreview(url: URL) {
         let playerItem = AVPlayerItem(url: url)
         let queue = AVQueuePlayer(playerItem: playerItem)
         queue.isMuted = true
@@ -449,13 +468,46 @@ class FileThumbnailCell: UICollectionViewCell {
         self.playerLooper = looper
 
         queue.play()
+    }
 
-        // Hide the static thumbnail once video renders its first frame
-        videoIconView.isHidden = true
+    /// Starts a VLCKit-based preview for WebM files.
+    private func startVLCPreview(url: URL) {
+        let drawable = UIView()
+        drawable.frame = thumbnailImageView.bounds
+        drawable.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        drawable.clipsToBounds = true
+        drawable.layer.cornerRadius = 8
+        thumbnailImageView.addSubview(drawable)
+
+        let player = VLCMediaPlayer()
+        player.drawable = drawable
+        player.audio?.isMuted = true
+        player.audio?.volume = 0
+
+        let media = VLCMedia(url: url)
+        media?.addOption("--no-audio")
+        player.media = media
+
+        // Loop when playback ends
+        vlcEndObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("VLCMediaPlayerStateChanged"),
+            object: player,
+            queue: .main
+        ) { [weak player] _ in
+            guard let player = player, player.state == .stopped, player.position >= 0.99 else { return }
+            player.position = 0
+            player.play()
+        }
+
+        self.vlcPlayer = player
+        self.vlcDrawableView = drawable
+
+        player.play()
     }
 
     /// Stops the video preview and cleans up resources.
     func stopVideoPreview() {
+        // Stop AVPlayer preview
         queuePlayer?.pause()
         queuePlayer?.replaceCurrentItem(with: nil)
         playerLayer?.removeFromSuperlayer()
@@ -469,11 +521,23 @@ class FileThumbnailCell: UICollectionViewCell {
         playerLooper = nil
         looperItem = nil
         playerObserver = nil
+
+        // Stop VLC preview
+        if let observer = vlcEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        vlcPlayer?.stop()
+        vlcDrawableView?.removeFromSuperview()
+        vlcPlayer = nil
+        vlcDrawableView = nil
+        vlcEndObserver = nil
     }
 
     /// Whether a video preview is currently playing.
     var isPlayingVideoPreview: Bool {
-        return queuePlayer != nil && queuePlayer?.rate != 0
+        if let qp = queuePlayer, qp.rate != 0 { return true }
+        if let vp = vlcPlayer, vp.isPlaying { return true }
+        return false
     }
 
     /// Shows or hides the video icon badge.
