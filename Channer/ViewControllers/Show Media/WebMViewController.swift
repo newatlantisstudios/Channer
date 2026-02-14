@@ -379,11 +379,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     self.navigationController?.navigationBar.compactAppearance = appearance
                     self.navigationController?.navigationBar.isTranslucent = false
 
-                    // Restore navigation bar hidden state based on controls visibility
-                    if !self.controlsVisible {
-                        self.navigationController?.setNavigationBarHidden(true, animated: false)
-                    }
-
                     // Restart video playback and restore audio state
                     self.resumePlaybackAfterCancelledTransition()
                 }
@@ -1253,8 +1248,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         controlsVisible = true
         controlsHideTimer?.invalidate()
 
-        navigationController?.setNavigationBarHidden(false, animated: true)
-
         let hasMultipleVideos = videoURLs.count > 1
 
         UIView.animate(withDuration: 0.25) {
@@ -1276,8 +1269,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private func hideControls() {
         controlsVisible = false
         controlsHideTimer?.invalidate()
-
-        navigationController?.setNavigationBarHidden(true, animated: true)
 
         UIView.animate(withDuration: 0.25) {
             self.playPauseButton.alpha = 0.0
