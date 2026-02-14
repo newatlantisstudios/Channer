@@ -114,6 +114,10 @@ class settings: UIViewController {
     private let hoverImageSizeLabel = UILabel()
     private let hoverImageSizeSegment = UISegmentedControl(items: ["S", "M", "L", "XL", "2XL"])
 
+    private let videoPreviewDownloadsView = UIView()
+    private let videoPreviewDownloadsLabel = UILabel()
+    private let videoPreviewDownloadsToggle = UISwitch()
+
     private let mediaPrefetchSettingsView = UIView()
     private let mediaPrefetchSettingsLabel = UILabel()
     private let mediaPrefetchSettingsButton = UIButton(type: .system)
@@ -759,6 +763,9 @@ class settings: UIViewController {
         // Setup Default Video Mute view
         setupDefaultVideoMutedView()
 
+        // Setup Video Preview in Downloads view
+        setupVideoPreviewDownloadsView()
+
         // Setup Hover Preview settings
         setupHoverVideoSoundView()
         setupHoverVideoSizeView()
@@ -1358,6 +1365,20 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
+    @objc private func videoPreviewDownloadsToggleChanged(_ sender: UISwitch) {
+        MediaSettings.videoPreviewInDownloads = sender.isOn
+
+        let title = sender.isOn ? "Video Preview Enabled" : "Video Preview Disabled"
+        let message = sender.isOn ? "Videos in the Downloads grid view will play a preview. This may increase battery usage." : "Videos in the Downloads grid view will show a static thumbnail."
+
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
     @objc private func hoverVideoSoundToggleChanged(_ sender: UISwitch) {
         HoverPreviewManager.shared.setVideoSoundEnabled(sender.isOn)
 
@@ -1679,6 +1700,44 @@ class settings: UIViewController {
         ])
     }
 
+    private func setupVideoPreviewDownloadsView() {
+        videoPreviewDownloadsView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        videoPreviewDownloadsView.layer.cornerRadius = 10
+        videoPreviewDownloadsView.clipsToBounds = true
+        videoPreviewDownloadsView.translatesAutoresizingMaskIntoConstraints = false
+
+        videoPreviewDownloadsLabel.text = "Video Preview in Downloads"
+        videoPreviewDownloadsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        videoPreviewDownloadsLabel.textAlignment = .left
+        videoPreviewDownloadsLabel.numberOfLines = 1
+        videoPreviewDownloadsLabel.adjustsFontSizeToFitWidth = true
+        videoPreviewDownloadsLabel.minimumScaleFactor = 0.8
+        videoPreviewDownloadsLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        videoPreviewDownloadsToggle.isOn = MediaSettings.videoPreviewInDownloads
+        videoPreviewDownloadsToggle.translatesAutoresizingMaskIntoConstraints = false
+        videoPreviewDownloadsToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        videoPreviewDownloadsToggle.addTarget(self, action: #selector(videoPreviewDownloadsToggleChanged), for: .valueChanged)
+
+        contentView.addSubview(videoPreviewDownloadsView)
+        videoPreviewDownloadsView.addSubview(videoPreviewDownloadsLabel)
+        videoPreviewDownloadsView.addSubview(videoPreviewDownloadsToggle)
+
+        NSLayoutConstraint.activate([
+            videoPreviewDownloadsView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
+            videoPreviewDownloadsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            videoPreviewDownloadsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            videoPreviewDownloadsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            videoPreviewDownloadsLabel.centerYAnchor.constraint(equalTo: videoPreviewDownloadsView.centerYAnchor),
+            videoPreviewDownloadsLabel.leadingAnchor.constraint(equalTo: videoPreviewDownloadsView.leadingAnchor, constant: 20),
+            videoPreviewDownloadsLabel.trailingAnchor.constraint(lessThanOrEqualTo: videoPreviewDownloadsToggle.leadingAnchor, constant: -15),
+
+            videoPreviewDownloadsToggle.centerYAnchor.constraint(equalTo: videoPreviewDownloadsView.centerYAnchor),
+            videoPreviewDownloadsToggle.trailingAnchor.constraint(equalTo: videoPreviewDownloadsView.trailingAnchor, constant: -30),
+        ])
+    }
+
     private func setupHoverVideoSoundView() {
         hoverVideoSoundView.backgroundColor = UIColor.secondarySystemGroupedBackground
         hoverVideoSoundView.layer.cornerRadius = 10
@@ -1703,7 +1762,7 @@ class settings: UIViewController {
         hoverVideoSoundView.addSubview(hoverVideoSoundToggle)
 
         NSLayoutConstraint.activate([
-            hoverVideoSoundView.topAnchor.constraint(equalTo: defaultVideoMutedView.bottomAnchor, constant: 16),
+            hoverVideoSoundView.topAnchor.constraint(equalTo: videoPreviewDownloadsView.bottomAnchor, constant: 16),
             hoverVideoSoundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             hoverVideoSoundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             hoverVideoSoundView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
