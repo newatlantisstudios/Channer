@@ -113,15 +113,15 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         
         updateSegmentedControl()
         
-        // Restore previous selection if valid, otherwise show "All"
+        // Restore previous selection if valid, otherwise show first category
         if previousSelection != UISegmentedControl.noSegment && previousSelection < segmentedControl.numberOfSegments {
             segmentedControl.selectedSegmentIndex = previousSelection
             print("Restored selection to index: \(previousSelection)")
             segmentChanged()
-        } else {
-            // Default to "All" tab
+        } else if segmentedControl.numberOfSegments > 0 {
+            // Default to first category
             segmentedControl.selectedSegmentIndex = 0
-            print("Set default selection to index 0 (All)")
+            print("Set default selection to index 0 (first category)")
             updateFavoritesDisplay()
         }
     }
@@ -129,25 +129,22 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     private func updateSegmentedControl() {
         print("=== updateSegmentedControl called ===")
         print("Current selected index: \(segmentedControl.selectedSegmentIndex)")
-        
+
         // Remove all segments
         segmentedControl.removeAllSegments()
-        
-        // Add "All" segment at the beginning (index 0)
-        segmentedControl.insertSegment(withTitle: "All", at: 0, animated: false)
-        
-        // Add a segment for each category after "All"
+
+        // Add a segment for each category
         for (index, category) in categories.enumerated() {
-            print("Adding category segment: \(category.name) at index \(index + 1)")
-            segmentedControl.insertSegment(withTitle: category.name, at: index + 1, animated: false)
+            print("Adding category segment: \(category.name) at index \(index)")
+            segmentedControl.insertSegment(withTitle: category.name, at: index, animated: false)
         }
-        
+
         print("Total segments: \(segmentedControl.numberOfSegments)")
-        
+
         // If we had a selection, try to maintain it
         if segmentedControl.selectedSegmentIndex == UISegmentedControl.noSegment && segmentedControl.numberOfSegments > 0 {
             segmentedControl.selectedSegmentIndex = 0
-            print("Set default selection to index 0 (All)")
+            print("Set default selection to index 0")
         }
     }
     
@@ -307,16 +304,11 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         var favoritesToDisplay: [ThreadData] = []
         let selectedIndex = segmentedControl.selectedSegmentIndex
         print("Selected segment index: \(selectedIndex)")
-        
+
         // Get favorites based on selected category
-        if selectedIndex == 0 {
-            // "All" category
-            favoritesToDisplay = allFavorites
-            print("Showing all favorites: \(favoritesToDisplay.count) items")
-        } else if selectedIndex > 0 && selectedIndex - 1 < categories.count {
-            // Specific category
-            let categoryId = categories[selectedIndex - 1].id
-            let categoryName = categories[selectedIndex - 1].name
+        if selectedIndex >= 0 && selectedIndex < categories.count {
+            let categoryId = categories[selectedIndex].id
+            let categoryName = categories[selectedIndex].name
             favoritesToDisplay = allFavorites.filter { $0.categoryId == categoryId }
             print("Showing category '\(categoryName)' (ID: \(categoryId)): \(favoritesToDisplay.count) items")
         }
@@ -348,16 +340,16 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     
     private func getDisplayTitle() -> String {
         let selectedIndex = segmentedControl.selectedSegmentIndex
-        var title = "All Favorites"
-        
-        if selectedIndex > 0 && selectedIndex - 1 < categories.count {
-            title = categories[selectedIndex - 1].name
+        var title = "Favorites"
+
+        if selectedIndex >= 0 && selectedIndex < categories.count {
+            title = categories[selectedIndex].name
         }
-        
+
         if isSearching {
             title += " - Search Results"
         }
-        
+
         return title
     }
 }

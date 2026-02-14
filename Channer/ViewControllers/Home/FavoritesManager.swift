@@ -203,6 +203,16 @@ class FavoritesManager {
         }
     }
     
+    func markThreadAsDead(threadNumber: String, boardAbv: String) {
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            if let index = favorites.firstIndex(where: { $0.number == threadNumber && $0.boardAbv == boardAbv }) {
+                favorites[index].isDead = true
+                self.saveFavorites(favorites)
+            }
+        }
+    }
+
     func clearNewRepliesFlag(threadNumber: String) {
         syncQueue.sync(flags: .barrier) {
             var favorites = self.loadFavorites()
@@ -225,23 +235,48 @@ class FavoritesManager {
     
     func updateCurrentReplies(completion: @escaping () -> Void) {
         var favorites = loadFavorites()
-        
-        for (index, favorite) in favorites.enumerated() {
+
+        // Filter to only check threads that aren't already known to be dead
+        let liveIndices = favorites.enumerated().filter { !$0.element.isDead }.map { $0.offset }
+
+        guard !liveIndices.isEmpty else {
+            completion()
+            return
+        }
+
+        let dispatchGroup = DispatchGroup()
+
+        for index in liveIndices {
+            let favorite = favorites[index]
+            dispatchGroup.enter()
             fetchLatestReplyCount(for: favorite.number, boardAbv: favorite.boardAbv) { latestCount in
-                favorites[index].currentReplies = latestCount
-                
-                if index == favorites.count - 1 {
-                    self.saveFavorites(favorites)
-                    completion()
+                if let count = latestCount {
+                    favorites[index].currentReplies = count
+                } else {
+                    // Thread returned 404 - mark as dead so we don't recheck
+                    favorites[index].isDead = true
                 }
+                dispatchGroup.leave()
             }
         }
+
+        dispatchGroup.notify(queue: .main) {
+            self.saveFavorites(favorites)
+            completion()
+        }
     }
-    
-    private func fetchLatestReplyCount(for threadID: String, boardAbv: String, completion: @escaping (Int) -> Void) {
+
+    /// Fetches the latest reply count for a thread. Returns nil if the thread is dead (404).
+    private func fetchLatestReplyCount(for threadID: String, boardAbv: String, completion: @escaping (Int?) -> Void) {
         let url = "https://a.4cdn.org/\(boardAbv)/thread/\(threadID).json"
-        
+
         AF.request(url).responseData { response in
+            // Check for 404 - thread no longer exists
+            if let statusCode = response.response?.statusCode, statusCode == 404 {
+                completion(nil)
+                return
+            }
+
             switch response.result {
             case .success(let data):
                 if let json = try? JSON(data: data),
@@ -249,9 +284,11 @@ class FavoritesManager {
                     let latestReplies = firstPost["replies"].intValue
                     completion(latestReplies)
                 } else {
+                    // Could not parse response but not a 404 - treat as 0 rather than dead
                     completion(0)
                 }
             case .failure:
+                // Network error - don't mark as dead, just return 0
                 completion(0)
             }
         }
