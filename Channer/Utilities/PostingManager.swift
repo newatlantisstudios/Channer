@@ -357,6 +357,8 @@ class PostingManager {
             return "image/gif"
         case "webm":
             return "video/webm"
+        case "mp4", "m4v":
+            return "video/mp4"
         case "webp":
             return "image/webp"
         default:

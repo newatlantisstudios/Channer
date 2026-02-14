@@ -1,5 +1,7 @@
 import UIKit
 import PhotosUI
+import AVFoundation
+import UniformTypeIdentifiers
 
 /// Result of image selection
 struct SelectedImage {
@@ -43,7 +45,69 @@ class ImagePickerHelper: NSObject {
         viewController.present(picker, animated: true)
     }
 
+    /// Present a document picker for video files (webm, mp4)
+    /// - Parameters:
+    ///   - viewController: The view controller to present from
+    ///   - completion: Callback with selected file or nil if cancelled
+    func presentDocumentPicker(from viewController: UIViewController, completion: @escaping (SelectedImage?) -> Void) {
+        self.presentingViewController = viewController
+        self.onImageSelected = completion
+
+        var types: [UTType] = [.mpeg4Movie]
+        if let webm = UTType(filenameExtension: "webm") {
+            types.append(webm)
+        }
+
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        viewController.present(picker, animated: true)
+    }
+
     // MARK: - Private Methods
+
+    /// Process a selected video file
+    private func processVideoFile(at url: URL) -> SelectedImage? {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+
+        guard let data = try? Data(contentsOf: url) else { return nil }
+
+        let filename = url.lastPathComponent
+        let ext = url.pathExtension.lowercased()
+        let mimeType: String
+        switch ext {
+        case "webm":
+            mimeType = "video/webm"
+        case "mp4", "m4v":
+            mimeType = "video/mp4"
+        default:
+            mimeType = "application/octet-stream"
+        }
+
+        // Generate thumbnail from the video
+        let thumbnail = generateVideoThumbnail(from: url)
+
+        return SelectedImage(data: data, filename: filename, mimeType: mimeType, thumbnail: thumbnail)
+    }
+
+    /// Generate a thumbnail image from a video file
+    private func generateVideoThumbnail(from url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 200, height: 200)
+
+        do {
+            let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+            return UIImage(cgImage: cgImage)
+        } catch {
+            // Fallback to a generic video icon (e.g. webm not supported by AVFoundation)
+            return UIImage(systemName: "film")
+        }
+    }
 
     /// Process the selected image
     private func processImage(_ image: UIImage, originalFilename: String?) -> SelectedImage? {
@@ -208,6 +272,27 @@ extension ImagePickerHelper: UIImagePickerControllerDelegate, UINavigationContro
 
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
+        onImageSelected?(nil)
+    }
+}
+
+// MARK: - UIDocumentPickerDelegate (Video Files)
+extension ImagePickerHelper: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else {
+            onImageSelected?(nil)
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = self?.processVideoFile(at: url)
+            DispatchQueue.main.async {
+                self?.onImageSelected?(result)
+            }
+        }
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         onImageSelected?(nil)
     }
 }

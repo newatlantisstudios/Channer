@@ -223,8 +223,8 @@ class ComposeViewController: UIViewController {
 
     private func setupImageSection() {
         // Image button
-        imageButton.setTitle("  Attach Image", for: .normal)
-        imageButton.setImage(UIImage(systemName: "photo"), for: .normal)
+        imageButton.setTitle("  Attach File", for: .normal)
+        imageButton.setImage(UIImage(systemName: "paperclip"), for: .normal)
         imageButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
         imageButton.backgroundColor = ThemeManager.shared.cellBackgroundColor
         imageButton.layer.cornerRadius = 8
@@ -465,7 +465,7 @@ class ComposeViewController: UIViewController {
         let comment = commentTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if comment.isEmpty && selectedImage == nil {
-            showAlert(title: "Error", message: "Please enter a comment or attach an image")
+            showAlert(title: "Error", message: "Please enter a comment or attach a file")
             return
         }
 
@@ -510,7 +510,7 @@ class ComposeViewController: UIViewController {
     }
 
     @objc private func attachImageTapped() {
-        let alert = UIAlertController(title: "Attach Image", message: nil, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Attach File", message: nil, preferredStyle: .actionSheet)
 
         alert.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
             guard let self = self else { return }
@@ -527,6 +527,18 @@ class ComposeViewController: UIViewController {
                 }
             })
         }
+
+        alert.addAction(UIAlertAction(title: "Choose File (WebM/MP4)", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            self.imagePicker.presentDocumentPicker(from: self) { [weak self] selectedFile in
+                guard let self = self else { return }
+                if let file = selectedFile, file.data.count > 4 * 1024 * 1024 {
+                    self.showAlert(title: "File Too Large", message: "The maximum file size is 4MB")
+                    return
+                }
+                self.handleImageSelection(selectedFile)
+            }
+        })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
