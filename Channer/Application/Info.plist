@@ -31,6 +31,8 @@
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Used to access your favorites, history, downloads</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Used to save images to your photo library</string>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
 	<key>UIBackgroundModes</key>

@@ -367,16 +367,12 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
     /// Shares the current image
     private func shareImage() {
-        var itemsToShare: [Any] = []
-
-        if let image = editedImage ?? imageView.image {
-            itemsToShare.append(image)
-        }
-        if editedImage == nil {
-            itemsToShare.append(imageURL)
+        guard let image = editedImage ?? imageView.image else {
+            showToast("No image to share")
+            return
         }
 
-        let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
 
         // iPad support
         if let popover = activityVC.popoverPresentationController {
