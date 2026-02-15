@@ -43,6 +43,7 @@ class ComposeViewController: UIViewController {
     private let imageButton = UIButton(type: .system)
     private let imagePreviewView = UIImageView()
     private let removeImageButton = UIButton(type: .close)
+    private let fileInfoLabel = UILabel()
     private let spoilerSwitch = UISwitch()
     private let spoilerLabel = UILabel()
 
@@ -246,6 +247,15 @@ class ComposeViewController: UIViewController {
         removeImageButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(removeImageButton)
 
+        // File info label (shows filename and size for attached files)
+        fileInfoLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        fileInfoLabel.textColor = ThemeManager.shared.secondaryTextColor
+        fileInfoLabel.numberOfLines = 1
+        fileInfoLabel.lineBreakMode = .byTruncatingMiddle
+        fileInfoLabel.isHidden = true
+        fileInfoLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(fileInfoLabel)
+
         // Spoiler switch
         spoilerLabel.text = "Spoiler Image"
         spoilerLabel.font = UIFont.systemFont(ofSize: 14)
@@ -384,9 +394,14 @@ class ComposeViewController: UIViewController {
             removeImageButton.topAnchor.constraint(equalTo: imagePreviewView.topAnchor, constant: -8),
             removeImageButton.trailingAnchor.constraint(equalTo: imagePreviewView.trailingAnchor, constant: 8),
 
+            // File info label (shown next to preview, above spoiler controls)
+            fileInfoLabel.topAnchor.constraint(equalTo: imagePreviewView.topAnchor, constant: 4),
+            fileInfoLabel.leadingAnchor.constraint(equalTo: imagePreviewView.trailingAnchor, constant: 12),
+            fileInfoLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+
             // Spoiler label
-            spoilerLabel.centerYAnchor.constraint(equalTo: imagePreviewView.centerYAnchor),
-            spoilerLabel.leadingAnchor.constraint(equalTo: imagePreviewView.trailingAnchor, constant: 16),
+            spoilerLabel.topAnchor.constraint(equalTo: fileInfoLabel.bottomAnchor, constant: 8),
+            spoilerLabel.leadingAnchor.constraint(equalTo: imagePreviewView.trailingAnchor, constant: 12),
 
             // Spoiler switch
             spoilerSwitch.centerYAnchor.constraint(equalTo: spoilerLabel.centerYAnchor),
@@ -442,6 +457,23 @@ class ComposeViewController: UIViewController {
     @objc private func keyboardWillHide(_ notification: Notification) {
         scrollView.contentInset = .zero
         scrollView.scrollIndicatorInsets = .zero
+    }
+
+    /// Returns a view controller that is properly in the view hierarchy for presenting pickers.
+    /// On Mac Catalyst, the compose sheet lives in a _UIBridgedPresentationWindow where both
+    /// the ComposeViewController and its navigation controller are "detached." Present from the
+    /// VC that originally presented this compose sheet — it lives in the main app window.
+    private var presenterInHierarchy: UIViewController {
+        if let presenter = navigationController?.presentingViewController {
+            return presenter
+        }
+        if let presenter = presentingViewController {
+            return presenter
+        }
+        if let nav = navigationController {
+            return nav
+        }
+        return self
     }
 
     // MARK: - Actions
@@ -513,30 +545,39 @@ class ComposeViewController: UIViewController {
         let alert = UIAlertController(title: "Attach File", message: nil, preferredStyle: .actionSheet)
 
         alert.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.imagePicker.presentPicker(from: self) { selectedImage in
-                self.handleImageSelection(selectedImage)
+            self?.presentPickerAfterDismissal {
+                guard let self = self else { return }
+                let presenter = self.presenterInHierarchy
+                self.imagePicker.presentPicker(from: presenter) { [weak self] selectedImage in
+                    self?.handleImageSelection(selectedImage)
+                }
             }
         })
 
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             alert.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
-                guard let self = self else { return }
-                self.imagePicker.presentCamera(from: self) { selectedImage in
-                    self.handleImageSelection(selectedImage)
+                self?.presentPickerAfterDismissal {
+                    guard let self = self else { return }
+                    let presenter = self.presenterInHierarchy
+                    self.imagePicker.presentCamera(from: presenter) { [weak self] selectedImage in
+                        self?.handleImageSelection(selectedImage)
+                    }
                 }
             })
         }
 
         alert.addAction(UIAlertAction(title: "Choose File (WebM/MP4)", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.imagePicker.presentDocumentPicker(from: self) { [weak self] selectedFile in
+            self?.presentPickerAfterDismissal {
                 guard let self = self else { return }
-                if let file = selectedFile, file.data.count > 4 * 1024 * 1024 {
-                    self.showAlert(title: "File Too Large", message: "The maximum file size is 4MB")
-                    return
+                let presenter = self.presenterInHierarchy
+                self.imagePicker.presentDocumentPicker(from: presenter) { [weak self] selectedFile in
+                    guard let self = self else { return }
+                    if let file = selectedFile, file.data.count > 4 * 1024 * 1024 {
+                        self.showAlert(title: "File Too Large", message: "The maximum file size is 4MB")
+                        return
+                    }
+                    self.handleImageSelection(selectedFile)
                 }
-                self.handleImageSelection(selectedFile)
             }
         })
 
@@ -551,6 +592,19 @@ class ComposeViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    /// Presents a picker after ensuring the action sheet has fully dismissed.
+    /// The action sheet's action handler fires while the sheet is still being dismissed,
+    /// which prevents presenting another view controller from the same presenter.
+    private func presentPickerAfterDismissal(_ block: @escaping () -> Void) {
+        if presentedViewController != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.presentPickerAfterDismissal(block)
+            }
+        } else {
+            block()
+        }
+    }
+
     @objc private func removeImageTapped() {
         selectedImage = nil
         imagePreviewView.image = nil
@@ -561,6 +615,9 @@ class ComposeViewController: UIViewController {
         spoilerSwitch.isOn = false
         filenameContainerView.isHidden = true
         filenameField.text = ""
+        fileInfoLabel.isHidden = true
+        fileInfoLabel.text = nil
+        imageButton.setTitle("  Attach File", for: .normal)
     }
 
     @objc private func randomizeFilenameTapped() {
@@ -614,6 +671,16 @@ class ComposeViewController: UIViewController {
             spoilerLabel.isHidden = false
             spoilerSwitch.isHidden = false
             filenameContainerView.isHidden = false
+            fileInfoLabel.isHidden = false
+
+            // Show file info (name + size)
+            let sizeString = ByteCountFormatter.string(fromByteCount: Int64(image.data.count), countStyle: .file)
+            let isVideo = image.mimeType.hasPrefix("video/")
+            let typeIcon = isVideo ? "Video" : "Image"
+            fileInfoLabel.text = "\(typeIcon): \(image.filename) (\(sizeString))"
+
+            // Update attach button to indicate file is attached
+            imageButton.setTitle("  Change File", for: .normal)
 
             // Set the filename field with the current filename (without extension)
             let filenameWithExt = image.filename
@@ -626,6 +693,9 @@ class ComposeViewController: UIViewController {
             spoilerSwitch.isHidden = true
             filenameContainerView.isHidden = true
             filenameField.text = ""
+            fileInfoLabel.isHidden = true
+            fileInfoLabel.text = nil
+            imageButton.setTitle("  Attach File", for: .normal)
         }
     }
 
