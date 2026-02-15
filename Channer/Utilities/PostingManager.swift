@@ -226,35 +226,51 @@ class PostingManager {
             // Parse HTML response
             let htmlString = String(data: data, encoding: .utf8) ?? ""
 
-            // Check for success
-            if let postNumber = parseSuccessResponse(htmlString) {
-                lastPostTime = Date()
-                completion(.success(PostResult.success(postNumber: postNumber)))
-                return
+            print("=== PostingManager RESPONSE DEBUG ===")
+            print("HTTP Status: \(response.response?.statusCode ?? -1)")
+            print("Response length: \(htmlString.count) chars")
+            print("=== END RESPONSE DEBUG ===")
+
+            // Check if 4chan explicitly marks this as an error page via JS variable
+            // 4chan returns full board pages with is_error = "true" on post failure
+            let isErrorPage = htmlString.contains("is_error") &&
+                (htmlString.contains("is_error = \"true\"") || htmlString.contains("is_error=\"true\""))
+
+            if !isErrorPage {
+                // Only check for success if this is NOT an error page
+                if let postNumber = parseSuccessResponse(htmlString) {
+                    lastPostTime = Date()
+                    completion(.success(PostResult.success(postNumber: postNumber)))
+                    return
+                }
+
+                if let threadNumber = parseThreadCreationResponse(htmlString) {
+                    lastPostTime = Date()
+                    completion(.success(PostResult.success(threadNumber: threadNumber)))
+                    return
+                }
             }
 
-            // Check for thread creation success
-            if let threadNumber = parseThreadCreationResponse(htmlString) {
-                lastPostTime = Date()
-                completion(.success(PostResult.success(threadNumber: threadNumber)))
-                return
-            }
-
-            // Check for error
+            // Check for error message
             if let errorMessage = parseErrorResponse(htmlString) {
-                // Check for specific errors
-                if errorMessage.lowercased().contains("banned") {
+                let msg = errorMessage.lowercased()
+                if msg.contains("banned") {
                     completion(.failure(.banned))
-                } else if errorMessage.lowercased().contains("wait") ||
-                          errorMessage.lowercased().contains("flood") {
+                } else if msg.contains("wait") || msg.contains("flood") {
                     completion(.failure(.rateLimited))
-                } else if errorMessage.lowercased().contains("closed") {
+                } else if msg.contains("closed") {
                     completion(.failure(.threadClosed))
-                } else if errorMessage.lowercased().contains("archived") {
+                } else if msg.contains("archived") {
                     completion(.failure(.threadArchived))
                 } else {
                     completion(.failure(.serverError(errorMessage)))
                 }
+                return
+            }
+
+            // If we know it's an error but couldn't extract the message
+            if isErrorPage {
+                completion(.failure(.serverError("Post failed. Check your 4chan Pass authentication and try again.")))
                 return
             }
 
@@ -278,13 +294,26 @@ class PostingManager {
             return Int(postNumberStr)
         }
 
-        // Pattern 2: JavaScript redirect
+        // Pattern 2: JavaScript redirect with various formats
         // location.href = "https://boards.4chan.org/g/thread/12345#p67890"
+        // document.location = "..."
+        // window.location = "..."
         if let range = html.range(of: "thread/\\d+#p(\\d+)", options: .regularExpression) {
             let match = html[range]
             if let pRange = match.range(of: "#p(\\d+)", options: .regularExpression) {
                 let postNumberStr = match[pRange].dropFirst(2)
                 return Int(postNumberStr)
+            }
+        }
+
+        // Pattern 3: "Post successful" text with post number
+        if html.lowercased().contains("post successful") || html.lowercased().contains("uploaded") {
+            // Try to extract any number that looks like a post number
+            if let range = html.range(of: "(?:no\\.?|#)\\s*(\\d{6,})", options: .regularExpression) {
+                let match = html[range]
+                if let numRange = match.range(of: "\\d{6,}", options: .regularExpression) {
+                    return Int(match[numRange])
+                }
             }
         }
 
@@ -307,25 +336,45 @@ class PostingManager {
 
     /// Parse error response to extract error message
     private func parseErrorResponse(_ html: String) -> String? {
-        // Look for error message in HTML
-        // Pattern 1: <span id="errmsg">Error message</span>
-        if let range = html.range(of: "(?<=id=\"errmsg\"[^>]*>)[^<]+", options: .regularExpression) {
-            return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Pattern 1: Extract full content from <span id="errmsg">...</span>
+        // 4chan wraps error messages in this span, which may contain inner HTML like <br>, <a>, etc.
+        if let startRange = html.range(of: "id=\"errmsg\""),
+           let tagClose = html.range(of: ">", range: startRange.upperBound..<html.endIndex),
+           let endRange = html.range(of: "</span>", range: tagClose.upperBound..<html.endIndex) {
+            let content = String(html[tagClose.upperBound..<endRange.lowerBound])
+            let stripped = content.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            if !stripped.isEmpty {
+                return stripped
+            }
         }
 
-        // Pattern 2: <font color=red><b>Error message</b></font>
+        // Pattern 2: <font color=red><b>Error: message</b></font>
         if let range = html.range(of: "(?<=<b>Error:)[^<]+", options: .regularExpression) {
             return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        // Pattern 3: General error text
-        if let range = html.range(of: "(?<=<body[^>]*>)[^<]+Error[^<]+", options: .regularExpression) {
-            return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Pattern 3: <b>Error</b>: message or <b>Error:</b> message
+        if let range = html.range(of: "<b>Error:?</b>:?\\s*([^<]+)", options: .regularExpression) {
+            let match = String(html[range])
+            let stripped = match.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "Error:", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !stripped.isEmpty {
+                return stripped
+            }
         }
 
-        // Check if it's an error page at all
-        if html.lowercased().contains("error") && !html.contains("thread/") {
-            // Try to extract any text from body
+        // Pattern 4: Cloudflare or CDN block pages
+        if html.lowercased().contains("cloudflare") || html.lowercased().contains("access denied") {
+            return "Request blocked by Cloudflare. Try opening 4chan in Safari first."
+        }
+
+        // Pattern 5: Extract error from body for simple error pages
+        if html.lowercased().contains("error") && !html.contains("is_error") {
             if let bodyStart = html.range(of: "<body"),
                let bodyEnd = html.range(of: "</body>") {
                 let content = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])

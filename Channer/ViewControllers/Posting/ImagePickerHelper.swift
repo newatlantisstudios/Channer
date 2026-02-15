@@ -25,6 +25,12 @@ class ImagePickerHelper: NSObject {
 
     private weak var presentingViewController: UIViewController?
 
+    #if targetEnvironment(macCatalyst)
+    /// Strong reference to the NSOpenPanel instance used on Mac Catalyst.
+    /// Required to keep it alive during the asynchronous file selection.
+    private var nativeOpenPanel: NSObject?
+    #endif
+
     // MARK: - Public Methods
 
     /// Present the image picker
@@ -58,39 +64,182 @@ class ImagePickerHelper: NSObject {
             types.append(webm)
         }
 
+        #if targetEnvironment(macCatalyst)
+        // On Mac Catalyst, UIDocumentPickerViewController maps to NSOpenPanel but breaks
+        // when presented from a view controller in a sheet presentation window (all VCs are
+        // "detached" in the _UIBridgedPresentationWindow). Bypass UIKit entirely and invoke
+        // NSOpenPanel directly through the Objective-C runtime.
+        presentNativeOpenPanel(types: types)
+        #else
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types)
         picker.delegate = self
         picker.allowsMultipleSelection = false
         viewController.present(picker, animated: true)
+        #endif
     }
+
+    #if targetEnvironment(macCatalyst)
+    /// Directly invoke NSOpenPanel via the ObjC runtime, bypassing UIDocumentPickerViewController.
+    private func presentNativeOpenPanel(types: [UTType]) {
+        guard let panelClass = NSClassFromString("NSOpenPanel") else {
+            onImageSelected?(nil)
+            return
+        }
+
+        let openSel = NSSelectorFromString("openPanel")
+        guard (panelClass as AnyObject).responds(to: openSel),
+              let result = (panelClass as AnyObject).perform(openSel) else {
+            onImageSelected?(nil)
+            return
+        }
+
+        let panel = result.takeUnretainedValue()
+        nativeOpenPanel = panel as? NSObject
+
+        panel.setValue(types, forKey: "allowedContentTypes")
+        panel.setValue(false, forKey: "allowsMultipleSelection")
+        panel.setValue(true, forKey: "canChooseFiles")
+        panel.setValue(false, forKey: "canChooseDirectories")
+
+        let handler: @convention(block) (Int) -> Void = { [weak self] response in
+            self?.nativeOpenPanel = nil
+
+            // NSModalResponseOK = 1
+            if response == 1, let urls = panel.value(forKey: "URLs") as? [URL], let url = urls.first {
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    let selectedImage = self?.processVideoFile(at: url)
+                    DispatchQueue.main.async {
+                        if selectedImage == nil, let error = self?.lastVideoError {
+                            if let presenter = self?.presentingViewController {
+                                let alert = UIAlertController(title: "File Error", message: error, preferredStyle: .alert)
+                                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                                presenter.present(alert, animated: true)
+                            }
+                        }
+                        self?.onImageSelected?(selectedImage)
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self?.onImageSelected?(nil)
+                }
+            }
+        }
+
+        let beginSel = NSSelectorFromString("beginWithCompletionHandler:")
+        panel.perform(beginSel, with: handler)
+    }
+    #endif
 
     // MARK: - Private Methods
 
-    /// Process a selected video file
+    /// Error info from the last failed video processing attempt
+    var lastVideoError: String?
+
+    /// Process a selected video file, transcoding to H264 if needed for 4chan compatibility
     private func processVideoFile(at url: URL) -> SelectedImage? {
+        lastVideoError = nil
         let accessing = url.startAccessingSecurityScopedResource()
         defer {
             if accessing { url.stopAccessingSecurityScopedResource() }
         }
 
-        guard let data = try? Data(contentsOf: url) else { return nil }
-
         let filename = url.lastPathComponent
         let ext = url.pathExtension.lowercased()
-        let mimeType: String
-        switch ext {
-        case "webm":
-            mimeType = "video/webm"
-        case "mp4", "m4v":
-            mimeType = "video/mp4"
-        default:
-            mimeType = "application/octet-stream"
+
+        // WebM files are passed through as-is (must already be VP8/VP9)
+        if ext == "webm" {
+            guard let data = try? Data(contentsOf: url) else {
+                lastVideoError = "Could not read file: \(filename)"
+                return nil
+            }
+            let thumbnail = generateVideoThumbnail(from: url)
+            return SelectedImage(data: data, filename: filename, mimeType: "video/webm", thumbnail: thumbnail)
         }
 
-        // Generate thumbnail from the video
-        let thumbnail = generateVideoThumbnail(from: url)
+        // For MP4/M4V, check codec and transcode if not H264
+        let asset = AVAsset(url: url)
+        let videoTracks = asset.tracks(withMediaType: .video)
 
-        return SelectedImage(data: data, filename: filename, mimeType: mimeType, thumbnail: thumbnail)
+        guard let videoTrack = videoTracks.first else {
+            lastVideoError = "No video track found in file"
+            return nil
+        }
+
+        let codecType = videoTrack.formatDescriptions.first.flatMap { desc -> CMVideoCodecType? in
+            let formatDesc = desc as! CMFormatDescription
+            return CMFormatDescriptionGetMediaSubType(formatDesc)
+        }
+
+        let isH264 = codecType == kCMVideoCodecType_H264
+
+        if isH264 {
+            // Already H264 — pass through directly
+            guard let data = try? Data(contentsOf: url) else {
+                lastVideoError = "Could not read file: \(filename)"
+                return nil
+            }
+            let thumbnail = generateVideoThumbnail(from: url)
+            return SelectedImage(data: data, filename: filename, mimeType: "video/mp4", thumbnail: thumbnail)
+        }
+
+        // Transcode to H264
+        let thumbnail = generateVideoThumbnail(from: url)
+        guard let transcodedData = transcodeVideoToH264(asset: asset) else {
+            // lastVideoError is set by transcodeVideoToH264
+            return nil
+        }
+
+        let h264Filename = (filename as NSString).deletingPathExtension + ".mp4"
+        return SelectedImage(data: transcodedData, filename: h264Filename, mimeType: "video/mp4", thumbnail: thumbnail)
+    }
+
+    /// Transcode a video asset to H264/MP4 using AVAssetExportSession
+    private func transcodeVideoToH264(asset: AVAsset) -> Data? {
+        // Try presets in order of quality (highest that produces < 4MB)
+        let presets = [
+            AVAssetExportPresetMediumQuality,
+            AVAssetExportPresetLowQuality
+        ]
+
+        for preset in presets {
+            guard AVAssetExportSession.exportPresets(compatibleWith: asset).contains(preset) else {
+                continue
+            }
+
+            guard let session = AVAssetExportSession(asset: asset, presetName: preset) else {
+                continue
+            }
+
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("mp4")
+
+            session.outputURL = tempURL
+            session.outputFileType = .mp4
+
+            let semaphore = DispatchSemaphore(value: 0)
+            session.exportAsynchronously { semaphore.signal() }
+            semaphore.wait()
+
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            guard session.status == .completed else {
+                let errorMsg = session.error?.localizedDescription ?? "Unknown export error"
+                print("Transcode failed with preset \(preset): \(errorMsg)")
+                continue
+            }
+
+            guard let data = try? Data(contentsOf: tempURL) else { continue }
+
+            if data.count <= maxImageSize {
+                return data
+            }
+            // File too large with this preset, try a lower quality
+        }
+
+        lastVideoError = "Could not transcode video to H264 within the 4MB file size limit. Try a shorter or lower-resolution video."
+        return nil
     }
 
     /// Generate a thumbnail image from a video file
@@ -287,6 +436,13 @@ extension ImagePickerHelper: UIDocumentPickerDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = self?.processVideoFile(at: url)
             DispatchQueue.main.async {
+                if result == nil, let error = self?.lastVideoError {
+                    if let presenter = self?.presentingViewController {
+                        let alert = UIAlertController(title: "File Error", message: error, preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "OK", style: .default))
+                        presenter.present(alert, animated: true)
+                    }
+                }
                 self?.onImageSelected?(result)
             }
         }
