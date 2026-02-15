@@ -323,31 +323,29 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     
     private func updateAttributedTextColors(_ attributedText: NSAttributedString) -> NSAttributedString {
         let mutableString = NSMutableAttributedString(attributedString: attributedText)
-        
-        mutableString.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: mutableString.length)) { (value, range, stop) in
-            if value != nil {
-                // If this is greentext (checking the color)
-                if let color = value as? UIColor, self.isColorGreenish(color) {
-                    mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.greentextColor, range: range)
-                } else {
-                    mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.primaryTextColor, range: range)
-                }
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+
+        mutableString.enumerateAttributes(in: fullRange) { (attributes, range, stop) in
+            // Skip ranges with link attributes (quote links) - preserve their color
+            if attributes[.link] != nil {
+                return
+            }
+
+            // Skip spoiler text - preserve its color
+            if let isSpoiler = attributes[.isSpoiler] as? Bool, isSpoiler {
+                return
+            }
+
+            // Check for greentext using the custom attribute marker
+            if let isGreentext = attributes[.isGreentext] as? Bool, isGreentext {
+                mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.greentextColor, range: range)
+            } else if attributes[.foregroundColor] != nil {
+                // Only update regular text colors (not link/spoiler)
+                mutableString.addAttribute(.foregroundColor, value: ThemeManager.shared.primaryTextColor, range: range)
             }
         }
-        
+
         return mutableString
-    }
-    
-    private func isColorGreenish(_ color: UIColor) -> Bool {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        
-        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        
-        // Check if green component is dominant
-        return green > red * 1.5 && green > blue * 1.5
     }
 
     // MARK: - Setup Methods

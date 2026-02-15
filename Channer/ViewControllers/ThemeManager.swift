@@ -7,11 +7,11 @@ extension UIColor {
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
-        
+
         self.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        
-        // Check if green component is dominant
-        return green > red * 1.5 && green > blue * 1.5
+
+        // Check if green component is dominant (green > red and green >> blue)
+        return green > red && green > blue * 1.5 && green > 0.3
     }
     
     // Convert UIColor to hex string

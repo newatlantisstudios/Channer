@@ -56,7 +56,8 @@ class TextFormatter {
         // Enhanced greentext with theme support
         let greenAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: ThemeManager.shared.greentextColor,
-            .font: UIFont.systemFont(ofSize: 14)
+            .font: UIFont.systemFont(ofSize: 14),
+            .isGreentext: true
         ]
 
         // Enhanced spoiler attributes
@@ -120,7 +121,8 @@ class TextFormatter {
                     if processedContent.hasPrefix(">") {
                         let arrowAttrs: [NSAttributedString.Key: Any] = [
                             .foregroundColor: ThemeManager.shared.greentextColor,
-                            .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+                            .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                            .isGreentext: true
                         ]
                         attributedText.append(NSAttributedString(string: ">", attributes: arrowAttrs))
                         processedContent = String(processedContent.dropFirst())

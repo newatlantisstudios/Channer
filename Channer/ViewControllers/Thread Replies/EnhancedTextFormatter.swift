@@ -287,7 +287,8 @@ class EnhancedTextFormatter {
         return [
             .foregroundColor: greentextColor,
             .font: UIFont.systemFont(ofSize: 14, weight: .regular),
-            .paragraphStyle: paragraphStyle
+            .paragraphStyle: paragraphStyle,
+            .isGreentext: true
         ]
     }
 
@@ -297,7 +298,8 @@ class EnhancedTextFormatter {
 
         return [
             .foregroundColor: greentextColor,
-            .font: UIFont.systemFont(ofSize: 14, weight: .bold)
+            .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+            .isGreentext: true
         ]
     }
 
@@ -482,6 +484,7 @@ class EnhancedTextFormatter {
 extension NSAttributedString.Key {
     static let spoilerIndex = NSAttributedString.Key("spoilerIndex")
     static let isSpoiler = NSAttributedString.Key("isSpoiler")
+    static let isGreentext = NSAttributedString.Key("isGreentext")
     static let linkPreviewType = NSAttributedString.Key("linkPreviewType")
 }
 
