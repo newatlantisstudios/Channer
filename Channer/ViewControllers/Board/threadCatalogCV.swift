@@ -46,6 +46,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             title = "/\(boardAbv)/"
         }
 
+        setupSortButton()
         loadThreads()
     }
 
@@ -352,6 +353,83 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         let sectionInset: CGFloat
         let interItemSpacing: CGFloat
         let lineSpacing: CGFloat
+    }
+
+    // MARK: - Sorting
+
+    private enum SortOption {
+        case replyCount
+        case newestCreation
+        case bumpOrder
+        case lastReply
+    }
+
+    private func setupSortButton() {
+        let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
+        let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
+        let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
+
+        if var rightBarButtonItems = navigationItem.rightBarButtonItems {
+            rightBarButtonItems.append(sortButton)
+            navigationItem.rightBarButtonItems = rightBarButtonItems
+        } else {
+            navigationItem.rightBarButtonItems = [sortButton]
+        }
+    }
+
+    @objc private func sortButtonTapped() {
+        let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
+
+        let bumpOrderAction = UIAlertAction(title: "Bump Order", style: .default) { _ in
+            self.sortThreads(by: .bumpOrder)
+        }
+        let lastReplyAction = UIAlertAction(title: "Last Reply", style: .default) { _ in
+            self.sortThreads(by: .lastReply)
+        }
+        let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
+            self.sortThreads(by: .replyCount)
+        }
+        let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
+            self.sortThreads(by: .newestCreation)
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+
+        alertController.addAction(bumpOrderAction)
+        alertController.addAction(lastReplyAction)
+        alertController.addAction(replyCountAction)
+        alertController.addAction(newestCreationAction)
+        alertController.addAction(cancelAction)
+
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.barButtonItem = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
+            popoverController.permittedArrowDirections = .up
+        }
+
+        present(alertController, animated: true, completion: nil)
+    }
+
+    private func sortThreads(by option: SortOption) {
+        switch option {
+        case .replyCount:
+            filteredThreadData.sort { $0.replies > $1.replies }
+        case .newestCreation:
+            filteredThreadData.sort { $0.createdAt > $1.createdAt }
+        case .bumpOrder:
+            filteredThreadData.sort {
+                if let bump1 = $0.bumpIndex, let bump2 = $1.bumpIndex {
+                    return bump1 < bump2
+                }
+                return Int($0.number) ?? 0 > Int($1.number) ?? 0
+            }
+        case .lastReply:
+            filteredThreadData.sort {
+                if let time1 = $0.lastReplyTime, let time2 = $1.lastReplyTime {
+                    return time1 > time2
+                }
+                return $0.replies > $1.replies
+            }
+        }
+        collectionView.reloadData()
     }
 
     private func gridLayoutMetrics(for collectionViewWidth: CGFloat) -> GridLayoutMetrics {
