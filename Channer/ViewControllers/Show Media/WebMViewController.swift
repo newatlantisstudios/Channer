@@ -1223,11 +1223,13 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         if vlcPlayer.isPlaying {
             vlcPlayer.pause()
+            stopSeekBarUpdates()
             playPauseButton.setImage(UIImage(systemName: "play.fill", withConfiguration: config), for: .normal)
             // Show controls and keep them visible when paused
             showControls(autoHide: false)
         } else {
             vlcPlayer.play()
+            startSeekBarUpdates()
             playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
             // Start auto-hide timer when playing
             resetControlsHideTimer()
@@ -1392,6 +1394,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Updates the seek bar position and time labels
     private func updateSeekBar() {
         guard !isSeeking else { return }
+        guard vlcPlayer.isPlaying else { return }
 
         // Update slider position (only if valid, VLC returns -1 when not ready)
         // Skip slider updates briefly after a seek to prevent snap-back
