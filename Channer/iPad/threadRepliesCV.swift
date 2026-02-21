@@ -685,9 +685,6 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             print("Debug (iPad): PNG image detected in threadContentOpen")
         }
         
-        // Set up the gallery view controller with potentially corrected image URLs
-        let segue = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "imageGrid") as! ImageGalleryVC
-        
         // For ImageGalleryVC, we need to make sure we're passing the correct full-size URLs, not thumbnails
         let processedImageLinks = threadRepliesImages.map { url -> String in
             // If the URL contains "s.jpg" but is actually a PNG, correct it
@@ -696,14 +693,16 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             }
             return url
         }
-        
-        segue.imagesLinks = processedImageLinks
-        segue.selectedIndex = selectedIndex
-        segue.currentTableView = nil
-        segue.currentCollectionView = collectionView
-        
-        print("Debug (iPad): Presenting image gallery with \(processedImageLinks.count) images")
-        self.present(segue, animated: true, completion: nil)
+
+        let imageURLs = processedImageLinks.compactMap { URL(string: $0) }
+        let galleryVC = ImageGalleryVC(images: imageURLs)
+        if selectedIndex < imageURLs.count {
+            galleryVC.selectedImageURL = imageURLs[selectedIndex]
+        }
+
+        print("Debug (iPad): Presenting image gallery with \(imageURLs.count) images")
+        let navController = UINavigationController(rootViewController: galleryVC)
+        self.present(navController, animated: true, completion: nil)
     }
     
     @objc func showThread(_ sender: UIButton) {

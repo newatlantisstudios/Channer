@@ -984,6 +984,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 navController.pushViewController(vlcVC, animated: true)
             } else {
                 let navController = UINavigationController(rootViewController: vlcVC)
+                navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         } else if fileExtension == "gif" {
@@ -1000,6 +1001,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 navController.pushViewController(urlWebVC, animated: true)
             } else {
                 let navController = UINavigationController(rootViewController: urlWebVC)
+                navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         } else {
@@ -1026,6 +1028,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 navController.pushViewController(imageVC, animated: true)
             } else {
                 let navController = UINavigationController(rootViewController: imageVC)
+                navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
         }
