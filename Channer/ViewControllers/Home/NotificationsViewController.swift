@@ -102,7 +102,13 @@ class NotificationsViewController: UITableViewController {
     }
 
     @objc private func notificationDataChanged() {
-        loadNotifications()
+        if Thread.isMainThread {
+            loadNotifications()
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.loadNotifications()
+            }
+        }
     }
 
     private func loadNotifications() {

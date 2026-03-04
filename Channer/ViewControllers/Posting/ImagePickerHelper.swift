@@ -24,6 +24,7 @@ class ImagePickerHelper: NSObject {
     var jpegCompressionQuality: CGFloat = 0.85
 
     private weak var presentingViewController: UIViewController?
+    private var isPickingImageFile = false
 
     #if targetEnvironment(macCatalyst)
     /// Strong reference to the NSOpenPanel instance used on Mac Catalyst.
@@ -41,6 +42,12 @@ class ImagePickerHelper: NSObject {
         self.presentingViewController = viewController
         self.onImageSelected = completion
 
+        #if targetEnvironment(macCatalyst)
+        // PHPickerViewController doesn't present properly on Mac Catalyst from sheet windows.
+        // Use NSOpenPanel directly with image content types.
+        isPickingImageFile = true
+        presentNativeOpenPanel(types: [.image])
+        #else
         var configuration = PHPickerConfiguration()
         configuration.filter = .any(of: [.images, .livePhotos])
         configuration.selectionLimit = 1
@@ -49,6 +56,26 @@ class ImagePickerHelper: NSObject {
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         viewController.present(picker, animated: true)
+        #endif
+    }
+
+    /// Present a file picker for image files (from file system)
+    /// - Parameters:
+    ///   - viewController: The view controller to present from
+    ///   - completion: Callback with selected file or nil if cancelled
+    func presentImageFilePicker(from viewController: UIViewController, completion: @escaping (SelectedImage?) -> Void) {
+        self.presentingViewController = viewController
+        self.onImageSelected = completion
+        isPickingImageFile = true
+
+        #if targetEnvironment(macCatalyst)
+        presentNativeOpenPanel(types: [.image])
+        #else
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        viewController.present(picker, animated: true)
+        #endif
     }
 
     /// Present a document picker for video files (webm, mp4)
@@ -58,6 +85,7 @@ class ImagePickerHelper: NSObject {
     func presentDocumentPicker(from viewController: UIViewController, completion: @escaping (SelectedImage?) -> Void) {
         self.presentingViewController = viewController
         self.onImageSelected = completion
+        isPickingImageFile = false
 
         var types: [UTType] = [.mpeg4Movie]
         if let webm = UTType(filenameExtension: "webm") {
@@ -107,9 +135,15 @@ class ImagePickerHelper: NSObject {
             // NSModalResponseOK = 1
             if response == 1, let urls = panel.value(forKey: "URLs") as? [URL], let url = urls.first {
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    let selectedImage = self?.processVideoFile(at: url)
+                    let isImageMode = self?.isPickingImageFile ?? false
+                    let selectedImage: SelectedImage?
+                    if isImageMode {
+                        selectedImage = self?.processImageFile(at: url)
+                    } else {
+                        selectedImage = self?.processVideoFile(at: url)
+                    }
                     DispatchQueue.main.async {
-                        if selectedImage == nil, let error = self?.lastVideoError {
+                        if selectedImage == nil && !isImageMode, let error = self?.lastVideoError {
                             if let presenter = self?.presentingViewController {
                                 let alert = UIAlertController(title: "File Error", message: error, preferredStyle: .alert)
                                 alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -135,6 +169,20 @@ class ImagePickerHelper: NSObject {
 
     /// Error info from the last failed video processing attempt
     var lastVideoError: String?
+
+    /// Process a selected image file from a file URL
+    private func processImageFile(at url: URL) -> SelectedImage? {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
+        guard let data = try? Data(contentsOf: url),
+              let image = UIImage(data: data) else {
+            return nil
+        }
+
+        let filename = url.lastPathComponent.isEmpty ? "image.jpg" : url.lastPathComponent
+        return processImage(image, originalFilename: filename)
+    }
 
     /// Process a selected video file, transcoding to H264 if needed for 4chan compatibility
     private func processVideoFile(at url: URL) -> SelectedImage? {
@@ -433,17 +481,26 @@ extension ImagePickerHelper: UIDocumentPickerDelegate {
             return
         }
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = self?.processVideoFile(at: url)
-            DispatchQueue.main.async {
-                if result == nil, let error = self?.lastVideoError {
-                    if let presenter = self?.presentingViewController {
-                        let alert = UIAlertController(title: "File Error", message: error, preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: "OK", style: .default))
-                        presenter.present(alert, animated: true)
-                    }
+        if isPickingImageFile {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = self?.processImageFile(at: url)
+                DispatchQueue.main.async {
+                    self?.onImageSelected?(result)
                 }
-                self?.onImageSelected?(result)
+            }
+        } else {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = self?.processVideoFile(at: url)
+                DispatchQueue.main.async {
+                    if result == nil, let error = self?.lastVideoError {
+                        if let presenter = self?.presentingViewController {
+                            let alert = UIAlertController(title: "File Error", message: error, preferredStyle: .alert)
+                            alert.addAction(UIAlertAction(title: "OK", style: .default))
+                            presenter.present(alert, animated: true)
+                        }
+                    }
+                    self?.onImageSelected?(result)
+                }
             }
         }
     }

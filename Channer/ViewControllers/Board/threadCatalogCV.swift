@@ -369,12 +369,22 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
         let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
 
+        let newThreadButton = UIBarButtonItem(image: UIImage(systemName: "plus.square"), style: .plain, target: self, action: #selector(showNewThreadCompose))
+
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
-            rightBarButtonItems.append(sortButton)
+            rightBarButtonItems.append(contentsOf: [sortButton, newThreadButton])
             navigationItem.rightBarButtonItems = rightBarButtonItems
         } else {
-            navigationItem.rightBarButtonItems = [sortButton]
+            navigationItem.rightBarButtonItems = [sortButton, newThreadButton]
         }
+    }
+
+    @objc private func showNewThreadCompose() {
+        let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
+        composeVC.delegate = self
+        let navController = UINavigationController(rootViewController: composeVC)
+        navController.modalPresentationStyle = .formSheet
+        present(navController, animated: true)
     }
 
     @objc private func sortButtonTapped() {
@@ -467,4 +477,15 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             lineSpacing: lineSpacing
         )
     }
+}
+
+// MARK: - ComposeViewControllerDelegate
+extension threadCatalogCV: ComposeViewControllerDelegate {
+    func composeViewControllerDidPost(_ controller: ComposeViewController, postNumber: Int?) {
+        loadThreads()
+    }
+
+    func composeViewControllerDidCancel(_ controller: ComposeViewController) {}
+
+    func composeViewControllerDidMinimize(_ controller: ComposeViewController) {}
 }

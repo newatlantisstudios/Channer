@@ -566,6 +566,16 @@ class ComposeViewController: UIViewController {
             })
         }
 
+        alert.addAction(UIAlertAction(title: "Choose Image", style: .default) { [weak self] _ in
+            self?.presentPickerAfterDismissal {
+                guard let self = self else { return }
+                let presenter = self.presenterInHierarchy
+                self.imagePicker.presentImageFilePicker(from: presenter) { [weak self] selectedImage in
+                    self?.handleImageSelection(selectedImage)
+                }
+            }
+        })
+
         alert.addAction(UIAlertAction(title: "Choose File (WebM/MP4)", style: .default) { [weak self] _ in
             self?.presentPickerAfterDismissal {
                 guard let self = self else { return }
