@@ -1656,6 +1656,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         // Parse JSON response from cached data
                         let json = try JSON(data: cachedData)
                         self.processThreadData(json)
+                        self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
                         self.preloadThreadContent { [weak self] in
                             guard let self = self else { return }
@@ -1709,6 +1710,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     return
                 }
                 self.processThreadData(json)
+                self.rebuildSearchFilterIndices()
                 self.structureThreadReplies()
                 
                 // Cache thread if offline reading is enabled
@@ -1771,6 +1773,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     return
                 }
                 self.processThreadData(json)
+                self.rebuildSearchFilterIndices()
                 self.structureThreadReplies()
                 self.preloadThreadContent { [weak self] in
                     guard let self = self else { return }
@@ -3681,6 +3684,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         }
 
                         self.processThreadData(json)
+                        self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
                         self.isLoading = false
 
@@ -4020,16 +4024,38 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         filteredReplyIndices.removeAll()
         debugReloadData(context: "Search filter update")
     }
+
+    private func rebuildSearchFilterIndices() {
+        searchFilteredIndices.removeAll()
+
+        guard isSearchActive, !searchText.isEmpty else { return }
+
+        let searchTextLowercased = searchText.lowercased()
+        for (index, reply) in threadReplies.enumerated() {
+            if !reply.string.lowercased().contains(searchTextLowercased) {
+                searchFilteredIndices.insert(index)
+            }
+        }
+    }
+
     @objc func refresh() {
         print("Refresh triggered")
-        threadReplies.removeAll()
-        threadBoardReplyNumber.removeAll()
-        threadRepliesImages.removeAll()
-        threadBoardReplies.removeAll()
-        filteredReplyIndices.removeAll() // Clear filters on refresh
-        postMetadataList.removeAll() // Clear metadata on refresh
-        replyCount = 0
-        loadInitialData()
+        guard shouldLoadFullThread else {
+            debugReloadData(context: "Search filter update")
+            return
+        }
+
+        if threadReplies.isEmpty {
+            filteredReplyIndices.removeAll()
+            postMetadataList.removeAll()
+            replyCount = 0
+            isLoading = true
+            loadInitialData()
+            return
+        }
+
+        let savedOffset = tableView.contentOffset
+        loadDataWithScrollPreservation(scrollOffset: savedOffset)
     }
     
     @objc func saveForOfflineReading() {

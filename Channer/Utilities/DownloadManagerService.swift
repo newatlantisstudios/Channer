@@ -46,7 +46,7 @@ class DownloadManagerService: NSObject {
 
     /// Storage path for persistence
     private var persistenceURL: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let documentsPath = (try? FinderSharedStorage.documentsDirectory()) ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return documentsPath.appendingPathComponent("DownloadState.json")
     }
 
@@ -599,8 +599,8 @@ extension DownloadManagerService: URLSessionDownloadDelegate {
         let item = _downloadItems[index]
         itemsLock.unlock()
 
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let destinationURL = documentsPath.appendingPathComponent(item.destinationPath)
+        let destinationURL = (try? FinderSharedStorage.documentsFileURL(relativePath: item.destinationPath))
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(item.destinationPath)
 
         // Create directory if needed
         let directory = destinationURL.deletingLastPathComponent()

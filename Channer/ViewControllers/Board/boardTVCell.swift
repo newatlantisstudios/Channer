@@ -106,6 +106,7 @@ class boardTVCell: UITableViewCell {
     private var imageHeightConstraint: NSLayoutConstraint!
     private var statsWidthConstraint: NSLayoutConstraint!
     private var bgHeightConstraint: NSLayoutConstraint!
+    var displayedImageURL: URL?
 
     // MARK: - Lifecycle Methods
     /// Methods related to the cell's lifecycle.
@@ -128,6 +129,8 @@ class boardTVCell: UITableViewCell {
     /// Prepares the cell for reuse by resetting its content.
     override func prepareForReuse() {
         super.prepareForReuse()
+        topicImage.kf.cancelDownloadTask()
+        displayedImageURL = nil
         topicImage.image = UIImage(named: "loadingBoardImage")
         topicStats.text = nil
         topicTextTitle.text = nil
@@ -367,16 +370,6 @@ class boardTVCell: UITableViewCell {
                 topicTitle.isHidden = false
                 topicTextTitle.attributedText = formattedComment
                 topicTitle.text = formattedTitle.string
-            }
-
-            // Configure the image
-            if let url = URL(string: thread.imageUrl) {
-                print("boardTVCell - Setting image from URL: \(thread.imageUrl)")
-                print("boardTVCell - Image constraints - width: 120, height: 120")
-                topicImage.kf.setImage(with: url, placeholder: UIImage(named: "loadingBoardImage"))
-            } else {
-                print("boardTVCell - Setting placeholder image")
-                topicImage.image = UIImage(named: "loadingBoardImage")
             }
     }
     

@@ -289,17 +289,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             return
         }
 
-        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let imagesDirectory = try? FinderSharedStorage.imagesDirectory() else {
             showToast("Unable to access downloads folder")
-            return
-        }
-
-        let imagesDirectory = documentsDirectory.appendingPathComponent("images", isDirectory: true)
-
-        do {
-            try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
-        } catch {
-            showToast("Failed to create downloads folder")
             return
         }
 
@@ -447,17 +438,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     }
 
     private func saveEditedImageToDownloads(_ image: UIImage) {
-        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let imagesDirectory = try? FinderSharedStorage.imagesDirectory() else {
             showToast("Unable to access downloads folder")
-            return
-        }
-
-        let imagesDirectory = documentsDirectory.appendingPathComponent("images", isDirectory: true)
-
-        do {
-            try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
-        } catch {
-            showToast("Failed to create downloads folder")
             return
         }
 

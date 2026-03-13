@@ -1192,10 +1192,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private func configureImage(for cell: boardTVCell, with urlString: String) {
         // Configures the image for a table view cell.
         if urlString.isEmpty {
+            cell.topicImage.kf.cancelDownloadTask()
+            cell.displayedImageURL = nil
             cell.topicImage.image = UIImage(named: "loadingBoardImage")
             return
         }
-        
+
         let finalUrl: String
         if urlString.hasSuffix(".webm") || urlString.hasSuffix(".mp4") {
             let components = urlString.components(separatedBy: "/")
@@ -1209,12 +1211,21 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         } else {
             finalUrl = urlString
         }
-        
+
         guard let url = URL(string: finalUrl) else {
+            cell.topicImage.kf.cancelDownloadTask()
+            cell.displayedImageURL = nil
             cell.topicImage.image = UIImage(named: "loadingBoardImage")
             return
         }
-        
+
+        if cell.displayedImageURL == url, cell.topicImage.image != nil {
+            return
+        }
+
+        cell.topicImage.kf.cancelDownloadTask()
+        let placeholderImage = cell.topicImage.image ?? UIImage(named: "loadingBoardImage")
+
         // Performance: Remove RoundCornerImageProcessor - the UIImageView already has cornerRadius set
         // Also removed cacheOriginalImage to avoid caching both original and processed versions
         let options: KingfisherOptionsInfo = [
@@ -1222,14 +1233,22 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             .scaleFactor(UIScreen.main.scale),
             .memoryCacheExpiration(.days(1)),
             .diskCacheExpiration(.days(7)),
-            .backgroundDecode
+            .backgroundDecode,
+            .loadDiskFileSynchronously
         ]
-        
+
         cell.topicImage.kf.setImage(
             with: url,
-            placeholder: UIImage(named: "loadingBoardImage"),
+            placeholder: placeholderImage,
             options: options
-        )
+        ) { result in
+            switch result {
+            case .success:
+                cell.displayedImageURL = url
+            case .failure:
+                cell.displayedImageURL = nil
+            }
+        }
     }
     
     private func handleThreadUnavailable(at indexPath: IndexPath, thread: ThreadData) {

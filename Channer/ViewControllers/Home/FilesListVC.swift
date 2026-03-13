@@ -33,7 +33,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
 
     /// Current content scope (all media or current folder).
     private var contentScope: ContentScope = .allMedia
-    
+
     /// The collection view to display thumbnails of files.
     private var collectionView: UICollectionView!
     
@@ -308,7 +308,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         let downloadManagerVC = DownloadManagerViewController()
         navigationController?.pushViewController(downloadManagerVC, animated: true)
     }
-    
+
     // MARK: - Selection Mode Actions
     
     @objc private func selectButtonTapped() {
@@ -577,12 +577,28 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
 
         switch contentScope {
         case .allMedia:
+            let legacyExportRoot = FinderSharedStorage.legacyExportFolderURL(in: rootDirectory)
+            let exportArchiveURL = FinderSharedStorage.exportArchiveURL(in: rootDirectory)
             if let enumerator = fileManager.enumerator(
                 at: rootDirectory,
                 includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
                 options: [.skipsHiddenFiles]
             ) {
                 for case let fileURL as URL in enumerator {
+                    let standardizedURL = fileURL.standardizedFileURL
+                    let legacyExportPath = legacyExportRoot.standardizedFileURL.path
+                    let exportArchivePath = exportArchiveURL.standardizedFileURL.path
+                    if standardizedURL.path == legacyExportPath {
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    if standardizedURL.path.hasPrefix(legacyExportPath + "/") {
+                        continue
+                    }
+                    if standardizedURL.path == exportArchivePath {
+                        continue
+                    }
+
                     do {
                         let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
                         if resourceValues.isRegularFile == true && resourceValues.isDirectory == false {

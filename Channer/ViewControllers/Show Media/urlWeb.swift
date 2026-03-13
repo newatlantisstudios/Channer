@@ -1878,36 +1878,22 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     
     /// Initiates the download process for the current content
     @objc private func downloadData() {
-        let folderName: String
         // Determine folder based on file type or extension
         let fileExtension = images[currentIndex].pathExtension.lowercased()
+        let destinationFolder: URL
         if fileExtension == "png" || fileExtension == "jpg" || fileExtension == "jpeg" {
-            folderName = "images"
+            destinationFolder = (try? FinderSharedStorage.imagesDirectory())
+                ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("images", isDirectory: true)
         } else if fileExtension == "gif" || fileExtension == "webm" || fileExtension == "mp4" {
-            folderName = "media"
+            destinationFolder = (try? FinderSharedStorage.mediaDirectory())
+                ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("media", isDirectory: true)
         } else {
             showAlert(title: "Error", message: "Unsupported file type")
             return
         }
 
-        // Get documents directory
-        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            showAlert(title: "Error", message: "Could not access documents directory")
-            return
-        }
-
-        let folderURL = documentsDirectory.appendingPathComponent(folderName)
-
-        // Create directory if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
-        } catch {
-            showAlert(title: "Error", message: "Could not create directory")
-            return
-        }
-
         let filename = images[currentIndex].lastPathComponent
-        let destinationURL = folderURL.appendingPathComponent(filename)
+        let destinationURL = destinationFolder.appendingPathComponent(filename)
 
         // Check if file has already been downloaded
         if DownloadedMediaTracker.fileExists(at: destinationURL) {

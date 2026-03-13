@@ -38,18 +38,16 @@ class BatchImageDownloadManager {
     /// - Parameter threadID: The thread identifier
     /// - Returns: URL to the thread's image directory
     func getThreadImagesDirectory(threadID: String, boardAbv: String) -> URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let batchDownloadsDir = documentsPath.appendingPathComponent("BatchDownloads", isDirectory: true)
-        let threadDir = batchDownloadsDir.appendingPathComponent("\(boardAbv)_\(threadID)", isDirectory: true)
-
-        // Create directories if they don't exist
         do {
-            try FileManager.default.createDirectory(at: threadDir, withIntermediateDirectories: true)
+            return try FinderSharedStorage.batchDownloadsThreadDirectory(boardAbv: boardAbv, threadID: threadID)
         } catch {
             print("DEBUG: BatchImageDownloadManager - Failed to create directory: \(error)")
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let batchDownloadsDir = documentsPath.appendingPathComponent("BatchDownloads", isDirectory: true)
+            let threadDir = batchDownloadsDir.appendingPathComponent("\(boardAbv)_\(threadID)", isDirectory: true)
+            try? FileManager.default.createDirectory(at: threadDir, withIntermediateDirectories: true)
+            return threadDir
         }
-
-        return threadDir
     }
 
     // MARK: - Batch Download

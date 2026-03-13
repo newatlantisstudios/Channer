@@ -1536,8 +1536,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     
     /// Returns the URL of the directory where WebM files are stored.
     private func getWebMDirectory() -> URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsPath.appendingPathComponent("webm", isDirectory: true)
+        (try? FinderSharedStorage.webmDirectory())
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("webm", isDirectory: true)
     }
     
     /// Downloads and saves the API thumbnail for the downloaded media file

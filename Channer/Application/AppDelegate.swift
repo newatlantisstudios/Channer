@@ -141,6 +141,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Migrate content filters from old format to new ContentFilterManager
         migrateContentFilters()
 
+        // Keep a live, Finder-visible folder tree under Documents.
+        try? FinderSharedStorage.ensureVisibleFolders()
+
         // Register background tasks with BGTaskScheduler (iOS 13+)
         // Must be called before app finishes launching
         BackgroundTaskManager.shared.registerTasks()
@@ -835,6 +838,108 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             thread.hasNewReplies = false
             FavoritesManager.shared.updateFavorite(thread: thread)
             updateApplicationBadgeCount()
+        }
+    }
+}
+
+final class FinderSharedStorage {
+
+    struct Summary {
+        let folderURLs: [URL]
+        let linkedCount: Int
+        let copiedCount: Int
+
+        var folderNames: [String] {
+            folderURLs.map(\.lastPathComponent)
+        }
+    }
+
+    enum StorageError: LocalizedError {
+        case documentsUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .documentsUnavailable:
+                return "The app documents folder could not be accessed."
+            }
+        }
+    }
+
+    static let visibleFolderNames = ["BatchDownloads", "images", "media", "webm"]
+    static let legacyExportFolderName = "Channer Mac Export"
+    static let legacyExportArchiveName = "Channer Mac Export.aar"
+
+    static func documentsDirectory() throws -> URL {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw StorageError.documentsUnavailable
+        }
+        return documentsDirectory
+    }
+
+    static func directoryURL(named folderName: String) throws -> URL {
+        let folderURL = try documentsDirectory().appendingPathComponent(folderName, isDirectory: true)
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        return folderURL
+    }
+
+    static func batchDownloadsDirectory() throws -> URL {
+        try directoryURL(named: "BatchDownloads")
+    }
+
+    static func batchDownloadsThreadDirectory(boardAbv: String, threadID: String) throws -> URL {
+        let threadDirectory = try batchDownloadsDirectory().appendingPathComponent("\(boardAbv)_\(threadID)", isDirectory: true)
+        try FileManager.default.createDirectory(at: threadDirectory, withIntermediateDirectories: true)
+        return threadDirectory
+    }
+
+    static func imagesDirectory() throws -> URL {
+        try directoryURL(named: "images")
+    }
+
+    static func mediaDirectory() throws -> URL {
+        try directoryURL(named: "media")
+    }
+
+    static func webmDirectory() throws -> URL {
+        try directoryURL(named: "webm")
+    }
+
+    static func documentsFileURL(relativePath: String) throws -> URL {
+        try documentsDirectory().appendingPathComponent(relativePath)
+    }
+
+    @discardableResult
+    static func ensureVisibleFolders() throws -> Summary {
+        let documentsDirectory = try documentsDirectory()
+
+        cleanupLegacyExportArtifacts(in: documentsDirectory)
+
+        var folderURLs: [URL] = []
+        for folderName in visibleFolderNames {
+            folderURLs.append(try directoryURL(named: folderName))
+        }
+
+        return Summary(folderURLs: folderURLs, linkedCount: 0, copiedCount: 0)
+    }
+
+    static func legacyExportFolderURL(in documentsDirectory: URL) -> URL {
+        documentsDirectory.appendingPathComponent(legacyExportFolderName, isDirectory: true)
+    }
+
+    static func exportArchiveURL(in documentsDirectory: URL) -> URL {
+        documentsDirectory.appendingPathComponent(legacyExportArchiveName)
+    }
+
+    private static func cleanupLegacyExportArtifacts(in documentsDirectory: URL) {
+        let fileManager = FileManager.default
+        let legacyFolderURL = legacyExportFolderURL(in: documentsDirectory)
+        let legacyArchiveURL = exportArchiveURL(in: documentsDirectory)
+
+        if fileManager.fileExists(atPath: legacyFolderURL.path) {
+            try? fileManager.removeItem(at: legacyFolderURL)
+        }
+        if fileManager.fileExists(atPath: legacyArchiveURL.path) {
+            try? fileManager.removeItem(at: legacyArchiveURL)
         }
     }
 }

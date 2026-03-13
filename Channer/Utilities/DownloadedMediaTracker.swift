@@ -75,20 +75,14 @@ class DownloadedMediaTracker {
 
     /// Checks if a video already exists in the webm directory
     static func videoExistsInWebMDirectory(filename: String) -> Bool {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let webmDir = documentsPath.appendingPathComponent("webm", isDirectory: true)
-        let destinationURL = webmDir.appendingPathComponent(filename)
-        return fileExists(at: destinationURL)
+        guard let webmDir = try? FinderSharedStorage.webmDirectory() else { return false }
+        return fileExists(at: webmDir.appendingPathComponent(filename))
     }
 
     /// Checks if a media file already exists in the images or media directory
     static func mediaExistsInDirectory(filename: String, folderName: String) -> Bool {
-        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return false
-        }
-        let folderURL = documentsDirectory.appendingPathComponent(folderName)
-        let destinationURL = folderURL.appendingPathComponent(filename)
-        return fileExists(at: destinationURL)
+        guard let folderURL = try? FinderSharedStorage.directoryURL(named: folderName) else { return false }
+        return fileExists(at: folderURL.appendingPathComponent(filename))
     }
 
     // MARK: - Private Methods

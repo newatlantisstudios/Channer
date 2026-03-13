@@ -320,11 +320,8 @@ class DownloadManagerViewController: UIViewController {
     }
 
     private func openDownloadsFolder() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let batchDownloadsDir = documentsPath.appendingPathComponent("BatchDownloads", isDirectory: true)
-
-        // Create directory if it doesn't exist
-        try? FileManager.default.createDirectory(at: batchDownloadsDir, withIntermediateDirectories: true)
+        let batchDownloadsDir = (try? FinderSharedStorage.batchDownloadsDirectory())
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("BatchDownloads", isDirectory: true)
 
         // Open in Files app
         if let filesURL = URL(string: "shareddocuments://\(batchDownloadsDir.path)") {
@@ -477,8 +474,8 @@ extension DownloadManagerViewController: DownloadItemCellDelegate {
     }
 
     private func openCompletedFile(_ item: DownloadItem) {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = documentsPath.appendingPathComponent(item.destinationPath)
+        let fileURL = (try? FinderSharedStorage.documentsFileURL(relativePath: item.destinationPath))
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent(item.destinationPath)
 
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             showAlert(title: "File Not Found", message: "The downloaded file could not be found.")
