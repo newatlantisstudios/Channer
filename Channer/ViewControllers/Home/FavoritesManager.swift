@@ -23,6 +23,7 @@ struct BookmarkCategory: Codable, Equatable {
 }
 
 class FavoritesManager {
+    static let favoritesUpdatedNotification = Notification.Name("FavoritesUpdated")
 
     // MARK: - Singleton Instance
     static let shared = FavoritesManager()
@@ -64,7 +65,7 @@ class FavoritesManager {
         // Invalidate cache and reload data when iCloud sync completes
         invalidateCache()
         loadCategories()
-        NotificationCenter.default.post(name: Notification.Name("FavoritesUpdated"), object: nil)
+        NotificationCenter.default.post(name: Self.favoritesUpdatedNotification, object: nil)
     }
 
     /// Invalidates the in-memory cache, forcing next load to read from storage
@@ -110,6 +111,10 @@ class FavoritesManager {
         } else {
             print("Failed to save favorites.")
             showICloudFallbackWarning()
+        }
+
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.favoritesUpdatedNotification, object: nil)
         }
     }
 
@@ -162,6 +167,26 @@ class FavoritesManager {
 
             favorites.removeAll { self.matchesFavorite($0, threadNumber: threadNumber, boardAbv: boardAbv) }
             self.saveFavorites(favorites)
+        }
+    }
+
+    @discardableResult
+    func removeDeadFavorites() -> Int {
+        syncQueue.sync(flags: .barrier) {
+            var favorites = self.loadFavorites()
+            let deadFavorites = favorites.filter(\.isDead)
+            guard !deadFavorites.isEmpty else { return 0 }
+
+            for favorite in deadFavorites {
+                ThreadCacheManager.shared.removeFromCache(
+                    boardAbv: favorite.boardAbv,
+                    threadNumber: favorite.number
+                )
+            }
+
+            favorites.removeAll { $0.isDead }
+            self.saveFavorites(favorites)
+            return deadFavorites.count
         }
     }
     

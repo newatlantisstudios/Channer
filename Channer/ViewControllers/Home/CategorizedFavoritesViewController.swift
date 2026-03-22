@@ -25,8 +25,18 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     override func viewDidLoad() {
         super.viewDidLoad()
         print("=== CategorizedFavoritesViewController viewDidLoad ===")
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleFavoritesUpdated),
+            name: FavoritesManager.favoritesUpdatedNotification,
+            object: nil
+        )
         setupUI()
         loadCategories()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -50,7 +60,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         view.backgroundColor = ThemeManager.shared.backgroundColor
         title = "Favorites"
 
-        // Add manage categories button to navigation bar
+        // Add favorites actions to navigation bar
         let manageButton = UIBarButtonItem(
             image: UIImage(systemName: "folder.badge.gearshape"),
             style: .plain,
@@ -58,7 +68,15 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
             action: #selector(showCategoryManager)
         )
         manageButton.accessibilityLabel = "Manage Categories"
-        navigationItem.rightBarButtonItem = manageButton
+
+        let removeDeadButton = UIBarButtonItem(
+            image: UIImage(systemName: "trash"),
+            style: .plain,
+            target: self,
+            action: #selector(removeDeadFavoritesTapped)
+        )
+        removeDeadButton.accessibilityLabel = "Remove Dead Threads"
+        navigationItem.rightBarButtonItems = [manageButton, removeDeadButton]
 
         // Setup search controller
         searchController = UISearchController(searchResultsController: nil)
@@ -164,6 +182,38 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         let navController = UINavigationController(rootViewController: categoryManagerVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
+    }
+
+    @objc private func removeDeadFavoritesTapped() {
+        let deadCount = favoritesManager.loadFavorites().filter(\.isDead).count
+        guard deadCount > 0 else {
+            let alert = UIAlertController(
+                title: "No Dead Threads",
+                message: "There are no dead threads to remove.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Remove Dead Threads",
+            message: "Remove \(deadCount) dead favorite\(deadCount == 1 ? "" : "s")?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Remove", style: .destructive) { _ in
+            let removedCount = self.favoritesManager.removeDeadFavorites()
+            guard removedCount > 0 else { return }
+            self.allFavorites = []
+            self.updateFavoritesDisplay()
+        })
+        present(alert, animated: true)
+    }
+
+    @objc private func handleFavoritesUpdated() {
+        allFavorites = []
     }
     
     // MARK: - CategoryManagerDelegate

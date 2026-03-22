@@ -2,6 +2,12 @@ import UIKit
 import Kingfisher
 
 class boardTVCell: UITableViewCell {
+    private enum FavoriteOutlineState {
+        case normal
+        case alive
+        case unreadAlive
+        case dead
+    }
 
     // MARK: - IBOutlets
     /// Outlets connected to UI elements in Interface Builder.
@@ -107,6 +113,7 @@ class boardTVCell: UITableViewCell {
     private var statsWidthConstraint: NSLayoutConstraint!
     private var bgHeightConstraint: NSLayoutConstraint!
     var displayedImageURL: URL?
+    private var favoriteOutlineState: FavoriteOutlineState = .normal
 
     // MARK: - Lifecycle Methods
     /// Methods related to the cell's lifecycle.
@@ -136,6 +143,8 @@ class boardTVCell: UITableViewCell {
         topicTextTitle.text = nil
         topicTextNoTitle.text = nil
         topicTitle.text = nil
+        favoriteOutlineState = .normal
+        applyFavoriteOutlineState()
         updateThumbnailSize()
     }
 
@@ -169,12 +178,10 @@ class boardTVCell: UITableViewCell {
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
             // Update colors when appearance changes
             customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
-            customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
-            
             topicTextTitle.textColor = ThemeManager.shared.primaryTextColor
             topicTextNoTitle.textColor = ThemeManager.shared.primaryTextColor
-            topicStats.textColor = ThemeManager.shared.primaryTextColor
             topicTitle.textColor = ThemeManager.shared.primaryTextColor
+            applyFavoriteOutlineState()
             
             // When trait collection changes, we also need to update attributed text
             if let attributedText = topicTextTitle.attributedText {
@@ -311,22 +318,41 @@ class boardTVCell: UITableViewCell {
         label.isHidden = true
         return label
     }()
+
+    private func applyFavoriteOutlineState() {
+        switch favoriteOutlineState {
+        case .alive:
+            customBackgroundView.layer.borderColor = UIColor.systemGreen.cgColor
+            topicStats.textColor = ThemeManager.shared.primaryTextColor
+        case .unreadAlive:
+            customBackgroundView.layer.borderColor = UIColor.systemYellow.cgColor
+            topicStats.textColor = ThemeManager.shared.primaryTextColor
+        case .dead:
+            customBackgroundView.layer.borderColor = UIColor.systemRed.cgColor
+            topicStats.textColor = UIColor.systemRed
+        case .normal:
+            customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+            topicStats.textColor = ThemeManager.shared.primaryTextColor
+        }
+    }
     
     func configure(with thread: ThreadData, isHistoryView: Bool, isFavoritesView: Bool, isFiltered: Bool = false) {
             // Configure topicStats visibility and content
             topicStats.isHidden = false
-            topicStats.text = thread.stats
+            topicStats.text = displayStats(for: thread, isFavoritesView: isFavoritesView)
 
-            // Configure background border for favorites
-            if isFavoritesView && thread.hasNewReplies {
-                // Use alert color for threads with new replies
-                customBackgroundView.layer.borderColor = ThemeManager.shared.alertColor.cgColor
-                
-                // Add notification badge to indicate unread content
-                topicStats.text = (thread.stats) + " 🔴"
+            if isFavoritesView {
+                if thread.isDead {
+                    favoriteOutlineState = .dead
+                } else if thread.hasNewReplies {
+                    favoriteOutlineState = .unreadAlive
+                } else {
+                    favoriteOutlineState = .alive
+                }
             } else {
-                customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+                favoriteOutlineState = .normal
             }
+            applyFavoriteOutlineState()
 
             // Handle filtered content
             if isFiltered {
@@ -371,6 +397,23 @@ class boardTVCell: UITableViewCell {
                 topicTextTitle.attributedText = formattedComment
                 topicTitle.text = formattedTitle.string
             }
+    }
+
+    private func displayStats(for thread: ThreadData, isFavoritesView: Bool) -> String {
+        let imageCount = thread.stats.split(separator: "/").last.map(String.init)
+        let replyCount = thread.currentReplies ?? thread.replies
+        let statsText: String
+
+        if let imageCount {
+            statsText = "\(replyCount)/\(imageCount)"
+        } else {
+            statsText = thread.stats
+        }
+
+        guard isFavoritesView else {
+            return statsText
+        }
+        return statsText
     }
     
     private func formatText(_ text: String) -> NSAttributedString {

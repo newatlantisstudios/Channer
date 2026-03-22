@@ -401,8 +401,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
                     // Step 2: Update current replies after verification
                     FavoritesManager.shared.updateCurrentReplies {
                         DispatchQueue.main.async {
-                            print("Reloading table view in viewWillAppear")
-                            self.tableView.reloadData() // Reload table view once, after all updates
+                            print("Reloading favorites data after thread status check")
+                            self.loadFavorites()
                         }
                     }
                 }
@@ -541,8 +541,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 
                 FavoritesManager.shared.updateCurrentReplies {
                     DispatchQueue.main.async {
+                        self.loadFavorites()
                         self.refreshControl?.endRefreshing()
-                        self.tableView.reloadData()
                     }
                 }
             }
@@ -736,7 +736,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         
         present(alert, animated: true, completion: nil)
     }
-    
+
     @objc private func handleLongPressForFavorite(gestureRecognizer: UILongPressGestureRecognizer) {
         // Handles long-press gesture on favorites to delete them.
         guard isFavoritesView else { return }
@@ -1224,7 +1224,12 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
 
         cell.topicImage.kf.cancelDownloadTask()
-        let placeholderImage = cell.topicImage.image ?? UIImage(named: "loadingBoardImage")
+        let placeholderImage: UIImage?
+        if cell.displayedImageURL == url {
+            placeholderImage = cell.topicImage.image ?? UIImage(named: "loadingBoardImage")
+        } else {
+            placeholderImage = UIImage(named: "loadingBoardImage")
+        }
 
         // Performance: Remove RoundCornerImageProcessor - the UIImageView already has cornerRadius set
         // Also removed cacheOriginalImage to avoid caching both original and processed versions
