@@ -8,6 +8,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     // Variables for hover functionality
     var hasActiveHoverPreview: Bool { hoveredPreviewView != nil }
     private var imageURL: String?
+    var displayedThumbnailURL: URL?
     private var hoveredPreviewView: UIView?
     private var hoverOverlayView: UIView?
     private var pointerInteraction: UIPointerInteraction?
@@ -230,7 +231,6 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         removeQuoteLinkPreview()
         // Cancel any in-flight image downloads to prevent race conditions
         threadImage.kf.cancelImageDownloadTask()
-        threadImage.setImage(nil, for: .normal)
         imageURL = nil
         postNumber = ""
         spoilerDelegate = nil

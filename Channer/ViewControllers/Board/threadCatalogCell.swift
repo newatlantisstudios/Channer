@@ -7,6 +7,7 @@ class threadCatalogCell: UICollectionViewCell {
     private let statsLabel = UILabel()
     private let titleLabel = UILabel()
     private let commentLabel = UILabel()
+    private var displayedImageURL: URL?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -24,7 +25,7 @@ class threadCatalogCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        thumbnailImageView.image = UIImage(named: "loadingBoardImage")
+        thumbnailImageView.kf.cancelDownloadTask()
         statsLabel.text = nil
         titleLabel.text = nil
         commentLabel.text = nil
@@ -53,8 +54,31 @@ class threadCatalogCell: UICollectionViewCell {
         }
 
         if let url = thumbnailURL(from: thread.imageUrl) {
-            thumbnailImageView.kf.setImage(with: url, placeholder: UIImage(named: "loadingBoardImage"))
+            if displayedImageURL == url, thumbnailImageView.image != nil {
+                return
+            }
+
+            let placeholderImage: UIImage?
+            if displayedImageURL == url {
+                placeholderImage = thumbnailImageView.image ?? UIImage(named: "loadingBoardImage")
+            } else {
+                placeholderImage = UIImage(named: "loadingBoardImage")
+            }
+
+            thumbnailImageView.kf.setImage(
+                with: url,
+                placeholder: placeholderImage,
+                options: [.loadDiskFileSynchronously]
+            ) { [weak self] result in
+                switch result {
+                case .success:
+                    self?.displayedImageURL = url
+                case .failure:
+                    self?.displayedImageURL = nil
+                }
+            }
         } else {
+            displayedImageURL = nil
             thumbnailImageView.image = UIImage(named: "loadingBoardImage")
         }
     }

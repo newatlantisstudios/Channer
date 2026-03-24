@@ -2452,6 +2452,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func configureImage(for cell: threadRepliesCell, with imageUrl: String, at indexPath: IndexPath? = nil) {
         print("Debug: Starting image configuration for URL: \(imageUrl)")
 
+        let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
+
+        if let thumbnailUrl, cell.displayedThumbnailURL == thumbnailUrl, cell.threadImage.image(for: .normal) != nil {
+            cell.setImageURL(imageUrl)
+            return
+        }
+
         // During scrolling, use velocity-based loading strategy
         if isScrolling {
             let shouldLoadDuringScroll = abs(lastScrollVelocity) < 800 || currentScrollLoads < maxConcurrentScrollLoads
@@ -2463,7 +2471,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 loadImageDuringScroll(for: cell, with: imageUrl)
             } else {
                 print("🖼️ IMAGE: Deferring image load during fast scroll for: \(imageUrl)")
-                cell.threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                if cell.displayedThumbnailURL != thumbnailUrl {
+                    cell.threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                }
                 // Track this cell for loading after scrolling ends
                 if let indexPath = indexPath {
                     pendingImageLoads.insert(indexPath)
@@ -2472,9 +2482,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
             return
         }
-        
-        // Check if high-quality thumbnails are enabled
-        let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
         
         // Extract file extension from URL
         let fileExtension: String
@@ -2551,7 +2558,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             .transition(.fade(0.2)),
             .backgroundDecode,   // Decode in background to prevent UI stutter
             .retryStrategy(DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(1))), // Retry failed loads
-            .callbackQueue(.mainAsync) // Ensure callbacks are on main thread
+            .callbackQueue(.mainAsync), // Ensure callbacks are on main thread
+            .loadDiskFileSynchronously
         ]
         
         print("Debug: Loading image with URL: \(url)")
@@ -2562,15 +2570,23 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         cell.threadImage.contentHorizontalAlignment = .fill
         cell.threadImage.contentVerticalAlignment = .fill
 
+        let placeholderImage: UIImage?
+        if cell.displayedThumbnailURL == url {
+            placeholderImage = cell.threadImage.image(for: .normal) ?? UIImage(named: "loadingBoardImage")
+        } else {
+            placeholderImage = UIImage(named: "loadingBoardImage")
+        }
+
         cell.threadImage.kf.setImage(
             with: url,
             for: .normal,
-            placeholder: UIImage(named: "loadingBoardImage"),
+            placeholder: placeholderImage,
             options: options,
             completionHandler: { result in
                 switch result {
                 case .success(let value):
                     print("Debug: Successfully loaded image for URL: \(url)")
+                    cell.displayedThumbnailURL = url
                     if let cgImage = value.image.cgImage {
                         print("Debug: Image size: \(value.image.size), hasAlpha: \(cgImage.alphaInfo != CGImageAlphaInfo.none)")
                     } else {
@@ -2583,6 +2599,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     }
                 case .failure(let error):
                     print("Debug: Failed to load image: \(error.localizedDescription)")
+                    cell.displayedThumbnailURL = nil
                     
                     // We shouldn't need fallbacks anymore since we're always using JPG thumbnails,
                     // but let's keep this just in case for robustness
@@ -2596,8 +2613,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                 cell.threadImage.kf.setImage(
                                     with: fallbackUrl,
                                     for: .normal,
-                                    placeholder: UIImage(named: "loadingBoardImage"),
-                                    options: options)
+                                    placeholder: placeholderImage,
+                                    options: options
+                                ) { fallbackResult in
+                                    switch fallbackResult {
+                                    case .success:
+                                        cell.displayedThumbnailURL = fallbackUrl
+                                    case .failure:
+                                        cell.displayedThumbnailURL = nil
+                                    }
+                                }
                             }
                         }
                     }
@@ -4450,7 +4475,8 @@ extension threadRepliesTV {
         let options: KingfisherOptionsInfo = [
             .scaleFactor(UIScreen.main.scale),
             .backgroundDecode,
-            .callbackQueue(.mainAsync)
+            .callbackQueue(.mainAsync),
+            .loadDiskFileSynchronously
         ]
 
         // Configure button's imageView for proper aspect fill scaling (same as normal loading)
@@ -4459,11 +4485,18 @@ extension threadRepliesTV {
         cell.threadImage.contentHorizontalAlignment = .fill
         cell.threadImage.contentVerticalAlignment = .fill
 
+        let placeholderImage: UIImage?
+        if cell.displayedThumbnailURL == url {
+            placeholderImage = cell.threadImage.image(for: .normal) ?? UIImage(named: "loadingBoardImage")
+        } else {
+            placeholderImage = UIImage(named: "loadingBoardImage")
+        }
+
         // Use setImage like normal loading (not setBackgroundImage)
         cell.threadImage.kf.setImage(
             with: url,
             for: .normal,
-            placeholder: UIImage(named: "loadingBoardImage"),
+            placeholder: placeholderImage,
             options: options,
             completionHandler: { [weak self] result in
                 let newCount = max(0, (self?.currentScrollLoads ?? 1) - 1)
@@ -4471,11 +4504,13 @@ extension threadRepliesTV {
 
                 switch result {
                 case .success:
+                    cell.displayedThumbnailURL = url
                     print("✅ LOAD: Completed scroll load, remaining: \(newCount)")
                     DispatchQueue.main.async {
                         cell.setNeedsLayout()
                     }
                 case .failure(let error):
+                    cell.displayedThumbnailURL = nil
                     print("❌ LOAD: Failed scroll load: \(error), remaining: \(newCount)")
                 }
             }
