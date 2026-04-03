@@ -1549,7 +1549,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         return cell
     }
 
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let actualIndex = actualIndex(for: indexPath),
               actualIndex < threadBoardReplyNumber.count else {
             return nil

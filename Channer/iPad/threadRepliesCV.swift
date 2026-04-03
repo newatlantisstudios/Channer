@@ -404,7 +404,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         return cell
     }
 
-    override func collectionView(_ collectionView: UICollectionView, trailingSwipeActionsConfigurationForItemAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    override func collectionView(_ collectionView: UICollectionView, leadingSwipeActionsConfigurationForItemAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard indexPath.row < threadBoardReplyNumber.count else {
             return nil
         }
