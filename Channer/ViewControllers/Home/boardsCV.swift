@@ -50,6 +50,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     var boardsAbv: [String] = []
 
     private let maxGridCellWidth: CGFloat = 140
+    private let minimumGridCellHeight: CGFloat = 96
     
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
@@ -405,6 +406,23 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     
     /// Opens the search view controller.
     @objc private func openSearch() {
+        if let presented = presentedViewController {
+            presented.dismiss(animated: true) { [weak self] in
+                self?.openSearch()
+            }
+            return
+        }
+
+        print("[boardsCV] openSearch — about to push SearchViewController")
+        if let navBar = navigationController?.navigationBar {
+            print("[boardsCV] navBar.frame=\(navBar.frame) bounds=\(navBar.bounds)")
+            print("[boardsCV] navBar constraints(\(navBar.constraints.count)):")
+            for (i, c) in navBar.constraints.enumerated() {
+                print("[boardsCV]   [\(i)] \(c) priority=\(c.priority.rawValue)")
+            }
+            print("[boardsCV] navItem.searchController=\(navigationItem.searchController != nil)")
+            print("[boardsCV] navItem.rightBarButtonItems=\(navigationItem.rightBarButtonItems?.count ?? 0)")
+        }
         let searchVC = SearchViewController()
         navigationController?.pushViewController(searchVC, animated: true)
     }
@@ -652,7 +670,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             cellWidth = floor((availableWidth - (interItemSpacing * (columns - 1))) / columns)
         }
 
-        let cellHeight = cellWidth * 1.2
+        let titleLineHeight = UIFont.systemFont(ofSize: isPad ? 13 : 15, weight: .medium).lineHeight
+        let subtitleLineHeight = UIFont.systemFont(ofSize: isPad ? 11 : 13).lineHeight
+        let dynamicTypeHeight = 32 + (titleLineHeight * 2) + subtitleLineHeight
+        let cellHeight = max(cellWidth * 1.2, minimumGridCellHeight, ceil(dynamicTypeHeight))
 
         return GridLayoutMetrics(
             cellSize: CGSize(width: cellWidth, height: cellHeight),

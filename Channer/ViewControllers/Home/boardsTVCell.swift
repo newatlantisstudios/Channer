@@ -25,12 +25,14 @@ class boardsTVCell: UITableViewCell {
         // Board name label
         boardNameLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
         boardNameLabel.textColor = ThemeManager.shared.primaryTextColor
+        boardNameLabel.numberOfLines = 0
         boardNameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(boardNameLabel)
         
         // Board abbreviation label
         boardAbvLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
         boardAbvLabel.textColor = ThemeManager.shared.secondaryTextColor
+        boardAbvLabel.numberOfLines = 1
         boardAbvLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(boardAbvLabel)
         
@@ -45,7 +47,7 @@ class boardsTVCell: UITableViewCell {
             boardAbvLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardAbvLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardAbvLabel.topAnchor.constraint(equalTo: boardNameLabel.bottomAnchor, constant: 4),
-            boardAbvLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -10)
+            boardAbvLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
         ])
     }
     

@@ -24,6 +24,7 @@
 		171A76B62DD869EA00D75B34 /* ICloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */; };
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
+		17NAVSEARCHBLD1234567890 /* UIViewController+NavigationSearchController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */; };
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83482DDD36CC00D75B34 /* boardsTVCell.swift */; };
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83472DDD36CC00D75B34 /* boardsTV.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
@@ -104,6 +105,7 @@
 		1A2B3C4D5E6F708190A1B2E1 /* ThreadViewControllerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F708190A1B2D1 /* ThreadViewControllerFactory.swift */; };
 		1A2B3C4D5E6F708190A1B2E2 /* threadCatalogCV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F708190A1B2D2 /* threadCatalogCV.swift */; };
 		1A2B3C4D5E6F708190A1B2E3 /* threadCatalogCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F708190A1B2D3 /* threadCatalogCell.swift */; };
+		1A2B3C4D5E6F708190A1B2E4 /* CatalogSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F708190A1B2D4 /* CatalogSettingsViewController.swift */; };
 		29D75CA684814E9091D214D9 /* WatchRulesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6FDA15CDA6C49429CC6FA60 /* WatchRulesManager.swift */; };
 		398C079F757502D0249990B4 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA66EA9C6A1157602363084 /* TestData.swift */; };
 		3DD4F12F5AD54324985C558C /* WatchRulesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB24C0E0851E4B559C176A01 /* WatchRulesViewController.swift */; };
@@ -193,6 +195,7 @@
 		171A76B52DD869EA00D75B34 /* ICloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncManager.swift; sourceTree = "<group>"; };
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
+		17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+NavigationSearchController.swift"; sourceTree = "<group>"; };
 		171A83472DDD36CC00D75B34 /* boardsTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTV.swift; sourceTree = "<group>"; };
 		171A83482DDD36CC00D75B34 /* boardsTVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTVCell.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -268,6 +271,7 @@
 		1A2B3C4D5E6F708190A1B2D1 /* ThreadViewControllerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadViewControllerFactory.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F708190A1B2D2 /* threadCatalogCV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = threadCatalogCV.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F708190A1B2D3 /* threadCatalogCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = threadCatalogCell.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F708190A1B2D4 /* CatalogSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogSettingsViewController.swift; sourceTree = "<group>"; };
 		25F7DF6E82957B2EE8AF34DD /* MockUserDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockUserDefaults.swift; path = Mocks/MockUserDefaults.swift; sourceTree = "<group>"; };
 		2F9A198E29A7FE3A132589B2 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		3753B46632493C25266524D4 /* ThreadCacheManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThreadCacheManagerTests.swift; path = Managers/ThreadCacheManagerTests.swift; sourceTree = "<group>"; };
@@ -347,6 +351,7 @@
 				17AAAAA92DDAAAAA00D75B34 /* BoardsService.swift */,
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
 				171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */,
+				17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */,
 				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
 				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
@@ -409,6 +414,7 @@
 				17737E302CDC6F6400DF0874 /* boardTVCell.swift */,
 				1A2B3C4D5E6F708190A1B2D2 /* threadCatalogCV.swift */,
 				1A2B3C4D5E6F708190A1B2D3 /* threadCatalogCell.swift */,
+				1A2B3C4D5E6F708190A1B2D4 /* CatalogSettingsViewController.swift */,
 			);
 			path = Board;
 			sourceTree = "<group>";
@@ -800,6 +806,7 @@
 				171A75F62DD7B1D400D75B34 /* CategoryManagerViewController.swift in Sources */,
 				171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */,
 				171A76B02DD8490100D75B34 /* String+HTMLEntities.swift in Sources */,
+				17NAVSEARCHBLD1234567890 /* UIViewController+NavigationSearchController.swift in Sources */,
 				17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */,
 				17737E2C2CDC6F3600DF0874 /* threadRepliesTV.swift in Sources */,
 				171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */,
@@ -824,6 +831,7 @@
 				17737E312CDC6F6400DF0874 /* boardTVCell.swift in Sources */,
 				1A2B3C4D5E6F708190A1B2E2 /* threadCatalogCV.swift in Sources */,
 				1A2B3C4D5E6F708190A1B2E3 /* threadCatalogCell.swift in Sources */,
+				1A2B3C4D5E6F708190A1B2E4 /* CatalogSettingsViewController.swift in Sources */,
 				177BC7F32CDECC2E000FE370 /* ThumbnailGridVC.swift in Sources */,
 				17C1AE762CE6FFCE00D6FF84 /* TextFormatter.swift in Sources */,
 				17LINKPREV12345678901234 /* LinkPreviewManager.swift in Sources */,

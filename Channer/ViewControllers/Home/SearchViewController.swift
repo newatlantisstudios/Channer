@@ -55,13 +55,25 @@ class SearchViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        print("[SearchVC] viewDidLoad START")
         setupUI()
         reloadHistoryAndSaved()
         updateEmptyState()
+        debugDumpOwnConstraints(context: "viewDidLoad END")
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        print("[SearchVC] viewWillAppear START — hasTransitionCoordinator=\(transitionCoordinator != nil) navItem.searchController=\(navigationItem.searchController != nil)")
+        debugDumpNavBarState(context: "viewWillAppear BEFORE install")
+        installNavigationSearchControllerIfNeeded(searchController) { [weak self] in
+            guard let self else { return }
+            self.navigationItem.hidesSearchBarWhenScrolling = false
+            if #available(iOS 16.0, *), Self.isMacCatalyst {
+                self.navigationItem.preferredSearchBarPlacement = .stacked
+            }
+        }
+        print("[SearchVC] viewWillAppear AFTER install — navItem.searchController=\(navigationItem.searchController != nil)")
 
         // Configure navigation bar appearance to match theme
         // This prevents color flash when navigating to/from this view
@@ -71,11 +83,22 @@ class SearchViewController: UIViewController {
         appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
 
         if let coordinator = transitionCoordinator {
-            coordinator.animate(alongsideTransition: { _ in
+            coordinator.animate(alongsideTransition: { [weak self] _ in
+                guard let self else { return }
+                print("[SearchVC] alongsideTransition START — setting nav bar appearance")
+                if let navBar = self.navigationController?.navigationBar {
+                    print("[SearchVC] --- FULL nav bar hierarchy dump (alongside) ---")
+                    self.debugDumpViewHierarchy(navBar, prefix: "[SearchVC]   ", depth: 0, maxDepth: 6)
+                    print("[SearchVC] --- END nav bar hierarchy dump ---")
+                }
                 self.navigationController?.navigationBar.standardAppearance = appearance
                 self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
                 self.navigationController?.navigationBar.compactAppearance = appearance
-            }, completion: nil)
+                print("[SearchVC] alongsideTransition END")
+            }, completion: { [weak self] context in
+                print("[SearchVC] transitionCoordinator completion — cancelled=\(context.isCancelled)")
+                self?.debugDumpNavBarState(context: "transition completion")
+            })
         } else {
             navigationController?.navigationBar.standardAppearance = appearance
             navigationController?.navigationBar.scrollEdgeAppearance = appearance
@@ -89,10 +112,19 @@ class SearchViewController: UIViewController {
 
         reloadHistoryAndSaved()
         updateEmptyState()
+        print("[SearchVC] viewWillAppear END")
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        print("[SearchVC] viewWillDisappear")
+        suspendNavigationSearchControllerForTransition()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        print("[SearchVC] viewDidAppear START")
+        debugDumpNavBarState(context: "viewDidAppear")
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.navigationController?.navigationBar.layoutIfNeeded()
@@ -100,10 +132,21 @@ class SearchViewController: UIViewController {
         }
     }
 
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        print("[SearchVC] viewWillLayoutSubviews — view.bounds=\(view.bounds)")
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateTableHeaderLayout()
         debugLogNavBarLayoutIfNeeded()
+    }
+
+    override func updateViewConstraints() {
+        print("[SearchVC] updateViewConstraints BEFORE super — view.bounds=\(view.bounds)")
+        debugDumpOwnConstraints(context: "updateViewConstraints")
+        super.updateViewConstraints()
     }
 
     // MARK: - Setup
@@ -120,8 +163,6 @@ class SearchViewController: UIViewController {
         searchController.searchBar.tintColor = ThemeManager.shared.primaryTextColor
         searchController.searchBar.returnKeyType = .search
 
-        navigationItem.searchController = searchController
-        navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
 
         // Setup table view
@@ -186,7 +227,7 @@ class SearchViewController: UIViewController {
         ])
 
         // Add navigation items
-        boardButton = UIBarButtonItem(title: "All Boards", style: .plain, target: self, action: #selector(selectBoard))
+        boardButton = makeBoardButton()
         saveButton = makeSaveButton()
         filtersButton = UIBarButtonItem(image: UIImage(systemName: "line.3.horizontal.decrease.circle"), style: .plain, target: self, action: #selector(openFilters))
         boardButton.tag = 1000
@@ -207,6 +248,16 @@ class SearchViewController: UIViewController {
             return UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(saveSearch))
         }
         return UIBarButtonItem(title: "Save", style: .plain, target: self, action: #selector(saveSearch))
+    }
+
+    private func makeBoardButton() -> UIBarButtonItem {
+        if Self.isMacCatalyst, let image = UIImage(systemName: "square.grid.2x2") {
+            let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(selectBoard))
+            button.accessibilityLabel = "All Boards"
+            return button
+        }
+
+        return UIBarButtonItem(title: "All Boards", style: .plain, target: self, action: #selector(selectBoard))
     }
 
     // MARK: - Actions
@@ -383,14 +434,20 @@ class SearchViewController: UIViewController {
         if Self.isMacCatalyst {
             segmentedControl.apportionsSegmentWidthsByContent = true
             segmentedControl.translatesAutoresizingMaskIntoConstraints = false
-            segmentedControl.setContentHuggingPriority(.required, for: .horizontal)
-            segmentedControl.setContentCompressionResistancePriority(.required, for: .horizontal)
+            segmentedControl.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+            segmentedControl.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
             headerView.addSubview(segmentedControl)
+
+            let leading = segmentedControl.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 16)
+            leading.priority = UILayoutPriority(999)
+            let trailing = segmentedControl.trailingAnchor.constraint(lessThanOrEqualTo: headerView.trailingAnchor, constant: -16)
+            trailing.priority = UILayoutPriority(999)
+
             NSLayoutConstraint.activate([
                 segmentedControl.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
                 segmentedControl.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
-                segmentedControl.leadingAnchor.constraint(greaterThanOrEqualTo: headerView.leadingAnchor, constant: 16),
-                segmentedControl.trailingAnchor.constraint(lessThanOrEqualTo: headerView.trailingAnchor, constant: -16)
+                leading,
+                trailing
             ])
         } else {
             segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 6)
@@ -474,6 +531,69 @@ class SearchViewController: UIViewController {
     }
 #endif
 
+    private func debugDumpNavBarState(context: String) {
+        guard let navBar = navigationController?.navigationBar else {
+            print("[SearchVC] debugDumpNavBarState(\(context)) — no navigation bar")
+            return
+        }
+        print("[SearchVC] === debugDumpNavBarState(\(context)) ===")
+        print("[SearchVC]   navBar.frame=\(navBar.frame) bounds=\(navBar.bounds)")
+        print("[SearchVC]   navItem.searchController=\(navigationItem.searchController != nil)")
+        print("[SearchVC]   navItem.hidesSearchBarWhenScrolling=\(navigationItem.hidesSearchBarWhenScrolling)")
+        print("[SearchVC]   navItem.rightBarButtonItems count=\(navigationItem.rightBarButtonItems?.count ?? 0)")
+        print("[SearchVC]   navItem.leftBarButtonItems count=\(navigationItem.leftBarButtonItems?.count ?? 0)")
+        print("[SearchVC]   navItem.title=\(navigationItem.title ?? "<nil>")")
+
+        // Dump all constraints on the nav bar and its immediate subviews
+        print("[SearchVC]   navBar constraints (\(navBar.constraints.count)):")
+        for (i, c) in navBar.constraints.enumerated() {
+            print("[SearchVC]     [\(i)] \(c) priority=\(c.priority.rawValue) active=\(c.isActive)")
+        }
+        for subview in navBar.subviews {
+            let className = String(describing: type(of: subview))
+            let constraintCount = subview.constraints.count
+            if constraintCount > 0 {
+                print("[SearchVC]   subview \(className) frame=\(subview.frame) constraints(\(constraintCount)):")
+                for (i, c) in subview.constraints.enumerated() {
+                    print("[SearchVC]     [\(i)] \(c) priority=\(c.priority.rawValue) active=\(c.isActive)")
+                }
+            }
+        }
+    }
+
+    private func debugDumpViewHierarchy(_ view: UIView, prefix: String, depth: Int, maxDepth: Int) {
+        guard depth <= maxDepth else { return }
+        let indent = String(repeating: "  ", count: depth)
+        let className = String(describing: type(of: view))
+        let tAMIC = view.translatesAutoresizingMaskIntoConstraints
+        print("\(prefix)\(indent)\(className) frame=\(view.frame) tAMIC=\(tAMIC) constraints(\(view.constraints.count)):")
+        for (i, c) in view.constraints.enumerated() {
+            let firstItem = c.firstItem.map { String(describing: type(of: $0)) } ?? "nil"
+            let secondItem = c.secondItem.map { String(describing: type(of: $0)) } ?? "nil"
+            print("\(prefix)\(indent)  [\(i)] \(c)")
+            print("\(prefix)\(indent)       first=\(firstItem) second=\(secondItem) priority=\(c.priority.rawValue) active=\(c.isActive) id=\(c.identifier ?? "<none>")")
+        }
+        for subview in view.subviews {
+            debugDumpViewHierarchy(subview, prefix: prefix, depth: depth + 1, maxDepth: maxDepth)
+        }
+    }
+
+    private func debugDumpOwnConstraints(context: String) {
+        print("[SearchVC] === debugDumpOwnConstraints(\(context)) ===")
+        print("[SearchVC]   view.frame=\(view.frame) bounds=\(view.bounds)")
+        print("[SearchVC]   view constraints (\(view.constraints.count)):")
+        for (i, c) in view.constraints.enumerated() {
+            print("[SearchVC]     [\(i)] \(c) priority=\(c.priority.rawValue) active=\(c.isActive)")
+        }
+        // Check table header
+        if let header = tableView.tableHeaderView {
+            print("[SearchVC]   tableHeaderView frame=\(header.frame) constraints(\(header.constraints.count)):")
+            for (i, c) in header.constraints.enumerated() {
+                print("[SearchVC]     [\(i)] \(c) priority=\(c.priority.rawValue) active=\(c.isActive)")
+            }
+        }
+    }
+
     private func debugLogBarButtonSetup() {
 #if DEBUG
         guard Self.isMacCatalyst else { return }
@@ -554,7 +674,12 @@ class SearchViewController: UIViewController {
 
     private func updateBoardSelection(_ board: String?) {
         currentBoard = board
-        boardButton.title = board.map { "/\($0)/" } ?? "All Boards"
+        if Self.isMacCatalyst {
+            boardButton.title = nil
+            boardButton.accessibilityLabel = board.map { "Board /\($0)/" } ?? "All Boards"
+        } else {
+            boardButton.title = board.map { "/\($0)/" } ?? "All Boards"
+        }
     }
 
     private func filtersSummary(_ filters: SearchFilters?) -> String? {

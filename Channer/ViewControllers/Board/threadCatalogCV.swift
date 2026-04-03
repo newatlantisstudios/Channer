@@ -15,6 +15,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     private let searchController = UISearchController(searchResultsController: nil)
     private var lastLayoutWidth: CGFloat = 0
     private var lastGridSizeIndex: Int = GridItemSizeManager.shared.sizeIndex
+    private var settingsBarButtonItem: UIBarButtonItem?
 
     private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
 
@@ -71,6 +72,16 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         }
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        installNavigationSearchControllerIfNeeded(searchController)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        suspendNavigationSearchControllerForTransition()
+    }
+
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
@@ -120,7 +131,6 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
         searchController.searchBar.placeholder = "Search threads"
-        navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = true
         definesPresentationContext = true
     }
@@ -371,12 +381,37 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
 
         let newThreadButton = UIBarButtonItem(image: UIImage(systemName: "plus.square"), style: .plain, target: self, action: #selector(showNewThreadCompose))
 
+        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        settingsBarButtonItem = settingsButton
+
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
-            rightBarButtonItems.append(contentsOf: [sortButton, newThreadButton])
+            rightBarButtonItems.append(contentsOf: [settingsButton, sortButton, newThreadButton])
             navigationItem.rightBarButtonItems = rightBarButtonItems
         } else {
-            navigationItem.rightBarButtonItems = [sortButton, newThreadButton]
+            navigationItem.rightBarButtonItems = [settingsButton, sortButton, newThreadButton]
         }
+    }
+
+    @objc private func settingsButtonTapped() {
+        let settingsVC = CatalogSettingsViewController()
+        settingsVC.modalPresentationStyle = .popover
+        settingsVC.preferredContentSize = CGSize(width: 320, height: 170)
+
+        if let popover = settingsVC.popoverPresentationController {
+            popover.delegate = self
+            popover.permittedArrowDirections = .up
+
+            #if targetEnvironment(macCatalyst)
+            if let navBar = navigationController?.navigationBar {
+                popover.sourceView = navBar
+                popover.sourceRect = CGRect(x: navBar.bounds.maxX - 60, y: navBar.bounds.maxY, width: 1, height: 1)
+            }
+            #else
+            popover.barButtonItem = settingsBarButtonItem
+            #endif
+        }
+
+        present(settingsVC, animated: true)
     }
 
     @objc private func showNewThreadCompose() {
@@ -476,6 +511,13 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             interItemSpacing: interItemSpacing,
             lineSpacing: lineSpacing
         )
+    }
+}
+
+// MARK: - UIPopoverPresentationControllerDelegate
+extension threadCatalogCV: UIPopoverPresentationControllerDelegate {
+    func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle {
+        return .none
     }
 }
 

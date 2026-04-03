@@ -39,6 +39,11 @@ class threadCatalogCell: UICollectionViewCell {
         }
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateCommentLineLimit()
+    }
+
     func configure(with thread: ThreadData) {
         statsLabel.text = thread.stats
 
@@ -108,7 +113,7 @@ class threadCatalogCell: UICollectionViewCell {
 
         commentLabel.font = UIFont.systemFont(ofSize: 11, weight: .regular)
         commentLabel.textAlignment = .left
-        commentLabel.numberOfLines = 3
+        commentLabel.numberOfLines = 1
         commentLabel.lineBreakMode = .byTruncatingTail
 
         contentView.addSubview(containerView)
@@ -155,6 +160,16 @@ class threadCatalogCell: UICollectionViewCell {
         statsLabel.textColor = ThemeManager.shared.secondaryTextColor
         titleLabel.textColor = ThemeManager.shared.primaryTextColor
         commentLabel.textColor = ThemeManager.shared.secondaryTextColor
+    }
+
+    private func updateCommentLineLimit() {
+        let availableHeight = containerView.bounds.maxY - 8 - commentLabel.frame.minY
+        let maxLines = Int(floor(availableHeight / commentLabel.font.lineHeight))
+        let computedLineLimit = max(1, maxLines)
+
+        if commentLabel.numberOfLines != computedLineLimit {
+            commentLabel.numberOfLines = computedLineLimit
+        }
     }
 
     private func thumbnailURL(from urlString: String) -> URL? {

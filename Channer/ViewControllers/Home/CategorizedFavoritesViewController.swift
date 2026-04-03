@@ -41,6 +41,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        installNavigationSearchControllerIfNeeded(searchController)
         print("=== viewWillAppear called ===")
         // Clear cache to load fresh data
         allFavorites = []
@@ -53,6 +54,11 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
             print("Refreshing current segment: \(segmentedControl.selectedSegmentIndex)")
             segmentChanged()
         }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        suspendNavigationSearchControllerForTransition()
     }
     
     // MARK: - Setup
@@ -87,7 +93,6 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
         searchController.searchBar.tintColor = UIColor(hex: "#59a03b") ?? .systemGreen
 
         // Add search bar to navigation item
-        navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
         

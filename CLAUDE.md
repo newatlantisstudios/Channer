@@ -50,11 +50,24 @@ xcodebuild test -workspace Channer.xcworkspace -scheme ChannerUITests \
   -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-Test helpers in `ChannerTests/Helpers/`: `TestDataFactory`, `MockUserDefaults`, `MockiCloudStore`, `XCTestCase+Helpers`.
+### Test Organization
+- **ChannerTests/Managers/**: Unit tests for singleton managers (ThemeManager, FavoritesManager, HistoryManager, NotificationManager, ThreadCacheManager, ContentFilterManager, AdvancedFilter)
+- **ChannerTests/Models/**: Model tests (BookmarkCategory)
+- **ChannerTests/Mocks/**: Mock implementations (UserDefaults, iCloudStore, AuthContext, Kingfisher, FileManager, AlamofireSession)
+- **ChannerTests/Helpers/**: `TestDataFactory`, `MockUserDefaults`, `MockiCloudStore`, `XCTestCase+Helpers`
+- **ChannerUITests/**: Minimal — `BoardListScreenTests` and base setup only
 
 ## Architecture Overview
 
-MVC architecture with singleton managers in `Utilities/` for shared state.
+MVC architecture with singleton managers in `Utilities/` for shared state. Communication between components uses NotificationCenter broadcasts and delegate protocols.
+
+### Source Layout
+- **ViewControllers/** (~55 files): Core UI, organized by navigation level (Home/, Board/, Thread Replies/, Show Media/, Posting/, Downloads/)
+- **Utilities/** (~36 files): Singleton managers, helpers, and extensions
+- **iPad/**: iPad-specific view controllers (split view, hover, Apple Pencil)
+- **Models/**: Minimal — just `PostData` and `PostResult`. Most models live inline in view controllers (see below)
+- **Networking/**: Contains `ICloudSyncManager` (sync logic, not general networking — Alamofire calls are spread across VCs)
+- **Views/Charts/**: `ChartViews.swift` for statistics visualization
 
 ### Navigation Flow
 ```
@@ -68,7 +81,7 @@ boardsCV (boards list)
 ### iPhone vs iPad
 
 The iPhone and iPad use separate view controller implementations for thread replies:
-- **iPhone**: `ViewControllers/Thread Replies/threadRepliesTV.swift` — UITableViewController (~181KB, the largest file in the project)
+- **iPhone**: `ViewControllers/Thread Replies/threadRepliesTV.swift` — UITableViewController (~4500 lines, the largest file in the project)
 - **iPad**: `iPad/threadRepliesCV.swift` — UICollectionViewController with split view, hover support (`threadRepliesCV+HoverSupport.swift`), keyboard shortcuts, and Apple Pencil support
 
 `ThreadViewControllerFactory` in `Utilities/` selects the correct implementation at runtime.
@@ -98,6 +111,13 @@ Some models are defined inline within view controller files:
 - `BookmarkCategory`: `ViewControllers/Home/BookmarkCategory.swift`
 - `Reachability`, `TextFormatter`: `ViewControllers/Thread Replies/threadRepliesTV.swift`
 
+### Extension Files
+Key extensions in `Utilities/`:
+- `String+HTMLEntities.swift`: HTML entity decoding (numeric & named)
+- `UIImage+Extensions.swift`: Image manipulation
+- `UIViewController+NavigationSearchController.swift`: Mac Catalyst navigation search setup
+- Custom `Notification.Name` constants defined across managers
+
 ### Storage Architecture
 - **UserDefaults**: Simple preferences and feature flags (e.g., `faceIDEnabledKey`)
 - **Keychain** (`KeychainHelper`): Sensitive credentials (4chan Pass via `PassAuthManager`)
@@ -109,7 +129,7 @@ Some models are defined inline within view controller files:
 - **Alamofire** + **SwiftyJSON**: Networking and JSON parsing (via Swift Package Manager)
 - **Kingfisher**: Async image loading and caching (via Swift Package Manager)
 - **VLCKit** (4.0.0a6): Downloaded video playback only (local XCFramework in `Frameworks/`)
-- **FFmpeg**: Via bridging header (`FFmpeg-Bridging-Header.h`), NOT via package manager
+- **FFmpeg**: Via bridging header (`FFmpeg-Bridging-Header.h`), NOT via package manager. Bridges libavcodec, libavformat, libavutil, libswscale for `WebMConversionService`
 
 ## Important Implementation Notes
 
@@ -125,7 +145,7 @@ Some models are defined inline within view controller files:
 - Test with `DispatchQueue.concurrentPerform` (see existing tests)
 
 ### Large Files
-`threadRepliesTV.swift` (~181KB) and `settings.swift` (~145KB) are very large. When editing these, read only the relevant sections with line offsets rather than the entire file.
+`threadRepliesTV.swift` (~4500 lines) and `settings.swift` (~3400 lines) are very large. When editing these, read only the relevant sections with line offsets rather than the entire file.
 
 ### Authentication
 FaceID/TouchID protection via LocalAuthentication. Controlled by `faceIDEnabledKey` in UserDefaults.
@@ -138,4 +158,4 @@ GitHub Actions (`.github/workflows/Xcode_build_PR.yml`):
 - Posts build errors to PR comments
 - Build logs uploaded with 7-day retention
 
-**Note**: The workflow file still references CocoaPods (`pod install`) but the project has migrated to Swift Package Manager. The workflow may need updating.
+**Note**: The workflow file still has a CocoaPods step (lines 23-31: `pod install`) that should be removed — the project uses SPM exclusively now.

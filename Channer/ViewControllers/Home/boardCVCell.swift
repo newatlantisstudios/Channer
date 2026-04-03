@@ -22,6 +22,7 @@ class boardCVCell: UICollectionViewCell {
         label.lineBreakMode = .byTruncatingTail
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.7
+        label.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         return label
     }()
 
@@ -39,6 +40,7 @@ class boardCVCell: UICollectionViewCell {
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.7
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
         return label
     }()
 
@@ -91,13 +93,12 @@ class boardCVCell: UICollectionViewCell {
             boardName.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
             boardName.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
             boardName.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -4),
-            boardName.centerYAnchor.constraint(equalTo: containerView.centerYAnchor, constant: -10),
             
             // Board abbreviation constraints - bottom portion of cell
             boardNameAbv.topAnchor.constraint(equalTo: boardName.bottomAnchor, constant: 4),
             boardNameAbv.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
             boardNameAbv.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -4),
-            boardNameAbv.bottomAnchor.constraint(lessThanOrEqualTo: containerView.bottomAnchor, constant: -12)
+            boardNameAbv.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -12)
         ])
     }
     

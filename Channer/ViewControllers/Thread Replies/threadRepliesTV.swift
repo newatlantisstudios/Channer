@@ -509,6 +509,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         #endif
         
+        // Pull-to-refresh
+        let rc = UIRefreshControl()
+        rc.addTarget(self, action: #selector(refresh), for: .valueChanged)
+        tableView.refreshControl = rc
+
         // Search bar setup
         setupSearchBar()
         
@@ -987,6 +992,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          target: self,
                                          action: #selector(toggleFavorite))
 
+        // Create the Refresh button
+        let refreshImage = UIImage(systemName: "arrow.clockwise")
+        let refreshButton = UIBarButtonItem(image: refreshImage,
+                                            style: .plain,
+                                            target: self,
+                                            action: #selector(refresh))
+
         // Create the Reply button
         let replyImage = UIImage(systemName: "square.and.pencil")
         let replyButton = UIBarButtonItem(image: replyImage,
@@ -995,7 +1007,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                           action: #selector(showComposeView))
 
         // Set the buttons in the navigation bar (rightmost to leftmost order)
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton, replyButton].compactMap { $0 }
+        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton, refreshButton, replyButton].compactMap { $0 }
     }
     
     private func removeReplyButton() {
@@ -2455,7 +2467,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
         let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
 
-        if let thumbnailUrl, cell.displayedThumbnailURL == thumbnailUrl, cell.threadImage.image(for: .normal) != nil {
+        if let thumbnailUrl, cell.displayedThumbnailURL == thumbnailUrl, cell.threadImage.thumbnailImageView.image != nil {
             cell.setImageURL(imageUrl)
             return
         }
@@ -2472,7 +2484,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             } else {
                 print("🖼️ IMAGE: Deferring image load during fast scroll for: \(imageUrl)")
                 if cell.displayedThumbnailURL != thumbnailUrl {
-                    cell.threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+                    cell.threadImage.thumbnailImageView.image = UIImage(named: "loadingBoardImage")
                 }
                 // Track this cell for loading after scrolling ends
                 if let indexPath = indexPath {
@@ -2542,7 +2554,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         guard let url = URL(string: finalUrl) else {
             print("Debug: Invalid URL: \(finalUrl)")
-            cell.threadImage.setBackgroundImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            cell.threadImage.thumbnailImageView.image = UIImage(named: "loadingBoardImage")
             return
         }
         print("Debug: Generated valid URL: \(url.absoluteString)")
@@ -2563,23 +2575,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         ]
         
         print("Debug: Loading image with URL: \(url)")
-        
-        // Configure button's imageView for proper aspect fill scaling (like board view)
-        cell.threadImage.imageView?.contentMode = .scaleAspectFill
-        cell.threadImage.imageView?.clipsToBounds = true
-        cell.threadImage.contentHorizontalAlignment = .fill
-        cell.threadImage.contentVerticalAlignment = .fill
 
         let placeholderImage: UIImage?
         if cell.displayedThumbnailURL == url {
-            placeholderImage = cell.threadImage.image(for: .normal) ?? UIImage(named: "loadingBoardImage")
+            placeholderImage = cell.threadImage.thumbnailImageView.image ?? UIImage(named: "loadingBoardImage")
         } else {
             placeholderImage = UIImage(named: "loadingBoardImage")
         }
 
-        cell.threadImage.kf.setImage(
+        cell.threadImage.thumbnailImageView.kf.setImage(
             with: url,
-            for: .normal,
             placeholder: placeholderImage,
             options: options,
             completionHandler: { result in
@@ -2610,9 +2615,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         if let fallbackUrl = URL(string: jpgUrl) {
                             // Use main thread for UI updates to avoid actor isolation errors
                             DispatchQueue.main.async {
-                                cell.threadImage.kf.setImage(
+                                cell.threadImage.thumbnailImageView.kf.setImage(
                                     with: fallbackUrl,
-                                    for: .normal,
                                     placeholder: placeholderImage,
                                     options: options
                                 ) { fallbackResult in
@@ -3693,6 +3697,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
             DispatchQueue.main.async {
                 // Check for 404 during auto-refresh
+                self.tableView.refreshControl?.endRefreshing()
+
                 if let statusCode = response.response?.statusCode, statusCode == 404 {
                     self.handleThreadUnavailable()
                     return
@@ -4066,11 +4072,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc func refresh() {
         print("Refresh triggered")
         guard shouldLoadFullThread else {
+            tableView.refreshControl?.endRefreshing()
             debugReloadData(context: "Search filter update")
             return
         }
 
         if threadReplies.isEmpty {
+            tableView.refreshControl?.endRefreshing()
             filteredReplyIndices.removeAll()
             postMetadataList.removeAll()
             replyCount = 0
@@ -4479,23 +4487,16 @@ extension threadRepliesTV {
             .loadDiskFileSynchronously
         ]
 
-        // Configure button's imageView for proper aspect fill scaling (same as normal loading)
-        cell.threadImage.imageView?.contentMode = .scaleAspectFill
-        cell.threadImage.imageView?.clipsToBounds = true
-        cell.threadImage.contentHorizontalAlignment = .fill
-        cell.threadImage.contentVerticalAlignment = .fill
-
         let placeholderImage: UIImage?
         if cell.displayedThumbnailURL == url {
-            placeholderImage = cell.threadImage.image(for: .normal) ?? UIImage(named: "loadingBoardImage")
+            placeholderImage = cell.threadImage.thumbnailImageView.image ?? UIImage(named: "loadingBoardImage")
         } else {
             placeholderImage = UIImage(named: "loadingBoardImage")
         }
 
         // Use setImage like normal loading (not setBackgroundImage)
-        cell.threadImage.kf.setImage(
+        cell.threadImage.thumbnailImageView.kf.setImage(
             with: url,
-            for: .normal,
             placeholder: placeholderImage,
             options: options,
             completionHandler: { [weak self] result in

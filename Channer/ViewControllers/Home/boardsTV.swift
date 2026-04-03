@@ -157,7 +157,8 @@ class boardsTV: UITableViewController {
         
         // Configure table view appearance
         tableView.separatorStyle = .singleLine
-        tableView.rowHeight = 60
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 60
         
         // Set backBarButtonItem to have just the arrow without text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
@@ -372,6 +373,32 @@ class boardsTV: UITableViewController {
     
     /// Opens the search view controller.
     @objc private func openSearch() {
+        if let presented = presentedViewController {
+            presented.dismiss(animated: true) { [weak self] in
+                self?.openSearch()
+            }
+            return
+        }
+
+        print("[boardsTV] openSearch — about to push SearchViewController")
+        if let navBar = navigationController?.navigationBar {
+            print("[boardsTV] navBar.frame=\(navBar.frame) bounds=\(navBar.bounds)")
+            print("[boardsTV] navBar constraints(\(navBar.constraints.count)):")
+            for (i, c) in navBar.constraints.enumerated() {
+                print("[boardsTV]   [\(i)] \(c) priority=\(c.priority.rawValue)")
+            }
+            for subview in navBar.subviews {
+                let className = String(describing: type(of: subview))
+                if !subview.constraints.isEmpty {
+                    print("[boardsTV]   subview \(className) frame=\(subview.frame) constraints(\(subview.constraints.count)):")
+                    for (j, c) in subview.constraints.enumerated() {
+                        print("[boardsTV]     [\(j)] \(c) priority=\(c.priority.rawValue)")
+                    }
+                }
+            }
+            print("[boardsTV] navItem.searchController=\(navigationItem.searchController != nil)")
+            print("[boardsTV] navItem.rightBarButtonItems=\(navigationItem.rightBarButtonItems?.count ?? 0)")
+        }
         let searchVC = SearchViewController()
         navigationController?.pushViewController(searchVC, animated: true)
     }

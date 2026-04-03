@@ -4,6 +4,32 @@ import WebKit
 import VLCKit
 import AVFoundation
 
+final class ThreadThumbnailButton: UIButton {
+    let thumbnailImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.isUserInteractionEnabled = false
+        return imageView
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(thumbnailImageView)
+        NSLayoutConstraint.activate([
+            thumbnailImageView.topAnchor.constraint(equalTo: topAnchor),
+            thumbnailImageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            thumbnailImageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            thumbnailImageView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
 class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     // Variables for hover functionality
     var hasActiveHoverPreview: Bool { hoveredPreviewView != nil }
@@ -34,8 +60,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     private var currentlyHoveredPostNumber: String?
 
     // MARK: - UI Components
-    let threadImage: UIButton = {
-        let button = UIButton()
+    let threadImage: ThreadThumbnailButton = {
+        let button = ThreadThumbnailButton(frame: .zero)
         // Use device corner radius to match board thread thumbnails
         let deviceCornerRadius: CGFloat
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -48,12 +74,9 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         button.layer.cornerRadius = deviceCornerRadius
         button.layer.cornerCurve = .continuous
         button.clipsToBounds = true
-        button.imageView?.contentMode = .scaleAspectFill
-        button.imageView?.clipsToBounds = true
         button.layer.masksToBounds = true
         button.translatesAutoresizingMaskIntoConstraints = false
         print("threadRepliesCell - Button frame: \(button.frame), bounds: \(button.bounds)")
-        print("threadRepliesCell - ImageView content mode: \(button.imageView?.contentMode.rawValue ?? -1), clips to bounds: \(button.imageView?.clipsToBounds ?? false)")
         print("threadRepliesCell - Button clips to bounds: \(button.clipsToBounds), masksToBounds: \(button.layer.masksToBounds)")
         return button
     }()
@@ -206,6 +229,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     private var imageHeightConstraint: NSLayoutConstraint?
     private var imageTopToSubject: NSLayoutConstraint?
     private var imageTopToBoardReply: NSLayoutConstraint?
+    private var replyCountTrailingToBackground: NSLayoutConstraint?
+    private var replyCountTrailingToFilterBadge: NSLayoutConstraint?
 
     // MARK: - Initializer
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -230,15 +255,20 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         removeHoverPreview()
         removeQuoteLinkPreview()
         // Cancel any in-flight image downloads to prevent race conditions
-        threadImage.kf.cancelImageDownloadTask()
+        threadImage.thumbnailImageView.kf.cancelDownloadTask()
+        threadImage.thumbnailImageView.image = nil
+        displayedThumbnailURL = nil
         imageURL = nil
         postNumber = ""
         spoilerDelegate = nil
         quoteLinkHoverDelegate = nil
         replyCountLabel.isHidden = true
         replyCountLabel.text = nil
+        filterBadge.isHidden = true
         subjectLabel.isHidden = true
         subjectLabel.text = nil
+        replyCountTrailingToFilterBadge?.isActive = false
+        replyCountTrailingToBackground?.isActive = true
         updateThumbnailSize()
     }
 
@@ -373,6 +403,9 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         imageHeightConstraint = threadImage.heightAnchor.constraint(equalToConstant: thumbSize)
 
         // Common constraints
+        replyCountTrailingToBackground = replyCountLabel.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset)
+        replyCountTrailingToFilterBadge = replyCountLabel.trailingAnchor.constraint(equalTo: filterBadge.leadingAnchor, constant: -8)
+
         NSLayoutConstraint.activate([
             customBackgroundView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             customBackgroundView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
@@ -400,7 +433,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
 
             // Reply count label constraints - positioned at top right
             replyCountLabel.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
-            replyCountLabel.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            replyCountTrailingToBackground!,
             replyCountLabel.heightAnchor.constraint(equalToConstant: 20),
             replyCountLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 28)
         ])
@@ -459,9 +492,14 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         subjectLabel.text = subject
         subjectLabel.textColor = ThemeManager.shared.primaryTextColor
 
-        // Switch image top constraint based on subject visibility
-        imageTopToSubject?.isActive = hasSubject
-        imageTopToBoardReply?.isActive = !hasSubject
+        // Switch image top constraint atomically to avoid a transient state
+        // where both mutually-exclusive top anchors are active.
+        NSLayoutConstraint.deactivate([imageTopToSubject, imageTopToBoardReply].compactMap { $0 })
+        if hasSubject {
+            imageTopToSubject?.isActive = true
+        } else {
+            imageTopToBoardReply?.isActive = true
+        }
 
         NSLayoutConstraint.deactivate(replyTextWithImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageConstraints)
@@ -495,26 +533,24 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             replyCountLabel.isHidden = false
             // If filter badge is also visible, offset the reply count label
             if !filterBadge.isHidden {
-                // Move reply count to the left of filter badge
-                for constraint in replyCountLabel.constraints where constraint.firstAttribute == .trailing {
-                    constraint.isActive = false
-                }
-                replyCountLabel.trailingAnchor.constraint(equalTo: filterBadge.leadingAnchor, constant: -8).isActive = true
+                replyCountTrailingToBackground?.isActive = false
+                replyCountTrailingToFilterBadge?.isActive = true
+            } else {
+                replyCountTrailingToFilterBadge?.isActive = false
+                replyCountTrailingToBackground?.isActive = true
             }
         } else {
             replyCountLabel.isHidden = true
+            replyCountTrailingToFilterBadge?.isActive = false
+            replyCountTrailingToBackground?.isActive = true
         }
 
         // Update hover interaction
         updatePointerInteractionIfNeeded()
-
-        setNeedsLayout()
-        layoutIfNeeded()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        contentView.layoutIfNeeded()
         // Provide a shadowPath to avoid offscreen rendering cost per frame
         // Use device corner radius
         let deviceCornerRadius: CGFloat
@@ -571,7 +607,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             hoverOverlayView = nil
         }
 
-        guard let thumbnailImage = threadImage.imageView?.image else { return }
+        guard let thumbnailImage = threadImage.thumbnailImageView.image else { return }
 
         // Create overlay view for the entire screen
         let overlayView = UIView()
