@@ -3166,6 +3166,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func replyToPost(postNumber: String) {
         guard let threadNo = Int(threadNumber) else { return }
 
+        // If a compose view already exists (visible or minimized), append the
+        // quote to it so the user's in-progress content is preserved.
+        if let composeVC = activeComposeVC {
+            if let postNo = Int(postNumber) {
+                composeVC.insertQuote(postNo)
+            }
+
+            if isComposeMinimized {
+                isComposeMinimized = false
+
+                if composeVC.parent != nil {
+                    composeVC.willMove(toParent: nil)
+                    composeVC.view.removeFromSuperview()
+                    composeVC.removeFromParent()
+                }
+
+                let navController = UINavigationController(rootViewController: composeVC)
+                navController.modalPresentationStyle = .pageSheet
+                navController.isModalInPresentation = true
+                if let sheet = navController.sheetPresentationController {
+                    sheet.detents = [.medium(), .large()]
+                    sheet.prefersGrabberVisible = true
+                }
+                present(navController, animated: true)
+                updateFloatingReplyButton()
+            } else {
+                showToast(message: "Added >>\(postNumber) to reply")
+            }
+            return
+        }
+
         let quoteText = ">>\(postNumber)"
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNo, quoteText: quoteText)
         composeVC.delegate = self
