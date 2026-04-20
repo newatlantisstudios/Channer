@@ -1278,22 +1278,37 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func showGallery() {
         print("Gallery button tapped.")
 
-        // Pass original URLs directly to gallery (same as thread view does)
-        // This ensures videos play correctly in gallery just like in thread view
-        let imageUrls = threadRepliesImages.compactMap { imageUrlString -> URL? in
-            guard let url = URL(string: imageUrlString) else { return nil }
-            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { return nil }
+        // Build parallel arrays of URLs, post numbers, and reply counts
+        // Only include posts that have valid image URLs
+        var imageUrls: [URL] = []
+        var galleryPostNumbers: [String] = []
+        var galleryReplyCounts: [Int] = []
 
-            // Pass original URLs directly - no thumbnail conversion
-            // This matches thread view behavior where original URLs are used
-            print("Using original URL for gallery: \(imageUrlString)")
-            return url
+        for (index, imageUrlString) in threadRepliesImages.enumerated() {
+            guard let url = URL(string: imageUrlString) else { continue }
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { continue }
+
+            imageUrls.append(url)
+
+            if index < threadBoardReplyNumber.count {
+                let postNo = threadBoardReplyNumber[index]
+                galleryPostNumbers.append(postNo)
+                galleryReplyCounts.append(threadBoardReplies[postNo]?.count ?? 0)
+            } else {
+                galleryPostNumbers.append("")
+                galleryReplyCounts.append(0)
+            }
         }
 
         print("Filtered image URLs for gallery: \(imageUrls)")
 
         // Instantiate the gallery view controller with original URLs
         let galleryVC = ImageGalleryVC(images: imageUrls)
+        galleryVC.postNumbers = galleryPostNumbers
+        galleryVC.replyCounts = galleryReplyCounts
+        galleryVC.onShowReplies = { [weak self] postNumber in
+            self?.showThreadForPostNumber(postNumber)
+        }
         print("GalleryVC instantiated with original URLs.")
 
         // Navigate to the gallery
@@ -2639,12 +2654,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let selectedImageURLString = threadRepliesImages[sender.tag]
         print("threadContentOpen: \(selectedImageURLString)")
         print("MUTE DEBUG: threadContentOpen tag=\(sender.tag) board=\(boardAbv) thread=\(threadNumber)")
-        
+
         // Validate URL
         guard let selectedImageURL = URL(string: selectedImageURLString) else {
             print("Invalid URL: \(selectedImageURLString)")
             return
         }
+
+        // Determine reply count for the post containing this image
+        let postIndex = sender.tag
+        let postNo = postIndex < threadBoardReplyNumber.count ? threadBoardReplyNumber[postIndex] : ""
+        let postReplyCount = threadBoardReplies[postNo]?.count ?? 0
         
         // Check the file extension to determine how to handle the content
         var fileExtension = selectedImageURL.pathExtension.lowercased()
@@ -2679,6 +2699,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             vlcVC.videoURL = selectedImageURL.absoluteString
             vlcVC.videoURLs = videoURLs
             vlcVC.currentIndex = selectedIndex
+            vlcVC.replyCount = postReplyCount
+            if postReplyCount > 0 {
+                vlcVC.onShowReplies = { [weak self] in
+                    self?.showThreadForPostNumber(postNo)
+                }
+            }
             print("MUTE DEBUG: opening video via WebMViewController index=\(selectedIndex) count=\(videoURLs.count) url=\(selectedImageURL.absoluteString)")
 
             // Handle navigation stack
@@ -2696,6 +2722,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             urlWebVC.images = [selectedImageURL]
             urlWebVC.currentIndex = 0
             urlWebVC.enableSwipes = false
+            urlWebVC.replyCount = postReplyCount
+            if postReplyCount > 0 {
+                urlWebVC.onShowReplies = { [weak self] in
+                    self?.showThreadForPostNumber(postNo)
+                }
+            }
 
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
@@ -2734,6 +2766,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             imageVC.imageURLs = imageURLs
             imageVC.currentIndex = selectedIndex
             imageVC.enableSwipes = imageURLs.count > 1
+            imageVC.replyCount = postReplyCount
+            if postReplyCount > 0 {
+                imageVC.onShowReplies = { [weak self] in
+                    self?.showThreadForPostNumber(postNo)
+                }
+            }
             // Provide referer for 4chan
             if !boardAbv.isEmpty && !threadNumber.isEmpty {
                 imageVC.refererString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"

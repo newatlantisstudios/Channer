@@ -32,6 +32,10 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     var enableSwipes: Bool = true
     /// Optional referer string for remote image loading
     var refererString: String?
+    /// Number of replies to the post containing this image
+    var replyCount: Int = 0
+    /// Callback when the user taps the replies button
+    var onShowReplies: (() -> Void)?
 
     /// Supported image formats including modern formats
     static let supportedImageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "bmp", "tiff", "ico"]
@@ -154,7 +158,24 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
         )
         menuButton.tintColor = .white
 
-        navigationItem.rightBarButtonItems = [menuButton, downloadButton]
+        var items = [menuButton, downloadButton]
+
+        if replyCount > 0, onShowReplies != nil {
+            let repliesButton = UIBarButtonItem(
+                image: UIImage(systemName: "bubble.left.and.bubble.right"),
+                style: .plain,
+                target: self,
+                action: #selector(repliesButtonTapped)
+            )
+            repliesButton.tintColor = .white
+            items.append(repliesButton)
+        }
+
+        navigationItem.rightBarButtonItems = items
+    }
+
+    @objc private func repliesButtonTapped() {
+        onShowReplies?()
     }
 
     /// Shows actions menu for the current image

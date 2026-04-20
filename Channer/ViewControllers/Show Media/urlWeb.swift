@@ -15,6 +15,10 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
 
     // Property to enable or disable swipes
     var enableSwipes: Bool = true
+    /// Number of replies to the post containing this media
+    var replyCount: Int = 0
+    /// Callback when the user taps the replies button
+    var onShowReplies: (() -> Void)?
 
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -892,9 +896,24 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         downloadButton.tintColor = .white
         rightButtons.append(downloadButton)
         
+        if replyCount > 0, onShowReplies != nil {
+            let repliesButton = UIBarButtonItem(
+                image: UIImage(systemName: "bubble.left.and.bubble.right"),
+                style: .plain,
+                target: self,
+                action: #selector(repliesButtonTapped)
+            )
+            repliesButton.tintColor = .white
+            rightButtons.append(repliesButton)
+        }
+
         navigationItem.rightBarButtonItems = rightButtons
     }
-    
+
+    @objc private func repliesButtonTapped() {
+        onShowReplies?()
+    }
+
     /// Returns the appropriate mute button image based on current state
     private func getMuteButtonImage() -> UIImage? {
         let imageName = isMuted ? "speaker.slash" : "speaker.wave.2"

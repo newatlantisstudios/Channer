@@ -694,8 +694,31 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             return url
         }
 
-        let imageURLs = processedImageLinks.compactMap { URL(string: $0) }
+        var imageURLs: [URL] = []
+        var galleryPostNumbers: [String] = []
+        var galleryReplyCounts: [Int] = []
+
+        for (index, urlString) in processedImageLinks.enumerated() {
+            guard let url = URL(string: urlString) else { continue }
+            imageURLs.append(url)
+            if index < threadBoardReplyNumber.count {
+                let postNo = threadBoardReplyNumber[index]
+                galleryPostNumbers.append(postNo)
+                galleryReplyCounts.append(threadBoardReplies[postNo]?.count ?? 0)
+            } else {
+                galleryPostNumbers.append("")
+                galleryReplyCounts.append(0)
+            }
+        }
+
         let galleryVC = ImageGalleryVC(images: imageURLs)
+        galleryVC.postNumbers = galleryPostNumbers
+        galleryVC.replyCounts = galleryReplyCounts
+        galleryVC.onShowReplies = { [weak self] postNumber in
+            self?.dismiss(animated: true) {
+                self?.showThreadForPostNumber(postNumber)
+            }
+        }
         if selectedIndex < imageURLs.count {
             galleryVC.selectedImageURL = imageURLs[selectedIndex]
         }
@@ -857,10 +880,17 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     /// Shows thread replies for the post at the given index (called from long press menu)
     private func showThreadForIndex(_ index: Int) {
         guard index < threadBoardReplyNumber.count else { return }
+        showThreadForPostNumber(threadBoardReplyNumber[index])
+    }
+
+    /// Shows thread replies for the given post number
+    private func showThreadForPostNumber(_ postNumber: String) {
+        guard let replies = threadBoardReplies[postNumber], !replies.isEmpty,
+              let firstReply = replies.first else { return }
 
         let storyBoard = UIStoryboard(name: "iPad", bundle: nil)
         let replyVC = storyBoard.instantiateViewController(withIdentifier: "threadReplyVC") as! threadRepliesCV
-        replyVC.replyNumber = threadBoardRepliesArray(indexPath: index).first ?? ""
+        replyVC.replyNumber = firstReply
         replyVC.threadNumber = threadNumber
         replyVC.boardAbv = boardAbv
         replyVC.forBoardThread = true

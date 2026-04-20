@@ -26,6 +26,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     private var correctedURLs: [Int: URL] = [:]
     /// Dictionary to cache alternate format URLs (for switching between formats)
     private var alternateURLs: [Int: URL] = [:]
+    /// Post numbers corresponding to each image (parallel array to `images`)
+    var postNumbers: [String] = []
+    /// Reply counts for each image's post (parallel array to `images`)
+    var replyCounts: [Int] = []
+    /// Callback when the user taps the replies button; passes the post number
+    var onShowReplies: ((String) -> Void)?
     /// Property to track if videos should preload - reads from UserDefaults
     var preloadVideos: Bool {
         return UserDefaults.standard.bool(forKey: "channer_preload_videos_enabled")
@@ -271,12 +277,63 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     }
     
     // MARK: - Navigation Bar Setup
-    /// Sets up the navigation bar with media counter
+    /// Sets up the navigation bar with media counter and grid size button
     private func setupNavigationBarWithCounter() {
         updateMediaCounter()
         navigationItem.titleView = mediaCounterLabel
+        updateRightBarButtonItems()
+    }
+
+    /// Creates a bar button with a pull-down menu for changing grid size
+    private func makeGridSizeBarButton() -> UIBarButtonItem {
+        let sizeLabels = ["XS", "S", "M", "L", "XL"]
+        let currentIndex = GalleryCellSizeManager.shared.sizeIndex
+
+        let actions = sizeLabels.enumerated().map { index, label in
+            UIAction(
+                title: label,
+                state: index == currentIndex ? .on : .off
+            ) { [weak self] _ in
+                GalleryCellSizeManager.shared.setSizeIndex(index)
+                self?.navigationItem.rightBarButtonItem = self?.makeGridSizeBarButton()
+            }
+        }
+
+        let menu = UIMenu(title: "Grid Size", children: actions)
+        let button = UIBarButtonItem(image: UIImage(systemName: "square.grid.3x3"), menu: menu)
+        return button
     }
     
+    /// Updates right bar button items (grid size + optional replies button)
+    private func updateRightBarButtonItems() {
+        var items = [makeGridSizeBarButton()]
+        if let repliesButton = makeRepliesBarButton() {
+            items.insert(repliesButton, at: 0)
+        }
+        navigationItem.rightBarButtonItems = items
+    }
+
+    /// Creates a replies bar button if the current image's post has replies
+    private func makeRepliesBarButton() -> UIBarButtonItem? {
+        guard selectedIndex < replyCounts.count else { return nil }
+        let count = replyCounts[selectedIndex]
+        guard count > 0 else { return nil }
+        let button = UIBarButtonItem(
+            image: UIImage(systemName: "bubble.left.and.bubble.right"),
+            style: .plain,
+            target: self,
+            action: #selector(repliesButtonTapped)
+        )
+        button.accessibilityLabel = "\(count) replies"
+        return button
+    }
+
+    @objc private func repliesButtonTapped() {
+        guard selectedIndex < postNumbers.count else { return }
+        let postNumber = postNumbers[selectedIndex]
+        onShowReplies?(postNumber)
+    }
+
     /// Updates the media counter display
     private func updateMediaCounter() {
         let currentPosition = selectedIndex + 1
@@ -937,6 +994,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let previousIndex = selectedIndex
         selectedIndex = indexPath.row
         updateMediaCounter()
+        updateRightBarButtonItems()
 
         // Update cell selection states
         if let previousCell = collectionView.cellForItem(at: IndexPath(row: previousIndex, section: 0)) as? MediaCell {

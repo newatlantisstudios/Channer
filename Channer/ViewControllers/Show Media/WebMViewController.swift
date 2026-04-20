@@ -37,6 +37,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     var videoURLs: [URL] = []
     /// Current index in the videoURLs array
     var currentIndex: Int = 0
+    /// Number of replies to the post containing this video
+    var replyCount: Int = 0
+    /// Callback when the user taps the replies button
+    var onShowReplies: (() -> Void)?
 
     /// Timer for periodic audio checking
     private var audioCheckTimer: Timer?
@@ -71,7 +75,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Flag to track if controls are currently visible
     private var controlsVisible: Bool = true
     /// Duration before controls auto-hide (in seconds)
-    private let controlsHideDelay: TimeInterval = 1.5
+    private let controlsHideDelay: TimeInterval = 3.0
 
     // MARK: - AVPlayer Properties (for Mac Catalyst converted playback)
     /// Whether the current video is being played via AVPlayer (converted MP4)
@@ -158,12 +162,23 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return player
     }()
 
-    /// Container view for seek bar controls
+    /// Container view for seek bar controls (uses gradient background)
     private lazy var seekBarContainer: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        view.backgroundColor = .clear
         return view
+    }()
+
+    /// Gradient layer for the bottom controls area
+    private lazy var bottomGradientLayer: CAGradientLayer = {
+        let gradient = CAGradientLayer()
+        gradient.colors = [
+            UIColor.clear.cgColor,
+            UIColor.black.withAlphaComponent(0.8).cgColor
+        ]
+        gradient.locations = [0.0, 1.0]
+        return gradient
     }()
 
     /// Seek bar slider (SeekSlider subclass for reliable tracking on Mac Catalyst)
@@ -213,16 +228,37 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return label
     }()
 
+    /// Blur background for play/pause button
+    private lazy var playPauseBlurView: UIVisualEffectView = {
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        blur.layer.cornerRadius = 35
+        blur.clipsToBounds = true
+        blur.isUserInteractionEnabled = false
+        return blur
+    }()
+
     /// Play/pause button (centered on video)
     private lazy var playPauseButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
         button.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
         button.tintColor = .white
-        button.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-        button.layer.cornerRadius = 40
+        button.backgroundColor = .clear
         button.addTarget(self, action: #selector(togglePlayPause), for: .touchUpInside)
+        return button
+    }()
+
+    /// Mute/unmute button in the overlay controls
+    private lazy var overlayMuteButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        let imageName = MediaSettings.defaultMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        button.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
+        button.tintColor = .white
+        button.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
         return button
     }()
 
@@ -357,6 +393,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         if isUsingAVPlayer {
             avPlayerLayer.frame = videoView.bounds
         }
+        // Update gradient layer frame to match container
+        bottomGradientLayer.frame = seekBarContainer.bounds
     }
 
     /// Called just before the view controller is dismissed, covered, or otherwise hidden.
@@ -378,6 +416,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
                     self.navigationController?.navigationBar.compactAppearance = appearance
                     self.navigationController?.navigationBar.isTranslucent = false
+
+                    // Restore nav bar hidden state to match controls visibility
+                    self.navigationController?.setNavigationBarHidden(!self.controlsVisible, animated: false)
 
                     // Restart video playback and restore audio state
                     self.resumePlaybackAfterCancelledTransition()
@@ -437,12 +478,17 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.addSubview(videoView)
         view.addSubview(seekBarContainer)
 
-        // Add seek bar elements to container (play/pause button moved to center of video)
+        // Add gradient layer to seek bar container
+        seekBarContainer.layer.addSublayer(bottomGradientLayer)
+
+        // Add seek bar elements to container
         seekBarContainer.addSubview(currentTimeLabel)
         seekBarContainer.addSubview(seekBar)
         seekBarContainer.addSubview(durationLabel)
+        seekBarContainer.addSubview(overlayMuteButton)
 
-        // Add play/pause button centered on video view
+        // Add blur background + play/pause button centered on video view
+        view.addSubview(playPauseBlurView)
         view.addSubview(playPauseButton)
 
         // Add tap gesture to video view for play/pause
@@ -470,32 +516,44 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             videoView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // Seek bar container overlays the bottom of the video
+            // Seek bar container with gradient extends to the screen bottom
             seekBarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             seekBarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            seekBarContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            seekBarContainer.heightAnchor.constraint(equalToConstant: 44),
+            seekBarContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            seekBarContainer.heightAnchor.constraint(equalToConstant: 100),
 
-            // Play/pause button centered on video
-            playPauseButton.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
-            playPauseButton.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
-            playPauseButton.widthAnchor.constraint(equalToConstant: 80),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 80),
+            // Play/pause blur background centered on video
+            playPauseBlurView.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
+            playPauseBlurView.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
+            playPauseBlurView.widthAnchor.constraint(equalToConstant: 70),
+            playPauseBlurView.heightAnchor.constraint(equalToConstant: 70),
 
-            // Current time label (now at leading edge since play/pause moved)
-            currentTimeLabel.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
-            currentTimeLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
+            // Play/pause button on top of blur
+            playPauseButton.centerXAnchor.constraint(equalTo: playPauseBlurView.centerXAnchor),
+            playPauseButton.centerYAnchor.constraint(equalTo: playPauseBlurView.centerYAnchor),
+            playPauseButton.widthAnchor.constraint(equalToConstant: 70),
+            playPauseButton.heightAnchor.constraint(equalToConstant: 70),
+
+            // Current time label - anchored to safe area bottom within gradient container
+            currentTimeLabel.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 16),
+            currentTimeLabel.bottomAnchor.constraint(equalTo: seekBarContainer.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             currentTimeLabel.widthAnchor.constraint(equalToConstant: 45),
 
-            // Seek bar slider
+            // Mute button at trailing edge
+            overlayMuteButton.trailingAnchor.constraint(equalTo: seekBarContainer.trailingAnchor, constant: -16),
+            overlayMuteButton.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
+            overlayMuteButton.widthAnchor.constraint(equalToConstant: 32),
+            overlayMuteButton.heightAnchor.constraint(equalToConstant: 32),
+
+            // Duration label before mute button
+            durationLabel.trailingAnchor.constraint(equalTo: overlayMuteButton.leadingAnchor, constant: -8),
+            durationLabel.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
+            durationLabel.widthAnchor.constraint(equalToConstant: 45),
+
+            // Seek bar slider between time labels
             seekBar.leadingAnchor.constraint(equalTo: currentTimeLabel.trailingAnchor, constant: 8),
             seekBar.trailingAnchor.constraint(equalTo: durationLabel.leadingAnchor, constant: -8),
-            seekBar.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
-
-            // Duration label
-            durationLabel.trailingAnchor.constraint(equalTo: seekBarContainer.trailingAnchor, constant: -12),
-            durationLabel.centerYAnchor.constraint(equalTo: seekBarContainer.centerYAnchor),
-            durationLabel.widthAnchor.constraint(equalToConstant: 45),
+            seekBar.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
 
             // Up tap zone (25% of height at top)
             upTapZone.topAnchor.constraint(equalTo: videoView.topAnchor),
@@ -527,10 +585,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             mediaCounterLabel.heightAnchor.constraint(equalToConstant: 28),
             mediaCounterLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
 
-            // Conversion progress bar (slim bar above seek bar)
+            // Conversion progress bar (slim bar above seek bar controls)
             conversionProgressTrack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
             conversionProgressTrack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            conversionProgressTrack.bottomAnchor.constraint(equalTo: seekBarContainer.topAnchor, constant: -12),
+            conversionProgressTrack.bottomAnchor.constraint(equalTo: currentTimeLabel.topAnchor, constant: -12),
             conversionProgressTrack.heightAnchor.constraint(equalToConstant: 3),
 
             conversionProgressFill.leadingAnchor.constraint(equalTo: conversionProgressTrack.leadingAnchor),
@@ -878,7 +936,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         resetControlsHideTimer()
 
         // Update play/pause button
-        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
         playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
     }
 
@@ -994,20 +1052,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         }
     }
     
-    /// Sets up navigation bar buttons (mute/unmute and optional download)
+    /// Sets up navigation bar buttons (download and replies — mute is in the overlay)
     private func setupNavigationButtons() {
         var rightButtons: [UIBarButtonItem] = []
-        
-        // Always add mute/unmute button
-        let muteButton = UIBarButtonItem(
-            image: getMuteButtonImage(),
-            style: .plain,
-            target: self,
-            action: #selector(toggleMute)
-        )
-        muteButton.tintColor = .white
-        rightButtons.append(muteButton)
-        
+
         // Add download button if not hidden
         if !hideDownloadButton {
             let downloadButton = UIBarButtonItem(
@@ -1020,6 +1068,17 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             rightButtons.append(downloadButton)
         }
         
+        if replyCount > 0, onShowReplies != nil {
+            let repliesButton = UIBarButtonItem(
+                image: UIImage(systemName: "bubble.left.and.bubble.right"),
+                style: .plain,
+                target: self,
+                action: #selector(repliesButtonTapped)
+            )
+            repliesButton.tintColor = .white
+            rightButtons.append(repliesButton)
+        }
+
         navigationItem.rightBarButtonItems = rightButtons
     }
     
@@ -1027,6 +1086,13 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private func getMuteButtonImage() -> UIImage? {
         let imageName = isMuted ? "speaker.slash" : "speaker.wave.2"
         return UIImage(systemName: imageName)?.withRenderingMode(.alwaysTemplate)
+    }
+
+    /// Updates the overlay mute button icon to reflect current mute state
+    private func updateOverlayMuteButton() {
+        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        let imageName = isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        overlayMuteButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
     }
     
     /// Creates the directory for storing downloaded WebM files if it doesn't exist.
@@ -1140,6 +1206,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             stopAggressiveMuteEnforcement()
             DispatchQueue.main.async { [weak self] in
                 self?.setupNavigationButtons()
+                self?.updateOverlayMuteButton()
             }
             return
         }
@@ -1151,7 +1218,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         startAggressiveMuteEnforcement(reason: "prepare")
         DispatchQueue.main.async { [weak self] in
             self?.setupNavigationButtons()
+            self?.updateOverlayMuteButton()
         }
+    }
+
+    @objc private func repliesButtonTapped() {
+        onShowReplies?()
     }
 
     /// Toggles the mute/unmute state of the video
@@ -1167,7 +1239,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         if isUsingAVPlayer {
             avPlayer.isMuted = isMuted
             avPlayer.volume = isMuted ? 0.0 : 0.5
-            setupNavigationButtons()
+            updateOverlayMuteButton()
             print("🎵 DEBUG: WebMViewController - toggleMute() - Applied to AVPlayer, muted=\(avPlayer.isMuted)")
             return
         }
@@ -1187,10 +1259,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Muted AFTER: \(vlcPlayer.audio?.isMuted ?? false)")
         print("🎵 DEBUG: WebMViewController - toggleMute() - VLC Audio Volume AFTER: \(vlcPlayer.audio?.volume ?? -1)")
 
-        // Update the navigation bar button
-        setupNavigationButtons()
+        // Update the overlay mute button
+        updateOverlayMuteButton()
 
-        print("🎵 DEBUG: WebMViewController - toggleMute() - Updated navigation buttons")
+        print("🎵 DEBUG: WebMViewController - toggleMute() - Updated mute button")
         print("🎵 DEBUG: WebMViewController - === TOGGLE MUTE COMPLETE ===")
     }
 
@@ -1206,7 +1278,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Toggles the play/pause state of the video
     @objc private func togglePlayPause() {
-        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
 
         if isUsingAVPlayer {
             if avPlayer.rate > 0 {
@@ -1238,7 +1310,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Updates the play/pause button icon based on player state
     private func updatePlayPauseButton() {
-        let config = UIImage.SymbolConfiguration(pointSize: 50, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
         let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
         let imageName = isPlaying ? "pause.fill" : "play.fill"
         playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
@@ -1252,7 +1324,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         let hasMultipleVideos = videoURLs.count > 1
 
+        // Show navigation bar
+        navigationController?.setNavigationBarHidden(false, animated: true)
+
         UIView.animate(withDuration: 0.25) {
+            self.playPauseBlurView.alpha = 1.0
             self.playPauseButton.alpha = 1.0
             self.seekBarContainer.alpha = 1.0
             self.mediaCounterLabel.alpha = hasMultipleVideos ? 1.0 : 0.0
@@ -1272,7 +1348,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         controlsVisible = false
         controlsHideTimer?.invalidate()
 
+        // Hide navigation bar for immersive experience
+        navigationController?.setNavigationBarHidden(true, animated: true)
+
         UIView.animate(withDuration: 0.25) {
+            self.playPauseBlurView.alpha = 0.0
             self.playPauseButton.alpha = 0.0
             self.seekBarContainer.alpha = 0.0
             self.mediaCounterLabel.alpha = 0.0
@@ -1789,7 +1869,7 @@ extension WebMViewController {
                 if self.isMuted {
                     print("🎵 DEBUG: WebMViewController - isMuted is true - Disabling audio tracks to enforce mute")
                     self.disableAudioTracksForMutedStart()
-                    self.setupNavigationButtons()
+                    self.updateOverlayMuteButton()
                 } else {
                     print("🎵 DEBUG: WebMViewController - isMuted is false - Enabling audio tracks")
                     self.enableAudioTracksForUnmute()
@@ -1906,8 +1986,8 @@ extension WebMViewController {
                     print("🎵 DEBUG: WebMViewController - Buffering state - Audio Volume AFTER: \(player.audio?.volume ?? -1)")
                     self.startAggressiveMuteEnforcement(reason: "delegate-buffering")
                     
-                    // Update navigation button to reflect muted state
-                    self.setupNavigationButtons()
+                    // Update overlay mute button to reflect muted state
+                    self.updateOverlayMuteButton()
                 } else {
                     print("MUTE DEBUG: buffering - respecting user unmute")
                 }
