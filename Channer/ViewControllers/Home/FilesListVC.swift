@@ -14,25 +14,64 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         case currentFolder
     }
 
+    private enum SortField: String {
+        case name
+        case dateCreated
+        case dateModified
+        case size
+        case type
+    }
+
+    private struct SortOrder: Equatable {
+        var field: SortField
+        var ascending: Bool
+
+        static let `default` = SortOrder(field: .name, ascending: true)
+
+        static let storageKey = "FilesListVC.sortOrder"
+
+        static func load() -> SortOrder {
+            let defaults = UserDefaults.standard
+            guard let raw = defaults.string(forKey: storageKey),
+                  let field = SortField(rawValue: raw) else {
+                return .default
+            }
+            let ascending = defaults.object(forKey: storageKey + ".ascending") as? Bool ?? true
+            return SortOrder(field: field, ascending: ascending)
+        }
+
+        func save() {
+            let defaults = UserDefaults.standard
+            defaults.set(field.rawValue, forKey: Self.storageKey)
+            defaults.set(ascending, forKey: Self.storageKey + ".ascending")
+        }
+    }
+
     private struct FileItem {
         let url: URL
         let isDirectory: Bool
+        let fileSize: Int64
+        let creationDate: Date
+        let modificationDate: Date
     }
 
     // MARK: - Properties
     private let rootDirectory: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    
+
     /// Items currently displayed.
     private var items: [FileItem] = []
-    
+
     /// The current directory being displayed.
     private var currentDirectory: URL
-    
+
     /// Current view mode (grid or list).
     private var viewMode: ViewMode = .grid
 
     /// Current content scope (all media or current folder).
     private var contentScope: ContentScope = .allMedia
+
+    /// Current sort order for files.
+    private var sortOrder: SortOrder = SortOrder.load()
 
     /// The collection view to display thumbnails of files.
     private var collectionView: UICollectionView!
@@ -237,7 +276,47 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             self.promptForNewFolder(in: self.currentDirectory)
         }
 
-        return UIMenu(title: "", children: [viewMenu, scopeMenu, newFolderAction])
+        let sortMenu = makeSortMenu()
+
+        return UIMenu(title: "", children: [viewMenu, scopeMenu, sortMenu, newFolderAction])
+    }
+
+    private func makeSortMenu() -> UIMenu {
+        let fields: [(SortField, String, String)] = [
+            (.name, "Name", "textformat"),
+            (.dateCreated, "Date Created", "calendar.badge.plus"),
+            (.dateModified, "Date Modified", "calendar"),
+            (.size, "Size", "externaldrive"),
+            (.type, "Type", "doc")
+        ]
+
+        let actions: [UIMenuElement] = fields.map { field, title, icon in
+            let isSelected = sortOrder.field == field
+            let indicator: String
+            if isSelected {
+                indicator = sortOrder.ascending ? " ↑" : " ↓"
+            } else {
+                indicator = ""
+            }
+
+            return UIAction(
+                title: title + indicator,
+                image: UIImage(systemName: icon),
+                state: isSelected ? .on : .off
+            ) { [weak self] _ in
+                guard let self = self else { return }
+                let newAscending: Bool
+                if self.sortOrder.field == field {
+                    newAscending = !self.sortOrder.ascending
+                } else {
+                    // Dates and size default to descending (newest/largest first); name/type default to ascending.
+                    newAscending = (field == .name || field == .type)
+                }
+                self.setSortOrder(SortOrder(field: field, ascending: newAscending))
+            }
+        }
+
+        return UIMenu(title: "Sort By", image: UIImage(systemName: "arrow.up.arrow.down"), children: actions)
     }
 
     private func refreshOptionsMenu() {
@@ -574,6 +653,10 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     func loadFiles() {
         let fileManager = FileManager.default
         var loadedItems: [FileItem] = []
+        let resourceKeys: [URLResourceKey] = [
+            .isRegularFileKey, .isDirectoryKey,
+            .fileSizeKey, .creationDateKey, .contentModificationDateKey
+        ]
 
         switch contentScope {
         case .allMedia:
@@ -581,7 +664,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             let exportArchiveURL = FinderSharedStorage.exportArchiveURL(in: rootDirectory)
             if let enumerator = fileManager.enumerator(
                 at: rootDirectory,
-                includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                includingPropertiesForKeys: resourceKeys,
                 options: [.skipsHiddenFiles]
             ) {
                 for case let fileURL as URL in enumerator {
@@ -600,9 +683,9 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
                     }
 
                     do {
-                        let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                        let resourceValues = try fileURL.resourceValues(forKeys: Set(resourceKeys))
                         if resourceValues.isRegularFile == true && resourceValues.isDirectory == false {
-                            loadedItems.append(FileItem(url: fileURL, isDirectory: false))
+                            loadedItems.append(makeFileItem(url: fileURL, isDirectory: false, resourceValues: resourceValues))
                         }
                     } catch {
                         print("DEBUG: FilesListVC - Error reading file properties: \(error)")
@@ -614,16 +697,16 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             do {
                 let contents = try fileManager.contentsOfDirectory(
                     at: currentDirectory,
-                    includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                    includingPropertiesForKeys: resourceKeys,
                     options: [.skipsHiddenFiles]
                 )
 
                 for fileURL in contents {
-                    let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+                    let resourceValues = try fileURL.resourceValues(forKeys: Set(resourceKeys))
                     let isDirectory = resourceValues.isDirectory ?? false
                     let isFile = resourceValues.isRegularFile ?? false
                     if isDirectory || isFile {
-                        loadedItems.append(FileItem(url: fileURL, isDirectory: isDirectory))
+                        loadedItems.append(makeFileItem(url: fileURL, isDirectory: isDirectory, resourceValues: resourceValues))
                     }
                 }
             } catch {
@@ -631,19 +714,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             }
         }
 
-        if contentScope == .currentFolder {
-            let directories = loadedItems.filter { $0.isDirectory }.sorted {
-                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
-            }
-            let files = loadedItems.filter { !$0.isDirectory }.sorted {
-                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
-            }
-            items = directories + files
-        } else {
-            items = loadedItems.sorted {
-                $0.url.lastPathComponent.localizedCaseInsensitiveCompare($1.url.lastPathComponent) == .orderedAscending
-            }
-        }
+        items = applySort(to: loadedItems)
 
         if !selectedIndexPaths.isEmpty {
             selectedIndexPaths.removeAll()
@@ -660,7 +731,83 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             }
         }
     }
-    
+
+    // MARK: - Sorting
+
+    private func makeFileItem(url: URL, isDirectory: Bool, resourceValues: URLResourceValues) -> FileItem {
+        let fileSize = Int64(resourceValues.fileSize ?? 0)
+        let creationDate = resourceValues.creationDate ?? Date.distantPast
+        let modificationDate = resourceValues.contentModificationDate ?? creationDate
+        return FileItem(
+            url: url,
+            isDirectory: isDirectory,
+            fileSize: fileSize,
+            creationDate: creationDate,
+            modificationDate: modificationDate
+        )
+    }
+
+    private func applySort(to loadedItems: [FileItem]) -> [FileItem] {
+        let sorted = loadedItems.sorted(by: fileItemsOrdered(_:_:))
+        if contentScope == .currentFolder {
+            let directories = sorted.filter { $0.isDirectory }
+            let files = sorted.filter { !$0.isDirectory }
+            return directories + files
+        }
+        return sorted
+    }
+
+    private func fileItemsOrdered(_ lhs: FileItem, _ rhs: FileItem) -> Bool {
+        let ascending = sortOrder.ascending
+
+        switch sortOrder.field {
+        case .name:
+            return compareNames(lhs, rhs, ascending: ascending)
+
+        case .dateCreated:
+            if lhs.creationDate != rhs.creationDate {
+                return ascending ? lhs.creationDate < rhs.creationDate : lhs.creationDate > rhs.creationDate
+            }
+            return compareNames(lhs, rhs, ascending: true)
+
+        case .dateModified:
+            if lhs.modificationDate != rhs.modificationDate {
+                return ascending ? lhs.modificationDate < rhs.modificationDate : lhs.modificationDate > rhs.modificationDate
+            }
+            return compareNames(lhs, rhs, ascending: true)
+
+        case .size:
+            // Folders report size 0; tie-break by name.
+            if lhs.fileSize != rhs.fileSize {
+                return ascending ? lhs.fileSize < rhs.fileSize : lhs.fileSize > rhs.fileSize
+            }
+            return compareNames(lhs, rhs, ascending: true)
+
+        case .type:
+            let lhsExt = lhs.url.pathExtension.lowercased()
+            let rhsExt = rhs.url.pathExtension.lowercased()
+            if lhsExt != rhsExt {
+                let result = lhsExt.localizedCaseInsensitiveCompare(rhsExt)
+                return ascending ? result == .orderedAscending : result == .orderedDescending
+            }
+            return compareNames(lhs, rhs, ascending: true)
+        }
+    }
+
+    private func compareNames(_ lhs: FileItem, _ rhs: FileItem, ascending: Bool) -> Bool {
+        let result = lhs.url.lastPathComponent.localizedCaseInsensitiveCompare(rhs.url.lastPathComponent)
+        return ascending ? result == .orderedAscending : result == .orderedDescending
+    }
+
+    private func setSortOrder(_ newOrder: SortOrder) {
+        guard sortOrder != newOrder else { return }
+        sortOrder = newOrder
+        sortOrder.save()
+        items = applySort(to: items)
+        collectionView.reloadData()
+        refreshOptionsMenu()
+    }
+
     // MARK: - UICollectionViewDataSource
     /// Returns the number of items in the collection view section.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
