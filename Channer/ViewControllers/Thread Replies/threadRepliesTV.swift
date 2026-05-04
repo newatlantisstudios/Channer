@@ -1926,6 +1926,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func handleLoadError() {
         isLoading = false
 
+        // If we already have content loaded, keep showing it and silently recover.
+        // This avoids false "Loading Error" alerts when the app is backgrounded and resumed.
+        if !threadReplies.isEmpty {
+            tableView.refreshControl?.endRefreshing()
+            return
+        }
+
+        // Don't present alerts while the app is inactive/backgrounded.
+        // Retry once when we become active again.
+        if UIApplication.shared.applicationState != .active {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self = self else { return }
+                if UIApplication.shared.applicationState == .active && self.threadReplies.isEmpty {
+                    self.isLoading = true
+                    self.loadInitialData()
+                }
+            }
+            return
+        }
+
         let alert = UIAlertController(
             title: "Loading Error",
             message: "Failed to load thread data. Please try again.",
