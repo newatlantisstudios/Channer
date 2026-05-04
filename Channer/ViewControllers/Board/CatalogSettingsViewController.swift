@@ -3,7 +3,7 @@ import UIKit
 class CatalogSettingsViewController: UIViewController {
 
     private let gridSizeLabel = UILabel()
-    private let gridSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
+    private let gridSizeSegment = UISegmentedControl(items: ["3XS", "2XS", "XS", "S", "M", "L", "XL"])
 
     private let fontSizeLabel = UILabel()
     private let fontSizeValueLabel = UILabel()
@@ -13,30 +13,35 @@ class CatalogSettingsViewController: UIViewController {
         super.viewDidLoad()
 
         view.backgroundColor = .systemGroupedBackground
+        // Settings UI must stay at a fixed size; opt out of the user's in-app
+        // font scale so a large preference doesn't truncate segment labels.
+        view.accessibilityIdentifier = FontScaleManager.unscaledSubtreeIdentifier
 
         setupGridSizeRow()
         setupFontSizeRow()
         layoutRows()
     }
 
+    /// Returns a system font at exactly `size` pt regardless of the global
+    /// FontScaleManager swizzle (which would otherwise inflate the size).
+    private static func fixedFont(ofSize size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        UIFont.systemFont(ofSize: size, weight: weight).withSize(size)
+    }
+
     // MARK: - Grid Size
 
     private func setupGridSizeRow() {
         gridSizeLabel.text = "Catalog Grid Size"
-        gridSizeLabel.font = UIFont.systemFont(ofSize: 15, weight: .regular)
-        gridSizeLabel.adjustsFontSizeToFitWidth = true
-        gridSizeLabel.minimumScaleFactor = 0.8
+        gridSizeLabel.font = Self.fixedFont(ofSize: 15, weight: .regular)
         gridSizeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         gridSizeSegment.selectedSegmentIndex = GridItemSizeManager.shared.sizeIndex
         gridSizeSegment.translatesAutoresizingMaskIntoConstraints = false
         gridSizeSegment.addTarget(self, action: #selector(gridSizeChanged), for: .valueChanged)
 
-        let segFont: CGFloat = 11
-        gridSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)], for: .normal)
-        gridSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: segFont, weight: .medium)], for: .selected)
+        let segmentFont = Self.fixedFont(ofSize: 12, weight: .medium)
+        gridSizeSegment.setTitleTextAttributes([.font: segmentFont], for: .normal)
+        gridSizeSegment.setTitleTextAttributes([.font: segmentFont], for: .selected)
 
         view.addSubview(gridSizeLabel)
         view.addSubview(gridSizeSegment)
@@ -46,13 +51,11 @@ class CatalogSettingsViewController: UIViewController {
 
     private func setupFontSizeRow() {
         fontSizeLabel.text = "Font Size"
-        fontSizeLabel.font = UIFont.systemFont(ofSize: 15, weight: .regular)
-        fontSizeLabel.adjustsFontSizeToFitWidth = true
-        fontSizeLabel.minimumScaleFactor = 0.8
+        fontSizeLabel.font = Self.fixedFont(ofSize: 15, weight: .regular)
         fontSizeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         fontSizeValueLabel.text = "\(FontScaleManager.shared.scalePercent)%"
-        fontSizeValueLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .medium)
+        fontSizeValueLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .medium).withSize(14)
         fontSizeValueLabel.textAlignment = .center
         fontSizeValueLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -73,20 +76,21 @@ class CatalogSettingsViewController: UIViewController {
 
     private func layoutRows() {
         let margin: CGFloat = 20
-        let rowSpacing: CGFloat = 20
+        let sectionSpacing: CGFloat = 20
+        let labelToControlSpacing: CGFloat = 10
 
         NSLayoutConstraint.activate([
-            // Grid size row
+            // Grid size: label on its own row, segmented control full-width below
             gridSizeLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
             gridSizeLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin),
-            gridSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: gridSizeSegment.leadingAnchor, constant: -12),
+            gridSizeLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -margin),
 
-            gridSizeSegment.centerYAnchor.constraint(equalTo: gridSizeLabel.centerYAnchor),
+            gridSizeSegment.topAnchor.constraint(equalTo: gridSizeLabel.bottomAnchor, constant: labelToControlSpacing),
+            gridSizeSegment.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin),
             gridSizeSegment.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -margin),
-            gridSizeSegment.widthAnchor.constraint(equalToConstant: 180),
 
             // Font size row
-            fontSizeLabel.topAnchor.constraint(equalTo: gridSizeLabel.bottomAnchor, constant: rowSpacing),
+            fontSizeLabel.topAnchor.constraint(equalTo: gridSizeSegment.bottomAnchor, constant: sectionSpacing),
             fontSizeLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: margin),
 
             fontSizeValueLabel.centerYAnchor.constraint(equalTo: fontSizeLabel.centerYAnchor),

@@ -13,6 +13,7 @@ import WebKit
 import VLCKit
 
 class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
+    private static let hoverVLCTeardownQueue = DispatchQueue(label: "com.channer.threadReplyCell.hoverVLC.teardown", qos: .utility)
 
     @IBOutlet weak var threadImage: UIButton!
     @IBOutlet weak var replyText: UITextView!
@@ -373,13 +374,11 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         player.drawable = vlcVideoView
         let hoverSoundEnabled = HoverPreviewManager.shared.videoSoundEnabled
         let media = VLCMedia(url: url)
-        media?.addOption(":input-repeat=65535")
-        if !hoverSoundEnabled {
-            media?.addOption(":no-audio")
-        }
+        Self.configureHoverVLCMedia(media, soundEnabled: hoverSoundEnabled)
         player.media = media
         if let oldPlayer = hoverVLCPlayer {
-            print("[HoverVLC] WARNING: replacing existing hoverVLCPlayer \(Unmanaged.passUnretained(oldPlayer).toOpaque()) without cleanup!")
+            print("[HoverVLC] replacing existing hoverVLCPlayer \(Unmanaged.passUnretained(oldPlayer).toOpaque())")
+            detachHoverVLCPlayer(oldPlayer, reason: "replace")
         }
         player.delegate = self
         hoverVLCPlayer = player
@@ -436,6 +435,42 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         }
     }
 
+    private static func configureHoverVLCMedia(_ media: VLCMedia?, soundEnabled: Bool) {
+        media?.addOption(":input-repeat=65535")
+        media?.addOption(":network-caching=300")
+        media?.addOption(":file-caching=300")
+        media?.addOption(":live-caching=300")
+        media?.addOption(":ipv4-timeout=3000000")
+        if !soundEnabled {
+            media?.addOption(":no-audio")
+        }
+    }
+
+    private static func teardownHoverVLCPlayer(_ player: VLCMediaPlayer, reason: String) {
+        let playerPtr = Unmanaged.passUnretained(player).toOpaque()
+        hoverVLCTeardownQueue.async {
+            autoreleasepool {
+                let startedAt = CFAbsoluteTimeGetCurrent()
+                player.media?.parseStop()
+                player.stop()
+                player.media = nil
+                let elapsed = CFAbsoluteTimeGetCurrent() - startedAt
+                print("[HoverVLC] \(reason): teardown returned for \(playerPtr) in \(String(format: "%.2f", elapsed))s on \(Thread.isMainThread ? "main" : "bg")")
+            }
+        }
+    }
+
+    private func detachHoverVLCPlayer(_ player: VLCMediaPlayer, reason: String) {
+        let playerPtr = Unmanaged.passUnretained(player).toOpaque()
+        print("[HoverVLC] \(reason): detaching player \(playerPtr) state=\(player.state.rawValue) isPlaying=\(player.isPlaying)")
+        if hoverVLCPlayer === player {
+            hoverVLCPlayer = nil
+        }
+        player.delegate = nil
+        player.drawable = nil
+        Self.teardownHoverVLCPlayer(player, reason: reason)
+    }
+
     private func removeHoverPreview() {
         hoverProgressTimer?.invalidate()
         hoverProgressTimer = nil
@@ -458,24 +493,9 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         hoverAVPlayer = nil
         hoverAVPlayerLayer = nil
 
-        // Detach VLC player from this cell immediately, then tear down on a
-        // background queue so the blocking stop()/media-nil calls don't freeze
-        // the main thread (beach-ball on macOS Catalyst).  Final dealloc is
-        // bounced back to main to avoid the VLC timer-lock assertion.
+        // Detach VLC from UIKit immediately; slow HTTP cancellation stays off the main queue.
         if let player = hoverVLCPlayer {
-            let playerPtr = Unmanaged.passUnretained(player).toOpaque()
-            print("[HoverVLC] removeHoverPreview: detaching player \(playerPtr) state=\(player.state.rawValue) isPlaying=\(player.isPlaying)")
-            hoverVLCPlayer = nil
-            player.drawable = nil
-
-            DispatchQueue.global(qos: .userInitiated).async {
-                player.stop()
-                print("[HoverVLC] removeHoverPreview: stop() returned for \(playerPtr)")
-                // Keep player alive so dealloc happens on main thread
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    _ = player
-                }
-            }
+            detachHoverVLCPlayer(player, reason: "removeHoverPreview")
         }
 
         // Animate out
@@ -511,15 +531,7 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         hoverAVPlayerLayer = nil
 
         if let player = hoverVLCPlayer {
-            print("[HoverVLC] deinit: stopping player \(Unmanaged.passUnretained(player).toOpaque())")
-            hoverVLCPlayer = nil
-            player.drawable = nil
-            DispatchQueue.global(qos: .userInitiated).async {
-                player.stop()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    _ = player
-                }
-            }
+            detachHoverVLCPlayer(player, reason: "deinit")
         }
 
         // Ensure we clean up any previews when cell is deallocated

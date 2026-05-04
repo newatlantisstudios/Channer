@@ -395,7 +395,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     @objc private func settingsButtonTapped() {
         let settingsVC = CatalogSettingsViewController()
         settingsVC.modalPresentationStyle = .popover
-        settingsVC.preferredContentSize = CGSize(width: 320, height: 170)
+        settingsVC.preferredContentSize = CGSize(width: 400, height: 200)
 
         if let popover = settingsVC.popoverPresentationController {
             popover.delegate = self

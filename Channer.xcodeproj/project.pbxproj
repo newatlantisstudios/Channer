@@ -25,6 +25,7 @@
 		171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */; };
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
 		17NAVSEARCHBLD1234567890 /* UIViewController+NavigationSearchController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */; };
+		17APPEARLOGBLD1234567890 /* UIViewController+AppearanceLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */; };
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83482DDD36CC00D75B34 /* boardsTVCell.swift */; };
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83472DDD36CC00D75B34 /* boardsTV.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
@@ -196,6 +197,7 @@
 		171A76B72DD8725800D75B34 /* ConflictResolutionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionManager.swift; sourceTree = "<group>"; };
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
 		17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+NavigationSearchController.swift"; sourceTree = "<group>"; };
+		17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+AppearanceLogging.swift"; sourceTree = "<group>"; };
 		171A83472DDD36CC00D75B34 /* boardsTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTV.swift; sourceTree = "<group>"; };
 		171A83482DDD36CC00D75B34 /* boardsTVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTVCell.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -352,6 +354,7 @@
 				171A76AD2DD848FB00D75B34 /* UIImage+Extensions.swift */,
 				171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */,
 				17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */,
+				17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */,
 				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
 				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
@@ -807,6 +810,7 @@
 				171A76AE2DD848FB00D75B34 /* UIImage+Extensions.swift in Sources */,
 				171A76B02DD8490100D75B34 /* String+HTMLEntities.swift in Sources */,
 				17NAVSEARCHBLD1234567890 /* UIViewController+NavigationSearchController.swift in Sources */,
+				17APPEARLOGBLD1234567890 /* UIViewController+AppearanceLogging.swift in Sources */,
 				17MEDIASETTINGS1234567890AB /* MediaSettings.swift in Sources */,
 				17737E2C2CDC6F3600DF0874 /* threadRepliesTV.swift in Sources */,
 				171A76B82DD8725800D75B34 /* ConflictResolutionManager.swift in Sources */,

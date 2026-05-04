@@ -4,12 +4,21 @@ final class GalleryCellSizeManager {
     static let shared = GalleryCellSizeManager()
 
     private let galleryCellSizeKey = "channer_gallery_cell_size_index"
-    /// Number of columns for each size option: XS=6, S=5, M=4, L=3, XL=2
-    private let columnOptions: [CGFloat] = [6, 5, 4, 3, 2]
+    private let galleryCellSizeMigrationV2Key = "channer_gallery_cell_size_migrated_v2"
+    /// Number of columns for each size option: XXXS=8, XXS=7, XS=6, S=5, M=4, L=3, XL=2
+    private let columnOptions: [CGFloat] = [8, 7, 6, 5, 4, 3, 2]
+    private let defaultSizeIndex = 4
 
     private init() {
         if UserDefaults.standard.object(forKey: galleryCellSizeKey) == nil {
-            UserDefaults.standard.set(2, forKey: galleryCellSizeKey) // Default: M (4 columns)
+            UserDefaults.standard.set(defaultSizeIndex, forKey: galleryCellSizeKey)
+            UserDefaults.standard.set(true, forKey: galleryCellSizeMigrationV2Key)
+        } else if !UserDefaults.standard.bool(forKey: galleryCellSizeMigrationV2Key) {
+            // columnOptions gained two smaller entries at the front; shift saved index by +2
+            // so existing users keep the same physical scale.
+            let storedIndex = UserDefaults.standard.integer(forKey: galleryCellSizeKey)
+            UserDefaults.standard.set(storedIndex + 2, forKey: galleryCellSizeKey)
+            UserDefaults.standard.set(true, forKey: galleryCellSizeMigrationV2Key)
         }
     }
 

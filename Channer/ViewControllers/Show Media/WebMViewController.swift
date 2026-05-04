@@ -1067,7 +1067,18 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             downloadButton.tintColor = .white
             rightButtons.append(downloadButton)
         }
-        
+
+        #if targetEnvironment(macCatalyst)
+        let saveToFolderButton = UIBarButtonItem(
+            image: UIImage(systemName: "folder.badge.plus"),
+            style: .plain,
+            target: self,
+            action: #selector(saveVideoToFolder)
+        )
+        saveToFolderButton.tintColor = .white
+        rightButtons.append(saveToFolderButton)
+        #endif
+
         if replyCount > 0, onShowReplies != nil {
             let repliesButton = UIBarButtonItem(
                 image: UIImage(systemName: "bubble.left.and.bubble.right"),
@@ -1613,7 +1624,81 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             showAlert(message: "Download failed: \(error.localizedDescription)")
         }
     }
-    
+
+    #if targetEnvironment(macCatalyst)
+    /// Exports the current video to a user-chosen folder via the system save dialog.
+    @objc private func saveVideoToFolder() {
+        guard let sourceURL = URL(string: videoURL) else {
+            showAlert(message: "Invalid video URL")
+            return
+        }
+
+        if sourceURL.isFileURL {
+            presentExportPicker(for: sourceURL)
+            return
+        }
+
+        // Reuse an already-downloaded copy if present in the app's webm directory.
+        let existingLocal = getWebMDirectory().appendingPathComponent(sourceURL.lastPathComponent)
+        if FileManager.default.fileExists(atPath: existingLocal.path) {
+            presentExportPicker(for: existingLocal)
+            return
+        }
+
+        Task {
+            do {
+                let tempURL = try await downloadVideoToTempFile(from: sourceURL)
+                await MainActor.run { self.presentExportPicker(for: tempURL) }
+            } catch {
+                await MainActor.run { self.showAlert(message: "Save failed: \(error.localizedDescription)") }
+            }
+        }
+    }
+
+    private func downloadVideoToTempFile(from url: URL) async throws -> URL {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+        if url.host == "i.4cdn.org" {
+            let comps = url.pathComponents
+            if comps.count > 1 {
+                let board = comps[1]
+                request.setValue("https://boards.4chan.org/\(board)/", forHTTPHeaderField: "Referer")
+                request.setValue("https://boards.4chan.org", forHTTPHeaderField: "Origin")
+            }
+        } else if let scheme = url.scheme, let host = url.host {
+            let origin = "\(scheme)://\(host)"
+            request.setValue(origin + "/", forHTTPHeaderField: "Referer")
+            request.setValue(origin, forHTTPHeaderField: "Origin")
+        }
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+
+        let (downloadedURL, response) = try await URLSession.shared.download(for: request)
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            throw NSError(domain: "WebMViewController", code: httpResponse.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("save-to-folder", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        let filename = url.lastPathComponent.isEmpty ? "video.webm" : url.lastPathComponent
+        let destination = tempDir.appendingPathComponent(filename)
+        try? FileManager.default.removeItem(at: destination)
+        try FileManager.default.moveItem(at: downloadedURL, to: destination)
+        return destination
+    }
+
+    private func presentExportPicker(for url: URL) {
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        picker.shouldShowFileExtensions = true
+        present(picker, animated: true)
+    }
+    #endif
+
     /// Returns the URL of the directory where WebM files are stored.
     private func getWebMDirectory() -> URL {
         (try? FinderSharedStorage.webmDirectory())

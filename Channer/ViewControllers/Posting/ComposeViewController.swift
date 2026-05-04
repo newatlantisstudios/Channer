@@ -308,12 +308,18 @@ class ComposeViewController: UIViewController {
 
         // Randomize button
         randomizeButton.setImage(UIImage(systemName: "shuffle"), for: .normal)
-        randomizeButton.setTitle(" Random", for: .normal)
+        randomizeButton.setTitle("  Random  ", for: .normal)
         randomizeButton.titleLabel?.font = UIFont.systemFont(ofSize: 12)
+        randomizeButton.titleLabel?.adjustsFontSizeToFitWidth = false
+        randomizeButton.titleLabel?.lineBreakMode = .byClipping
         randomizeButton.backgroundColor = ThemeManager.shared.cellBackgroundColor
         randomizeButton.layer.cornerRadius = 6
         randomizeButton.addTarget(self, action: #selector(randomizeFilenameTapped), for: .touchUpInside)
         randomizeButton.translatesAutoresizingMaskIntoConstraints = false
+        randomizeButton.setContentHuggingPriority(.required, for: .horizontal)
+        randomizeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        filenameField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        filenameField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         filenameContainerView.addSubview(randomizeButton)
 
         // Constraints for filename section
@@ -334,7 +340,6 @@ class ComposeViewController: UIViewController {
             randomizeButton.leadingAnchor.constraint(equalTo: filenameField.trailingAnchor, constant: 8),
             randomizeButton.trailingAnchor.constraint(equalTo: filenameContainerView.trailingAnchor),
             randomizeButton.centerYAnchor.constraint(equalTo: filenameContainerView.centerYAnchor),
-            randomizeButton.widthAnchor.constraint(equalToConstant: 80),
             randomizeButton.heightAnchor.constraint(equalToConstant: 32)
         ])
     }
@@ -683,19 +688,27 @@ class ComposeViewController: UIViewController {
             filenameContainerView.isHidden = false
             fileInfoLabel.isHidden = false
 
-            // Show file info (name + size)
-            let sizeString = ByteCountFormatter.string(fromByteCount: Int64(image.data.count), countStyle: .file)
-            let isVideo = image.mimeType.hasPrefix("video/")
+            // Auto-randomize the filename if the user has enabled the setting
+            let autoRandomize = UserDefaults.standard.bool(forKey: "channer_auto_randomize_filename_enabled")
+            if autoRandomize {
+                let randomName = generateRandomFilename()
+                filenameField.text = randomName
+                updateSelectedImageFilename()
+            } else {
+                // Set the filename field with the current filename (without extension)
+                let nameWithoutExt = (image.filename as NSString).deletingPathExtension
+                filenameField.text = nameWithoutExt
+            }
+
+            // Show file info (name + size) using the (possibly updated) selectedImage
+            let displayImage = selectedImage ?? image
+            let sizeString = ByteCountFormatter.string(fromByteCount: Int64(displayImage.data.count), countStyle: .file)
+            let isVideo = displayImage.mimeType.hasPrefix("video/")
             let typeIcon = isVideo ? "Video" : "Image"
-            fileInfoLabel.text = "\(typeIcon): \(image.filename) (\(sizeString))"
+            fileInfoLabel.text = "\(typeIcon): \(displayImage.filename) (\(sizeString))"
 
             // Update attach button to indicate file is attached
             imageButton.setTitle("  Change File", for: .normal)
-
-            // Set the filename field with the current filename (without extension)
-            let filenameWithExt = image.filename
-            let nameWithoutExt = (filenameWithExt as NSString).deletingPathExtension
-            filenameField.text = nameWithoutExt
         } else {
             imagePreviewView.isHidden = true
             removeImageButton.isHidden = true

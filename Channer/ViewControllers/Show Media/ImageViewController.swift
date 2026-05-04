@@ -160,6 +160,17 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         var items = [menuButton, downloadButton]
 
+        #if targetEnvironment(macCatalyst)
+        let saveToFolderButton = UIBarButtonItem(
+            image: UIImage(systemName: "folder.badge.plus"),
+            style: .plain,
+            target: self,
+            action: #selector(saveImageToFolder)
+        )
+        saveToFolderButton.tintColor = .white
+        items.append(saveToFolderButton)
+        #endif
+
         if replyCount > 0, onShowReplies != nil {
             let repliesButton = UIBarButtonItem(
                 image: UIImage(systemName: "bubble.left.and.bubble.right"),
@@ -376,6 +387,88 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         return request
     }
+
+    #if targetEnvironment(macCatalyst)
+    /// Exports the current image to a user-chosen folder via the system save dialog.
+    @objc private func saveImageToFolder() {
+        if let editedImage = editedImage {
+            let baseName = imageURL.deletingPathExtension().lastPathComponent
+            let safeBase = baseName.isEmpty ? "image" : baseName
+            let suggestedName = "\(safeBase)-cropped.jpg"
+            guard let tempURL = writeImageToTempFile(editedImage, filename: suggestedName) else {
+                showToast("Failed to prepare image")
+                return
+            }
+            presentExportPicker(for: tempURL)
+            return
+        }
+
+        if imageURL.isFileURL {
+            presentExportPicker(for: imageURL)
+            return
+        }
+
+        Task {
+            do {
+                let tempURL = try await downloadImageToTempFile()
+                await MainActor.run { self.presentExportPicker(for: tempURL) }
+            } catch {
+                await MainActor.run { self.showToast("Save failed: \(error.localizedDescription)") }
+            }
+        }
+    }
+
+    private func writeImageToTempFile(_ image: UIImage, filename: String) -> URL? {
+        let data: Data?
+        let ext = (filename as NSString).pathExtension.lowercased()
+        if ext == "png" {
+            data = image.pngData()
+        } else {
+            data = image.jpegData(compressionQuality: 0.92) ?? image.pngData()
+        }
+        guard let imageData = data else { return nil }
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("save-to-folder", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        let tempURL = tempDir.appendingPathComponent(filename)
+        try? FileManager.default.removeItem(at: tempURL)
+        do {
+            try imageData.write(to: tempURL)
+            return tempURL
+        } catch {
+            return nil
+        }
+    }
+
+    private func downloadImageToTempFile() async throws -> URL {
+        let request = makeDownloadRequest(for: imageURL)
+        let (downloadedURL, response) = try await URLSession.shared.download(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            throw NSError(domain: "ImageViewController", code: httpResponse.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("save-to-folder", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        let filename = imageURL.lastPathComponent.isEmpty ? "image" : imageURL.lastPathComponent
+        let destination = tempDir.appendingPathComponent(filename)
+        try? FileManager.default.removeItem(at: destination)
+        try FileManager.default.moveItem(at: downloadedURL, to: destination)
+        return destination
+    }
+
+    private func presentExportPicker(for url: URL) {
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        picker.shouldShowFileExtensions = true
+        present(picker, animated: true)
+    }
+    #endif
 
     /// Shares the current image
     private func shareImage() {

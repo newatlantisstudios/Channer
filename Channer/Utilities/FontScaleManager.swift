@@ -11,9 +11,15 @@ final class FontScaleManager {
     private var currentScale: CGFloat = 1.0
 
     static let minimumPercent: Int = 80
-    static let maximumPercent: Int = 200
+    static let maximumPercent: Int = 400
     static let stepPercent: Int = 5
     static let defaultPercent: Int = 100
+
+    /// Mark a view's `accessibilityIdentifier` with this value to exempt it and its
+    /// subtree from FontScaleManager's live font scaling. Useful for settings UI
+    /// whose controls should remain at a fixed size regardless of the user's
+    /// in-app font preference.
+    static let unscaledSubtreeIdentifier = "channer.unscaled.font.subtree"
 
     private init() {
         // Migrate from old index-based storage if needed
@@ -84,6 +90,10 @@ final class FontScaleManager {
     }
 
     private func updateFonts(in view: UIView, ratio: CGFloat) {
+        if view.accessibilityIdentifier == FontScaleManager.unscaledSubtreeIdentifier {
+            return
+        }
+
         if let label = view as? UILabel {
             updateLabelFont(label, ratio: ratio)
         } else if let textView = view as? UITextView {

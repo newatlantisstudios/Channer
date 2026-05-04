@@ -47,7 +47,7 @@ class settings: UIViewController {
     private var gridItemSizeHeightConstraint: NSLayoutConstraint!
     private let galleryCellSizeView = UIView()
     private let galleryCellSizeLabel = UILabel()
-    private let galleryCellSizeSegment = UISegmentedControl(items: ["XS", "S", "M", "L", "XL"])
+    private let galleryCellSizeSegment = UISegmentedControl(items: ["XXXS", "XXS", "XS", "S", "M", "L", "XL"])
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
@@ -63,6 +63,10 @@ class settings: UIViewController {
     private let newPostBehaviorView = UIView()
     private let newPostBehaviorLabel = UILabel()
     private let newPostBehaviorSegment = UISegmentedControl(items: ["Jump Button", "Auto-scroll", "Do Nothing"])
+
+    private let autoRandomizeFilenameView = UIView()
+    private let autoRandomizeFilenameLabel = UILabel()
+    private let autoRandomizeFilenameToggle = UISwitch()
     private let keyboardShortcutsView = UIView()
     private let keyboardShortcutsLabel = UILabel()
     private let keyboardShortcutsToggle = UISwitch()
@@ -158,6 +162,7 @@ class settings: UIViewController {
     private let boardsAutoRefreshIntervalKey = "channer_boards_auto_refresh_interval"
     private let threadsAutoRefreshIntervalKey = "channer_threads_auto_refresh_interval"
     private let newPostBehaviorKey = "channer_new_post_behavior"
+    private let autoRandomizeFilenameKey = "channer_auto_randomize_filename_enabled"
     private let threadsDisplayModeKey = "channer_threads_display_mode"
     private let highQualityThumbnailsKey = "channer_high_quality_thumbnails_enabled"
     private let preloadVideosKey = "channer_preload_videos_enabled"
@@ -708,6 +713,9 @@ class settings: UIViewController {
             newPostBehaviorSegment.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 12)], for: .normal)
         }
         newPostBehaviorView.addSubview(newPostBehaviorSegment)
+
+        // Auto-Randomize Filename setup
+        setupAutoRandomizeFilenameView()
 
         // Keyboard Shortcuts View (iPad only)
         if UIDevice.current.userInterfaceIdiom == .pad {
@@ -1610,7 +1618,7 @@ class settings: UIViewController {
 
             galleryCellSizeSegment.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
             galleryCellSizeSegment.trailingAnchor.constraint(equalTo: galleryCellSizeView.trailingAnchor, constant: -20),
-            galleryCellSizeSegment.widthAnchor.constraint(equalToConstant: 220)
+            galleryCellSizeSegment.widthAnchor.constraint(equalToConstant: 280)
         ])
     }
 
@@ -1943,6 +1951,48 @@ class settings: UIViewController {
     }
     #endif
 
+    private func setupAutoRandomizeFilenameView() {
+        autoRandomizeFilenameView.backgroundColor = UIColor.secondarySystemGroupedBackground
+        autoRandomizeFilenameView.layer.cornerRadius = 10
+        autoRandomizeFilenameView.clipsToBounds = true
+        autoRandomizeFilenameView.translatesAutoresizingMaskIntoConstraints = false
+
+        autoRandomizeFilenameLabel.text = "Auto-Randomize Filename on Attach"
+        autoRandomizeFilenameLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        autoRandomizeFilenameLabel.textAlignment = .left
+        autoRandomizeFilenameLabel.numberOfLines = 1
+        autoRandomizeFilenameLabel.adjustsFontSizeToFitWidth = true
+        autoRandomizeFilenameLabel.minimumScaleFactor = 0.8
+        autoRandomizeFilenameLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        autoRandomizeFilenameToggle.isOn = UserDefaults.standard.bool(forKey: autoRandomizeFilenameKey)
+        autoRandomizeFilenameToggle.translatesAutoresizingMaskIntoConstraints = false
+        autoRandomizeFilenameToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+        autoRandomizeFilenameToggle.addTarget(self, action: #selector(autoRandomizeFilenameToggleChanged), for: .valueChanged)
+
+        contentView.addSubview(autoRandomizeFilenameView)
+        autoRandomizeFilenameView.addSubview(autoRandomizeFilenameLabel)
+        autoRandomizeFilenameView.addSubview(autoRandomizeFilenameToggle)
+
+        NSLayoutConstraint.activate([
+            autoRandomizeFilenameView.topAnchor.constraint(equalTo: newPostBehaviorView.bottomAnchor, constant: 16),
+            autoRandomizeFilenameView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            autoRandomizeFilenameView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            autoRandomizeFilenameView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
+
+            autoRandomizeFilenameLabel.centerYAnchor.constraint(equalTo: autoRandomizeFilenameView.centerYAnchor),
+            autoRandomizeFilenameLabel.leadingAnchor.constraint(equalTo: autoRandomizeFilenameView.leadingAnchor, constant: 20),
+            autoRandomizeFilenameLabel.trailingAnchor.constraint(lessThanOrEqualTo: autoRandomizeFilenameToggle.leadingAnchor, constant: -15),
+
+            autoRandomizeFilenameToggle.centerYAnchor.constraint(equalTo: autoRandomizeFilenameView.centerYAnchor),
+            autoRandomizeFilenameToggle.trailingAnchor.constraint(equalTo: autoRandomizeFilenameView.trailingAnchor, constant: -20)
+        ])
+    }
+
+    @objc private func autoRandomizeFilenameToggleChanged(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: autoRandomizeFilenameKey)
+    }
+
     private func setupBoardsDisplayModeView() {
         // Create the boards display mode view
         self.boardsDisplayModeView = {
@@ -1989,7 +2039,7 @@ class settings: UIViewController {
         // Add constraints for the views
         NSLayoutConstraint.activate([
             // Boards Display Mode View
-            boardsDisplayModeView.topAnchor.constraint(equalTo: newPostBehaviorView.bottomAnchor, constant: 16),
+            boardsDisplayModeView.topAnchor.constraint(equalTo: autoRandomizeFilenameView.bottomAnchor, constant: 16),
             boardsDisplayModeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             boardsDisplayModeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             boardsDisplayModeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),

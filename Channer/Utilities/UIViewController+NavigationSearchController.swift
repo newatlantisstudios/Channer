@@ -85,7 +85,19 @@ extension UIViewController {
             DispatchQueue.main.async(execute: detachSearchController)
         }
 #else
-        print("[NavSearchExt] suspendNavigationSearchControllerForTransition on \(vcName) — no-op (non-macCatalyst)")
+        // On iOS, leaving the search bar focused/active during a pop produces a
+        // visible "snap" as the nav bar resizes. Just resign focus and deactivate
+        // — the searchController stays attached to navigationItem so the pop
+        // animates smoothly.
+        guard let searchController = navigationItem.searchController else {
+            print("[NavSearchExt] suspendNavigationSearchControllerForTransition on \(vcName) — no searchController (iOS)")
+            return
+        }
+        view.endEditing(true)
+        searchController.searchBar.resignFirstResponder()
+        if searchController.isActive {
+            searchController.isActive = false
+        }
 #endif
     }
 }

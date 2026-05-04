@@ -5,17 +5,30 @@ final class GridItemSizeManager {
 
     private let gridItemSizeKey = "channer_grid_item_size_index"
     private let gridItemSizeMigrationKey = "channer_grid_item_size_migrated_v2"
-    private let sizeOptions: [CGFloat] = [0.65, 0.8, 1.0, 1.15, 1.3]
+    private let gridItemSizeMigrationV3Key = "channer_grid_item_size_migrated_v3"
+    private let sizeOptions: [CGFloat] = [0.35, 0.5, 0.65, 0.8, 1.0, 1.15, 1.3]
+    private let defaultSizeIndex = 4
 
     private init() {
         if UserDefaults.standard.object(forKey: gridItemSizeKey) == nil {
-            UserDefaults.standard.set(2, forKey: gridItemSizeKey)
-        } else if !UserDefaults.standard.bool(forKey: gridItemSizeMigrationKey) {
-            let storedIndex = UserDefaults.standard.integer(forKey: gridItemSizeKey)
-            if storedIndex <= 2 {
-                UserDefaults.standard.set(storedIndex + 2, forKey: gridItemSizeKey)
-            }
+            UserDefaults.standard.set(defaultSizeIndex, forKey: gridItemSizeKey)
             UserDefaults.standard.set(true, forKey: gridItemSizeMigrationKey)
+            UserDefaults.standard.set(true, forKey: gridItemSizeMigrationV3Key)
+        } else {
+            if !UserDefaults.standard.bool(forKey: gridItemSizeMigrationKey) {
+                let storedIndex = UserDefaults.standard.integer(forKey: gridItemSizeKey)
+                if storedIndex <= 2 {
+                    UserDefaults.standard.set(storedIndex + 2, forKey: gridItemSizeKey)
+                }
+                UserDefaults.standard.set(true, forKey: gridItemSizeMigrationKey)
+            }
+            if !UserDefaults.standard.bool(forKey: gridItemSizeMigrationV3Key) {
+                // sizeOptions gained two smaller entries at the front; shift saved index by +2 so
+                // existing users keep the same physical scale.
+                let storedIndex = UserDefaults.standard.integer(forKey: gridItemSizeKey)
+                UserDefaults.standard.set(storedIndex + 2, forKey: gridItemSizeKey)
+                UserDefaults.standard.set(true, forKey: gridItemSizeMigrationV3Key)
+            }
         }
     }
 

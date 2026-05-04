@@ -825,7 +825,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         refreshStatusView.layer.borderWidth = 1
         refreshStatusView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         refreshStatusView.translatesAutoresizingMaskIntoConstraints = false
-        refreshStatusView.isHidden = true
+
+        // Pre-configure visibility based on the saved auto-refresh interval so the
+        // bar is laid out from the first frame instead of toggling visibility async
+        // from setupAutoRefreshTimer.
+        let interval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
+        let shouldShow = interval > 0
+        refreshStatusView.isHidden = !shouldShow
+        if shouldShow {
+            var contentInset = tableView.contentInset
+            contentInset.top = 44
+            tableView.contentInset = contentInset
+            tableView.scrollIndicatorInsets = contentInset
+        }
         
         refreshStatusLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         refreshStatusLabel.textColor = ThemeManager.shared.secondaryTextColor
@@ -1956,6 +1968,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadBoardReplies.removeAll()
         originalTexts.removeAll()
         postMetadataList.removeAll()
+
+        // Record this visit in history regardless of how the thread was opened
+        // (board list, search, notifications, offline cache, handoff, etc.)
+        if !boardAbv.isEmpty, json["posts"].array?.first != nil {
+            HistoryManager.shared.addThreadToHistory(ThreadData(from: json, boardAbv: boardAbv))
+        }
 
         // Extract thread subject from OP (decode HTML entities)
         threadSubject = json["posts"][0]["sub"].stringValue.decodingHTMLEntities()
@@ -3614,30 +3632,29 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func showRefreshStatus(interval: Int) {
         DispatchQueue.main.async { [weak self] in
-            self?.refreshStatusView.isHidden = false
-            self?.updateRefreshStatus()
-            
-            // Update table view insets to account for status bar
-            if let self = self {
-                var contentInset = self.tableView.contentInset
-                contentInset.top = 44
-                self.tableView.contentInset = contentInset
-                self.tableView.scrollIndicatorInsets = contentInset
+            guard let self = self else { return }
+            guard self.refreshStatusView.isHidden else {
+                self.updateRefreshStatus()
+                return
             }
+            self.refreshStatusView.isHidden = false
+            self.updateRefreshStatus()
+            var contentInset = self.tableView.contentInset
+            contentInset.top = 44
+            self.tableView.contentInset = contentInset
+            self.tableView.scrollIndicatorInsets = contentInset
         }
     }
-    
+
     private func hideRefreshStatus() {
         DispatchQueue.main.async { [weak self] in
-            self?.refreshStatusView.isHidden = true
-            
-            // Reset table view insets
-            if let self = self {
-                var contentInset = self.tableView.contentInset
-                contentInset.top = 0
-                self.tableView.contentInset = contentInset
-                self.tableView.scrollIndicatorInsets = contentInset
-            }
+            guard let self = self else { return }
+            guard !self.refreshStatusView.isHidden else { return }
+            self.refreshStatusView.isHidden = true
+            var contentInset = self.tableView.contentInset
+            contentInset.top = 0
+            self.tableView.contentInset = contentInset
+            self.tableView.scrollIndicatorInsets = contentInset
         }
     }
     
@@ -3682,16 +3699,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // Methods for handling automatic refresh of thread content
     
     private func setupAutoRefreshTimer() {
-        // Stop any existing timer
-        stopAutoRefreshTimer()
-        
+        // Invalidate any existing timer without toggling status visibility — the
+        // visibility update below is the single source of truth, which avoids
+        // a hide/show flicker on viewWillAppear.
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+
         // Get the refresh interval from settings
         let interval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
-        
+
         // Only create timer if interval is greater than 0
-        guard interval > 0 else { 
+        guard interval > 0 else {
             hideRefreshStatus()
-            return 
+            return
         }
         
         // Show refresh status
@@ -4608,6 +4628,12 @@ extension threadRepliesTV: ComposeViewControllerDelegate {
 
         // Refresh the thread to show the new post
         refresh()
+
+        // The 4chan API often hasn't surfaced the new post by the time the
+        // immediate refresh fires, so refresh again after a short delay.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.refresh()
+        }
 
         // Show success message
         let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"

@@ -45,6 +45,9 @@ class SearchViewController: UIViewController {
     private var saveButton: UIBarButtonItem!
     private var lastNavBarDebugWidth: CGFloat = 0
     private var didLogNavBarHierarchy = false
+    private let segmentedHeaderHorizontalInset: CGFloat = 16
+    private let segmentedHeaderVerticalPadding: CGFloat = 10
+    private let segmentedControlBaseFontSize: CGFloat = 13
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -57,15 +60,30 @@ class SearchViewController: UIViewController {
         super.viewDidLoad()
         print("[SearchVC] viewDidLoad START")
         setupUI()
+        // Install the search controller now so the nav bar lays out with it
+        // from the first frame instead of animating it in during viewWillAppear.
+        installNavigationSearchControllerIfNeeded(searchController) { [weak self] in
+            guard let self else { return }
+            self.navigationItem.hidesSearchBarWhenScrolling = false
+            if #available(iOS 16.0, *), Self.isMacCatalyst {
+                self.navigationItem.preferredSearchBarPlacement = .stacked
+            }
+        }
         reloadHistoryAndSaved()
         updateEmptyState()
         debugDumpOwnConstraints(context: "viewDidLoad END")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         print("[SearchVC] viewWillAppear START — hasTransitionCoordinator=\(transitionCoordinator != nil) navItem.searchController=\(navigationItem.searchController != nil)")
         debugDumpNavBarState(context: "viewWillAppear BEFORE install")
+        // Idempotent — covers Mac Catalyst path that defers attachment until the
+        // window is available.
         installNavigationSearchControllerIfNeeded(searchController) { [weak self] in
             guard let self else { return }
             self.navigationItem.hidesSearchBarWhenScrolling = false
@@ -192,6 +210,8 @@ class SearchViewController: UIViewController {
         // Setup segmented control
         segmentedControl.selectedSegmentIndex = DisplayMode.results.rawValue
         segmentedControl.addTarget(self, action: #selector(displayModeChanged), for: .valueChanged)
+        applySegmentedControlFont()
+        NotificationCenter.default.addObserver(self, selector: #selector(fontScaleDidChange), name: .fontScaleDidChange, object: nil)
 
         // Setup empty state label
         emptyStateLabel.textColor = ThemeManager.shared.secondaryTextColor
@@ -427,7 +447,7 @@ class SearchViewController: UIViewController {
     }
 
     private func configureTableHeader() {
-        let headerHeight: CGFloat = 44
+        let headerHeight = segmentedHeaderHeight
         let headerView = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: headerHeight))
         headerView.backgroundColor = ThemeManager.shared.backgroundColor
 
@@ -450,8 +470,8 @@ class SearchViewController: UIViewController {
                 trailing
             ])
         } else {
-            segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 6)
-            segmentedControl.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            layoutSegmentedControl(in: headerView)
+            segmentedControl.autoresizingMask = [.flexibleWidth, .flexibleTopMargin, .flexibleBottomMargin]
             headerView.addSubview(segmentedControl)
         }
 
@@ -460,13 +480,53 @@ class SearchViewController: UIViewController {
 
     private func updateTableHeaderLayout() {
         guard let headerView = tableView.tableHeaderView else { return }
-        if headerView.frame.width != tableView.bounds.width {
+        let targetHeight = segmentedHeaderHeight
+        if headerView.frame.width != tableView.bounds.width || abs(headerView.frame.height - targetHeight) > 0.5 {
             headerView.frame.size.width = tableView.bounds.width
+            headerView.frame.size.height = targetHeight
             if !Self.isMacCatalyst {
-                segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 6)
+                layoutSegmentedControl(in: headerView)
             }
             tableView.tableHeaderView = headerView
+        } else if !Self.isMacCatalyst {
+            layoutSegmentedControl(in: headerView)
         }
+    }
+
+    private var segmentedControlFont: UIFont {
+        UIFont.systemFont(ofSize: segmentedControlBaseFontSize, weight: .regular)
+    }
+
+    private var segmentedControlHeight: CGFloat {
+        max(32, ceil(segmentedControlFont.lineHeight + 18))
+    }
+
+    private var segmentedHeaderHeight: CGFloat {
+        segmentedControlHeight + (segmentedHeaderVerticalPadding * 2)
+    }
+
+    private func applySegmentedControlFont() {
+        let states: [UIControl.State] = [.normal, .selected, .highlighted, .disabled]
+        for state in states {
+            var attributes = segmentedControl.titleTextAttributes(for: state) ?? [:]
+            attributes[.font] = segmentedControlFont
+            segmentedControl.setTitleTextAttributes(attributes, for: state)
+        }
+    }
+
+    private func layoutSegmentedControl(in headerView: UIView) {
+        let height = segmentedControlHeight
+        segmentedControl.frame = CGRect(
+            x: segmentedHeaderHorizontalInset,
+            y: (headerView.bounds.height - height) / 2,
+            width: max(0, headerView.bounds.width - (segmentedHeaderHorizontalInset * 2)),
+            height: height
+        )
+    }
+
+    @objc private func fontScaleDidChange() {
+        applySegmentedControlFont()
+        updateTableHeaderLayout()
     }
 
     private func debugLogNavBarLayoutIfNeeded() {

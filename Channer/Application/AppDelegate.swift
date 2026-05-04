@@ -65,7 +65,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-    ) -> Bool {       
+    ) -> Bool {
+        UIViewController.enableAppearanceLogging()
         FontScaleManager.shared.enableFontScaling()
 
         // Set default value for FaceID setting if it doesn't exist

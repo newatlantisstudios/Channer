@@ -30,7 +30,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     var postNumbers: [String] = []
     /// Reply counts for each image's post (parallel array to `images`)
     var replyCounts: [Int] = []
-    /// Callback when the user taps the replies button; passes the post number
+    /// Callback when the user taps the replies button in the single-image viewer; passes the post number
     var onShowReplies: ((String) -> Void)?
     /// Property to track if videos should preload - reads from UserDefaults
     var preloadVideos: Bool {
@@ -281,12 +281,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     private func setupNavigationBarWithCounter() {
         updateMediaCounter()
         navigationItem.titleView = mediaCounterLabel
-        updateRightBarButtonItems()
+        navigationItem.rightBarButtonItem = makeGridSizeBarButton()
     }
 
     /// Creates a bar button with a pull-down menu for changing grid size
     private func makeGridSizeBarButton() -> UIBarButtonItem {
-        let sizeLabels = ["XS", "S", "M", "L", "XL"]
+        let sizeLabels = ["XXXS", "XXS", "XS", "S", "M", "L", "XL"]
         let currentIndex = GalleryCellSizeManager.shared.sizeIndex
 
         let actions = sizeLabels.enumerated().map { index, label in
@@ -302,36 +302,6 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let menu = UIMenu(title: "Grid Size", children: actions)
         let button = UIBarButtonItem(image: UIImage(systemName: "square.grid.3x3"), menu: menu)
         return button
-    }
-    
-    /// Updates right bar button items (grid size + optional replies button)
-    private func updateRightBarButtonItems() {
-        var items = [makeGridSizeBarButton()]
-        if let repliesButton = makeRepliesBarButton() {
-            items.insert(repliesButton, at: 0)
-        }
-        navigationItem.rightBarButtonItems = items
-    }
-
-    /// Creates a replies bar button if the current image's post has replies
-    private func makeRepliesBarButton() -> UIBarButtonItem? {
-        guard selectedIndex < replyCounts.count else { return nil }
-        let count = replyCounts[selectedIndex]
-        guard count > 0 else { return nil }
-        let button = UIBarButtonItem(
-            image: UIImage(systemName: "bubble.left.and.bubble.right"),
-            style: .plain,
-            target: self,
-            action: #selector(repliesButtonTapped)
-        )
-        button.accessibilityLabel = "\(count) replies"
-        return button
-    }
-
-    @objc private func repliesButtonTapped() {
-        guard selectedIndex < postNumbers.count else { return }
-        let postNumber = postNumbers[selectedIndex]
-        onShowReplies?(postNumber)
     }
 
     /// Updates the media counter display
@@ -994,7 +964,6 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let previousIndex = selectedIndex
         selectedIndex = indexPath.row
         updateMediaCounter()
-        updateRightBarButtonItems()
 
         // Update cell selection states
         if let previousCell = collectionView.cellForItem(at: IndexPath(row: previousIndex, section: 0)) as? MediaCell {
@@ -1006,6 +975,12 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
 
         let selectedURL = images[indexPath.row]
         let fileExtension = selectedURL.pathExtension.lowercased()
+
+        let postReplyCount = indexPath.row < replyCounts.count ? replyCounts[indexPath.row] : 0
+        let postNumber = indexPath.row < postNumbers.count ? postNumbers[indexPath.row] : ""
+        let onShowRepliesForPost: (() -> Void)? = (postReplyCount > 0 && !postNumber.isEmpty)
+            ? { [weak self] in self?.onShowReplies?(postNumber) }
+            : nil
 
         print("ImageGalleryVC - selectedURL - " + selectedURL.absoluteString)
         print("ImageGalleryVC - fileExtension - " + fileExtension)
@@ -1037,6 +1012,8 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             vlcVC.videoURL = selectedURL.absoluteString
             vlcVC.videoURLs = videoURLs
             vlcVC.currentIndex = selectedVideoIndex
+            vlcVC.replyCount = postReplyCount
+            vlcVC.onShowReplies = onShowRepliesForPost
 
             if let navController = navigationController {
                 navController.pushViewController(vlcVC, animated: true)
@@ -1054,6 +1031,8 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             urlWebVC.currentIndex = indexPath.row
             urlWebVC.enableSwipes = true
             urlWebVC.refererString = refererString
+            urlWebVC.replyCount = postReplyCount
+            urlWebVC.onShowReplies = onShowRepliesForPost
 
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
@@ -1081,6 +1060,8 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             imageVC.currentIndex = selectedImageIndex
             imageVC.enableSwipes = imageURLs.count > 1
             imageVC.refererString = refererString
+            imageVC.replyCount = postReplyCount
+            imageVC.onShowReplies = onShowRepliesForPost
 
             if let navController = navigationController {
                 navController.pushViewController(imageVC, animated: true)

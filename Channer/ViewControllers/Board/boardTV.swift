@@ -240,6 +240,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private let refreshProgressView = UIProgressView(progressViewStyle: .default)
     private var refreshStatusHeight: NSLayoutConstraint?
     private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
+    private var settingsBarButtonItem: UIBarButtonItem?
 
     // MARK: - Lifecycle Methods
     // Methods related to the view controller's lifecycle.
@@ -445,6 +446,10 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         // Adds a sort button to the navigation bar.
         var buttons: [UIBarButtonItem] = []
 
+        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        settingsBarButtonItem = settingsButton
+        buttons.append(settingsButton)
+
         // Add sort button
         let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
@@ -465,6 +470,28 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         } else {
             navigationItem.rightBarButtonItems = buttons
         }
+    }
+
+    @objc private func settingsButtonTapped() {
+        let settingsVC = CatalogSettingsViewController()
+        settingsVC.modalPresentationStyle = .popover
+        settingsVC.preferredContentSize = CGSize(width: 400, height: 200)
+
+        if let popover = settingsVC.popoverPresentationController {
+            popover.delegate = self
+            popover.permittedArrowDirections = .up
+
+            #if targetEnvironment(macCatalyst)
+            if let navBar = navigationController?.navigationBar {
+                popover.sourceView = navBar
+                popover.sourceRect = CGRect(x: navBar.bounds.maxX - 60, y: navBar.bounds.maxY, width: 1, height: 1)
+            }
+            #else
+            popover.barButtonItem = settingsBarButtonItem
+            #endif
+        }
+
+        present(settingsVC, animated: true)
     }
     
     private func setupRefreshStatusIndicator() {
@@ -1630,6 +1657,13 @@ extension boardTV {
             $0.comment.localizedCaseInsensitiveContains(searchText)
         }
         tableView.reloadData()
+    }
+}
+
+// MARK: - UIPopoverPresentationControllerDelegate
+extension boardTV: UIPopoverPresentationControllerDelegate {
+    func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle {
+        return .none
     }
 }
 
