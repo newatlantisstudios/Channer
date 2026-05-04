@@ -427,7 +427,7 @@ class SearchViewController: UIViewController {
     }
 
     private func configureTableHeader() {
-        let headerHeight: CGFloat = 44
+        let headerHeight: CGFloat = 52
         let headerView = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: headerHeight))
         headerView.backgroundColor = ThemeManager.shared.backgroundColor
 
@@ -450,7 +450,7 @@ class SearchViewController: UIViewController {
                 trailing
             ])
         } else {
-            segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 6)
+            segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 10)
             segmentedControl.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             headerView.addSubview(segmentedControl)
         }
@@ -463,7 +463,7 @@ class SearchViewController: UIViewController {
         if headerView.frame.width != tableView.bounds.width {
             headerView.frame.size.width = tableView.bounds.width
             if !Self.isMacCatalyst {
-                segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 6)
+                segmentedControl.frame = headerView.bounds.insetBy(dx: 16, dy: 10)
             }
             tableView.tableHeaderView = headerView
         }
