@@ -9,6 +9,53 @@ enum NotificationType: String, Codable {
     case watchRuleMatch     // New matches for watch rules
 }
 
+/// Controls an individual notification category that can produce local push alerts.
+enum PushNotificationOption: String, CaseIterable, Codable {
+    case followedThreadReplies
+    case savedSearches
+    case watchedPosts
+    case repliesToYourPosts
+
+    var title: String {
+        switch self {
+        case .followedThreadReplies:
+            return "Followed Thread Replies"
+        case .savedSearches:
+            return "Saved Searches"
+        case .watchedPosts:
+            return "Watched Posts"
+        case .repliesToYourPosts:
+            return "Reply to Your Posts"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .followedThreadReplies:
+            return "New replies in threads you follow"
+        case .savedSearches:
+            return "New matches for saved searches"
+        case .watchedPosts:
+            return "Replies to posts you watch"
+        case .repliesToYourPosts:
+            return "Replies to posts you made"
+        }
+    }
+
+    var notificationType: NotificationType {
+        switch self {
+        case .followedThreadReplies:
+            return .threadUpdate
+        case .savedSearches:
+            return .savedSearchAlert
+        case .watchedPosts:
+            return .watchedPostReply
+        case .repliesToYourPosts:
+            return .myPostReply
+        }
+    }
+}
+
 /// A lightweight reference to a matched thread for saved search alerts
 struct MatchedThread: Codable {
     let boardAbv: String
@@ -79,6 +126,10 @@ struct ReplyNotification: Codable, Identifiable {
 class NotificationManager {
     static let shared = NotificationManager()
     
+    static let notificationsEnabledKey = "channer_notifications_enabled"
+    static let pushNotificationPreferenceKey = "channer_push_notification_preference"
+    static let enabledPushNotificationOptionsKey = "channer_enabled_push_notification_options"
+
     private let notificationsKey = "channer_reply_notifications"
     private let unreadCountKey = "channer_unread_notifications_count"
     
@@ -243,6 +294,57 @@ class NotificationManager {
         }
 
         return grouped
+    }
+
+    // MARK: - Push Notification Preferences
+
+    var enabledPushNotificationOptions: Set<PushNotificationOption> {
+        get {
+            if let rawValues = UserDefaults.standard.array(forKey: Self.enabledPushNotificationOptionsKey) as? [String] {
+                return Set(rawValues.compactMap(PushNotificationOption.init(rawValue:)))
+            }
+
+            if let legacyRawValue = UserDefaults.standard.string(forKey: Self.pushNotificationPreferenceKey) {
+                switch legacyRawValue {
+                case "repliesOnly":
+                    return [.watchedPosts, .repliesToYourPosts]
+                case "threadUpdates":
+                    return [.followedThreadReplies]
+                default:
+                    return Set(PushNotificationOption.allCases)
+                }
+            }
+
+            return Set(PushNotificationOption.allCases)
+        }
+        set {
+            let rawValues = PushNotificationOption.allCases
+                .filter { newValue.contains($0) }
+                .map { $0.rawValue }
+            UserDefaults.standard.set(rawValues, forKey: Self.enabledPushNotificationOptionsKey)
+            NotificationCenter.default.post(name: .pushNotificationSettingsChanged, object: nil)
+        }
+    }
+
+    func isPushNotificationOptionEnabled(_ option: PushNotificationOption) -> Bool {
+        return enabledPushNotificationOptions.contains(option)
+    }
+
+    func setPushNotificationOption(_ option: PushNotificationOption, enabled: Bool) {
+        var options = enabledPushNotificationOptions
+        if enabled {
+            options.insert(option)
+        } else {
+            options.remove(option)
+        }
+        enabledPushNotificationOptions = options
+    }
+
+    func shouldSendPushNotification(for type: NotificationType) -> Bool {
+        guard UserDefaults.standard.bool(forKey: Self.notificationsEnabledKey) else {
+            return false
+        }
+        return enabledPushNotificationOptions.contains { $0.notificationType == type }
     }
 
     // MARK: - Convenience Methods
@@ -452,4 +554,5 @@ extension Notification.Name {
     static let notificationRead = Notification.Name("channer.notificationRead")
     static let notificationRemoved = Notification.Name("channer.notificationRemoved")
     static let notificationDataChanged = Notification.Name("channer.notificationDataChanged")
+    static let pushNotificationSettingsChanged = Notification.Name("channer.pushNotificationSettingsChanged")
 }

@@ -82,7 +82,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         // Set default value for notification preferences if it doesn't exist
-        let notificationsEnabledKey = "channer_notifications_enabled"
+        let notificationsEnabledKey = NotificationManager.notificationsEnabledKey
         if UserDefaults.standard.object(forKey: notificationsEnabledKey) == nil {
             UserDefaults.standard.set(true, forKey: notificationsEnabledKey)
         }
@@ -179,8 +179,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         print("Legacy background fetch started")
 
         // Check if notifications are enabled
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        if !notificationsEnabled {
+        if !UserDefaults.standard.bool(forKey: NotificationManager.notificationsEnabledKey) {
             completionHandler(.noData)
             return
         }
@@ -506,8 +505,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     private func sendThreadUpdateNotification(threadNumber: String, boardAbv: String, newReplies: Int) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        if !notificationsEnabled {
+        if !NotificationManager.shared.shouldSendPushNotification(for: .threadUpdate) {
             return
         }
 
@@ -540,8 +538,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func sendReplyNotification(postNo: String, threadNo: String, boardAbv: String) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        if !notificationsEnabled {
+        if !NotificationManager.shared.shouldSendPushNotification(for: .myPostReply) {
             return
         }
 
@@ -575,8 +572,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        if !notificationsEnabled {
+        if !NotificationManager.shared.shouldSendPushNotification(for: .watchRuleMatch) {
             return
         }
 
@@ -640,7 +636,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     private func updateApplicationBadgeCount() {
         // Only update if notifications are enabled
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: NotificationManager.notificationsEnabledKey)
         if !notificationsEnabled {
             UIApplication.shared.applicationIconBadgeNumber = 0
             return

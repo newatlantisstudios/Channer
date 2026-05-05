@@ -512,8 +512,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     }
 
     private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        guard notificationsEnabled else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchRuleMatch) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watch Rule Match"

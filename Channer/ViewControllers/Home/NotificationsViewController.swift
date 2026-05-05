@@ -21,20 +21,24 @@ class NotificationsViewController: UITableViewController {
         tableView.estimatedRowHeight = 100
 
         // Add navigation bar buttons
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
+        let closeButton = UIBarButtonItem(
             image: UIImage(systemName: "xmark"),
             style: .plain,
             target: self,
             action: #selector(close)
         )
+        closeButton.tintColor = .black
+        navigationItem.leftBarButtonItem = closeButton
 
         // Add actions button
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
+        let moreButton = UIBarButtonItem(
             image: UIImage(systemName: "ellipsis.circle"),
             style: .plain,
             target: self,
             action: #selector(showActions)
         )
+        moreButton.tintColor = .black
+        navigationItem.rightBarButtonItem = moreButton
 
         // Listen for notification updates
         NotificationCenter.default.addObserver(
@@ -77,6 +81,11 @@ class NotificationsViewController: UITableViewController {
     @objc private func showActions() {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
+        // Notification settings
+        let settingsAction = UIAlertAction(title: "Notifications Settings", style: .default) { [weak self] _ in
+            self?.showNotificationSettings()
+        }
+
         // Mark all as read
         let markAllReadAction = UIAlertAction(title: "Mark All as Read", style: .default) { _ in
             NotificationManager.shared.markAllAsRead()
@@ -89,6 +98,12 @@ class NotificationsViewController: UITableViewController {
 
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
 
+        alert.view.tintColor = .black
+        [settingsAction, markAllReadAction, clearAllAction, cancelAction].forEach {
+            $0.setValue(UIColor.black, forKey: "titleTextColor")
+        }
+
+        alert.addAction(settingsAction)
         alert.addAction(markAllReadAction)
         alert.addAction(clearAllAction)
         alert.addAction(cancelAction)
@@ -99,6 +114,11 @@ class NotificationsViewController: UITableViewController {
         }
 
         present(alert, animated: true)
+    }
+
+    private func showNotificationSettings() {
+        let settingsVC = PushNotificationSettingsViewController()
+        navigationController?.pushViewController(settingsVC, animated: true)
     }
 
     @objc private func notificationDataChanged() {
@@ -342,6 +362,73 @@ class NotificationsViewController: UITableViewController {
 
     private func hideEmptyState() {
         tableView.backgroundView = nil
+    }
+}
+
+// MARK: - PushNotificationSettingsViewController
+
+private final class PushNotificationSettingsViewController: UITableViewController {
+
+    private let options = PushNotificationOption.allCases
+
+    init() {
+        super.init(style: .insetGrouped)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        title = "Notifications Settings"
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "PushOptionCell")
+    }
+
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return options.count
+    }
+
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "PushOptionCell", for: indexPath)
+        let option = options[indexPath.row]
+        let isEnabled = NotificationManager.shared.isPushNotificationOptionEnabled(option)
+
+        var config = cell.defaultContentConfiguration()
+        config.text = option.title
+        config.textProperties.color = ThemeManager.shared.primaryTextColor
+        config.secondaryText = option.detail
+        config.secondaryTextProperties.color = .systemGray
+        config.secondaryTextProperties.numberOfLines = 2
+        cell.contentConfiguration = config
+        cell.backgroundColor = ThemeManager.shared.backgroundColor
+        cell.tintColor = .black
+        cell.accessoryType = .none
+        cell.accessoryView = makeCheckboxImageView(isSelected: isEnabled)
+        return cell
+    }
+
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let option = options[indexPath.row]
+        let isEnabled = NotificationManager.shared.isPushNotificationOptionEnabled(option)
+        NotificationManager.shared.setPushNotificationOption(option, enabled: !isEnabled)
+        tableView.reloadRows(at: [indexPath], with: .automatic)
+
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    private func makeCheckboxImageView(isSelected: Bool) -> UIImageView {
+        let imageName = isSelected ? "checkmark.square.fill" : "square"
+        let imageView = UIImageView(image: UIImage(systemName: imageName))
+        imageView.tintColor = .black
+        imageView.contentMode = .scaleAspectFit
+        imageView.frame = CGRect(x: 0, y: 0, width: 24, height: 24)
+        return imageView
     }
 }
 
