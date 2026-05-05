@@ -259,17 +259,21 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
     private func makeBoardButton() -> UIBarButtonItem {
         if let image = allBoardsImage() {
             let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(selectBoard))
+            button.tintColor = .black
             button.accessibilityLabel = "All Boards"
             return button
         }
 
-        return UIBarButtonItem(title: "All Boards", style: .plain, target: self, action: #selector(selectBoard))
+        let button = UIBarButtonItem(title: "All Boards", style: .plain, target: self, action: #selector(selectBoard))
+        button.tintColor = .black
+        return button
     }
 
     private func allBoardsImage() -> UIImage? {
-        UIImage(systemName: "square.grid.2x2")
+        let image = UIImage(systemName: "square.grid.2x2")
             ?? UIImage(systemName: "rectangle.grid.2x2")
             ?? UIImage(systemName: "globe")
+        return image?.withRenderingMode(.alwaysTemplate)
     }
 
     // MARK: - Actions
@@ -727,17 +731,21 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
     private func updateBoardSelection(_ board: String?) {
         currentBoard = board
         if let board {
+            boardButton.tintColor = nil
             boardButton.image = nil
             boardButton.title = "/\(board)/"
             boardButton.accessibilityLabel = "Board /\(board)/"
         } else if let image = allBoardsImage() {
+            boardButton.tintColor = .black
             boardButton.title = nil
             boardButton.image = image
             boardButton.accessibilityLabel = "All Boards"
         } else if Self.isMacCatalyst {
+            boardButton.tintColor = .black
             boardButton.title = nil
             boardButton.accessibilityLabel = "All Boards"
         } else {
+            boardButton.tintColor = .black
             boardButton.image = nil
             boardButton.title = "All Boards"
             boardButton.accessibilityLabel = "All Boards"
