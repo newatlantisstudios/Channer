@@ -423,6 +423,65 @@ class HistoryManagerTests: XCTestCase {
                       "Unicode characters should be preserved")
     }
 
+    // MARK: - Thread Scroll Position Tests
+
+    func testThreadScrollPositionManagerPersistsPosition() {
+        let suiteName = "ThreadScrollPositionManagerTests"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let manager = ThreadScrollPositionManager(defaults: defaults)
+        manager.savePosition(
+            boardAbv: "g",
+            threadNumber: "12345",
+            postNumber: "12360",
+            itemIndex: 4,
+            offsetWithinItem: 18.5,
+            contentOffsetY: 812.25
+        )
+
+        let reloadedManager = ThreadScrollPositionManager(defaults: defaults)
+        let position = reloadedManager.position(boardAbv: "g", threadNumber: "12345")
+
+        XCTAssertEqual(position?.postNumber, "12360")
+        XCTAssertEqual(position?.itemIndex, 4)
+        XCTAssertEqual(position?.offsetWithinItem, 18.5)
+        XCTAssertEqual(position?.contentOffsetY, 812.25)
+    }
+
+    func testThreadScrollPositionManagerSeparatesBoards() {
+        let suiteName = "ThreadScrollPositionManagerBoardTests"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let manager = ThreadScrollPositionManager(defaults: defaults)
+        manager.savePosition(
+            boardAbv: "g",
+            threadNumber: "12345",
+            postNumber: "12360",
+            itemIndex: 4,
+            offsetWithinItem: 18,
+            contentOffsetY: 812
+        )
+        manager.savePosition(
+            boardAbv: "b",
+            threadNumber: "12345",
+            postNumber: "12370",
+            itemIndex: 7,
+            offsetWithinItem: 2,
+            contentOffsetY: 1000
+        )
+
+        XCTAssertEqual(manager.position(boardAbv: "g", threadNumber: "12345")?.postNumber, "12360")
+        XCTAssertEqual(manager.position(boardAbv: "b", threadNumber: "12345")?.postNumber, "12370")
+    }
+
     // MARK: - Notification Tests
 
     func testHistoryManagerPostsNotificationOnICloudSync() {

@@ -191,3 +191,99 @@ class HistoryManager {
         }
     }
 }
+
+struct ThreadScrollPosition: Codable, Equatable {
+    let boardAbv: String
+    let threadNumber: String
+    let postNumber: String?
+    let itemIndex: Int
+    let offsetWithinItem: Double
+    let contentOffsetY: Double
+    let updatedAt: Date
+}
+
+class ThreadScrollPositionManager {
+    static let shared = ThreadScrollPositionManager()
+
+    private let positionsKey = "threadScrollPositions"
+    private let maxStoredPositions = 250
+    private let defaults: UserDefaults
+    private var positions: [String: ThreadScrollPosition] = [:]
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        loadPositions()
+    }
+
+    func savePosition(
+        boardAbv: String,
+        threadNumber: String,
+        postNumber: String?,
+        itemIndex: Int,
+        offsetWithinItem: CGFloat,
+        contentOffsetY: CGFloat
+    ) {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return }
+
+        let position = ThreadScrollPosition(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: postNumber,
+            itemIndex: max(0, itemIndex),
+            offsetWithinItem: Double(max(0, offsetWithinItem)),
+            contentOffsetY: Double(contentOffsetY),
+            updatedAt: Date()
+        )
+
+        positions[key(boardAbv: boardAbv, threadNumber: threadNumber)] = position
+        pruneOldPositionsIfNeeded()
+        persistPositions()
+    }
+
+    func position(boardAbv: String, threadNumber: String) -> ThreadScrollPosition? {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return nil }
+        return positions[key(boardAbv: boardAbv, threadNumber: threadNumber)]
+    }
+
+    func removePosition(boardAbv: String, threadNumber: String) {
+        positions.removeValue(forKey: key(boardAbv: boardAbv, threadNumber: threadNumber))
+        persistPositions()
+    }
+
+    func removeAllPositions() {
+        positions.removeAll()
+        persistPositions()
+    }
+
+    private func key(boardAbv: String, threadNumber: String) -> String {
+        "\(boardAbv)/\(threadNumber)"
+    }
+
+    private func loadPositions() {
+        guard let data = defaults.data(forKey: positionsKey),
+              let savedPositions = try? JSONDecoder().decode([String: ThreadScrollPosition].self, from: data) else {
+            positions = [:]
+            return
+        }
+
+        positions = savedPositions
+    }
+
+    private func persistPositions() {
+        guard let data = try? JSONEncoder().encode(positions) else { return }
+        defaults.set(data, forKey: positionsKey)
+    }
+
+    private func pruneOldPositionsIfNeeded() {
+        guard positions.count > maxStoredPositions else { return }
+
+        let keysToRemove = positions
+            .sorted { $0.value.updatedAt < $1.value.updatedAt }
+            .prefix(positions.count - maxStoredPositions)
+            .map(\.key)
+
+        for key in keysToRemove {
+            positions.removeValue(forKey: key)
+        }
+    }
+}

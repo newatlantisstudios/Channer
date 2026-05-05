@@ -310,6 +310,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var fullThreadBoardReplyNumber: [String]?
     var fullThreadRepliesImages: [String]?
     var fullThreadBoardReplies: [String: [String]]?
+    var fullThreadPostMetadataList: [PostMetadata]?
+    private var replyViewRootPostNumber: String?
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
 
@@ -348,6 +350,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // Scroll performance optimization
     private var isScrolling = false
     private var pendingImageLoads = Set<IndexPath>()
+    private var hasRestoredSavedScrollPosition = false
     
     // Reload throttling
     private var reloadTimer: Timer?
@@ -493,6 +496,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                              selector: #selector(thumbnailSizeDidChange),
                                              name: .thumbnailSizeDidChange,
                                              object: nil)
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(applicationDidEnterBackground),
+                                             name: UIApplication.didEnterBackgroundNotification,
+                                             object: nil)
                                              
         // Enable hover interactions for Apple Pencil
         #if canImport(UIHoverGestureRecognizer)
@@ -583,6 +590,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         super.viewWillDisappear(animated)
 
         resignFirstResponder()
+        saveCurrentScrollPosition()
         
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -609,6 +617,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 UIApplication.shared.applicationIconBadgeNumber = badgeCount
             }
         }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -975,6 +987,89 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
             self.scrollToPostNumber = nil
         }
+    }
+
+    @objc private func applicationDidEnterBackground() {
+        saveCurrentScrollPosition()
+    }
+
+    private func saveCurrentScrollPosition() {
+        guard shouldLoadFullThread, !threadNumber.isEmpty, !boardAbv.isEmpty else { return }
+
+        let visibleIndexPaths = (tableView.indexPathsForVisibleRows ?? []).sorted { $0.row < $1.row }
+        let viewportTop = tableView.contentOffset.y + tableView.adjustedContentInset.top
+
+        let anchorIndexPath = visibleIndexPaths.first { indexPath in
+            tableView.rectForRow(at: indexPath).maxY > viewportTop
+        } ?? visibleIndexPaths.first
+
+        guard let indexPath = anchorIndexPath else {
+            ThreadScrollPositionManager.shared.savePosition(
+                boardAbv: boardAbv,
+                threadNumber: threadNumber,
+                postNumber: nil,
+                itemIndex: 0,
+                offsetWithinItem: 0,
+                contentOffsetY: tableView.contentOffset.y
+            )
+            return
+        }
+
+        let rowRect = tableView.rectForRow(at: indexPath)
+        let postNumber = indexPath.row < threadBoardReplyNumber.count ? threadBoardReplyNumber[indexPath.row] : nil
+        ThreadScrollPositionManager.shared.savePosition(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: postNumber,
+            itemIndex: indexPath.row,
+            offsetWithinItem: viewportTop - rowRect.minY,
+            contentOffsetY: tableView.contentOffset.y
+        )
+    }
+
+    private func restoreScrollPositionIfNeeded() {
+        guard !hasRestoredSavedScrollPosition,
+              shouldLoadFullThread,
+              scrollToPostNumber == nil,
+              !threadNumber.isEmpty,
+              !boardAbv.isEmpty,
+              tableView.numberOfRows(inSection: 0) > 0,
+              let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+            return
+        }
+
+        hasRestoredSavedScrollPosition = true
+        tableView.layoutIfNeeded()
+
+        if let index = restoreIndex(for: position) {
+            let indexPath = IndexPath(row: index, section: 0)
+            tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+            tableView.layoutIfNeeded()
+            let restoredY = tableView.contentOffset.y + CGFloat(position.offsetWithinItem)
+            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(restoredY)), animated: false)
+        } else {
+            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY))), animated: false)
+        }
+    }
+
+    private func restoreIndex(for position: ThreadScrollPosition) -> Int? {
+        if let postNumber = position.postNumber,
+           let index = threadBoardReplyNumber.firstIndex(of: postNumber),
+           index < tableView.numberOfRows(inSection: 0) {
+            return index
+        }
+
+        if position.itemIndex >= 0, position.itemIndex < tableView.numberOfRows(inSection: 0) {
+            return position.itemIndex
+        }
+
+        return nil
+    }
+
+    private func clampedContentOffsetY(_ proposedY: CGFloat) -> CGFloat {
+        let minY = -tableView.adjustedContentInset.top
+        let maxY = max(minY, tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom)
+        return min(max(proposedY, minY), maxY)
     }
 
     // MARK: - Navigation Item Setup Methods
@@ -1702,6 +1797,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                             self.isLoading = false
                             self.loadingIndicator.stopAnimating()
                             self.tableView.reloadData()
+                            self.restoreScrollPositionIfNeeded()
                             self.scrollToPostIfNeeded()
                             self.onViewReady?()
                         }
@@ -1763,7 +1859,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     guard let self = self else { return }
                     self.isLoading = false
                     self.loadingIndicator.stopAnimating()
-                    self.debugReloadData(context: "Preload complete")
+                    self.tableView.reloadData()
+                    self.restoreScrollPositionIfNeeded()
                     self.scrollToPostIfNeeded()
                     self.onViewReady?()
                 }
@@ -1818,6 +1915,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     guard let self = self else { return }
                     self.isLoading = false
                     self.tableView.reloadData()
+                    self.restoreScrollPositionIfNeeded()
                     self.scrollToPostIfNeeded()
                 }
             } catch {
@@ -2854,6 +2952,56 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         showThreadForPostNumber(threadBoardReplyNumber[index])
     }
 
+    private struct ReplyViewContent {
+        let replies: [NSAttributedString]
+        let replyNumbers: [String]
+        let images: [String]
+        let metadata: [PostMetadata]
+    }
+
+    private func replyViewContent(
+        for postNumber: String,
+        replies: [NSAttributedString],
+        replyNumbers: [String],
+        images: [String],
+        replyMap: [String: [String]],
+        metadataList: [PostMetadata]
+    ) -> ReplyViewContent? {
+        guard let postIndex = replyNumbers.firstIndex(of: postNumber),
+              replies.indices.contains(postIndex),
+              images.indices.contains(postIndex) else { return nil }
+
+        var filteredReplies = [replies[postIndex]]
+        var filteredReplyNumbers = [replyNumbers[postIndex]]
+        var filteredImages = [images[postIndex]]
+        var filteredMetadata: [PostMetadata] = metadataList.indices.contains(postIndex) ? [metadataList[postIndex]] : []
+
+        var uniqueReplies = Set<String>()
+        if let repliesToPost = replyMap[postNumber] {
+            for replyNumber in repliesToPost {
+                guard uniqueReplies.insert(replyNumber).inserted,
+                      let replyIndex = replyNumbers.firstIndex(of: replyNumber),
+                      replies.indices.contains(replyIndex),
+                      images.indices.contains(replyIndex) else { continue }
+
+                filteredReplies.append(replies[replyIndex])
+                filteredReplyNumbers.append(replyNumbers[replyIndex])
+                filteredImages.append(images[replyIndex])
+
+                if metadataList.indices.contains(replyIndex) {
+                    filteredMetadata.append(metadataList[replyIndex])
+                }
+            }
+        }
+
+        return ReplyViewContent(
+            replies: filteredReplies,
+            replyNumbers: filteredReplyNumbers,
+            images: filteredImages,
+            metadata: filteredMetadata
+        )
+    }
+
     /// Shows thread replies for the post number, using the full thread context when available
     private func showThreadForPostNumber(_ postNumber: String) {
         print("🔴showThreadForPostNumber")
@@ -2862,64 +3010,50 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let navigationReplyNumbers = fullThreadBoardReplyNumber ?? threadBoardReplyNumber
         let navigationReplyImages = fullThreadRepliesImages ?? threadRepliesImages
         let navigationReplyMap = fullThreadBoardReplies ?? threadBoardReplies
+        let navigationMetadata = fullThreadPostMetadataList ?? postMetadataList
 
-        // Create thread data for the new view
-        var threadRepliesNew: [NSAttributedString] = []
-        var threadBoardReplyNumberNew: [String] = []
-        var threadRepliesImagesNew: [String] = []
-
-        // Start with the original post
-        guard let postIndex = navigationReplyNumbers.firstIndex(of: postNumber) else { return }
-        threadRepliesNew.append(navigationReplies[postIndex])
-        threadBoardReplyNumberNew.append(navigationReplyNumbers[postIndex])
-        threadRepliesImagesNew.append(navigationReplyImages[postIndex])
-
-        // Use a Set to deduplicate replies
-        var uniqueReplies = Set<String>()
-
-        // Add only replies to this post (not the whole thread)
-        if let replies = navigationReplyMap[postNumber] {
-            for replyNumber in replies {
-                // Add to the set to prevent duplicates
-                if uniqueReplies.insert(replyNumber).inserted,
-                   let replyIndex = navigationReplyNumbers.firstIndex(of: replyNumber) {
-                    threadRepliesNew.append(navigationReplies[replyIndex])
-                    threadBoardReplyNumberNew.append(navigationReplyNumbers[replyIndex])
-                    threadRepliesImagesNew.append(navigationReplyImages[replyIndex])
-                }
-            }
-        }
+        guard let replyContent = replyViewContent(
+            for: postNumber,
+            replies: navigationReplies,
+            replyNumbers: navigationReplyNumbers,
+            images: navigationReplyImages,
+            replyMap: navigationReplyMap,
+            metadataList: navigationMetadata
+        ) else { return }
 
         // Create and configure new threadRepliesTV instance
         let newThreadVC = threadRepliesTV()
 
         // Set the data and prevent full thread load
-        newThreadVC.threadReplies = threadRepliesNew
-        newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
-        newThreadVC.threadRepliesImages = threadRepliesImagesNew
+        newThreadVC.threadReplies = replyContent.replies
+        newThreadVC.threadBoardReplyNumber = replyContent.replyNumbers
+        newThreadVC.threadRepliesImages = replyContent.images
         newThreadVC.threadBoardReplies = navigationReplyMap
-        newThreadVC.replyCount = threadRepliesNew.count
+        newThreadVC.postMetadataList = replyContent.metadata
+        newThreadVC.replyCount = replyContent.replies.count
         newThreadVC.boardAbv = self.boardAbv
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
+        newThreadVC.replyViewRootPostNumber = postNumber
 
         // Preserve full thread context for nested quote navigation
         newThreadVC.fullThreadReplies = navigationReplies
         newThreadVC.fullThreadBoardReplyNumber = navigationReplyNumbers
         newThreadVC.fullThreadRepliesImages = navigationReplyImages
         newThreadVC.fullThreadBoardReplies = navigationReplyMap
+        newThreadVC.fullThreadPostMetadataList = navigationMetadata
 
         // Transfer any filtered indices that are also in this view
         let filteredIndicesInNew: Set<Int> = Set(filteredReplyIndices.compactMap { originalIndex in
             guard threadBoardReplyNumber.indices.contains(originalIndex) else { return nil }
             let originalNumber = threadBoardReplyNumber[originalIndex]
-            return threadBoardReplyNumberNew.firstIndex(of: originalNumber)
+            return replyContent.replyNumbers.firstIndex(of: originalNumber)
         })
         newThreadVC.filteredReplyIndices = filteredIndicesInNew
 
         print("Selected post: \(postNumber)")
-        print("Filtered replies: \(Array(uniqueReplies))")
-        print("New threadReplies count: \(threadRepliesNew.count)")
+        print("Filtered replies: \(replyContent.replyNumbers.dropFirst())")
+        print("New threadReplies count: \(replyContent.replies.count)")
 
         // Set the title to show which post is being viewed
         newThreadVC.title = "\(postNumber)"
@@ -3797,6 +3931,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Store previous post count before refresh
         let previousCount = threadReplies.count
+        let isReplySubsetView = !shouldLoadFullThread
+        let replySubsetRootPostNumber = replyViewRootPostNumber ?? (isReplySubsetView ? threadBoardReplyNumber.first : nil)
+        let previousVisibleReplies = threadReplies
+        let previousVisibleReplyNumbers = threadBoardReplyNumber
+        let previousVisibleImages = threadRepliesImages
+        let previousVisibleReplyMap = threadBoardReplies
+        let previousVisibleMetadata = postMetadataList
 
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
 
@@ -3826,6 +3967,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         self.processThreadData(json)
                         self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
+
+                        let refreshedFullReplies = self.threadReplies
+                        let refreshedFullReplyNumbers = self.threadBoardReplyNumber
+                        let refreshedFullImages = self.threadRepliesImages
+                        let refreshedFullReplyMap = self.threadBoardReplies
+                        let refreshedFullMetadata = self.postMetadataList
+
+                        if isReplySubsetView, let rootPostNumber = replySubsetRootPostNumber {
+                            self.fullThreadReplies = refreshedFullReplies
+                            self.fullThreadBoardReplyNumber = refreshedFullReplyNumbers
+                            self.fullThreadRepliesImages = refreshedFullImages
+                            self.fullThreadBoardReplies = refreshedFullReplyMap
+                            self.fullThreadPostMetadataList = refreshedFullMetadata
+                            self.replyViewRootPostNumber = rootPostNumber
+                            self.title = rootPostNumber
+
+                            if let replyContent = self.replyViewContent(
+                                for: rootPostNumber,
+                                replies: refreshedFullReplies,
+                                replyNumbers: refreshedFullReplyNumbers,
+                                images: refreshedFullImages,
+                                replyMap: refreshedFullReplyMap,
+                                metadataList: refreshedFullMetadata
+                            ) {
+                                self.threadReplies = replyContent.replies
+                                self.threadBoardReplyNumber = replyContent.replyNumbers
+                                self.threadRepliesImages = replyContent.images
+                                self.threadBoardReplies = refreshedFullReplyMap
+                                self.postMetadataList = replyContent.metadata
+                                self.replyCount = replyContent.replies.count
+                            } else {
+                                self.threadReplies = previousVisibleReplies
+                                self.threadBoardReplyNumber = previousVisibleReplyNumbers
+                                self.threadRepliesImages = previousVisibleImages
+                                self.threadBoardReplies = previousVisibleReplyMap
+                                self.postMetadataList = previousVisibleMetadata
+                                self.replyCount = previousVisibleReplies.count
+                            }
+                        }
+
                         self.isLoading = false
 
                         // Calculate new posts
