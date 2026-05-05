@@ -22,22 +22,25 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         // Setup Navigation Bar
         title = "Manage Categories"
 
-        // Create checkmark button with white background and black checkmark
+        // Create close button with white background and black x
         let paletteConfig = UIImage.SymbolConfiguration(paletteColors: [.black, .white])
         let sizeConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-        let checkmarkConfig = paletteConfig.applying(sizeConfig)
-        let checkmarkImage = UIImage(systemName: "checkmark.circle.fill", withConfiguration: checkmarkConfig)
+        let closeConfig = paletteConfig.applying(sizeConfig)
+        let closeImage = UIImage(systemName: "xmark.circle.fill", withConfiguration: closeConfig)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: checkmarkImage,
+            image: closeImage,
             style: .plain,
             target: self,
             action: #selector(dismissView)
         )
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add,
+        let addButton = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            style: .plain,
             target: self,
             action: #selector(addCategory)
         )
+        addButton.tintColor = .black
+        navigationItem.rightBarButtonItem = addButton
 
         // Setup Table View
         tableView.translatesAutoresizingMaskIntoConstraints = false
