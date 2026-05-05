@@ -257,13 +257,19 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
     }
 
     private func makeBoardButton() -> UIBarButtonItem {
-        if Self.isMacCatalyst, let image = UIImage(systemName: "square.grid.2x2") {
+        if let image = allBoardsImage() {
             let button = UIBarButtonItem(image: image, style: .plain, target: self, action: #selector(selectBoard))
             button.accessibilityLabel = "All Boards"
             return button
         }
 
         return UIBarButtonItem(title: "All Boards", style: .plain, target: self, action: #selector(selectBoard))
+    }
+
+    private func allBoardsImage() -> UIImage? {
+        UIImage(systemName: "square.grid.2x2")
+            ?? UIImage(systemName: "rectangle.grid.2x2")
+            ?? UIImage(systemName: "globe")
     }
 
     // MARK: - Actions
@@ -720,11 +726,21 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
 
     private func updateBoardSelection(_ board: String?) {
         currentBoard = board
-        if Self.isMacCatalyst {
+        if let board {
+            boardButton.image = nil
+            boardButton.title = "/\(board)/"
+            boardButton.accessibilityLabel = "Board /\(board)/"
+        } else if let image = allBoardsImage() {
             boardButton.title = nil
-            boardButton.accessibilityLabel = board.map { "Board /\($0)/" } ?? "All Boards"
+            boardButton.image = image
+            boardButton.accessibilityLabel = "All Boards"
+        } else if Self.isMacCatalyst {
+            boardButton.title = nil
+            boardButton.accessibilityLabel = "All Boards"
         } else {
-            boardButton.title = board.map { "/\($0)/" } ?? "All Boards"
+            boardButton.image = nil
+            boardButton.title = "All Boards"
+            boardButton.accessibilityLabel = "All Boards"
         }
     }
 
