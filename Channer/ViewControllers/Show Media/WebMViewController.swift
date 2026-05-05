@@ -146,6 +146,14 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         view.backgroundColor = .black
         return view
     }()
+
+    /// Transparent tap target above the renderer so controls can reappear even if the player view swallows touches.
+    private lazy var videoTapOverlay: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .clear
+        return view
+    }()
     
     /// The VLC media player responsible for playing the video.
     private lazy var vlcPlayer: VLCMediaPlayer = {
@@ -228,21 +236,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return label
     }()
 
-    /// Blur background for play/pause button
-    private lazy var playPauseBlurView: UIVisualEffectView = {
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        blur.layer.cornerRadius = 35
-        blur.clipsToBounds = true
-        blur.isUserInteractionEnabled = false
-        return blur
-    }()
-
-    /// Play/pause button (centered on video)
+    /// Play/pause button in the bottom overlay controls
     private lazy var playPauseButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
         button.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
         button.tintColor = .white
         button.backgroundColor = .clear
@@ -260,48 +258,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         button.tintColor = .white
         button.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
         return button
-    }()
-
-    /// Upper tap zone for navigation to previous video
-    private lazy var upTapZone: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(upTapZoneTapped))
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-    /// Lower tap zone for navigation to next video
-    private lazy var downTapZone: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(downTapZoneTapped))
-        view.addGestureRecognizer(tap)
-        return view
-    }()
-
-    /// Up navigation hint (chevron)
-    private lazy var upHint: UIImageView = {
-        let imageView = UIImageView(image: UIImage(systemName: "chevron.up.circle.fill"))
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.tintColor = UIColor.white.withAlphaComponent(0.7)
-        imageView.contentMode = .scaleAspectFit
-        imageView.alpha = 0
-        return imageView
-    }()
-
-    /// Down navigation hint (chevron)
-    private lazy var downHint: UIImageView = {
-        let imageView = UIImageView(image: UIImage(systemName: "chevron.down.circle.fill"))
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.tintColor = UIColor.white.withAlphaComponent(0.7)
-        imageView.contentMode = .scaleAspectFit
-        imageView.alpha = 0
-        return imageView
     }()
 
     /// Media counter label showing current position
@@ -476,6 +432,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private func setupUI() {
         view.backgroundColor = .black
         view.addSubview(videoView)
+        view.addSubview(videoTapOverlay)
         view.addSubview(seekBarContainer)
 
         // Add gradient layer to seek bar container
@@ -483,23 +440,16 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Add seek bar elements to container
         seekBarContainer.addSubview(currentTimeLabel)
+        seekBarContainer.addSubview(playPauseButton)
         seekBarContainer.addSubview(seekBar)
         seekBarContainer.addSubview(durationLabel)
         seekBarContainer.addSubview(overlayMuteButton)
 
-        // Add blur background + play/pause button centered on video view
-        view.addSubview(playPauseBlurView)
-        view.addSubview(playPauseButton)
-
-        // Add tap gesture to video view for play/pause
+        // Add tap gesture above the renderer for control visibility
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(videoViewTapped))
-        videoView.addGestureRecognizer(tapGesture)
+        videoTapOverlay.addGestureRecognizer(tapGesture)
 
-        // Add navigation tap zones (only if we have multiple videos)
-        view.addSubview(upTapZone)
-        view.addSubview(downTapZone)
-        view.addSubview(upHint)
-        view.addSubview(downHint)
+        // Add media counter for multi-video navigation state
         view.addSubview(mediaCounterLabel)
 
         // Add conversion progress bar (above seek bar)
@@ -516,26 +466,25 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             videoView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
+            videoTapOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            videoTapOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            videoTapOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            videoTapOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
             // Seek bar container with gradient extends to the screen bottom
             seekBarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             seekBarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             seekBarContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             seekBarContainer.heightAnchor.constraint(equalToConstant: 100),
 
-            // Play/pause blur background centered on video
-            playPauseBlurView.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
-            playPauseBlurView.centerYAnchor.constraint(equalTo: videoView.centerYAnchor),
-            playPauseBlurView.widthAnchor.constraint(equalToConstant: 70),
-            playPauseBlurView.heightAnchor.constraint(equalToConstant: 70),
-
-            // Play/pause button on top of blur
-            playPauseButton.centerXAnchor.constraint(equalTo: playPauseBlurView.centerXAnchor),
-            playPauseButton.centerYAnchor.constraint(equalTo: playPauseBlurView.centerYAnchor),
-            playPauseButton.widthAnchor.constraint(equalToConstant: 70),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 70),
+            // Play/pause button at the leading edge of the bottom controls
+            playPauseButton.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
+            playPauseButton.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
+            playPauseButton.widthAnchor.constraint(equalToConstant: 36),
+            playPauseButton.heightAnchor.constraint(equalToConstant: 36),
 
             // Current time label - anchored to safe area bottom within gradient container
-            currentTimeLabel.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 16),
+            currentTimeLabel.leadingAnchor.constraint(equalTo: playPauseButton.trailingAnchor, constant: 4),
             currentTimeLabel.bottomAnchor.constraint(equalTo: seekBarContainer.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             currentTimeLabel.widthAnchor.constraint(equalToConstant: 45),
 
@@ -554,30 +503,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             seekBar.leadingAnchor.constraint(equalTo: currentTimeLabel.trailingAnchor, constant: 8),
             seekBar.trailingAnchor.constraint(equalTo: durationLabel.leadingAnchor, constant: -8),
             seekBar.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
-
-            // Up tap zone (25% of height at top)
-            upTapZone.topAnchor.constraint(equalTo: videoView.topAnchor),
-            upTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            upTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            upTapZone.heightAnchor.constraint(equalTo: videoView.heightAnchor, multiplier: 0.25),
-
-            // Down tap zone (25% of height at bottom)
-            downTapZone.bottomAnchor.constraint(equalTo: videoView.bottomAnchor),
-            downTapZone.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            downTapZone.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            downTapZone.heightAnchor.constraint(equalTo: videoView.heightAnchor, multiplier: 0.25),
-
-            // Up hint (centered in upper tap zone)
-            upHint.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
-            upHint.centerYAnchor.constraint(equalTo: upTapZone.centerYAnchor),
-            upHint.widthAnchor.constraint(equalToConstant: 44),
-            upHint.heightAnchor.constraint(equalToConstant: 44),
-
-            // Down hint (centered in lower tap zone)
-            downHint.centerXAnchor.constraint(equalTo: videoView.centerXAnchor),
-            downHint.centerYAnchor.constraint(equalTo: downTapZone.centerYAnchor),
-            downHint.widthAnchor.constraint(equalToConstant: 44),
-            downHint.heightAnchor.constraint(equalToConstant: 44),
 
             // Media counter label (top center)
             mediaCounterLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
@@ -936,7 +861,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         resetControlsHideTimer()
 
         // Update play/pause button
-        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
         playPauseButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
     }
 
@@ -1289,7 +1214,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Toggles the play/pause state of the video
     @objc private func togglePlayPause() {
-        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
 
         if isUsingAVPlayer {
             if avPlayer.rate > 0 {
@@ -1321,7 +1246,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Updates the play/pause button icon based on player state
     private func updatePlayPauseButton() {
-        let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
         let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
         let imageName = isPlaying ? "pause.fill" : "play.fill"
         playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
@@ -1337,15 +1262,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Show navigation bar
         navigationController?.setNavigationBarHidden(false, animated: true)
+        seekBarContainer.isUserInteractionEnabled = true
 
         UIView.animate(withDuration: 0.25) {
-            self.playPauseBlurView.alpha = 1.0
             self.playPauseButton.alpha = 1.0
             self.seekBarContainer.alpha = 1.0
             self.mediaCounterLabel.alpha = hasMultipleVideos ? 1.0 : 0.0
-            // Show navigation hints if there are multiple videos
-            self.upHint.alpha = hasMultipleVideos ? 0.7 : 0.0
-            self.downHint.alpha = hasMultipleVideos ? 0.7 : 0.0
         }
 
         let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
@@ -1361,14 +1283,12 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Hide navigation bar for immersive experience
         navigationController?.setNavigationBarHidden(true, animated: true)
+        seekBarContainer.isUserInteractionEnabled = false
 
         UIView.animate(withDuration: 0.25) {
-            self.playPauseBlurView.alpha = 0.0
             self.playPauseButton.alpha = 0.0
             self.seekBarContainer.alpha = 0.0
             self.mediaCounterLabel.alpha = 0.0
-            self.upHint.alpha = 0.0
-            self.downHint.alpha = 0.0
         }
     }
 
@@ -2127,10 +2047,6 @@ extension WebMViewController {
     private func setupNavigationUI() {
         let hasMultipleVideos = videoURLs.count > 1
 
-        // Show/hide tap zones
-        upTapZone.isHidden = !hasMultipleVideos
-        downTapZone.isHidden = !hasMultipleVideos
-
         // Show media counter if we have multiple videos
         if hasMultipleVideos {
             mediaCounterLabel.isHidden = false
@@ -2147,32 +2063,22 @@ extension WebMViewController {
         } else {
             mediaCounterLabel.isHidden = true
         }
-
-        // Update hint visibility
-        updateNavigationHints()
     }
 
     /// Handles swipe up gesture - go to previous video
     @objc private func handleSwipeUp() {
-        upTapZoneTapped()
+        navigateToPreviousVideo(ignoreControls: true)
     }
 
     /// Handles swipe down gesture - go to next video
     @objc private func handleSwipeDown() {
-        downTapZoneTapped()
+        navigateToNextVideo(ignoreControls: true)
     }
 
     /// Updates the media counter label
     private func updateMediaCounter() {
         let position = currentIndex + 1
         mediaCounterLabel.text = "  \(position) / \(videoURLs.count)  "
-    }
-
-    /// Updates navigation hint visibility based on current position
-    private func updateNavigationHints() {
-        // Only show hints if there's somewhere to navigate to
-        upHint.alpha = currentIndex > 0 ? 0.7 : 0.3
-        downHint.alpha = currentIndex < videoURLs.count - 1 ? 0.7 : 0.3
     }
 
     // MARK: - Keyboard Shortcut Methods
@@ -2184,16 +2090,6 @@ extension WebMViewController {
         navigateToPreviousVideo(ignoreControls: true)
     }
 
-    /// Handles tap on upper zone - go to previous video
-    @objc private func upTapZoneTapped() {
-        navigateToPreviousVideo(ignoreControls: false)
-    }
-
-    /// Handles tap on lower zone - go to next video
-    @objc private func downTapZoneTapped() {
-        navigateToNextVideo(ignoreControls: false)
-    }
-
     private func navigateToPreviousVideo(ignoreControls: Bool) {
         if !ignoreControls && !controlsVisible {
             showControls()
@@ -2201,8 +2097,6 @@ extension WebMViewController {
         }
 
         guard videoURLs.count > 1, currentIndex > 0 else {
-            // Flash the hint to show we're at the beginning
-            flashHint(upHint)
             return
         }
 
@@ -2222,8 +2116,6 @@ extension WebMViewController {
         }
 
         guard videoURLs.count > 1, currentIndex < videoURLs.count - 1 else {
-            // Flash the hint to show we're at the end
-            flashHint(downHint)
             return
         }
 
@@ -2243,19 +2135,6 @@ extension WebMViewController {
             return idiom == .mac
         }
         return false
-    }
-
-    /// Flashes a hint to indicate navigation limit
-    private func flashHint(_ hint: UIImageView) {
-        UIView.animate(withDuration: 0.15, animations: {
-            hint.alpha = 1.0
-            hint.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
-        }) { _ in
-            UIView.animate(withDuration: 0.15) {
-                hint.alpha = 0.3
-                hint.transform = .identity
-            }
-        }
     }
 
     /// Loads and plays a video at the specified index
@@ -2298,7 +2177,6 @@ extension WebMViewController {
 
         // Update UI
         updateMediaCounter()
-        updateNavigationHints()
 
         // Load and play the new video
         setupVideo()
