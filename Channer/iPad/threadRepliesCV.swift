@@ -91,7 +91,16 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
         threadRepliesFileNames.append(fileName)
 
-        let timestamp = dict["time"] as? Int
+        let timestamp: Int?
+        if let intValue = dict["time"] as? Int {
+            timestamp = intValue
+        } else if let numberValue = dict["time"] as? NSNumber {
+            timestamp = numberValue.intValue
+        } else if let stringValue = dict["time"] as? String, let intValue = Int(stringValue) {
+            timestamp = intValue
+        } else {
+            timestamp = nil
+        }
         threadRepliesTimestamps.append(timestamp)
 
         let posterId = dict["id"] as? String
@@ -143,6 +152,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     var isReply: Bool = false
     /// Thread subject from OP
     var threadSubject: String = ""
+    private var hasRestoredSavedScrollPosition = false
 
     private lazy var postInfoDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -192,6 +202,10 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         // Add long press gesture for cell actions
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
         collectionView?.addGestureRecognizer(longPressGesture)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(applicationDidEnterBackground),
+                                               name: UIApplication.didEnterBackgroundNotification,
+                                               object: nil)
 
         let fileManager = FileManager.default
         let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -361,9 +375,106 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
         
         collectionView?.reloadData()
+        restoreScrollPositionIfNeeded()
         checkWatchRulesForNewMatches()
     }
-    
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        saveCurrentScrollPosition()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func applicationDidEnterBackground() {
+        saveCurrentScrollPosition()
+    }
+
+    private func saveCurrentScrollPosition() {
+        guard !forBoardThread, !threadNumber.isEmpty, !boardAbv.isEmpty,
+              let collectionView = collectionView else {
+            return
+        }
+
+        let visibleIndexPaths = collectionView.indexPathsForVisibleItems.sorted { $0.item < $1.item }
+        let viewportTop = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+
+        let anchorIndexPath = visibleIndexPaths.first { indexPath in
+            guard let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return false }
+            return frame.maxY > viewportTop
+        } ?? visibleIndexPaths.first
+
+        guard let indexPath = anchorIndexPath else {
+            ThreadScrollPositionManager.shared.savePosition(
+                boardAbv: boardAbv,
+                threadNumber: threadNumber,
+                postNumber: nil,
+                itemIndex: 0,
+                offsetWithinItem: 0,
+                contentOffsetY: collectionView.contentOffset.y
+            )
+            return
+        }
+
+        let itemFrame = collectionView.layoutAttributesForItem(at: indexPath)?.frame ?? .zero
+        let postNumber = indexPath.item < threadBoardReplyNumber.count ? threadBoardReplyNumber[indexPath.item] : nil
+        ThreadScrollPositionManager.shared.savePosition(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: postNumber,
+            itemIndex: indexPath.item,
+            offsetWithinItem: viewportTop - itemFrame.minY,
+            contentOffsetY: collectionView.contentOffset.y
+        )
+    }
+
+    private func restoreScrollPositionIfNeeded() {
+        guard !hasRestoredSavedScrollPosition,
+              !forBoardThread,
+              !threadNumber.isEmpty,
+              !boardAbv.isEmpty,
+              let collectionView = collectionView,
+              collectionView.numberOfItems(inSection: 0) > 0,
+              let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+            return
+        }
+
+        hasRestoredSavedScrollPosition = true
+        collectionView.layoutIfNeeded()
+
+        if let index = restoreIndex(for: position, itemCount: collectionView.numberOfItems(inSection: 0)) {
+            let indexPath = IndexPath(item: index, section: 0)
+            collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
+            collectionView.layoutIfNeeded()
+            let restoredY = collectionView.contentOffset.y + CGFloat(position.offsetWithinItem)
+            collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: clampedContentOffsetY(restoredY, in: collectionView)), animated: false)
+        } else {
+            collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY), in: collectionView)), animated: false)
+        }
+    }
+
+    private func restoreIndex(for position: ThreadScrollPosition, itemCount: Int) -> Int? {
+        if let postNumber = position.postNumber,
+           let index = threadBoardReplyNumber.firstIndex(of: postNumber),
+           index < itemCount {
+            return index
+        }
+
+        if position.itemIndex >= 0, position.itemIndex < itemCount {
+            return position.itemIndex
+        }
+
+        return nil
+    }
+
+    private func clampedContentOffsetY(_ proposedY: CGFloat, in collectionView: UICollectionView) -> CGFloat {
+        let minY = -collectionView.adjustedContentInset.top
+        let maxY = max(minY, collectionView.contentSize.height - collectionView.bounds.height + collectionView.adjustedContentInset.bottom)
+        return min(max(proposedY, minY), maxY)
+    }
+
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
         return 1
     }
@@ -450,7 +561,22 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     private func showPostInfo(for index: Int) {
         guard index < threadRepliesTimestamps.count, index < threadRepliesFileNames.count else { return }
 
-        let fileName = threadRepliesFileNames[index] ?? "No file attached"
+        let fileName: String
+        if let explicitFileName = threadRepliesFileNames[index], !explicitFileName.isEmpty {
+            fileName = explicitFileName
+        } else if index < threadRepliesImages.count {
+            let imageURL = threadRepliesImages[index]
+            let basePath = "https://i.4cdn.org/\(boardAbv)/"
+            if imageURL != basePath,
+               let url = URL(string: imageURL),
+               !url.lastPathComponent.isEmpty {
+                fileName = url.lastPathComponent
+            } else {
+                fileName = "No file attached"
+            }
+        } else {
+            fileName = "No file attached"
+        }
         let postedText: String
         if let timestamp = threadRepliesTimestamps[index] {
             let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
@@ -512,8 +638,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     }
 
     private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        guard notificationsEnabled else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchRuleMatch) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watch Rule Match"
