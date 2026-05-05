@@ -39,6 +39,7 @@ final class BoardPickerViewController: UIViewController, UITableViewDataSource, 
             action: #selector(cancelTapped)
         )
         cancelButton.accessibilityLabel = "Cancel"
+        cancelButton.tintColor = .black
         navigationItem.leftBarButtonItem = cancelButton
 
         setupSearchBar()
