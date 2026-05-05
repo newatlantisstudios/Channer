@@ -22,19 +22,18 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
         // Setup Navigation Bar
         title = "Manage Categories"
 
-        // Create close button with white background and black x
-        let paletteConfig = UIImage.SymbolConfiguration(paletteColors: [.black, .white])
-        let sizeConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-        let closeConfig = paletteConfig.applying(sizeConfig)
-        let closeImage = UIImage(systemName: "xmark.circle.fill", withConfiguration: closeConfig)
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: closeImage,
+        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+        let closeButton = UIBarButtonItem(
+            image: UIImage(systemName: "xmark", withConfiguration: symbolConfig),
             style: .plain,
             target: self,
             action: #selector(dismissView)
         )
+        closeButton.tintColor = .black
+        navigationItem.leftBarButtonItem = closeButton
+
         let addButton = UIBarButtonItem(
-            image: UIImage(systemName: "plus"),
+            image: UIImage(systemName: "plus", withConfiguration: symbolConfig),
             style: .plain,
             target: self,
             action: #selector(addCategory)
