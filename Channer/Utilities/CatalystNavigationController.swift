@@ -12,6 +12,33 @@ extension UIBarButtonItem {
     }
 }
 
+extension UIPopoverPresentationController {
+    func channerAnchor(
+        in presenter: UIViewController,
+        barButtonItem: UIBarButtonItem? = nil,
+        sourceView: UIView? = nil,
+        sourceRect: CGRect? = nil,
+        permittedArrowDirections: UIPopoverArrowDirection = .any
+    ) {
+        if let barButtonItem = barButtonItem {
+            self.barButtonItem = barButtonItem
+            self.permittedArrowDirections = permittedArrowDirections
+            return
+        }
+
+        guard let presenterView = presenter.view else { return }
+        let anchorView = sourceView ?? presenterView
+        self.sourceView = anchorView
+        self.sourceRect = sourceRect ?? CGRect(x: anchorView.bounds.midX, y: anchorView.bounds.midY, width: 1, height: 1)
+        self.permittedArrowDirections = permittedArrowDirections
+    }
+
+    func channerEnsureAnchor(in presenter: UIViewController) {
+        guard sourceView == nil && barButtonItem == nil else { return }
+        channerAnchor(in: presenter)
+    }
+}
+
 struct BottomToolbarItemGroup {
     let items: [UIBarButtonItem]
 
@@ -116,7 +143,7 @@ private final class BottomToolbarSearchContainer: UIView {
         let button = UIButton(type: .system)
         let imageConfiguration = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         button.setImage(UIImage(systemName: systemImageName, withConfiguration: imageConfiguration), for: .normal)
-        button.tintColor = .systemBlue
+        button.tintColor = .black
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityIdentifier = accessibilityLabel
         button.addTarget(target, action: action, for: .touchUpInside)
@@ -168,6 +195,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     private var activeToolbarSearchShowsBackButton = false
     private var activeToolbarSearchSize = CGSize.zero
     private var isBottomSearchExpanded = false
+    private weak var manuallyCollapsedSearchOwner: UIViewController?
     private var lastToolbarSignature = ""
     private var mirroredToolbarItems: [ObjectIdentifier: UIBarButtonItem] = [:]
 
@@ -268,6 +296,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         if let searchProvider = viewController as? BottomToolbarSearchProviding,
            searchProvider.bottomToolbarSearchInitiallyExpanded,
+           manuallyCollapsedSearchOwner !== viewController,
            activeSearchOwner == nil {
             activeSearchController = searchProvider.bottomToolbarSearchController
             activeSearchOwner = viewController
@@ -526,6 +555,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setImage(UIImage(systemName: systemImageName), for: .normal)
         button.imageView?.contentMode = .scaleAspectFit
+        button.tintColor = .black
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityIdentifier = accessibilityLabel
         button.addTarget(self, action: action, for: .touchUpInside)
@@ -536,6 +566,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         ])
 
         let item = UIBarButtonItem(customView: button)
+        item.tintColor = .black
         item.accessibilityLabel = accessibilityLabel
         item.accessibilityIdentifier = accessibilityLabel
         return item
@@ -592,12 +623,14 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         activeSearchController = searchController
         activeSearchOwner = viewController
+        manuallyCollapsedSearchOwner = nil
         isBottomSearchExpanded = true
         lastToolbarSignature = ""
         syncBottomToolbar(animated: true)
     }
 
     @objc private func bottomSearchCancelButtonTapped() {
+        manuallyCollapsedSearchOwner = activeSearchOwner ?? topViewController
         collapseBottomSearchIfNeeded()
         lastToolbarSignature = ""
         syncBottomToolbar(animated: true)

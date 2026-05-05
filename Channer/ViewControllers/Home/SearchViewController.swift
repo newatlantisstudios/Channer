@@ -60,7 +60,7 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
     }
 
     var bottomToolbarSearchInitiallyExpanded: Bool {
-        return true
+        return false
     }
 
     // MARK: - Lifecycle

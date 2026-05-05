@@ -95,7 +95,7 @@ class NotificationsViewController: UITableViewController {
 
         // For iPad
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(alert, animated: true)

@@ -537,7 +537,7 @@ class StatisticsDashboardViewController: UIViewController {
 
         // iPad support
         if let popover = activityVC.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItems?.first
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItems?.first)
         }
 
         present(activityVC, animated: true)

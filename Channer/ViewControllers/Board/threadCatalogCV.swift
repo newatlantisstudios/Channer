@@ -381,7 +381,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
 
         let newThreadButton = UIBarButtonItem(image: UIImage(systemName: "plus.square"), style: .plain, target: self, action: #selector(showNewThreadCompose))
 
-        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped(_:)))
         settingsBarButtonItem = settingsButton
 
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
@@ -392,23 +392,21 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         }
     }
 
-    @objc private func settingsButtonTapped() {
+    @objc private func settingsButtonTapped(_ sender: Any) {
         let settingsVC = CatalogSettingsViewController()
         settingsVC.modalPresentationStyle = .popover
         settingsVC.preferredContentSize = CGSize(width: 400, height: 200)
 
         if let popover = settingsVC.popoverPresentationController {
             popover.delegate = self
-            popover.permittedArrowDirections = .up
 
-            #if targetEnvironment(macCatalyst)
-            if let navBar = navigationController?.navigationBar {
-                popover.sourceView = navBar
-                popover.sourceRect = CGRect(x: navBar.bounds.maxX - 60, y: navBar.bounds.maxY, width: 1, height: 1)
+            if let sourceView = sender as? UIView {
+                popover.channerAnchor(in: self, sourceView: sourceView, sourceRect: sourceView.bounds, permittedArrowDirections: .up)
+            } else if let barButtonItem = sender as? UIBarButtonItem {
+                popover.channerAnchor(in: self, barButtonItem: barButtonItem, permittedArrowDirections: .up)
+            } else {
+                popover.channerAnchor(in: self, barButtonItem: settingsBarButtonItem, permittedArrowDirections: .up)
             }
-            #else
-            popover.barButtonItem = settingsBarButtonItem
-            #endif
         }
 
         present(settingsVC, animated: true)
@@ -446,8 +444,8 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         alertController.addAction(cancelAction)
 
         if let popoverController = alertController.popoverPresentationController {
-            popoverController.barButtonItem = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
-            popoverController.permittedArrowDirections = .up
+            let sortButton = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
+            popoverController.channerAnchor(in: self, barButtonItem: sortButton, permittedArrowDirections: .up)
         }
 
         present(alertController, animated: true, completion: nil)

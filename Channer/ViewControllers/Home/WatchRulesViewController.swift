@@ -141,7 +141,7 @@ class WatchRulesViewController: UIViewController, UITableViewDelegate, UITableVi
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(alert, animated: true)

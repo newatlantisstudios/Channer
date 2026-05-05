@@ -122,6 +122,10 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
         
         // Cancel action
         alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alertController.popoverPresentationController {
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
+        }
         
         // Present the alert
         present(alertController, animated: true)
@@ -401,6 +405,16 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
         
         // Cancel action
         alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alertController.popoverPresentationController {
+            let cell = tableView.cellForRow(at: indexPath)
+            popover.channerAnchor(
+                in: self,
+                sourceView: cell ?? tableView,
+                sourceRect: cell?.bounds ?? tableView.rectForRow(at: indexPath),
+                permittedArrowDirections: [.up, .down]
+            )
+        }
         
         // Present the alert
         present(alertController, animated: true)

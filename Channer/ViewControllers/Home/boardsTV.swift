@@ -499,7 +499,7 @@ class boardsTV: UITableViewController {
         
         // For iPad, set the popover presentation controller
         if let popover = alertController.popoverPresentationController {
-            popover.barButtonItem = navigationItem.leftBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.leftBarButtonItem)
         }
         
         // Present the alert controller

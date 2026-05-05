@@ -315,6 +315,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
             let clearAllImage = UIImage(named: "clearAll")?.withRenderingMode(.alwaysTemplate)
             let resizedClearAllImage = clearAllImage?.resized(to: CGSize(width: 22, height: 22))
             let clearAllButton = UIBarButtonItem(image: resizedClearAllImage, style: .plain, target: self, action: #selector(clearAllHistory))
+            clearAllButton.tintColor = .black
 
             // Add "Clear All" button to existing right bar buttons (which includes sort button)
             if var rightButtons = navigationItem.rightBarButtonItems {
@@ -446,7 +447,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         // Adds a sort button to the navigation bar.
         var buttons: [UIBarButtonItem] = []
 
-        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped(_:)))
+        settingsButton.tintColor = .black
         settingsBarButtonItem = settingsButton
         buttons.append(settingsButton)
 
@@ -454,12 +456,14 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
         let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
+        sortButton.tintColor = .black
         buttons.append(sortButton)
 
         // Add new thread button for regular board view (not favorites or history)
         if !isFavoritesView && !isHistoryView {
             let newThreadImage = UIImage(systemName: "plus.square")
             let newThreadButton = UIBarButtonItem(image: newThreadImage, style: .plain, target: self, action: #selector(showNewThreadCompose))
+            newThreadButton.tintColor = .black
             buttons.append(newThreadButton)
         }
 
@@ -472,23 +476,21 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
     }
 
-    @objc private func settingsButtonTapped() {
+    @objc private func settingsButtonTapped(_ sender: Any) {
         let settingsVC = CatalogSettingsViewController()
         settingsVC.modalPresentationStyle = .popover
         settingsVC.preferredContentSize = CGSize(width: 400, height: 200)
 
         if let popover = settingsVC.popoverPresentationController {
             popover.delegate = self
-            popover.permittedArrowDirections = .up
 
-            #if targetEnvironment(macCatalyst)
-            if let navBar = navigationController?.navigationBar {
-                popover.sourceView = navBar
-                popover.sourceRect = CGRect(x: navBar.bounds.maxX - 60, y: navBar.bounds.maxY, width: 1, height: 1)
+            if let sourceView = sender as? UIView {
+                popover.channerAnchor(in: self, sourceView: sourceView, sourceRect: sourceView.bounds, permittedArrowDirections: .up)
+            } else if let barButtonItem = sender as? UIBarButtonItem {
+                popover.channerAnchor(in: self, barButtonItem: barButtonItem, permittedArrowDirections: .up)
+            } else {
+                popover.channerAnchor(in: self, barButtonItem: settingsBarButtonItem, permittedArrowDirections: .up)
             }
-            #else
-            popover.barButtonItem = settingsBarButtonItem
-            #endif
         }
 
         present(settingsVC, animated: true)
@@ -858,8 +860,8 @@ class boardTV: UITableViewController, UISearchBarDelegate {
 
         // iPad-specific popover configuration
         if let popoverController = alertController.popoverPresentationController {
-            popoverController.barButtonItem = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
-            popoverController.permittedArrowDirections = .up
+            let sortButton = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
+            popoverController.channerAnchor(in: self, barButtonItem: sortButton, permittedArrowDirections: .up)
         }
 
         // Present the alert controller
