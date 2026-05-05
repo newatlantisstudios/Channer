@@ -310,6 +310,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var fullThreadBoardReplyNumber: [String]?
     var fullThreadRepliesImages: [String]?
     var fullThreadBoardReplies: [String: [String]]?
+    var fullThreadPostMetadataList: [PostMetadata]?
+    private var replyViewRootPostNumber: String?
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
     var totalImagesInThread: Int = 0
 
@@ -2854,6 +2856,56 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         showThreadForPostNumber(threadBoardReplyNumber[index])
     }
 
+    private struct ReplyViewContent {
+        let replies: [NSAttributedString]
+        let replyNumbers: [String]
+        let images: [String]
+        let metadata: [PostMetadata]
+    }
+
+    private func replyViewContent(
+        for postNumber: String,
+        replies: [NSAttributedString],
+        replyNumbers: [String],
+        images: [String],
+        replyMap: [String: [String]],
+        metadataList: [PostMetadata]
+    ) -> ReplyViewContent? {
+        guard let postIndex = replyNumbers.firstIndex(of: postNumber),
+              replies.indices.contains(postIndex),
+              images.indices.contains(postIndex) else { return nil }
+
+        var filteredReplies = [replies[postIndex]]
+        var filteredReplyNumbers = [replyNumbers[postIndex]]
+        var filteredImages = [images[postIndex]]
+        var filteredMetadata: [PostMetadata] = metadataList.indices.contains(postIndex) ? [metadataList[postIndex]] : []
+
+        var uniqueReplies = Set<String>()
+        if let repliesToPost = replyMap[postNumber] {
+            for replyNumber in repliesToPost {
+                guard uniqueReplies.insert(replyNumber).inserted,
+                      let replyIndex = replyNumbers.firstIndex(of: replyNumber),
+                      replies.indices.contains(replyIndex),
+                      images.indices.contains(replyIndex) else { continue }
+
+                filteredReplies.append(replies[replyIndex])
+                filteredReplyNumbers.append(replyNumbers[replyIndex])
+                filteredImages.append(images[replyIndex])
+
+                if metadataList.indices.contains(replyIndex) {
+                    filteredMetadata.append(metadataList[replyIndex])
+                }
+            }
+        }
+
+        return ReplyViewContent(
+            replies: filteredReplies,
+            replyNumbers: filteredReplyNumbers,
+            images: filteredImages,
+            metadata: filteredMetadata
+        )
+    }
+
     /// Shows thread replies for the post number, using the full thread context when available
     private func showThreadForPostNumber(_ postNumber: String) {
         print("🔴showThreadForPostNumber")
@@ -2862,64 +2914,50 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let navigationReplyNumbers = fullThreadBoardReplyNumber ?? threadBoardReplyNumber
         let navigationReplyImages = fullThreadRepliesImages ?? threadRepliesImages
         let navigationReplyMap = fullThreadBoardReplies ?? threadBoardReplies
+        let navigationMetadata = fullThreadPostMetadataList ?? postMetadataList
 
-        // Create thread data for the new view
-        var threadRepliesNew: [NSAttributedString] = []
-        var threadBoardReplyNumberNew: [String] = []
-        var threadRepliesImagesNew: [String] = []
-
-        // Start with the original post
-        guard let postIndex = navigationReplyNumbers.firstIndex(of: postNumber) else { return }
-        threadRepliesNew.append(navigationReplies[postIndex])
-        threadBoardReplyNumberNew.append(navigationReplyNumbers[postIndex])
-        threadRepliesImagesNew.append(navigationReplyImages[postIndex])
-
-        // Use a Set to deduplicate replies
-        var uniqueReplies = Set<String>()
-
-        // Add only replies to this post (not the whole thread)
-        if let replies = navigationReplyMap[postNumber] {
-            for replyNumber in replies {
-                // Add to the set to prevent duplicates
-                if uniqueReplies.insert(replyNumber).inserted,
-                   let replyIndex = navigationReplyNumbers.firstIndex(of: replyNumber) {
-                    threadRepliesNew.append(navigationReplies[replyIndex])
-                    threadBoardReplyNumberNew.append(navigationReplyNumbers[replyIndex])
-                    threadRepliesImagesNew.append(navigationReplyImages[replyIndex])
-                }
-            }
-        }
+        guard let replyContent = replyViewContent(
+            for: postNumber,
+            replies: navigationReplies,
+            replyNumbers: navigationReplyNumbers,
+            images: navigationReplyImages,
+            replyMap: navigationReplyMap,
+            metadataList: navigationMetadata
+        ) else { return }
 
         // Create and configure new threadRepliesTV instance
         let newThreadVC = threadRepliesTV()
 
         // Set the data and prevent full thread load
-        newThreadVC.threadReplies = threadRepliesNew
-        newThreadVC.threadBoardReplyNumber = threadBoardReplyNumberNew
-        newThreadVC.threadRepliesImages = threadRepliesImagesNew
+        newThreadVC.threadReplies = replyContent.replies
+        newThreadVC.threadBoardReplyNumber = replyContent.replyNumbers
+        newThreadVC.threadRepliesImages = replyContent.images
         newThreadVC.threadBoardReplies = navigationReplyMap
-        newThreadVC.replyCount = threadRepliesNew.count
+        newThreadVC.postMetadataList = replyContent.metadata
+        newThreadVC.replyCount = replyContent.replies.count
         newThreadVC.boardAbv = self.boardAbv
         newThreadVC.threadNumber = self.threadNumber
         newThreadVC.shouldLoadFullThread = false // Prevent reloading the full thread
+        newThreadVC.replyViewRootPostNumber = postNumber
 
         // Preserve full thread context for nested quote navigation
         newThreadVC.fullThreadReplies = navigationReplies
         newThreadVC.fullThreadBoardReplyNumber = navigationReplyNumbers
         newThreadVC.fullThreadRepliesImages = navigationReplyImages
         newThreadVC.fullThreadBoardReplies = navigationReplyMap
+        newThreadVC.fullThreadPostMetadataList = navigationMetadata
 
         // Transfer any filtered indices that are also in this view
         let filteredIndicesInNew: Set<Int> = Set(filteredReplyIndices.compactMap { originalIndex in
             guard threadBoardReplyNumber.indices.contains(originalIndex) else { return nil }
             let originalNumber = threadBoardReplyNumber[originalIndex]
-            return threadBoardReplyNumberNew.firstIndex(of: originalNumber)
+            return replyContent.replyNumbers.firstIndex(of: originalNumber)
         })
         newThreadVC.filteredReplyIndices = filteredIndicesInNew
 
         print("Selected post: \(postNumber)")
-        print("Filtered replies: \(Array(uniqueReplies))")
-        print("New threadReplies count: \(threadRepliesNew.count)")
+        print("Filtered replies: \(replyContent.replyNumbers.dropFirst())")
+        print("New threadReplies count: \(replyContent.replies.count)")
 
         // Set the title to show which post is being viewed
         newThreadVC.title = "\(postNumber)"
@@ -3797,6 +3835,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Store previous post count before refresh
         let previousCount = threadReplies.count
+        let isReplySubsetView = !shouldLoadFullThread
+        let replySubsetRootPostNumber = replyViewRootPostNumber ?? (isReplySubsetView ? threadBoardReplyNumber.first : nil)
+        let previousVisibleReplies = threadReplies
+        let previousVisibleReplyNumbers = threadBoardReplyNumber
+        let previousVisibleImages = threadRepliesImages
+        let previousVisibleReplyMap = threadBoardReplies
+        let previousVisibleMetadata = postMetadataList
 
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
 
@@ -3826,6 +3871,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         self.processThreadData(json)
                         self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
+
+                        let refreshedFullReplies = self.threadReplies
+                        let refreshedFullReplyNumbers = self.threadBoardReplyNumber
+                        let refreshedFullImages = self.threadRepliesImages
+                        let refreshedFullReplyMap = self.threadBoardReplies
+                        let refreshedFullMetadata = self.postMetadataList
+
+                        if isReplySubsetView, let rootPostNumber = replySubsetRootPostNumber {
+                            self.fullThreadReplies = refreshedFullReplies
+                            self.fullThreadBoardReplyNumber = refreshedFullReplyNumbers
+                            self.fullThreadRepliesImages = refreshedFullImages
+                            self.fullThreadBoardReplies = refreshedFullReplyMap
+                            self.fullThreadPostMetadataList = refreshedFullMetadata
+                            self.replyViewRootPostNumber = rootPostNumber
+                            self.title = rootPostNumber
+
+                            if let replyContent = self.replyViewContent(
+                                for: rootPostNumber,
+                                replies: refreshedFullReplies,
+                                replyNumbers: refreshedFullReplyNumbers,
+                                images: refreshedFullImages,
+                                replyMap: refreshedFullReplyMap,
+                                metadataList: refreshedFullMetadata
+                            ) {
+                                self.threadReplies = replyContent.replies
+                                self.threadBoardReplyNumber = replyContent.replyNumbers
+                                self.threadRepliesImages = replyContent.images
+                                self.threadBoardReplies = refreshedFullReplyMap
+                                self.postMetadataList = replyContent.metadata
+                                self.replyCount = replyContent.replies.count
+                            } else {
+                                self.threadReplies = previousVisibleReplies
+                                self.threadBoardReplyNumber = previousVisibleReplyNumbers
+                                self.threadRepliesImages = previousVisibleImages
+                                self.threadBoardReplies = previousVisibleReplyMap
+                                self.postMetadataList = previousVisibleMetadata
+                                self.replyCount = previousVisibleReplies.count
+                            }
+                        }
+
                         self.isLoading = false
 
                         // Calculate new posts
