@@ -285,7 +285,7 @@ class DownloadManagerViewController: UIViewController {
 
         // Configure for iPad
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(alert, animated: true)

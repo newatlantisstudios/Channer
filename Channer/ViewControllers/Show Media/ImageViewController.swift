@@ -248,7 +248,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         // iPad support
         if let popover = alertController.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(alertController, animated: true)
@@ -481,7 +481,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         // iPad support
         if let popover = activityVC.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(activityVC, animated: true)

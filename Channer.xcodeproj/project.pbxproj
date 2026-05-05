@@ -29,6 +29,7 @@
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83482DDD36CC00D75B34 /* boardsTVCell.swift */; };
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83472DDD36CC00D75B34 /* boardsTV.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
+		17SCENEDELEGATEBUILD01 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17SCENEDELEGATEFILE001 /* SceneDelegate.swift */; };
 		176EC6462245F145009F2A8D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 176EC6452245F145009F2A8D /* Assets.xcassets */; };
 		176EC6542245F145009F2A8D /* _chanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC6532245F145009F2A8D /* _chanTests.swift */; };
 		176EC65F2245F145009F2A8D /* _chanUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC65E2245F145009F2A8D /* _chanUITests.swift */; };
@@ -202,6 +203,7 @@
 		171A83482DDD36CC00D75B34 /* boardsTVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTVCell.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		176EC63E2245F144009F2A8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		17SCENEDELEGATEFILE001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		176EC6452245F145009F2A8D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		176EC64A2245F145009F2A8D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		176EC64F2245F145009F2A8D /* ChannerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChannerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -391,6 +393,7 @@
 			children = (
 				176EC64A2245F145009F2A8D /* Info.plist */,
 				176EC63E2245F144009F2A8D /* AppDelegate.swift */,
+				17SCENEDELEGATEFILE001 /* SceneDelegate.swift */,
 				176EC6452245F145009F2A8D /* Assets.xcassets */,
 			);
 			path = Application;
@@ -859,6 +862,7 @@
 				171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */,
 				17737E2F2CDC6F5000DF0874 /* boardTV.swift in Sources */,
 				176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */,
+				17SCENEDELEGATEBUILD01 /* SceneDelegate.swift in Sources */,
 				1781F6472CEEEC7B00CE243D /* boardCVCell.swift in Sources */,
 				178E88F82CFA6EEA00810132 /* settings.swift in Sources */,
 				17CF001A2DDD000000000002 /* ContentFilterViewController.swift in Sources */,

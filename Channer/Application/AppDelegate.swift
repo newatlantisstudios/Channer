@@ -150,11 +150,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         BackgroundTaskManager.shared.registerTasks()
 
         setupAppearance()
-        setupMainWindow()
         setupNotifications(application)
         setupNotificationBadgeObservers()
 
         return true
+    }
+
+    func application(_ application: UIApplication,
+                     configurationForConnecting connectingSceneSession: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
     /// Called when the application enters the background
@@ -667,17 +672,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             UINavigationBar.appearance().compactScrollEdgeAppearance = appearance
         }
     }
-    
-    // MARK: - Window Setup
-    /// Sets up the main application window and root view controller.
-    private func setupMainWindow() {
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = createRootNavigationController()
-        window?.makeKeyAndVisible()
-        
-        // Global keyboard shortcuts are handled by each view controller
-    }
-    
     
     // MARK: - Navigation Controller Setup
     /// Creates the main navigation controller that will be used as the root view controller.

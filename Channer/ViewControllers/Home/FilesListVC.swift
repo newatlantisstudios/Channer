@@ -158,12 +158,12 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         
         view.addSubview(collectionView)
         
-        // Set up constraints for full screen
+        // Extend behind the bottom toolbar so its transparent chrome shows content like boardsTV.
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
@@ -210,10 +210,14 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
     /// Sets up navigation bar buttons for selection mode
     private func setupNavigationBar() {
         selectButton = UIBarButtonItem(title: "Select", style: .plain, target: self, action: #selector(selectButtonTapped))
+        selectButton.tintColor = .black
         cancelButton = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelButtonTapped))
+        cancelButton.tintColor = .black
         deleteButton = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(deleteSelectedItems))
+        deleteButton.tintColor = .black
         deleteButton.isEnabled = false
         moveButton = UIBarButtonItem(title: "Move", style: .plain, target: self, action: #selector(moveSelectedItemsAction))
+        moveButton.tintColor = .black
         moveButton.isEnabled = false
 
         downloadManagerButton = UIBarButtonItem(
@@ -222,8 +226,10 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
             target: self,
             action: #selector(openDownloadManager)
         )
+        downloadManagerButton.tintColor = .black
 
         optionsButton = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"), style: .plain, target: nil, action: nil)
+        optionsButton.tintColor = .black
         optionsButton.menu = makeOptionsMenu()
 
         navigationItem.rightBarButtonItems = [selectButton, optionsButton, downloadManagerButton]
@@ -466,7 +472,7 @@ class FilesListVC: UIViewController, UICollectionViewDataSource, UICollectionVie
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = moveButton
+            popover.channerAnchor(in: self, barButtonItem: moveButton)
         }
 
         present(alert, animated: true)

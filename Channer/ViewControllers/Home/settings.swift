@@ -1180,11 +1180,10 @@ class settings: UIViewController {
     }
     
     @objc private func themeSettingsButtonTapped() {
-        // Create an alert controller with all available themes
         let alertController = UIAlertController(
             title: "Select Theme",
             message: "Choose an app theme to apply",
-            preferredStyle: .actionSheet
+            preferredStyle: .alert
         )
         
         // Get built-in themes
@@ -1192,7 +1191,8 @@ class settings: UIViewController {
         
         // Add an action for each theme
         for theme in themes {
-            let action = UIAlertAction(title: theme.name, style: .default) { [weak self] _ in
+            let title = theme.id == ThemeManager.shared.currentTheme.id ? "\(theme.name) (Current)" : theme.name
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
                 // Apply theme immediately
                 ThemeManager.shared.setTheme(id: theme.id)
                 
@@ -1209,12 +1209,7 @@ class settings: UIViewController {
                     confirmToast.dismiss(animated: true)
                 }
             }
-            
-            // Add a checkmark to the currently selected theme
-            if theme.id == ThemeManager.shared.currentTheme.id {
-                action.setValue(true, forKey: "checked")
-            }
-            
+
             alertController.addAction(action)
         }
         
@@ -1456,9 +1451,12 @@ class settings: UIViewController {
         
         // iPad-specific popover configuration
         if let popoverController = alertController.popoverPresentationController {
-            popoverController.sourceView = autoRefreshButton
-            popoverController.sourceRect = autoRefreshButton.bounds
-            popoverController.permittedArrowDirections = .up
+            popoverController.channerAnchor(
+                in: self,
+                sourceView: autoRefreshButton,
+                sourceRect: autoRefreshButton.bounds,
+                permittedArrowDirections: .up
+            )
         }
         
         // Present the alert
@@ -1650,9 +1648,12 @@ class settings: UIViewController {
         
         // iPad-specific popover configuration
         if let popoverController = alertController.popoverPresentationController {
-            popoverController.sourceView = autoRefreshButton
-            popoverController.sourceRect = autoRefreshButton.bounds
-            popoverController.permittedArrowDirections = .up
+            popoverController.channerAnchor(
+                in: self,
+                sourceView: autoRefreshButton,
+                sourceRect: autoRefreshButton.bounds,
+                permittedArrowDirections: .up
+            )
         }
         
         // Present the alert
@@ -2797,7 +2798,7 @@ class settings: UIViewController {
             }
         }
         
-        let navController = UINavigationController(rootViewController: boardSelectorVC)
+        let navController = CatalystNavigationController(rootViewController: boardSelectorVC)
         if let sheet = navController.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
@@ -3355,8 +3356,7 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.sourceView = cell
-            popover.sourceRect = cell.bounds
+            popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds, permittedArrowDirections: [.up, .down])
         }
 
         present(alert, animated: true)
@@ -3382,8 +3382,7 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.sourceView = cell
-            popover.sourceRect = cell.bounds
+            popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds, permittedArrowDirections: [.up, .down])
         }
 
         present(alert, animated: true)
@@ -3573,8 +3572,7 @@ final class MediaPrefetchBoardRulesViewController: UIViewController, UITableView
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.sourceView = cell
-            popover.sourceRect = cell.bounds
+            popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds, permittedArrowDirections: [.up, .down])
         }
 
         present(alert, animated: true)

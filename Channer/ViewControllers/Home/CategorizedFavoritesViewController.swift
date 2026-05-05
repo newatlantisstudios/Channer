@@ -74,6 +74,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
             action: #selector(showCategoryManager)
         )
         manageButton.accessibilityLabel = "Manage Categories"
+        manageButton.tintColor = .black
 
         let removeDeadButton = UIBarButtonItem(
             image: UIImage(systemName: "trash"),
@@ -82,6 +83,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
             action: #selector(removeDeadFavoritesTapped)
         )
         removeDeadButton.accessibilityLabel = "Remove Dead Threads"
+        removeDeadButton.tintColor = .black
         navigationItem.rightBarButtonItems = [manageButton, removeDeadButton]
 
         // Setup search controller
@@ -184,7 +186,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     @objc private func showCategoryManager() {
         let categoryManagerVC = CategoryManagerViewController()
         categoryManagerVC.delegate = self
-        let navController = UINavigationController(rootViewController: categoryManagerVC)
+        let navController = CatalystNavigationController(rootViewController: categoryManagerVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }

@@ -174,6 +174,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Add toolbox button that contains History, Favorites, Search, and Files
         let toolboxImage = UIImage(named: "toolbox")?.withRenderingMode(.alwaysTemplate).resized(to: CGSize(width: 22, height: 22))
         let toolboxButton = UIBarButtonItem(image: toolboxImage, style: .plain, target: self, action: #selector(showToolboxMenu))
+        toolboxButton.tintColor = .black
         navigationItem.leftBarButtonItem = toolboxButton
         
         // Add notification bell button
@@ -182,12 +183,14 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Scale to exact size to ensure consistency
         let resizedBellImage = bellImage?.resized(to: CGSize(width: 22, height: 22))
         let notificationButton = UIBarButtonItem(image: resizedBellImage, style: .plain, target: self, action: #selector(showNotifications))
+        notificationButton.tintColor = .black
         notificationButton.tag = 100 // Tag for updating badge later
         
         // Add settings button
         let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
         let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
         let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
+        settingsButton.tintColor = .black
         settingsButton.accessibilityLabel = "Settings"
         settingsButton.accessibilityIdentifier = "Settings"
 
@@ -430,7 +433,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     /// Shows the notifications view controller
     @objc private func showNotifications() {
         let notificationsVC = NotificationsViewController()
-        let navController = UINavigationController(rootViewController: notificationsVC)
+        let navController = CatalystNavigationController(rootViewController: notificationsVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }
@@ -461,11 +464,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
                     iconName = "bell.badge.fill"
                 }
                 
-                // Set tint color to indicate unread
-                notificationButton.tintColor = .systemRed
+                notificationButton.tintColor = .black
             } else {
                 iconName = "bell"
-                notificationButton.tintColor = nil // Use default tint color
+                notificationButton.tintColor = .black
             }
             
             // Create and resize the icon consistently with other nav buttons
@@ -523,7 +525,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         
         // For iPad, set the popover presentation controller
         if let popover = alertController.popoverPresentationController {
-            popover.barButtonItem = navigationItem.leftBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.leftBarButtonItem)
         }
         
         // Present the alert controller
@@ -574,7 +576,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             navController.pushViewController(vc, animated: true)
         } else {
             // Fallback to modal presentation if navigation controller is not available
-            let navController = UINavigationController(rootViewController: vc)
+            let navController = CatalystNavigationController(rootViewController: vc)
             navController.modalPresentationStyle = .fullScreen
             present(navController, animated: true)
         }

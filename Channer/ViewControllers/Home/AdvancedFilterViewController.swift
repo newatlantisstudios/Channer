@@ -178,7 +178,7 @@ class AdvancedFilterViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.barButtonItem = navigationItem.rightBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
         }
 
         present(alert, animated: true)
@@ -234,9 +234,7 @@ class AdvancedFilterViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
-            popover.permittedArrowDirections = []
+            popover.channerAnchor(in: self)
         }
 
         present(alert, animated: true)
@@ -290,12 +288,11 @@ class AdvancedFilterViewController: UIViewController {
         modeAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         alert.addAction(UIAlertAction(title: "Next", style: .default) { [weak self] _ in
+            guard let self = self else { return }
             if let popover = modeAlert.popoverPresentationController {
-                popover.sourceView = self?.view
-                popover.sourceRect = CGRect(x: self?.view.bounds.midX ?? 0, y: self?.view.bounds.midY ?? 0, width: 0, height: 0)
-                popover.permittedArrowDirections = []
+                popover.channerAnchor(in: self)
             }
-            self?.present(modeAlert, animated: true)
+            self.present(modeAlert, animated: true)
         })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -336,12 +333,11 @@ class AdvancedFilterViewController: UIViewController {
         unitAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         alert.addAction(UIAlertAction(title: "Next", style: .default) { [weak self] _ in
+            guard let self = self else { return }
             if let popover = unitAlert.popoverPresentationController {
-                popover.sourceView = self?.view
-                popover.sourceRect = CGRect(x: self?.view.bounds.midX ?? 0, y: self?.view.bounds.midY ?? 0, width: 0, height: 0)
-                popover.permittedArrowDirections = []
+                popover.channerAnchor(in: self)
             }
-            self?.present(unitAlert, animated: true)
+            self.present(unitAlert, animated: true)
         })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -517,8 +513,13 @@ extension AdvancedFilterViewController: UITableViewDelegate {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = alert.popoverPresentationController {
-            popover.sourceView = tableView.cellForRow(at: indexPath)
-            popover.sourceRect = tableView.cellForRow(at: indexPath)?.bounds ?? .zero
+            let cell = tableView.cellForRow(at: indexPath)
+            popover.channerAnchor(
+                in: self,
+                sourceView: cell ?? tableView,
+                sourceRect: cell?.bounds ?? tableView.rectForRow(at: indexPath),
+                permittedArrowDirections: [.up, .down]
+            )
         }
 
         present(alert, animated: true)

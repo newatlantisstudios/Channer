@@ -61,7 +61,7 @@ class CategoryManagerViewController: UIViewController, UITableViewDelegate, UITa
 
         // Wrap in navigation controller if presented modally without one
         if navigationController == nil {
-            let navController = UINavigationController(rootViewController: self)
+            let navController = CatalystNavigationController(rootViewController: self)
             navController.modalPresentationStyle = .formSheet
             navController.navigationBar.prefersLargeTitles = false
         }

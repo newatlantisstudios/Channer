@@ -406,7 +406,7 @@ class boardsTV: UITableViewController {
     /// Shows the notifications view controller
     @objc private func showNotifications() {
         let notificationsVC = NotificationsViewController()
-        let navController = UINavigationController(rootViewController: notificationsVC)
+        let navController = CatalystNavigationController(rootViewController: notificationsVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }
@@ -499,7 +499,7 @@ class boardsTV: UITableViewController {
         
         // For iPad, set the popover presentation controller
         if let popover = alertController.popoverPresentationController {
-            popover.barButtonItem = navigationItem.leftBarButtonItem
+            popover.channerAnchor(in: self, barButtonItem: navigationItem.leftBarButtonItem)
         }
         
         // Present the alert controller
@@ -550,7 +550,7 @@ class boardsTV: UITableViewController {
             navController.pushViewController(vc, animated: true)
         } else {
             // Fallback to modal presentation if navigation controller is not available
-            let navController = UINavigationController(rootViewController: vc)
+            let navController = CatalystNavigationController(rootViewController: vc)
             navController.modalPresentationStyle = .fullScreen
             present(navController, animated: true)
         }
