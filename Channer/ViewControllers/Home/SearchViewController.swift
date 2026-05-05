@@ -4,7 +4,7 @@ import SwiftyJSON
 
 /// View controller for searching threads across boards
 /// Provides thread search functionality with board filtering and result display
-class SearchViewController: UIViewController {
+class SearchViewController: UIViewController, BottomToolbarSearchProviding {
 
     // MARK: - Properties
     private static let isMacCatalyst: Bool = {
@@ -54,6 +54,14 @@ class SearchViewController: UIViewController {
         formatter.timeStyle = .short
         return formatter
     }()
+
+    var bottomToolbarSearchController: UISearchController? {
+        return searchController
+    }
+
+    var bottomToolbarSearchInitiallyExpanded: Bool {
+        return true
+    }
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -354,7 +362,7 @@ class SearchViewController: UIViewController {
         let boards = BoardsService.shared.boards
         let picker = BoardPickerViewController(boards: boards, selectedBoard: currentBoard)
         picker.delegate = self
-        let navController = UINavigationController(rootViewController: picker)
+        let navController = CatalystNavigationController(rootViewController: picker)
         let idiom = UIDevice.current.userInterfaceIdiom
         let usePopover: Bool
 #if targetEnvironment(macCatalyst)
@@ -433,7 +441,7 @@ class SearchViewController: UIViewController {
             guard let self, self.presentedViewController == nil else { return }
             let filtersVC = SearchFiltersViewController(filters: self.activeFilters)
             filtersVC.delegate = self
-            let navController = UINavigationController(rootViewController: filtersVC)
+            let navController = CatalystNavigationController(rootViewController: filtersVC)
             self.present(navController, animated: true)
         }
     }

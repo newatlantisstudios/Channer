@@ -724,7 +724,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
 
         print("Debug (iPad): Presenting image gallery with \(imageURLs.count) images")
-        let navController = UINavigationController(rootViewController: galleryVC)
+        let navController = CatalystNavigationController(rootViewController: galleryVC)
         self.present(navController, animated: true, completion: nil)
     }
     
@@ -783,7 +783,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: threadNum, quoteText: quoteText)
         composeVC.delegate = self
-        let navController = UINavigationController(rootViewController: composeVC)
+        let navController = CatalystNavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }

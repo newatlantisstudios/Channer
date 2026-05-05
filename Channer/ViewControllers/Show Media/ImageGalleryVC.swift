@@ -1018,7 +1018,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             if let navController = navigationController {
                 navController.pushViewController(vlcVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: vlcVC)
+                let navController = CatalystNavigationController(rootViewController: vlcVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
@@ -1037,7 +1037,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: urlWebVC)
+                let navController = CatalystNavigationController(rootViewController: urlWebVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
@@ -1066,7 +1066,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             if let navController = navigationController {
                 navController.pushViewController(imageVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: imageVC)
+                let navController = CatalystNavigationController(rootViewController: imageVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }

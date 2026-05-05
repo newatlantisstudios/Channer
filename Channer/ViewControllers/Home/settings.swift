@@ -2620,7 +2620,7 @@ class settings: UIViewController {
             }
         }
         
-        let navController = UINavigationController(rootViewController: boardSelectorVC)
+        let navController = CatalystNavigationController(rootViewController: boardSelectorVC)
         if let sheet = navController.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true

@@ -869,7 +869,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     @objc private func showNewThreadCompose() {
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
         composeVC.delegate = self
-        let navController = UINavigationController(rootViewController: composeVC)
+        let navController = CatalystNavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }

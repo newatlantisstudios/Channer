@@ -184,7 +184,7 @@ class CategorizedFavoritesViewController: UIViewController, CategoryManagerDeleg
     @objc private func showCategoryManager() {
         let categoryManagerVC = CategoryManagerViewController()
         categoryManagerVC.delegate = self
-        let navController = UINavigationController(rootViewController: categoryManagerVC)
+        let navController = CatalystNavigationController(rootViewController: categoryManagerVC)
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }

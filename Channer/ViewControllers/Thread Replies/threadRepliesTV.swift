@@ -1179,7 +1179,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         activeComposeVC = composeVC  // Store reference so minimize works
         print("[DEBUG] showComposeViewWithQuote - set activeComposeVC: \(String(describing: activeComposeVC))")
 
-        let navController = UINavigationController(rootViewController: composeVC)
+        let navController = CatalystNavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .pageSheet
         navController.isModalInPresentation = true
         if let sheet = navController.sheetPresentationController {
@@ -1329,7 +1329,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             navController.pushViewController(galleryVC, animated: true)
         } else {
             print("Navigation controller is nil. Attempting modal presentation.")
-            let navController = UINavigationController(rootViewController: galleryVC)
+            let navController = CatalystNavigationController(rootViewController: galleryVC)
             present(navController, animated: true)
         }
     }
@@ -2749,7 +2749,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if let navController = navigationController {
                 navController.pushViewController(vlcVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: vlcVC)
+                let navController = CatalystNavigationController(rootViewController: vlcVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
@@ -2770,7 +2770,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if let navController = navigationController {
                 navController.pushViewController(urlWebVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: urlWebVC)
+                let navController = CatalystNavigationController(rootViewController: urlWebVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
@@ -2819,7 +2819,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             if let navController = navigationController {
                 navController.pushViewController(imageVC, animated: true)
             } else {
-                let navController = UINavigationController(rootViewController: imageVC)
+                let navController = CatalystNavigationController(rootViewController: imageVC)
                 navController.modalPresentationStyle = .fullScreen
                 present(navController, animated: true)
             }
@@ -2929,7 +2929,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             navController.pushViewController(newThreadVC, animated: true)
         } else {
             // Fallback to modal presentation for iPhones
-            let navController = UINavigationController(rootViewController: newThreadVC)
+            let navController = CatalystNavigationController(rootViewController: newThreadVC)
             navController.modalPresentationStyle = .fullScreen
             present(navController, animated: true)
         }
@@ -3258,7 +3258,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     composeVC.removeFromParent()
                 }
 
-                let navController = UINavigationController(rootViewController: composeVC)
+                let navController = CatalystNavigationController(rootViewController: composeVC)
                 navController.modalPresentationStyle = .pageSheet
                 navController.isModalInPresentation = true
                 if let sheet = navController.sheetPresentationController {
@@ -3278,7 +3278,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         composeVC.delegate = self
         activeComposeVC = composeVC
 
-        let navController = UINavigationController(rootViewController: composeVC)
+        let navController = CatalystNavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .pageSheet
         navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
         if let sheet = navController.sheetPresentationController {
@@ -3407,7 +3407,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 print("[DEBUG] composeVC has no parent")
             }
 
-            let navController = UINavigationController(rootViewController: composeVC)
+            let navController = CatalystNavigationController(rootViewController: composeVC)
             navController.modalPresentationStyle = .pageSheet
             navController.isModalInPresentation = true
             if let sheet = navController.sheetPresentationController {
@@ -3436,7 +3436,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         composeVC.delegate = self
         activeComposeVC = composeVC
 
-        let navController = UINavigationController(rootViewController: composeVC)
+        let navController = CatalystNavigationController(rootViewController: composeVC)
         navController.modalPresentationStyle = .pageSheet
         navController.isModalInPresentation = true  // Prevent dismissal by swipe - must tap Cancel
         if let sheet = navController.sheetPresentationController {
