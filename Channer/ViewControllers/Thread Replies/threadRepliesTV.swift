@@ -350,6 +350,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // Scroll performance optimization
     private var isScrolling = false
     private var pendingImageLoads = Set<IndexPath>()
+    private var hasRestoredSavedScrollPosition = false
     
     // Reload throttling
     private var reloadTimer: Timer?
@@ -495,6 +496,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                              selector: #selector(thumbnailSizeDidChange),
                                              name: .thumbnailSizeDidChange,
                                              object: nil)
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(applicationDidEnterBackground),
+                                             name: UIApplication.didEnterBackgroundNotification,
+                                             object: nil)
                                              
         // Enable hover interactions for Apple Pencil
         #if canImport(UIHoverGestureRecognizer)
@@ -585,6 +590,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         super.viewWillDisappear(animated)
 
         resignFirstResponder()
+        saveCurrentScrollPosition()
         
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -611,6 +617,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 UIApplication.shared.applicationIconBadgeNumber = badgeCount
             }
         }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -977,6 +987,89 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
             self.scrollToPostNumber = nil
         }
+    }
+
+    @objc private func applicationDidEnterBackground() {
+        saveCurrentScrollPosition()
+    }
+
+    private func saveCurrentScrollPosition() {
+        guard shouldLoadFullThread, !threadNumber.isEmpty, !boardAbv.isEmpty else { return }
+
+        let visibleIndexPaths = (tableView.indexPathsForVisibleRows ?? []).sorted { $0.row < $1.row }
+        let viewportTop = tableView.contentOffset.y + tableView.adjustedContentInset.top
+
+        let anchorIndexPath = visibleIndexPaths.first { indexPath in
+            tableView.rectForRow(at: indexPath).maxY > viewportTop
+        } ?? visibleIndexPaths.first
+
+        guard let indexPath = anchorIndexPath else {
+            ThreadScrollPositionManager.shared.savePosition(
+                boardAbv: boardAbv,
+                threadNumber: threadNumber,
+                postNumber: nil,
+                itemIndex: 0,
+                offsetWithinItem: 0,
+                contentOffsetY: tableView.contentOffset.y
+            )
+            return
+        }
+
+        let rowRect = tableView.rectForRow(at: indexPath)
+        let postNumber = indexPath.row < threadBoardReplyNumber.count ? threadBoardReplyNumber[indexPath.row] : nil
+        ThreadScrollPositionManager.shared.savePosition(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: postNumber,
+            itemIndex: indexPath.row,
+            offsetWithinItem: viewportTop - rowRect.minY,
+            contentOffsetY: tableView.contentOffset.y
+        )
+    }
+
+    private func restoreScrollPositionIfNeeded() {
+        guard !hasRestoredSavedScrollPosition,
+              shouldLoadFullThread,
+              scrollToPostNumber == nil,
+              !threadNumber.isEmpty,
+              !boardAbv.isEmpty,
+              tableView.numberOfRows(inSection: 0) > 0,
+              let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+            return
+        }
+
+        hasRestoredSavedScrollPosition = true
+        tableView.layoutIfNeeded()
+
+        if let index = restoreIndex(for: position) {
+            let indexPath = IndexPath(row: index, section: 0)
+            tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+            tableView.layoutIfNeeded()
+            let restoredY = tableView.contentOffset.y + CGFloat(position.offsetWithinItem)
+            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(restoredY)), animated: false)
+        } else {
+            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY))), animated: false)
+        }
+    }
+
+    private func restoreIndex(for position: ThreadScrollPosition) -> Int? {
+        if let postNumber = position.postNumber,
+           let index = threadBoardReplyNumber.firstIndex(of: postNumber),
+           index < tableView.numberOfRows(inSection: 0) {
+            return index
+        }
+
+        if position.itemIndex >= 0, position.itemIndex < tableView.numberOfRows(inSection: 0) {
+            return position.itemIndex
+        }
+
+        return nil
+    }
+
+    private func clampedContentOffsetY(_ proposedY: CGFloat) -> CGFloat {
+        let minY = -tableView.adjustedContentInset.top
+        let maxY = max(minY, tableView.contentSize.height - tableView.bounds.height + tableView.adjustedContentInset.bottom)
+        return min(max(proposedY, minY), maxY)
     }
 
     // MARK: - Navigation Item Setup Methods
@@ -1704,6 +1797,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                             self.isLoading = false
                             self.loadingIndicator.stopAnimating()
                             self.tableView.reloadData()
+                            self.restoreScrollPositionIfNeeded()
                             self.scrollToPostIfNeeded()
                             self.onViewReady?()
                         }
@@ -1765,7 +1859,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     guard let self = self else { return }
                     self.isLoading = false
                     self.loadingIndicator.stopAnimating()
-                    self.debugReloadData(context: "Preload complete")
+                    self.tableView.reloadData()
+                    self.restoreScrollPositionIfNeeded()
                     self.scrollToPostIfNeeded()
                     self.onViewReady?()
                 }
@@ -1820,6 +1915,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     guard let self = self else { return }
                     self.isLoading = false
                     self.tableView.reloadData()
+                    self.restoreScrollPositionIfNeeded()
                     self.scrollToPostIfNeeded()
                 }
             } catch {

@@ -61,7 +61,8 @@ class TestDataFactory {
             "hasNewReplies": \(hasNewReplies),
             "categoryId": \(categoryId != nil ? "\"\(escapeJSON(categoryId!))\"" : "null"),
             "lastReplyTime": \(lastReplyTime),
-            "bumpIndex": null
+            "bumpIndex": null,
+            "isDead": false
         }
         """.data(using: .utf8)!
 
