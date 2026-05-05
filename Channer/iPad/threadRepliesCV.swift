@@ -91,7 +91,16 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
         threadRepliesFileNames.append(fileName)
 
-        let timestamp = dict["time"] as? Int
+        let timestamp: Int?
+        if let intValue = dict["time"] as? Int {
+            timestamp = intValue
+        } else if let numberValue = dict["time"] as? NSNumber {
+            timestamp = numberValue.intValue
+        } else if let stringValue = dict["time"] as? String, let intValue = Int(stringValue) {
+            timestamp = intValue
+        } else {
+            timestamp = nil
+        }
         threadRepliesTimestamps.append(timestamp)
 
         let posterId = dict["id"] as? String
@@ -552,7 +561,22 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     private func showPostInfo(for index: Int) {
         guard index < threadRepliesTimestamps.count, index < threadRepliesFileNames.count else { return }
 
-        let fileName = threadRepliesFileNames[index] ?? "No file attached"
+        let fileName: String
+        if let explicitFileName = threadRepliesFileNames[index], !explicitFileName.isEmpty {
+            fileName = explicitFileName
+        } else if index < threadRepliesImages.count {
+            let imageURL = threadRepliesImages[index]
+            let basePath = "https://i.4cdn.org/\(boardAbv)/"
+            if imageURL != basePath,
+               let url = URL(string: imageURL),
+               !url.lastPathComponent.isEmpty {
+                fileName = url.lastPathComponent
+            } else {
+                fileName = "No file attached"
+            }
+        } else {
+            fileName = "No file attached"
+        }
         let postedText: String
         if let timestamp = threadRepliesTimestamps[index] {
             let date = Date(timeIntervalSince1970: TimeInterval(timestamp))
