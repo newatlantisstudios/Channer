@@ -32,11 +32,15 @@ final class BoardPickerViewController: UIViewController, UITableViewDataSource, 
         title = "Select Board"
         view.backgroundColor = ThemeManager.shared.backgroundColor
 
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .cancel,
+        let cancelButton = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
             target: self,
             action: #selector(cancelTapped)
         )
+        cancelButton.accessibilityLabel = "Cancel"
+        cancelButton.tintColor = .black
+        navigationItem.leftBarButtonItem = cancelButton
 
         setupSearchBar()
         setupTableView()
