@@ -26,6 +26,7 @@ class settings: UIViewController {
     private let offlineReadingLabel = UILabel()
     private let offlineReadingSubtitleLabel = UILabel()
     private let offlineReadingToggle = UISwitch()
+    private let offlineReadingManageButton = UIButton(type: .system)
     private let iCloudSyncView = UIView()
     private let iCloudSyncLabel = UILabel()
     private let iCloudSyncToggle = UISwitch()
@@ -263,6 +264,7 @@ class settings: UIViewController {
     private var settingsButtons: [UIButton] {
         var buttons: [UIButton] = [
             selectBoardButton,
+            offlineReadingManageButton,
             iCloudForceSync,
             hiddenBoardsButton,
             themeSettingsButton,
@@ -382,10 +384,12 @@ class settings: UIViewController {
     // MARK: - UI Setup
     private func setupUI() {
         view.backgroundColor = ThemeManager.shared.backgroundColor
+        extendedLayoutIncludesOpaqueBars = true
         
         // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
+        scrollView.contentInsetAdjustmentBehavior = .automatic
         view.addSubview(scrollView)
         
         // Setup content view
@@ -501,19 +505,12 @@ class settings: UIViewController {
         offlineReadingToggle.addTarget(self, action: #selector(offlineReadingToggleChanged), for: .valueChanged)
         offlineReadingView.addSubview(offlineReadingToggle)
         
-        // Add 'Manage' button for offline threads
-        let manageButton = UIButton(type: .system)
-        manageButton.setTitle("Manage", for: .normal)
-        manageButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        manageButton.translatesAutoresizingMaskIntoConstraints = false
-        manageButton.addTarget(self, action: #selector(manageOfflineThreads), for: .touchUpInside)
-        offlineReadingView.addSubview(manageButton)
-        
-        // Set constraints for the manage button
-        NSLayoutConstraint.activate([
-            manageButton.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
-            manageButton.trailingAnchor.constraint(equalTo: offlineReadingToggle.leadingAnchor, constant: -15)
-        ])
+        // Offline Reading Manage Button
+        offlineReadingManageButton.setTitle("Manage", for: .normal)
+        offlineReadingManageButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        offlineReadingManageButton.translatesAutoresizingMaskIntoConstraints = false
+        offlineReadingManageButton.addTarget(self, action: #selector(manageOfflineThreads), for: .touchUpInside)
+        offlineReadingView.addSubview(offlineReadingManageButton)
         
         // iCloud Sync View
         iCloudSyncView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -925,6 +922,7 @@ class settings: UIViewController {
         setupDebugView()
         #endif
 
+        configureSettingsTextFitting()
         setupConstraints()
         applyTheme()
 
@@ -964,6 +962,79 @@ class settings: UIViewController {
         view.layer.borderWidth = 1
         view.layer.borderColor = ThemeManager.shared.cellBorderColor.resolvedColor(with: traitCollection).cgColor
         view.clipsToBounds = true
+    }
+
+    private func configureSettingsTextFitting() {
+        let singleLinePrimaryLabels: Set<UILabel> = [
+            selectedBoardLabel,
+            offlineReadingLabel,
+            iCloudSyncLabel,
+            fontSizeValueLabel,
+            newPostBehaviorLabel
+        ]
+
+        primarySettingsLabels.forEach { label in
+            label.lineBreakMode = singleLinePrimaryLabels.contains(label) ? .byTruncatingTail : .byWordWrapping
+            label.numberOfLines = singleLinePrimaryLabels.contains(label) ? 1 : 2
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.7
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        }
+
+        secondarySettingsLabels.forEach { label in
+            label.lineBreakMode = .byWordWrapping
+            label.numberOfLines = 2
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.75
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        }
+
+        settingsButtons.forEach {
+            $0.setContentCompressionResistancePriority(.required, for: .horizontal)
+            $0.setContentHuggingPriority(.required, for: .horizontal)
+        }
+
+        [
+            faceIDToggle,
+            notificationsToggle,
+            offlineReadingToggle,
+            iCloudSyncToggle,
+            launchWithStartupBoardToggle,
+            autoRandomizeFilenameToggle,
+            highQualityThumbnailsToggle,
+            preloadVideosToggle,
+            defaultVideoMutedToggle,
+            videoPreviewDownloadsToggle,
+            hoverVideoSoundToggle,
+            keyboardShortcutsToggle
+        ].forEach {
+            $0.setContentCompressionResistancePriority(.required, for: .horizontal)
+            $0.setContentHuggingPriority(.required, for: .horizontal)
+        }
+
+        [
+            newPostBehaviorSegment,
+            gridItemSizeSegment,
+            galleryCellSizeSegment,
+            thumbnailSizeSegment,
+            hoverVideoSizeSegment,
+            hoverImageSizeSegment
+        ].forEach {
+            $0.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            $0.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        }
+
+        if let boardsDisplayModeSegment = boardsDisplayModeSegment {
+            boardsDisplayModeSegment.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            boardsDisplayModeSegment.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        }
+
+        if let threadsDisplayModeSegment = threadsDisplayModeSegment {
+            threadsDisplayModeSegment.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            threadsDisplayModeSegment.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        }
     }
 
     @objc private func faceIDToggleChanged(_ sender: UISwitch) {
@@ -1749,7 +1820,8 @@ class settings: UIViewController {
 
             thumbnailSizeSegment.centerYAnchor.constraint(equalTo: thumbnailSizeView.centerYAnchor),
             thumbnailSizeSegment.trailingAnchor.constraint(equalTo: thumbnailSizeView.trailingAnchor, constant: -20),
-            thumbnailSizeSegment.widthAnchor.constraint(equalToConstant: 260),
+            thumbnailSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 260),
+            thumbnailSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: thumbnailSizeView.widthAnchor, multiplier: 0.62),
         ])
     }
 
@@ -1795,7 +1867,8 @@ class settings: UIViewController {
 
             galleryCellSizeSegment.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
             galleryCellSizeSegment.trailingAnchor.constraint(equalTo: galleryCellSizeView.trailingAnchor, constant: -20),
-            galleryCellSizeSegment.widthAnchor.constraint(equalToConstant: 280)
+            galleryCellSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
+            galleryCellSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: galleryCellSizeView.widthAnchor, multiplier: 0.62)
         ])
     }
 
@@ -2003,7 +2076,8 @@ class settings: UIViewController {
 
             hoverVideoSizeSegment.centerYAnchor.constraint(equalTo: hoverVideoSizeView.centerYAnchor),
             hoverVideoSizeSegment.trailingAnchor.constraint(equalTo: hoverVideoSizeView.trailingAnchor, constant: -20),
-            hoverVideoSizeSegment.widthAnchor.constraint(equalToConstant: 200),
+            hoverVideoSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 200),
+            hoverVideoSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: hoverVideoSizeView.widthAnchor, multiplier: 0.58),
         ])
     }
 
@@ -2049,7 +2123,8 @@ class settings: UIViewController {
 
             hoverImageSizeSegment.centerYAnchor.constraint(equalTo: hoverImageSizeView.centerYAnchor),
             hoverImageSizeSegment.trailingAnchor.constraint(equalTo: hoverImageSizeView.trailingAnchor, constant: -20),
-            hoverImageSizeSegment.widthAnchor.constraint(equalToConstant: 260),
+            hoverImageSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 260),
+            hoverImageSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: hoverImageSizeView.widthAnchor, multiplier: 0.62),
         ])
     }
 
@@ -2229,7 +2304,8 @@ class settings: UIViewController {
             // Boards Display Mode Segment
             boardsDisplayModeSegment.centerYAnchor.constraint(equalTo: boardsDisplayModeView.centerYAnchor),
             boardsDisplayModeSegment.trailingAnchor.constraint(equalTo: boardsDisplayModeView.trailingAnchor, constant: -20),
-            boardsDisplayModeSegment.widthAnchor.constraint(equalToConstant: 120)
+            boardsDisplayModeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 120),
+            boardsDisplayModeSegment.widthAnchor.constraint(lessThanOrEqualTo: boardsDisplayModeView.widthAnchor, multiplier: 0.42)
         ])
     }
 
@@ -2279,7 +2355,8 @@ class settings: UIViewController {
 
             gridItemSizeSegment.centerYAnchor.constraint(equalTo: gridItemSizeView.centerYAnchor),
             gridItemSizeSegment.trailingAnchor.constraint(equalTo: gridItemSizeView.trailingAnchor, constant: -20),
-            gridItemSizeSegment.widthAnchor.constraint(equalToConstant: 220)
+            gridItemSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 220),
+            gridItemSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: gridItemSizeView.widthAnchor, multiplier: 0.58)
         ])
 
         let isCatalog = UserDefaults.standard.integer(forKey: threadsDisplayModeKey) == ThreadDisplayMode.catalog.rawValue
@@ -2336,7 +2413,8 @@ class settings: UIViewController {
 
             threadsDisplayModeSegment.centerYAnchor.constraint(equalTo: threadsDisplayModeView.centerYAnchor),
             threadsDisplayModeSegment.trailingAnchor.constraint(equalTo: threadsDisplayModeView.trailingAnchor, constant: -20),
-            threadsDisplayModeSegment.widthAnchor.constraint(equalToConstant: 140)
+            threadsDisplayModeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 140),
+            threadsDisplayModeSegment.widthAnchor.constraint(lessThanOrEqualTo: threadsDisplayModeView.widthAnchor, multiplier: 0.46)
         ])
     }
     
@@ -2404,7 +2482,7 @@ class settings: UIViewController {
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
             // Content View
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
@@ -2418,7 +2496,6 @@ class settings: UIViewController {
             selectedBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             selectedBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             selectedBoardView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            selectedBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Selected Board Label
             selectedBoardLabel.centerYAnchor.constraint(equalTo: selectedBoardView.centerYAnchor),
@@ -2434,7 +2511,6 @@ class settings: UIViewController {
             launchWithStartupBoardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             launchWithStartupBoardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             launchWithStartupBoardView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            launchWithStartupBoardView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Launch With Startup Board Label
             launchWithStartupBoardLabel.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
@@ -2450,11 +2526,11 @@ class settings: UIViewController {
             hiddenBoardsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             hiddenBoardsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             hiddenBoardsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            hiddenBoardsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Hidden Boards Label
             hiddenBoardsLabel.centerYAnchor.constraint(equalTo: hiddenBoardsView.centerYAnchor),
             hiddenBoardsLabel.leadingAnchor.constraint(equalTo: hiddenBoardsView.leadingAnchor, constant: 20),
+            hiddenBoardsLabel.trailingAnchor.constraint(lessThanOrEqualTo: hiddenBoardsCountLabel.leadingAnchor, constant: -10),
 
             // Hidden Boards Count Label
             hiddenBoardsCountLabel.centerYAnchor.constraint(equalTo: hiddenBoardsView.centerYAnchor),
@@ -2469,8 +2545,6 @@ class settings: UIViewController {
             faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             faceIDView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            // Ensure the view is wide enough
-            faceIDView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // FaceID Label
             faceIDLabel.centerYAnchor.constraint(equalTo: faceIDView.centerYAnchor),
@@ -2487,7 +2561,6 @@ class settings: UIViewController {
             notificationsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             notificationsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             notificationsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            notificationsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Notifications Label
             notificationsLabel.centerYAnchor.constraint(equalTo: notificationsView.centerYAnchor),
@@ -2503,17 +2576,20 @@ class settings: UIViewController {
             offlineReadingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             offlineReadingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             offlineReadingView.heightAnchor.constraint(equalToConstant: scaledSubtitleRowHeight),
-            offlineReadingView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Offline Reading Label
             offlineReadingLabel.topAnchor.constraint(equalTo: offlineReadingView.topAnchor, constant: 10),
             offlineReadingLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
-            offlineReadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
+            offlineReadingLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingManageButton.leadingAnchor, constant: -12),
 
             // Offline Reading Subtitle Label
             offlineReadingSubtitleLabel.topAnchor.constraint(equalTo: offlineReadingLabel.bottomAnchor, constant: 2),
             offlineReadingSubtitleLabel.leadingAnchor.constraint(equalTo: offlineReadingView.leadingAnchor, constant: 20),
-            offlineReadingSubtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingToggle.leadingAnchor, constant: -15),
+            offlineReadingSubtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: offlineReadingManageButton.leadingAnchor, constant: -12),
+
+            // Offline Reading Manage Button
+            offlineReadingManageButton.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
+            offlineReadingManageButton.trailingAnchor.constraint(equalTo: offlineReadingToggle.leadingAnchor, constant: -12),
 
             // Offline Reading Toggle
             offlineReadingToggle.centerYAnchor.constraint(equalTo: offlineReadingView.centerYAnchor),
@@ -2524,7 +2600,6 @@ class settings: UIViewController {
             iCloudSyncView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             iCloudSyncView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             iCloudSyncView.heightAnchor.constraint(equalToConstant: scaledICloudRowHeight),
-            iCloudSyncView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // iCloud Sync Label
             iCloudSyncLabel.topAnchor.constraint(equalTo: iCloudSyncView.topAnchor, constant: 10),
@@ -2549,7 +2624,6 @@ class settings: UIViewController {
             themeSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             themeSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             themeSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            themeSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Theme Settings Label
             themeSettingsLabel.centerYAnchor.constraint(equalTo: themeSettingsView.centerYAnchor),
@@ -2565,7 +2639,6 @@ class settings: UIViewController {
             fontSizeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             fontSizeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             fontSizeView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            fontSizeView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Font Size Label
             fontSizeLabel.centerYAnchor.constraint(equalTo: fontSizeView.centerYAnchor),
@@ -2586,7 +2659,6 @@ class settings: UIViewController {
             contentFilteringView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             contentFilteringView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             contentFilteringView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            contentFilteringView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Content Filtering Label
             contentFilteringLabel.centerYAnchor.constraint(equalTo: contentFilteringView.centerYAnchor),
@@ -2602,7 +2674,6 @@ class settings: UIViewController {
             watchRulesView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             watchRulesView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             watchRulesView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            watchRulesView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Watch Rules Label
             watchRulesLabel.centerYAnchor.constraint(equalTo: watchRulesView.centerYAnchor),
@@ -2618,7 +2689,6 @@ class settings: UIViewController {
             autoRefreshView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             autoRefreshView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             autoRefreshView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            autoRefreshView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
             
             // Auto-refresh Label
             autoRefreshLabel.centerYAnchor.constraint(equalTo: autoRefreshView.centerYAnchor),
@@ -2634,7 +2704,6 @@ class settings: UIViewController {
             statisticsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             statisticsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             statisticsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            statisticsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Statistics Label
             statisticsLabel.centerYAnchor.constraint(equalTo: statisticsView.centerYAnchor),
@@ -2650,7 +2719,6 @@ class settings: UIViewController {
             passSettingsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             passSettingsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             passSettingsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-            passSettingsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // Pass Status Indicator
             passStatusIndicator.centerYAnchor.constraint(equalTo: passSettingsView.centerYAnchor),
@@ -2672,7 +2740,6 @@ class settings: UIViewController {
             newPostBehaviorView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             newPostBehaviorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             newPostBehaviorView.heightAnchor.constraint(equalToConstant: scaledNewPostRowHeight),
-            newPostBehaviorView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
             // New Post Behavior Label
             newPostBehaviorLabel.topAnchor.constraint(equalTo: newPostBehaviorView.topAnchor, constant: 10),
@@ -2694,7 +2761,6 @@ class settings: UIViewController {
                 keyboardShortcutsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 keyboardShortcutsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
                 keyboardShortcutsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-                keyboardShortcutsView.widthAnchor.constraint(greaterThanOrEqualToConstant: 340),
 
                 // Keyboard Shortcuts Label
                 keyboardShortcutsLabel.centerYAnchor.constraint(equalTo: keyboardShortcutsView.centerYAnchor),
@@ -2716,6 +2782,7 @@ class settings: UIViewController {
 
                 debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),
+                debugLabel.trailingAnchor.constraint(lessThanOrEqualTo: debugButton.leadingAnchor, constant: -15),
 
                 debugButton.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugButton.trailingAnchor.constraint(equalTo: debugView.trailingAnchor, constant: -20),
@@ -2741,6 +2808,7 @@ class settings: UIViewController {
 
                 debugLabel.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugLabel.leadingAnchor.constraint(equalTo: debugView.leadingAnchor, constant: 20),
+                debugLabel.trailingAnchor.constraint(lessThanOrEqualTo: debugButton.leadingAnchor, constant: -15),
 
                 debugButton.centerYAnchor.constraint(equalTo: debugView.centerYAnchor),
                 debugButton.trailingAnchor.constraint(equalTo: debugView.trailingAnchor, constant: -20),
