@@ -42,43 +42,134 @@ extension BottomToolbarSearchProviding {
     }
 }
 
-class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate {
+private final class BottomToolbarSearchContainer: UIView {
+    private var contentSize: CGSize
+
+    var toolbarSignature: String {
+        return "\(Int(contentSize.width.rounded()))x\(Int(contentSize.height.rounded()))"
+    }
+
+    init(
+        searchTextField: UISearchTextField,
+        showsBackButton: Bool,
+        target: Any?,
+        backAction: Selector,
+        closeAction: Selector,
+        size: CGSize
+    ) {
+        self.contentSize = size
+        super.init(frame: CGRect(origin: .zero, size: size))
+
+        isUserInteractionEnabled = true
+        translatesAutoresizingMaskIntoConstraints = false
+
+        searchTextField.translatesAutoresizingMaskIntoConstraints = false
+        searchTextField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        searchTextField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = 6
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        if showsBackButton {
+            stackView.addArrangedSubview(Self.makeIconButton(
+                systemImageName: "chevron.backward",
+                accessibilityLabel: "Back",
+                target: target,
+                action: backAction
+            ))
+        }
+
+        stackView.addArrangedSubview(searchTextField)
+        stackView.addArrangedSubview(Self.makeIconButton(
+            systemImageName: "xmark",
+            accessibilityLabel: "Close Search",
+            target: target,
+            action: closeAction
+        ))
+
+        addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: size.width),
+            heightAnchor.constraint(equalToConstant: size.height),
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            searchTextField.heightAnchor.constraint(equalToConstant: 30)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: CGSize {
+        return contentSize
+    }
+
+    private static func makeIconButton(systemImageName: String, accessibilityLabel: String, target: Any?, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        let imageConfiguration = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        button.setImage(UIImage(systemName: systemImageName, withConfiguration: imageConfiguration), for: .normal)
+        button.tintColor = .systemBlue
+        button.accessibilityLabel = accessibilityLabel
+        button.accessibilityIdentifier = accessibilityLabel
+        button.addTarget(target, action: action, for: .touchUpInside)
+
+        var configuration = UIButton.Configuration.plain()
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        button.configuration = configuration
+        button.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 32),
+            button.heightAnchor.constraint(equalToConstant: 32)
+        ])
+
+        return button
+    }
+}
+
+class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate, UITextFieldDelegate {
 
     private lazy var bottomBackButton: UIBarButtonItem = {
-        let item = UIBarButtonItem(
-            image: UIImage(systemName: "chevron.backward"),
-            style: .plain,
-            target: self,
+        return makeInternalToolbarButtonItem(
+            systemImageName: "chevron.backward",
+            accessibilityLabel: "Back",
             action: #selector(bottomBackButtonTapped)
         )
-        item.accessibilityLabel = "Back"
-        return item
     }()
 
     private lazy var bottomSearchButton: UIBarButtonItem = {
-        let item = UIBarButtonItem(
-            barButtonSystemItem: .search,
-            target: self,
+        return makeInternalToolbarButtonItem(
+            systemImageName: "magnifyingglass",
+            accessibilityLabel: "Search",
             action: #selector(bottomSearchButtonTapped)
         )
-        item.accessibilityLabel = "Search"
-        return item
     }()
 
     private lazy var bottomSearchCancelButton: UIBarButtonItem = {
-        let item = UIBarButtonItem(
-            barButtonSystemItem: .cancel,
-            target: self,
+        return makeInternalToolbarButtonItem(
+            systemImageName: "xmark",
+            accessibilityLabel: "Close Search",
             action: #selector(bottomSearchCancelButtonTapped)
         )
-        item.accessibilityLabel = "Close Search"
-        return item
     }()
 
     private var activeSearchController: UISearchController?
     private var activeSearchOwner: UIViewController?
+    private var activeToolbarSearchTextField: UISearchTextField?
+    private var activeToolbarSearchItem: UIBarButtonItem?
+    private var activeToolbarSearchShowsBackButton = false
+    private var activeToolbarSearchSize = CGSize.zero
     private var isBottomSearchExpanded = false
     private var lastToolbarSignature = ""
+    private var mirroredToolbarItems: [ObjectIdentifier: UIBarButtonItem] = [:]
 
     #if targetEnvironment(macCatalyst)
     private var mouseMonitor: AnyObject?
@@ -172,6 +263,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
             isBottomSearchExpanded = false
             activeSearchController = nil
             activeSearchOwner = nil
+            clearActiveToolbarSearchView()
         }
 
         if let searchProvider = viewController as? BottomToolbarSearchProviding,
@@ -184,23 +276,29 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         let toolbarItems = makeToolbarItems(for: viewController)
         let signature = toolbarSignature(for: viewController, items: toolbarItems)
-        guard signature != lastToolbarSignature else { return }
+        let shouldHideToolbar = (viewController as? BottomToolbarConfigurable)?.prefersBottomToolbarHidden ?? false
+        guard signature != lastToolbarSignature else {
+            setToolbarHidden(shouldHideToolbar, animated: animated)
+            return
+        }
 
+        mirroredToolbarItems.removeAll()
         lastToolbarSignature = signature
         viewController.setToolbarItems(toolbarItems, animated: animated)
 
-        let shouldHideToolbar = (viewController as? BottomToolbarConfigurable)?.prefersBottomToolbarHidden ?? false
         setToolbarHidden(shouldHideToolbar, animated: animated)
 
-        if isBottomSearchExpanded {
-            activeSearchController?.searchBar.becomeFirstResponder()
-            activeSearchController?.isActive = true
+        if isBottomSearchExpanded, let textField = activeToolbarSearchTextField {
+            DispatchQueue.main.async { [weak self, weak textField] in
+                guard self?.activeToolbarSearchTextField === textField else { return }
+                textField?.becomeFirstResponder()
+            }
         }
     }
 
     private func makeToolbarItems(for viewController: UIViewController) -> [UIBarButtonItem] {
         if isBottomSearchExpanded, let searchController = activeSearchController {
-            return makeExpandedSearchItems(searchController: searchController)
+            return makeExpandedSearchItems(searchController: searchController, for: viewController)
         }
 
         if let configurable = viewController as? BottomToolbarConfigurable {
@@ -226,7 +324,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
             if !items.isEmpty {
                 items.append(UIBarButtonItem.bottomToolbarFixedSpace(18))
             }
-            items.append(contentsOf: group.items)
+            items.append(contentsOf: mirroredItems(from: group.items))
         }
         return items
     }
@@ -263,7 +361,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         var items: [UIBarButtonItem] = []
         if !leadingItems.isEmpty {
-            items.append(contentsOf: leadingItems)
+            items.append(contentsOf: mirroredItems(from: leadingItems))
         }
 
         if !leadingItems.isEmpty && !trailingItems.isEmpty {
@@ -271,21 +369,78 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         }
 
         if !trailingItems.isEmpty {
-            items.append(contentsOf: Array(trailingItems.reversed()))
+            items.append(contentsOf: mirroredItems(from: Array(trailingItems.reversed())))
         }
 
         return items
     }
 
-    private func makeExpandedSearchItems(searchController: UISearchController) -> [UIBarButtonItem] {
+    private func makeExpandedSearchItems(searchController: UISearchController, for viewController: UIViewController) -> [UIBarButtonItem] {
         let searchBar = searchController.searchBar
-        let availableWidth = max(view.bounds.width - 96, 180)
-        searchBar.frame = CGRect(x: 0, y: 0, width: min(availableWidth, 520), height: 44)
-        searchBar.placeholder = searchBar.placeholder ?? "Search"
-        searchBar.showsCancelButton = false
+        let includesBackButton = viewControllers.first !== viewController
+        let safeWidth = view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right
+        let availableWidth = max(safeWidth > 0 ? safeWidth : view.bounds.width, 260)
+        let horizontalInset: CGFloat = traitCollection.horizontalSizeClass == .compact ? 56 : 120
+        let searchGroupWidth = min(max(availableWidth - horizontalInset, 250), 500)
+        let searchGroupSize = CGSize(width: searchGroupWidth, height: 36)
+        let placeholder = searchBar.placeholder?.isEmpty == false ? searchBar.placeholder! : "Search"
+        searchBar.placeholder = placeholder
 
-        let searchItem = UIBarButtonItem(customView: searchBar)
-        return [searchItem, UIBarButtonItem.bottomToolbarFlexibleSpace(), bottomSearchCancelButton]
+        if let searchItem = activeToolbarSearchItem,
+           activeToolbarSearchShowsBackButton == includesBackButton,
+           abs(activeToolbarSearchSize.width - searchGroupSize.width) < 1,
+           abs(activeToolbarSearchSize.height - searchGroupSize.height) < 1,
+           let searchTextField = activeToolbarSearchTextField {
+            configureToolbarSearchTextField(searchTextField, searchBar: searchBar, placeholder: placeholder)
+            return [
+                UIBarButtonItem.bottomToolbarFlexibleSpace(),
+                searchItem,
+                UIBarButtonItem.bottomToolbarFlexibleSpace()
+            ]
+        }
+
+        let searchTextField = UISearchTextField(frame: CGRect(origin: .zero, size: CGSize(width: searchGroupWidth, height: 30)))
+        configureToolbarSearchTextField(searchTextField, searchBar: searchBar, placeholder: placeholder)
+        activeToolbarSearchTextField = searchTextField
+
+        let searchContainer = BottomToolbarSearchContainer(
+            searchTextField: searchTextField,
+            showsBackButton: includesBackButton,
+            target: self,
+            backAction: #selector(bottomBackButtonTapped),
+            closeAction: #selector(bottomSearchCancelButtonTapped),
+            size: searchGroupSize
+        )
+        let searchItem = UIBarButtonItem(customView: searchContainer)
+        activeToolbarSearchItem = searchItem
+        activeToolbarSearchShowsBackButton = includesBackButton
+        activeToolbarSearchSize = searchGroupSize
+
+        return [
+            UIBarButtonItem.bottomToolbarFlexibleSpace(),
+            searchItem,
+            UIBarButtonItem.bottomToolbarFlexibleSpace()
+        ]
+    }
+
+    private func configureToolbarSearchTextField(_ searchTextField: UISearchTextField, searchBar: UISearchBar, placeholder: String) {
+        if searchTextField.text != searchBar.text {
+            searchTextField.text = searchBar.text
+        }
+        searchTextField.placeholder = placeholder
+        searchTextField.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: UIColor.placeholderText]
+        )
+        searchTextField.font = UIFont.systemFont(ofSize: 14)
+        searchTextField.textColor = .label
+        searchTextField.tintColor = .systemBlue
+        searchTextField.returnKeyType = .search
+        searchTextField.enablesReturnKeyAutomatically = true
+        searchTextField.clearButtonMode = .whileEditing
+        searchTextField.delegate = self
+        searchTextField.removeTarget(self, action: #selector(bottomToolbarSearchTextChanged(_:)), for: .editingChanged)
+        searchTextField.addTarget(self, action: #selector(bottomToolbarSearchTextChanged(_:)), for: .editingChanged)
     }
 
     private func searchController(for viewController: UIViewController) -> UISearchController? {
@@ -295,15 +450,130 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         return viewController.navigationItem.searchController
     }
 
+    private func mirroredItems(from sourceItems: [UIBarButtonItem]) -> [UIBarButtonItem] {
+        return sourceItems.map { mirroredItem(for: $0) }
+    }
+
+    private func mirroredItem(for sourceItem: UIBarButtonItem) -> UIBarButtonItem {
+        if sourceItem === bottomBackButton ||
+            sourceItem === bottomSearchButton ||
+            sourceItem === bottomSearchCancelButton ||
+            sourceItem.customView != nil {
+            return sourceItem
+        }
+
+        let identifier = ObjectIdentifier(sourceItem)
+        if let item = mirroredToolbarItems[identifier] {
+            return item
+        }
+
+        let item = UIBarButtonItem(customView: makeToolbarButton(for: sourceItem))
+
+        item.isEnabled = sourceItem.isEnabled
+        item.tintColor = sourceItem.tintColor
+        item.width = sourceItem.width
+        item.tag = sourceItem.tag
+        item.accessibilityLabel = sourceItem.accessibilityLabel
+        item.accessibilityIdentifier = sourceItem.accessibilityIdentifier
+        item.menu = sourceItem.menu
+
+        mirroredToolbarItems[identifier] = item
+        return item
+    }
+
+    private func makeToolbarButton(for sourceItem: UIBarButtonItem) -> UIButton {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.tintColor = sourceItem.tintColor
+        button.isEnabled = sourceItem.isEnabled
+        button.accessibilityLabel = sourceItem.accessibilityLabel ?? sourceItem.title
+        button.accessibilityIdentifier = sourceItem.accessibilityIdentifier
+
+        if let image = sourceItem.image {
+            button.setImage(image.withRenderingMode(.alwaysTemplate), for: .normal)
+            button.imageView?.contentMode = .scaleAspectFit
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalToConstant: max(sourceItem.width, 44)),
+                button.heightAnchor.constraint(equalToConstant: 44)
+            ])
+        } else {
+            let title = sourceItem.title ?? sourceItem.accessibilityLabel ?? ""
+            button.setTitle(title, for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 17)
+            var configuration = UIButton.Configuration.plain()
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10)
+            button.configuration = configuration
+            NSLayoutConstraint.activate([
+                button.heightAnchor.constraint(equalToConstant: 44),
+                button.widthAnchor.constraint(greaterThanOrEqualToConstant: max(sourceItem.width, 44))
+            ])
+        }
+
+        if let menu = sourceItem.menu {
+            button.menu = menu
+            button.showsMenuAsPrimaryAction = sourceItem.action == nil
+        }
+
+        if let action = sourceItem.action {
+            button.addTarget(sourceItem.target, action: action, for: .touchUpInside)
+        }
+
+        return button
+    }
+
+    private func makeInternalToolbarButtonItem(systemImageName: String, accessibilityLabel: String, action: Selector) -> UIBarButtonItem {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: systemImageName), for: .normal)
+        button.imageView?.contentMode = .scaleAspectFit
+        button.accessibilityLabel = accessibilityLabel
+        button.accessibilityIdentifier = accessibilityLabel
+        button.addTarget(self, action: action, for: .touchUpInside)
+
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 44),
+            button.heightAnchor.constraint(equalToConstant: 44)
+        ])
+
+        let item = UIBarButtonItem(customView: button)
+        item.accessibilityLabel = accessibilityLabel
+        item.accessibilityIdentifier = accessibilityLabel
+        return item
+    }
+
     private func toolbarSignature(for viewController: UIViewController, items: [UIBarButtonItem]) -> String {
-        let itemIDs = items.map { String(ObjectIdentifier($0).hashValue) }.joined(separator: ",")
         let rightCount = viewController.navigationItem.rightBarButtonItems?.count ?? (viewController.navigationItem.rightBarButtonItem == nil ? 0 : 1)
         let leftCount = viewController.navigationItem.leftBarButtonItems?.count ?? (viewController.navigationItem.leftBarButtonItem == nil ? 0 : 1)
-        return "\(ObjectIdentifier(viewController).hashValue)|\(viewControllers.count)|\(leftCount)|\(rightCount)|\(isBottomSearchExpanded)|\(itemIDs)"
+        let itemSignature = items.map { toolbarSignature(for: $0) }.joined(separator: ",")
+        return "\(ObjectIdentifier(viewController).hashValue)|\(viewControllers.count)|\(leftCount)|\(rightCount)|\(isBottomSearchExpanded)|\(itemSignature)"
+    }
+
+    private func toolbarSignature(for item: UIBarButtonItem) -> String {
+        if item === bottomBackButton {
+            return "back"
+        }
+        if item === bottomSearchButton {
+            return "search"
+        }
+        if item === bottomSearchCancelButton {
+            return "cancel-search"
+        }
+        if let searchContainer = item.customView as? BottomToolbarSearchContainer {
+            return "search-container:\(searchContainer.toolbarSignature)"
+        }
+        if item.customView != nil {
+            return "custom:\(item.customView?.bounds.width ?? 0)"
+        }
+        let action = item.action.map { NSStringFromSelector($0) } ?? "nil"
+        let enabled = item.isEnabled ? "enabled" : "disabled"
+        let title = item.title ?? ""
+        let image = item.image?.accessibilityIdentifier ?? item.image?.description ?? ""
+        return "\(title)|\(image)|\(action)|\(item.tag)|\(enabled)"
     }
 
     private func collapseBottomSearchIfNeeded() {
         guard isBottomSearchExpanded else { return }
+        clearActiveToolbarSearchView()
         activeSearchController?.searchBar.resignFirstResponder()
         activeSearchController?.isActive = false
         isBottomSearchExpanded = false
@@ -331,6 +601,29 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         collapseBottomSearchIfNeeded()
         lastToolbarSignature = ""
         syncBottomToolbar(animated: true)
+    }
+
+    @objc private func bottomToolbarSearchTextChanged(_ textField: UISearchTextField) {
+        guard let searchBar = activeSearchController?.searchBar else { return }
+        let text = textField.text ?? ""
+        searchBar.text = text
+        searchBar.delegate?.searchBar?(searchBar, textDidChange: text)
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard let searchBar = activeSearchController?.searchBar else { return true }
+        searchBar.text = textField.text
+        textField.resignFirstResponder()
+        searchBar.delegate?.searchBarSearchButtonClicked?(searchBar)
+        return false
+    }
+
+    private func clearActiveToolbarSearchView() {
+        activeToolbarSearchTextField?.resignFirstResponder()
+        activeToolbarSearchTextField = nil
+        activeToolbarSearchItem = nil
+        activeToolbarSearchShowsBackButton = false
+        activeToolbarSearchSize = .zero
     }
 
     #if targetEnvironment(macCatalyst)

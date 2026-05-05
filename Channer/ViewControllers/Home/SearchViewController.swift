@@ -68,15 +68,6 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
         super.viewDidLoad()
         print("[SearchVC] viewDidLoad START")
         setupUI()
-        // Install the search controller now so the nav bar lays out with it
-        // from the first frame instead of animating it in during viewWillAppear.
-        installNavigationSearchControllerIfNeeded(searchController) { [weak self] in
-            guard let self else { return }
-            self.navigationItem.hidesSearchBarWhenScrolling = false
-            if #available(iOS 16.0, *), Self.isMacCatalyst {
-                self.navigationItem.preferredSearchBarPlacement = .stacked
-            }
-        }
         reloadHistoryAndSaved()
         updateEmptyState()
         debugDumpOwnConstraints(context: "viewDidLoad END")
@@ -88,18 +79,8 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        print("[SearchVC] viewWillAppear START — hasTransitionCoordinator=\(transitionCoordinator != nil) navItem.searchController=\(navigationItem.searchController != nil)")
+        print("[SearchVC] viewWillAppear START — hasTransitionCoordinator=\(transitionCoordinator != nil)")
         debugDumpNavBarState(context: "viewWillAppear BEFORE install")
-        // Idempotent — covers Mac Catalyst path that defers attachment until the
-        // window is available.
-        installNavigationSearchControllerIfNeeded(searchController) { [weak self] in
-            guard let self else { return }
-            self.navigationItem.hidesSearchBarWhenScrolling = false
-            if #available(iOS 16.0, *), Self.isMacCatalyst {
-                self.navigationItem.preferredSearchBarPlacement = .stacked
-            }
-        }
-        print("[SearchVC] viewWillAppear AFTER install — navItem.searchController=\(navigationItem.searchController != nil)")
 
         // Configure navigation bar appearance to match theme
         // This prevents color flash when navigating to/from this view
@@ -131,11 +112,6 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
             navigationController?.navigationBar.compactAppearance = appearance
         }
 
-        // Focus on search immediately (skip on Mac Catalyst to avoid transition clashes)
-        if !Self.isMacCatalyst {
-            searchController.searchBar.becomeFirstResponder()
-        }
-
         reloadHistoryAndSaved()
         updateEmptyState()
         print("[SearchVC] viewWillAppear END")
@@ -144,7 +120,9 @@ class SearchViewController: UIViewController, BottomToolbarSearchProviding {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         print("[SearchVC] viewWillDisappear")
-        suspendNavigationSearchControllerForTransition()
+        view.endEditing(true)
+        searchController.searchBar.resignFirstResponder()
+        searchController.isActive = false
     }
 
     override func viewDidAppear(_ animated: Bool) {
