@@ -18,6 +18,8 @@ class ICloudSyncManager {
         "channer_custom_themes",
         "channer_faceID_authentication_enabled",
         "channer_notifications_enabled",
+        "channer_push_notification_preference",
+        "channer_enabled_push_notification_options",
         "channer_offline_reading_enabled",
         "channer_launch_with_startup_board",
         "channer_boards_auto_refresh_interval",

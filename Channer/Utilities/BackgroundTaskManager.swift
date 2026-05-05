@@ -576,7 +576,7 @@ class BackgroundTaskManager {
 
     /// Sends a notification for thread updates
     private func sendThreadUpdateNotification(threadNumber: String, boardAbv: String, newReplies: Int) {
-        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .threadUpdate) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Thread Update"
@@ -600,7 +600,7 @@ class BackgroundTaskManager {
 
     /// Sends a notification for watched post replies
     private func sendWatchedPostNotification(boardAbv: String, threadNo: String, replyCount: Int) {
-        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchedPostReply) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watched Post Reply"
@@ -631,7 +631,7 @@ class BackgroundTaskManager {
         threadNo: String,
         matchCount: Int
     ) {
-        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .savedSearchAlert) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Saved Search Match"
@@ -657,7 +657,7 @@ class BackgroundTaskManager {
 
     /// Sends a notification for watch rule matches
     private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
-        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchRuleMatch) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watch Rule Match"

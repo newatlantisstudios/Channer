@@ -4119,8 +4119,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Sends a local push notification when watched posts get new replies
     private func sendWatchedPostNotification(replyCount: Int) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        guard notificationsEnabled else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchedPostReply) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watched Post Reply"
@@ -4147,8 +4146,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Sends a local notification when watch rules match new posts
     private func sendWatchRuleNotification(_ alert: WatchRuleAlert) {
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-        guard notificationsEnabled else { return }
+        guard NotificationManager.shared.shouldSendPushNotification(for: .watchRuleMatch) else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Watch Rule Match"
