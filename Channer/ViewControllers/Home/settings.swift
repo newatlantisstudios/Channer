@@ -151,6 +151,136 @@ class settings: UIViewController {
         return max(70, round(70 * scale))
     }
 
+    private var settingsCardViews: [UIView] {
+        var views: [UIView] = [
+            selectedBoardView,
+            faceIDView,
+            notificationsView,
+            offlineReadingView,
+            iCloudSyncView,
+            launchWithStartupBoardView,
+            hiddenBoardsView,
+            themeSettingsView,
+            fontSizeView,
+            contentFilteringView,
+            watchRulesView,
+            autoRefreshView,
+            statisticsView,
+            passSettingsView,
+            newPostBehaviorView,
+            autoRandomizeFilenameView,
+            gridItemSizeView,
+            galleryCellSizeView,
+            highQualityThumbnailsView,
+            thumbnailSizeView,
+            preloadVideosView,
+            defaultVideoMutedView,
+            videoPreviewDownloadsView,
+            hoverVideoSoundView,
+            hoverVideoSizeView,
+            hoverImageSizeView,
+            mediaPrefetchSettingsView
+        ]
+
+        if let boardsDisplayModeView = boardsDisplayModeView {
+            views.append(boardsDisplayModeView)
+        }
+
+        if let threadsDisplayModeView = threadsDisplayModeView {
+            views.append(threadsDisplayModeView)
+        }
+
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            views.append(keyboardShortcutsView)
+        }
+
+        #if DEBUG
+        views.append(debugView)
+        #endif
+
+        return views
+    }
+
+    private var primarySettingsLabels: [UILabel] {
+        var labels: [UILabel] = [
+            selectedBoardLabel,
+            faceIDLabel,
+            notificationsLabel,
+            offlineReadingLabel,
+            iCloudSyncLabel,
+            launchWithStartupBoardLabel,
+            hiddenBoardsLabel,
+            themeSettingsLabel,
+            fontSizeLabel,
+            fontSizeValueLabel,
+            contentFilteringLabel,
+            watchRulesLabel,
+            autoRefreshLabel,
+            statisticsLabel,
+            passSettingsLabel,
+            newPostBehaviorLabel,
+            autoRandomizeFilenameLabel,
+            gridItemSizeLabel,
+            galleryCellSizeLabel,
+            highQualityThumbnailsLabel,
+            thumbnailSizeLabel,
+            preloadVideosLabel,
+            defaultVideoMutedLabel,
+            videoPreviewDownloadsLabel,
+            hoverVideoSoundLabel,
+            hoverVideoSizeLabel,
+            hoverImageSizeLabel,
+            mediaPrefetchSettingsLabel
+        ]
+
+        if let boardsDisplayModeLabel = boardsDisplayModeLabel {
+            labels.append(boardsDisplayModeLabel)
+        }
+
+        if let threadsDisplayModeLabel = threadsDisplayModeLabel {
+            labels.append(threadsDisplayModeLabel)
+        }
+
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            labels.append(keyboardShortcutsLabel)
+        }
+
+        #if DEBUG
+        labels.append(debugLabel)
+        #endif
+
+        return labels
+    }
+
+    private var secondarySettingsLabels: [UILabel] {
+        return [
+            offlineReadingSubtitleLabel,
+            iCloudSyncStatusLabel,
+            hiddenBoardsCountLabel
+        ]
+    }
+
+    private var settingsButtons: [UIButton] {
+        var buttons: [UIButton] = [
+            selectBoardButton,
+            iCloudForceSync,
+            hiddenBoardsButton,
+            themeSettingsButton,
+            contentFilteringButton,
+            watchRulesButton,
+            autoRefreshButton,
+            statisticsButton,
+            passSettingsButton,
+            mediaPrefetchSettingsButton
+        ]
+
+        #if DEBUG
+        buttons.append(debugButton)
+        #endif
+
+        return buttons
+    }
+
     // Constants
     private let userDefaultsKey = "defaultBoard"
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
@@ -225,6 +355,14 @@ class settings: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updatePassStatusIndicator()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        if previousTraitCollection?.hasDifferentColorAppearance(comparedTo: traitCollection) == true {
+            applyTheme()
+        }
     }
 
     private func sortBoardsAlphabetically() {
@@ -788,6 +926,44 @@ class settings: UIViewController {
         #endif
 
         setupConstraints()
+        applyTheme()
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeDidChange),
+            name: .themeDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func themeDidChange() {
+        applyTheme()
+    }
+
+    private func applyTheme() {
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+        scrollView.backgroundColor = ThemeManager.shared.backgroundColor
+        contentView.backgroundColor = ThemeManager.shared.backgroundColor
+
+        settingsCardViews.forEach(applySettingsCardStyle)
+        primarySettingsLabels.forEach { $0.textColor = ThemeManager.shared.primaryTextColor }
+        secondarySettingsLabels.forEach { $0.textColor = ThemeManager.shared.secondaryTextColor }
+        settingsButtons.forEach { $0.tintColor = ThemeManager.shared.cellBorderColor }
+
+        updateiCloudStatusLabel()
+        updatePassStatusIndicator()
+    }
+
+    private func applySettingsCardStyle(to view: UIView) {
+        view.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        view.layer.cornerRadius = 10
+        view.layer.borderWidth = 1
+        view.layer.borderColor = ThemeManager.shared.cellBorderColor.resolvedColor(with: traitCollection).cgColor
+        view.clipsToBounds = true
     }
 
     @objc private func faceIDToggleChanged(_ sender: UISwitch) {
@@ -2625,7 +2801,8 @@ class settings: UIViewController {
                 self?.selectedBoardView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.3)
             }) { _ in
                 UIView.animate(withDuration: 0.3) {
-                    self?.selectedBoardView.backgroundColor = UIColor.systemGray5
+                    guard let self = self else { return }
+                    self.applySettingsCardStyle(to: self.selectedBoardView)
                 }
             }
         }
