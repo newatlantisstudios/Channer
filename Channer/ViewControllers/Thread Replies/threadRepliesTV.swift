@@ -1223,69 +1223,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     @objc private func showActionSheet() {
-        // Create an action sheet
-        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-
-        actionSheet.addAction(UIAlertAction(title: "Search", style: .default, handler: { _ in
-            self.showSearch()
-        }))
-
-        if isSearchActive {
-            actionSheet.addAction(UIAlertAction(title: "Clear Search", style: .default, handler: { _ in
-                self.clearSearch()
-            }))
-        }
-
-        // Add Reply action
-        actionSheet.addAction(UIAlertAction(title: "Reply", style: .default, handler: { _ in
-            self.showComposeView()
-        }))
-
-        let favoriteTitle = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) ? "Unfavorite" : "Favorite"
-        actionSheet.addAction(UIAlertAction(title: favoriteTitle, style: .default, handler: { _ in
-            self.toggleFavorite()
-        }))
-
-        actionSheet.addAction(UIAlertAction(title: "Gallery", style: .default, handler: { _ in
-            self.showGallery()
-        }))
-
-        // Add actions for additional navigation options
-        actionSheet.addAction(UIAlertAction(title: "Refresh", style: .default, handler: { _ in
-            self.refresh()
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: "Bottom", style: .default, handler: { _ in
-            self.down()
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: showSpoilers ? "Hide Spoilers" : "Show Spoilers", style: .default, handler: { _ in
-            self.toggleSpoilers()
-        }))
-        
-        // Add filter options
-        actionSheet.addAction(UIAlertAction(title: "Filter Content", style: .default, handler: { _ in
-            self.showFilterOptions()
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: "Open in Browser", style: .default, handler: { _ in
-            self.openInBrowser()
-        }))
-        
-        // Add Save for Offline Reading option if we're online and the thread isn't already cached
-        if Reachability.isConnectedToNetwork() && !ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
-            actionSheet.addAction(UIAlertAction(title: "Save for Offline Reading", style: .default, handler: { _ in
-                self.saveForOfflineReading()
-            }))
-        }
-        // Add Remove from Offline Cache option if thread is cached
-        else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
-            actionSheet.addAction(UIAlertAction(title: "Remove from Offline Cache", style: .destructive, handler: { _ in
-                self.removeFromOfflineCache()
-            }))
-        }
-
-        // Add Save All Media options
         let allMediaUrls = threadRepliesImages.compactMap { URL(string: $0) }.filter { url in
             url.absoluteString != "https://i.4cdn.org/\(boardAbv)/" &&
             BatchImageDownloadManager.supportedMediaExtensions.contains(url.pathExtension.lowercased())
@@ -1299,44 +1236,104 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             BatchImageDownloadManager.supportedVideoExtensions.contains(url.pathExtension.lowercased())
         }
 
-        // Save All Images option
+        let favoriteTitle = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) ? "Unfavorite" : "Favorite"
+        var sections: [ThreadMoreOptionsSection] = [
+            ThreadMoreOptionsSection(title: nil, options: [
+                ThreadMoreOption(title: "Search", subtitle: "Find text in this thread", systemImageName: "magnifyingglass") { [weak self] in
+                    self?.showSearch()
+                },
+                ThreadMoreOption(title: "Reply", subtitle: "Compose a reply to this thread", systemImageName: "square.and.pencil") { [weak self] in
+                    self?.showComposeView()
+                },
+                ThreadMoreOption(title: favoriteTitle, subtitle: "Save this thread to bookmarks", systemImageName: favoriteTitle == "Favorite" ? "star" : "star.slash") { [weak self] in
+                    self?.toggleFavorite()
+                },
+                ThreadMoreOption(title: "Gallery", subtitle: "\(allMediaUrls.count) media item\(allMediaUrls.count == 1 ? "" : "s")", systemImageName: "photo.on.rectangle") { [weak self] in
+                    self?.showGallery()
+                }
+            ]),
+            ThreadMoreOptionsSection(title: "Navigation", options: [
+                ThreadMoreOption(title: "Refresh", subtitle: "Load the latest replies", systemImageName: "arrow.clockwise") { [weak self] in
+                    self?.refresh()
+                },
+                ThreadMoreOption(title: "Bottom", subtitle: "Jump to the newest loaded reply", systemImageName: "arrow.down.to.line") { [weak self] in
+                    self?.down()
+                },
+                ThreadMoreOption(title: showSpoilers ? "Hide Spoilers" : "Show Spoilers", subtitle: "Toggle spoiler visibility", systemImageName: showSpoilers ? "eye.slash" : "eye") { [weak self] in
+                    self?.toggleSpoilers()
+                },
+                ThreadMoreOption(title: "Filter Content", subtitle: "Hide replies by text or pattern", systemImageName: "line.3.horizontal.decrease.circle") { [weak self] in
+                    self?.showFilterOptions()
+                },
+                ThreadMoreOption(title: "Open in Browser", subtitle: "View this thread on the web", systemImageName: "safari") { [weak self] in
+                    self?.openInBrowser()
+                }
+            ])
+        ]
+
+        if isSearchActive {
+            sections[0].options.insert(
+                ThreadMoreOption(title: "Clear Search", subtitle: "Return to the full thread", systemImageName: "xmark.circle") { [weak self] in
+                    self?.clearSearch()
+                },
+                at: 1
+            )
+        }
+
+        if Reachability.isConnectedToNetwork() && !ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+            sections.append(ThreadMoreOptionsSection(title: "Offline", options: [
+                ThreadMoreOption(title: "Save for Offline Reading", subtitle: "Cache this thread on device", systemImageName: "tray.and.arrow.down") { [weak self] in
+                    self?.saveForOfflineReading()
+                }
+            ]))
+        } else if ThreadCacheManager.shared.isCached(boardAbv: boardAbv, threadNumber: threadNumber) {
+            sections.append(ThreadMoreOptionsSection(title: "Offline", options: [
+                ThreadMoreOption(title: "Remove from Offline Cache", subtitle: "Delete the saved copy", systemImageName: "trash", isDestructive: true) { [weak self] in
+                    self?.removeFromOfflineCache()
+                }
+            ]))
+        }
+
+        var downloadOptions: [ThreadMoreOption] = []
         if !imageOnlyUrls.isEmpty {
-            actionSheet.addAction(UIAlertAction(title: "Save All Images (\(imageOnlyUrls.count))", style: .default, handler: { _ in
-                self.saveAllMedia(urls: imageOnlyUrls, mediaType: .images)
-            }))
+            downloadOptions.append(ThreadMoreOption(title: "Save All Images", subtitle: "\(imageOnlyUrls.count) image\(imageOnlyUrls.count == 1 ? "" : "s")", systemImageName: "photo.stack") { [weak self] in
+                self?.saveAllMedia(urls: imageOnlyUrls, mediaType: .images)
+            })
         }
-
-        // Save All Videos option
         if !videoOnlyUrls.isEmpty {
-            actionSheet.addAction(UIAlertAction(title: "Save All Videos (\(videoOnlyUrls.count))", style: .default, handler: { _ in
-                self.saveAllMedia(urls: videoOnlyUrls, mediaType: .videos)
-            }))
+            downloadOptions.append(ThreadMoreOption(title: "Save All Videos", subtitle: "\(videoOnlyUrls.count) video\(videoOnlyUrls.count == 1 ? "" : "s")", systemImageName: "film.stack") { [weak self] in
+                self?.saveAllMedia(urls: videoOnlyUrls, mediaType: .videos)
+            })
         }
-
-        // Save All Media option (only show if there are both images AND videos)
         if !imageOnlyUrls.isEmpty && !videoOnlyUrls.isEmpty {
-            actionSheet.addAction(UIAlertAction(title: "Save All Media (\(allMediaUrls.count))", style: .default, handler: { _ in
-                self.saveAllMedia(urls: allMediaUrls, mediaType: .all)
-            }))
+            downloadOptions.append(ThreadMoreOption(title: "Save All Media", subtitle: "\(allMediaUrls.count) files", systemImageName: "square.and.arrow.down.on.square") { [weak self] in
+                self?.saveAllMedia(urls: allMediaUrls, mediaType: .all)
+            })
         }
 
-        // Add a cancel action
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        
-        // Configure the popover presentation controller for iPad or SplitView
-        if let popover = actionSheet.popoverPresentationController {
+        if !downloadOptions.isEmpty {
+            sections.append(ThreadMoreOptionsSection(title: "Downloads", options: downloadOptions))
+        }
+
+        let subtitle = "/\(boardAbv)/\(threadNumber)"
+        let optionsController = ThreadMoreOptionsViewController(title: "Thread Options", subtitle: subtitle, sections: sections)
+        optionsController.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .popover : .pageSheet
+
+        if let sheet = optionsController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 18
+        }
+
+        if let popover = optionsController.popoverPresentationController {
             if let barButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) }) {
-                popover.barButtonItem = barButton
-                popover.permittedArrowDirections = .up
+                popover.channerAnchor(in: self, barButtonItem: barButton, permittedArrowDirections: .up)
             } else {
-                popover.sourceView = self.view
-                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
-                popover.permittedArrowDirections = []
+                popover.channerAnchor(in: self, permittedArrowDirections: [])
             }
         }
-        
-        // Present the action sheet
-        present(actionSheet, animated: true, completion: nil)
+
+        present(optionsController, animated: true)
     }
     
     @objc private func showGallery() {
@@ -4762,6 +4759,177 @@ extension threadRepliesTV {
                 }
             }
         )
+    }
+}
+
+private struct ThreadMoreOptionsSection {
+    let title: String?
+    var options: [ThreadMoreOption]
+}
+
+private struct ThreadMoreOption {
+    let title: String
+    let subtitle: String?
+    let systemImageName: String
+    let isDestructive: Bool
+    let action: () -> Void
+
+    init(title: String, subtitle: String?, systemImageName: String, isDestructive: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImageName = systemImageName
+        self.isDestructive = isDestructive
+        self.action = action
+    }
+}
+
+private final class ThreadMoreOptionsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+    private let headerTitle: String
+    private let headerSubtitle: String
+    private let sections: [ThreadMoreOptionsSection]
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    init(title: String, subtitle: String, sections: [ThreadMoreOptionsSection]) {
+        self.headerTitle = title
+        self.headerSubtitle = subtitle
+        self.sections = sections
+        super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 390, height: estimatedContentHeight)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureView()
+        configureHeader()
+        configureTableView()
+        layoutOptions()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        preferredContentSize = CGSize(width: 390, height: estimatedContentHeight)
+    }
+
+    private var estimatedContentHeight: CGFloat {
+        let rows = sections.reduce(0) { $0 + $1.options.count }
+        let sectionChrome = CGFloat(sections.count) * 44
+        return min(720, 88 + CGFloat(rows) * 64 + sectionChrome)
+    }
+
+    private func configureView() {
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+    }
+
+    private func configureHeader() {
+        titleLabel.text = headerTitle
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.textColor = ThemeManager.shared.primaryTextColor
+        titleLabel.adjustsFontForContentSizeCategory = true
+
+        subtitleLabel.text = headerSubtitle
+        subtitleLabel.font = .preferredFont(forTextStyle: .subheadline)
+        subtitleLabel.textColor = ThemeManager.shared.secondaryTextColor
+        subtitleLabel.adjustsFontForContentSizeCategory = true
+    }
+
+    private func configureTableView() {
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.separatorColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.35)
+        tableView.rowHeight = 64
+        tableView.estimatedRowHeight = 64
+        tableView.alwaysBounceVertical = false
+
+        if #available(iOS 15.0, *) {
+            tableView.sectionHeaderTopPadding = 8
+        }
+    }
+
+    private func layoutOptions() {
+        let headerStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
+        headerStack.axis = .vertical
+        headerStack.spacing = 4
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(headerStack)
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            headerStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            headerStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+            tableView.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 8),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        sections.count
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        sections[section].options.count
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        sections[section].title
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        guard let header = view as? UITableViewHeaderFooterView else { return }
+        header.textLabel?.textColor = ThemeManager.shared.secondaryTextColor
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let reuseIdentifier = "ThreadMoreOptionCell"
+        let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier) ??
+            UITableViewCell(style: .subtitle, reuseIdentifier: reuseIdentifier)
+        let option = sections[indexPath.section].options[indexPath.row]
+        let textColor = option.isDestructive ? UIColor.systemRed : ThemeManager.shared.primaryTextColor
+        let iconColor = option.isDestructive ? UIColor.systemRed : ThemeManager.shared.cellBorderColor
+
+        cell.textLabel?.text = option.title
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.textColor = textColor
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
+
+        cell.detailTextLabel?.text = option.subtitle
+        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .footnote)
+        cell.detailTextLabel?.textColor = ThemeManager.shared.secondaryTextColor
+        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
+
+        cell.imageView?.image = UIImage(systemName: option.systemImageName)
+        cell.imageView?.tintColor = iconColor
+        cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        cell.selectedBackgroundView = selectedBackgroundView()
+        cell.accessoryType = .none
+        cell.tintColor = iconColor
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let option = sections[indexPath.section].options[indexPath.row]
+        dismiss(animated: true) {
+            option.action()
+        }
+    }
+
+    private func selectedBackgroundView() -> UIView {
+        let view = UIView()
+        view.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.18)
+        return view
     }
 }
 
