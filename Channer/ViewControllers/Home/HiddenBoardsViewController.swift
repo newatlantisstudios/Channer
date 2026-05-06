@@ -63,13 +63,13 @@ class HiddenBoardsViewController: UIViewController, UITableViewDelegate, UITable
 
     // MARK: - UI Setup
     private func setupNavigationBar() {
-        // Add "Show All" button to unhide all boards
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Show All",
+            image: UIImage(systemName: "eye"),
             style: .plain,
             target: self,
             action: #selector(showAllTapped)
         )
+        navigationItem.rightBarButtonItem?.accessibilityLabel = "Show All Boards"
     }
 
     private func setupHeader() {

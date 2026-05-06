@@ -393,7 +393,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
             items.append(contentsOf: mirroredItems(from: leadingItems))
         }
 
-        if !leadingItems.isEmpty && !trailingItems.isEmpty {
+        if !leadingItems.isEmpty || !trailingItems.isEmpty {
             items.append(UIBarButtonItem.bottomToolbarFlexibleSpace())
         }
 

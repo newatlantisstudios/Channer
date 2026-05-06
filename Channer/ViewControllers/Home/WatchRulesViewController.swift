@@ -39,10 +39,12 @@ class WatchRulesViewController: UIViewController, UITableViewDelegate, UITableVi
         loadRules()
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add,
+            image: UIImage(systemName: "plus"),
+            style: .plain,
             target: self,
             action: #selector(addRuleTapped)
         )
+        navigationItem.rightBarButtonItem?.accessibilityLabel = "Add Watch Rule"
 
         NotificationCenter.default.addObserver(
             self,

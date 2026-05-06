@@ -1466,74 +1466,9 @@ class settings: UIViewController {
     }
     
     @objc private func autoRefreshButtonTapped() {
-        let alertController = UIAlertController(
-            title: "Auto-refresh Settings",
-            message: "Configure refresh intervals for boards and threads",
-            preferredStyle: .actionSheet
-        )
-        
-        // Get current refresh intervals
-        let boardsInterval = UserDefaults.standard.integer(forKey: boardsAutoRefreshIntervalKey)
-        let threadsInterval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
-        
-        // Add info about current settings
-        let currentSettings = """
-        Boards: \(boardsInterval == 0 ? "Disabled" : "\(boardsInterval) seconds")
-        Threads: \(threadsInterval == 0 ? "Disabled" : "\(threadsInterval) seconds")
-        """
-        alertController.message = currentSettings
-        
-        // Configure boards refresh
-        alertController.addAction(UIAlertAction(title: "Configure Boards Refresh", style: .default) { [weak self] _ in
-            self?.showRefreshIntervalPicker(for: "Boards", currentValue: boardsInterval) { interval in
-                UserDefaults.standard.set(interval, forKey: self?.boardsAutoRefreshIntervalKey ?? "")
-                
-                // Show confirmation
-                let message = interval == 0 ? "Boards auto-refresh disabled" : "Boards will refresh every \(interval) seconds"
-                let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-                self?.present(confirmToast, animated: true)
-                
-                // Dismiss after a short delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    confirmToast.dismiss(animated: true)
-                }
-            }
-        })
-        
-        // Configure threads refresh
-        alertController.addAction(UIAlertAction(title: "Configure Threads Refresh", style: .default) { [weak self] _ in
-            self?.showRefreshIntervalPicker(for: "Threads", currentValue: threadsInterval) { interval in
-                UserDefaults.standard.set(interval, forKey: self?.threadsAutoRefreshIntervalKey ?? "")
-                
-                // Show confirmation
-                let message = interval == 0 ? "Threads auto-refresh disabled" : "Threads will refresh every \(interval) seconds"
-                let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-                self?.present(confirmToast, animated: true)
-                
-                // Dismiss after a short delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    confirmToast.dismiss(animated: true)
-                }
-            }
-        })
-        
-        // Cancel action
-        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // iPad-specific popover configuration
-        if let popoverController = alertController.popoverPresentationController {
-            popoverController.channerAnchor(
-                in: self,
-                sourceView: autoRefreshButton,
-                sourceRect: autoRefreshButton.bounds,
-                permittedArrowDirections: .up
-            )
-        }
-        
-        // Present the alert
-        present(alertController, animated: true)
-        
-        // Provide haptic feedback
+        let autoRefreshVC = AutoRefreshSettingsViewController()
+        navigationController?.pushViewController(autoRefreshVC, animated: true)
+
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
     }
@@ -1684,53 +1619,6 @@ class settings: UIViewController {
         generator.impactOccurred()
     }
 
-    private func showRefreshIntervalPicker(for type: String, currentValue: Int, completion: @escaping (Int) -> Void) {
-        let alertController = UIAlertController(
-            title: "\(type) Refresh Interval",
-            message: "Select refresh interval for \(type.lowercased())",
-            preferredStyle: .actionSheet
-        )
-        
-        // Refresh interval options
-        let intervals = [
-            (0, "Disabled"),
-            (30, "30 seconds"),
-            (60, "1 minute"),
-            (120, "2 minutes"),
-            (300, "5 minutes"),
-            (600, "10 minutes")
-        ]
-        
-        for (value, title) in intervals {
-            let action = UIAlertAction(title: title, style: .default) { _ in
-                completion(value)
-            }
-            
-            // Add checkmark to current selection
-            if value == currentValue {
-                action.setValue(true, forKey: "checked")
-            }
-            
-            alertController.addAction(action)
-        }
-        
-        // Cancel action
-        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // iPad-specific popover configuration
-        if let popoverController = alertController.popoverPresentationController {
-            popoverController.channerAnchor(
-                in: self,
-                sourceView: autoRefreshButton,
-                sourceRect: autoRefreshButton.bounds,
-                permittedArrowDirections: .up
-            )
-        }
-        
-        // Present the alert
-        present(alertController, animated: true)
-    }
-    
     private func setupHighQualityThumbnailsView() {
         // Set up the high quality thumbnails view
         highQualityThumbnailsView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -2933,6 +2821,156 @@ class settings: UIViewController {
     }
 }
 
+// MARK: - Auto Refresh Settings View Controller
+final class AutoRefreshSettingsViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    private enum Row: Int, CaseIterable {
+        case boards
+        case threads
+
+        var title: String {
+            switch self {
+            case .boards:
+                return "Boards Refresh"
+            case .threads:
+                return "Threads Refresh"
+            }
+        }
+
+        var userDefaultsKey: String {
+            switch self {
+            case .boards:
+                return "channer_boards_auto_refresh_interval"
+            case .threads:
+                return "channer_threads_auto_refresh_interval"
+            }
+        }
+    }
+
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let intervals = [
+        (0, "Disabled"),
+        (30, "30 seconds"),
+        (60, "1 minute"),
+        (120, "2 minutes"),
+        (300, "5 minutes"),
+        (600, "10 minutes")
+    ]
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        title = "Auto-refresh"
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 1
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return Row.allCases.count
+    }
+
+    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        return "Choose how often boards and open threads refresh automatically."
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "AutoRefreshCell") ??
+            UITableViewCell(style: .value1, reuseIdentifier: "AutoRefreshCell")
+
+        guard let row = Row(rawValue: indexPath.row) else { return cell }
+        let interval = UserDefaults.standard.integer(forKey: row.userDefaultsKey)
+
+        cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        cell.textLabel?.text = row.title
+        cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
+        cell.detailTextLabel?.text = title(for: interval)
+        cell.detailTextLabel?.textColor = ThemeManager.shared.secondaryTextColor
+        cell.accessoryType = .disclosureIndicator
+        cell.selectionStyle = .default
+
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard let row = Row(rawValue: indexPath.row),
+              let cell = tableView.cellForRow(at: indexPath) else {
+            return
+        }
+
+        presentIntervalPicker(for: row, from: cell)
+    }
+
+    private func presentIntervalPicker(for row: Row, from cell: UITableViewCell) {
+        let alertController = UIAlertController(
+            title: row.title,
+            message: "Select refresh interval",
+            preferredStyle: .actionSheet
+        )
+
+        let currentValue = UserDefaults.standard.integer(forKey: row.userDefaultsKey)
+        for (value, title) in intervals {
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                UserDefaults.standard.set(value, forKey: row.userDefaultsKey)
+                self?.tableView.reloadRows(at: [IndexPath(row: row.rawValue, section: 0)], with: .none)
+                self?.showConfirmation(for: row, interval: value)
+            }
+
+            if value == currentValue {
+                action.setValue(true, forKey: "checked")
+            }
+
+            alertController.addAction(action)
+        }
+
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.channerAnchor(
+                in: self,
+                sourceView: cell,
+                sourceRect: cell.bounds,
+                permittedArrowDirections: [.up, .down]
+            )
+        }
+
+        present(alertController, animated: true)
+    }
+
+    private func showConfirmation(for row: Row, interval: Int) {
+        let subject = row == .boards ? "Boards" : "Threads"
+        let message = interval == 0 ? "\(subject) auto-refresh disabled" : "\(subject) will refresh every \(title(for: interval).lowercased())"
+        let confirmToast = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        present(confirmToast, animated: true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            confirmToast.dismiss(animated: true)
+        }
+
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    private func title(for interval: Int) -> String {
+        return intervals.first { $0.0 == interval }?.1 ?? "\(interval) seconds"
+    }
+}
+
 // MARK: - Board Selector View Controller
 class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
@@ -2956,9 +2994,20 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
         title = "Select Default Board"
         view.backgroundColor = ThemeManager.shared.backgroundColor
         
-        // Setup navigation buttons
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "None", style: .plain, target: self, action: #selector(noneTapped))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
+            target: self,
+            action: #selector(cancelTapped)
+        )
+        navigationItem.leftBarButtonItem?.accessibilityLabel = "Cancel"
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "slash.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(noneTapped)
+        )
+        navigationItem.rightBarButtonItem?.accessibilityLabel = "No Default Board"
         
         setupSearchBar()
         setupTableView()
@@ -3098,8 +3147,13 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
         setupTableView()
         setupEmptyStateLabel()
         
-        // Add Edit button to enable deletion mode
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Edit", style: .plain, target: self, action: #selector(toggleEditMode))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "square.and.pencil"),
+            style: .plain,
+            target: self,
+            action: #selector(toggleEditMode)
+        )
+        navigationItem.rightBarButtonItem?.accessibilityLabel = "Edit Offline Threads"
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -3161,7 +3215,8 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
     // MARK: - Actions
     @objc private func toggleEditMode() {
         tableView.setEditing(!tableView.isEditing, animated: true)
-        navigationItem.rightBarButtonItem?.title = tableView.isEditing ? "Done" : "Edit"
+        navigationItem.rightBarButtonItem?.image = UIImage(systemName: tableView.isEditing ? "checkmark" : "square.and.pencil")
+        navigationItem.rightBarButtonItem?.accessibilityLabel = tableView.isEditing ? "Done Editing" : "Edit Offline Threads"
     }
     
     // MARK: - UITableViewDataSource
@@ -3287,6 +3342,7 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
 
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.separatorStyle = .none
         tableView.backgroundColor = ThemeManager.shared.backgroundColor
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
@@ -3340,7 +3396,12 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
         let cell = tableView.dequeueReusableCell(withIdentifier: "MediaPrefetchCell") ??
             UITableViewCell(style: .value1, reuseIdentifier: "MediaPrefetchCell")
         cell.backgroundColor = ThemeManager.shared.backgroundColor
-        cell.textLabel?.textColor = .label
+        cell.contentView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        cell.contentView.layer.cornerRadius = 10
+        cell.contentView.layer.borderWidth = 1
+        cell.contentView.layer.borderColor = ThemeManager.shared.cellBorderColor.resolvedColor(with: traitCollection).cgColor
+        cell.contentView.layer.masksToBounds = true
+        cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
         cell.detailTextLabel?.textColor = .secondaryLabel
         cell.detailTextLabel?.text = nil
         cell.accessoryView = nil
