@@ -27,12 +27,14 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
         setupEmptyStateLabel()
         loadFilters()
         
-        // Add button to add new filter
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add, 
-            target: self, 
+            image: UIImage(systemName: "plus"),
+            style: .plain,
+            target: self,
             action: #selector(addFilterTapped)
         )
+        navigationItem.rightBarButtonItem?.accessibilityLabel = "Add Filter"
+        navigationItem.rightBarButtonItem?.tintColor = .black
     }
     
     // MARK: - UI Setup

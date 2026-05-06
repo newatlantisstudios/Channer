@@ -107,14 +107,15 @@ class ComposeViewController: UIViewController {
         view.backgroundColor = ThemeManager.shared.backgroundColor
 
         // Navigation buttons
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
+        let cancelButton = UIBarButtonItem(
             image: UIImage(systemName: "xmark"),
             style: .plain,
             target: self,
             action: #selector(cancelTapped)
         )
-        navigationItem.leftBarButtonItem?.accessibilityLabel = "Cancel"
-        navigationItem.leftBarButtonItem?.tintColor = .black
+        cancelButton.accessibilityLabel = "Cancel"
+        cancelButton.tintColor = .black
+        navigationItem.leftBarButtonItem = cancelButton
 
         // Right side: minimize and post buttons
         let minimizeButton = UIBarButtonItem(
@@ -125,8 +126,9 @@ class ComposeViewController: UIViewController {
         )
         minimizeButton.accessibilityLabel = "Minimize"
         minimizeButton.tintColor = .black
+
         let postButton = UIBarButtonItem(
-            image: UIImage(systemName: "paperplane"),
+            image: UIImage(systemName: "paperplane.fill"),
             style: .done,
             target: self,
             action: #selector(postTapped)

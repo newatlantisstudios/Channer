@@ -2,6 +2,74 @@ import UIKit
 import AVFoundation
 import VLCKit
 
+// MARK: - Touch Debugging
+private func describeHitView(_ view: UIView?) -> String {
+    guard let view = view else { return "nil" }
+    if let button = view as? DebugButton {
+        return "DebugButton(\(button.debugName))"
+    }
+    if view is SeekSlider {
+        return "SeekSlider"
+    }
+    if let debugView = view as? DebugHitTestView {
+        return "DebugHitTestView(\(debugView.debugName))"
+    }
+    return String(describing: type(of: view))
+}
+
+private class DebugHitTestView: UIView {
+    let debugName: String
+
+    init(debugName: String) {
+        self.debugName = debugName
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        self.debugName = "decoded"
+        super.init(coder: coder)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hitView = super.hitTest(point, with: event)
+        let isRelevant = bounds.insetBy(dx: -24, dy: -24).contains(point)
+        if isRelevant {
+            print("TOUCH DEBUG: \(debugName).hitTest point=\(point) bounds=\(bounds) hidden=\(isHidden) alpha=\(alpha) userInteraction=\(isUserInteractionEnabled) hit=\(describeHitView(hitView))")
+        }
+        return hitView
+    }
+}
+
+private class DebugButton: UIButton {
+    var debugName: String = "button"
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let result = super.point(inside: point, with: event)
+        let expandedBounds = bounds.insetBy(dx: -10, dy: -10)
+        let expandedResult = expandedBounds.contains(point)
+        print("TOUCH DEBUG: \(debugName).pointInside point=\(point) bounds=\(bounds) result=\(result) expandedResult=\(expandedResult) hidden=\(isHidden) alpha=\(alpha) enabled=\(isEnabled) userInteraction=\(isUserInteractionEnabled)")
+        return expandedResult
+    }
+
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let point = touch.location(in: self)
+        let result = super.beginTracking(touch, with: event)
+        print("TOUCH DEBUG: \(debugName).beginTracking point=\(point) result=\(result)")
+        return result
+    }
+
+    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        let point = touch?.location(in: self) ?? .zero
+        print("TOUCH DEBUG: \(debugName).endTracking point=\(point)")
+        super.endTracking(touch, with: event)
+    }
+
+    override func cancelTracking(with event: UIEvent?) {
+        print("TOUCH DEBUG: \(debugName).cancelTracking")
+        super.cancelTracking(with: event)
+    }
+}
+
 // MARK: - SeekSlider
 /// UISlider subclass that reliably detects tracking start/end on all platforms including Mac Catalyst,
 /// where standard .touchDown/.touchUpInside control events don't fire for mouse/trackpad input.
@@ -9,17 +77,37 @@ private class SeekSlider: UISlider {
     var onTrackingBegan: (() -> Void)?
     var onTrackingEnded: (() -> Void)?
 
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let expandedBounds = bounds.insetBy(dx: -12, dy: -18)
+        let result = expandedBounds.contains(point)
+        print("TOUCH DEBUG: seekBar.pointInside point=\(point) bounds=\(bounds) expandedBounds=\(expandedBounds) result=\(result) hidden=\(isHidden) alpha=\(alpha) enabled=\(isEnabled) userInteraction=\(isUserInteractionEnabled)")
+        return result
+    }
+
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         let result = super.beginTracking(touch, with: event)
+        print("TOUCH DEBUG: seekBar.beginTracking point=\(touch.location(in: self)) result=\(result) value=\(value)")
         if result {
             onTrackingBegan?()
         }
         return result
     }
 
+    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        let result = super.continueTracking(touch, with: event)
+        print("TOUCH DEBUG: seekBar.continueTracking point=\(touch.location(in: self)) result=\(result) value=\(value)")
+        return result
+    }
+
     override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        print("TOUCH DEBUG: seekBar.endTracking point=\(touch?.location(in: self) ?? .zero) value=\(value)")
         super.endTracking(touch, with: event)
         onTrackingEnded?()
+    }
+
+    override func cancelTracking(with event: UIEvent?) {
+        print("TOUCH DEBUG: seekBar.cancelTracking value=\(value)")
+        super.cancelTracking(with: event)
     }
 }
 
@@ -141,7 +229,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     // MARK: - UI Elements
     /// The view that displays the video content.
     private lazy var videoView: UIView = {
-        let view = UIView()
+        let view = DebugHitTestView(debugName: "videoView")
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .black
         return view
@@ -149,7 +237,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Transparent tap target above the renderer so controls can reappear even if the player view swallows touches.
     private lazy var videoTapOverlay: UIView = {
-        let view = UIView()
+        let view = DebugHitTestView(debugName: "videoTapOverlay")
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .clear
         return view
@@ -172,7 +260,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Container view for seek bar controls (uses gradient background)
     private lazy var seekBarContainer: UIView = {
-        let view = UIView()
+        let view = DebugHitTestView(debugName: "seekBarContainer")
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .clear
         return view
@@ -238,7 +326,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Play/pause button in the bottom overlay controls
     private lazy var playPauseButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = DebugButton(type: .system)
+        button.debugName = "playPauseButton"
         button.translatesAutoresizingMaskIntoConstraints = false
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
         button.setImage(UIImage(systemName: "pause.fill", withConfiguration: config), for: .normal)
@@ -250,7 +339,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Mute/unmute button in the overlay controls
     private lazy var overlayMuteButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = DebugButton(type: .system)
+        button.debugName = "overlayMuteButton"
         button.translatesAutoresizingMaskIntoConstraints = false
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
         let imageName = MediaSettings.defaultMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
@@ -305,6 +395,10 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Lifecycle Methods
+    override func loadView() {
+        view = DebugHitTestView(debugName: "rootView")
+    }
+
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -313,6 +407,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         print("DEBUG: WebMViewController - Video URL: \(videoURL)")
         print("DEBUG: WebMViewController - Hide download button: \(hideDownloadButton)")
         print("MUTE DEBUG: viewDidLoad isMuted=\(isMuted) shouldForceMuteOnNextPlay=\(shouldForceMuteOnNextPlay)")
+        print("TOUCH DEBUG: WebMViewController viewDidLoad")
         
         setupUI()
         setupVideo()
@@ -351,6 +446,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         }
         // Update gradient layer frame to match container
         bottomGradientLayer.frame = seekBarContainer.bounds
+        logTouchDebugFrames(context: "viewDidLayoutSubviews")
     }
 
     /// Called just before the view controller is dismissed, covered, or otherwise hidden.
@@ -447,6 +543,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Add tap gesture above the renderer for control visibility
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(videoViewTapped))
+        tapGesture.cancelsTouchesInView = false
         videoTapOverlay.addGestureRecognizer(tapGesture)
 
         // Add media counter for multi-video navigation state
@@ -457,7 +554,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         conversionProgressTrack.addSubview(conversionProgressFill)
         conversionProgressTrack.addSubview(conversionShimmer)
 
-        // Ensure seek bar container is above tap zones so mouse clicks reach the slider on Catalyst
+        // Keep the tap catcher above the renderer and the controls above the tap catcher.
+        view.bringSubviewToFront(videoTapOverlay)
         view.bringSubviewToFront(seekBarContainer)
 
         NSLayoutConstraint.activate([
@@ -469,23 +567,23 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             videoTapOverlay.topAnchor.constraint(equalTo: view.topAnchor),
             videoTapOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoTapOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            videoTapOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            videoTapOverlay.bottomAnchor.constraint(equalTo: seekBarContainer.topAnchor),
 
             // Seek bar container with gradient extends to the screen bottom
             seekBarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             seekBarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             seekBarContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            seekBarContainer.heightAnchor.constraint(equalToConstant: 100),
+            seekBarContainer.heightAnchor.constraint(equalToConstant: 196),
 
             // Play/pause button at the leading edge of the bottom controls
             playPauseButton.leadingAnchor.constraint(equalTo: seekBarContainer.leadingAnchor, constant: 12),
             playPauseButton.centerYAnchor.constraint(equalTo: currentTimeLabel.centerYAnchor),
-            playPauseButton.widthAnchor.constraint(equalToConstant: 36),
-            playPauseButton.heightAnchor.constraint(equalToConstant: 36),
+            playPauseButton.widthAnchor.constraint(equalToConstant: 48),
+            playPauseButton.heightAnchor.constraint(equalToConstant: 48),
 
             // Current time label - anchored to safe area bottom within gradient container
             currentTimeLabel.leadingAnchor.constraint(equalTo: playPauseButton.trailingAnchor, constant: 4),
-            currentTimeLabel.bottomAnchor.constraint(equalTo: seekBarContainer.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            currentTimeLabel.bottomAnchor.constraint(equalTo: seekBarContainer.bottomAnchor, constant: -130),
             currentTimeLabel.widthAnchor.constraint(equalToConstant: 45),
 
             // Mute button at trailing edge
@@ -529,6 +627,18 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         let fillWidth = conversionProgressFill.widthAnchor.constraint(equalToConstant: 0)
         fillWidth.isActive = true
         conversionProgressFillWidth = fillWidth
+        logTouchDebugFrames(context: "setupUI-afterConstraints")
+    }
+
+    private func logTouchDebugFrames(context: String) {
+        print("TOUCH DEBUG: \(context) root bounds=\(view.bounds) windowAttached=\(view.window != nil)")
+        print("TOUCH DEBUG: \(context) videoView frame=\(videoView.frame) hidden=\(videoView.isHidden) alpha=\(videoView.alpha) userInteraction=\(videoView.isUserInteractionEnabled)")
+        print("TOUCH DEBUG: \(context) videoTapOverlay frame=\(videoTapOverlay.frame) hidden=\(videoTapOverlay.isHidden) alpha=\(videoTapOverlay.alpha) userInteraction=\(videoTapOverlay.isUserInteractionEnabled)")
+        print("TOUCH DEBUG: \(context) seekBarContainer frame=\(seekBarContainer.frame) hidden=\(seekBarContainer.isHidden) alpha=\(seekBarContainer.alpha) userInteraction=\(seekBarContainer.isUserInteractionEnabled)")
+        print("TOUCH DEBUG: \(context) playPauseButton frame=\(playPauseButton.frame) hidden=\(playPauseButton.isHidden) alpha=\(playPauseButton.alpha) enabled=\(playPauseButton.isEnabled) userInteraction=\(playPauseButton.isUserInteractionEnabled)")
+        print("TOUCH DEBUG: \(context) seekBar frame=\(seekBar.frame) hidden=\(seekBar.isHidden) alpha=\(seekBar.alpha) enabled=\(seekBar.isEnabled) userInteraction=\(seekBar.isUserInteractionEnabled) value=\(seekBar.value)")
+        print("TOUCH DEBUG: \(context) overlayMuteButton frame=\(overlayMuteButton.frame) hidden=\(overlayMuteButton.isHidden) alpha=\(overlayMuteButton.alpha) enabled=\(overlayMuteButton.isEnabled) userInteraction=\(overlayMuteButton.isUserInteractionEnabled)")
+        print("TOUCH DEBUG: \(context) root subviews order=\(view.subviews.map { describeHitView($0) })")
     }
 
     /// Initializes the video player with the provided video URL.
@@ -1205,6 +1315,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     // MARK: - Play/Pause Control Methods
     /// Toggles controls visibility when video view is tapped
     @objc private func videoViewTapped() {
+        print("TOUCH DEBUG: videoViewTapped controlsVisible=\(controlsVisible)")
+        logTouchDebugFrames(context: "videoViewTapped")
         if controlsVisible {
             hideControls()
         } else {
@@ -1214,6 +1326,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Toggles the play/pause state of the video
     @objc private func togglePlayPause() {
+        print("TOUCH DEBUG: togglePlayPause fired isUsingAVPlayer=\(isUsingAVPlayer) avRate=\(avPlayer.rate) vlcIsPlaying=\(vlcPlayer.isPlaying) controlsVisible=\(controlsVisible)")
+        logTouchDebugFrames(context: "togglePlayPause")
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
 
         if isUsingAVPlayer {
@@ -1255,6 +1369,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     // MARK: - Controls Visibility Methods
     /// Shows the video controls with animation
     private func showControls(autoHide: Bool = true) {
+        print("TOUCH DEBUG: showControls autoHide=\(autoHide)")
         controlsVisible = true
         controlsHideTimer?.invalidate()
 
@@ -1268,6 +1383,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self.playPauseButton.alpha = 1.0
             self.seekBarContainer.alpha = 1.0
             self.mediaCounterLabel.alpha = hasMultipleVideos ? 1.0 : 0.0
+        } completion: { _ in
+            self.logTouchDebugFrames(context: "showControls-completion")
         }
 
         let isPlaying = isUsingAVPlayer ? (avPlayer.rate > 0) : vlcPlayer.isPlaying
@@ -1278,6 +1395,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Hides the video controls with animation
     private func hideControls() {
+        print("TOUCH DEBUG: hideControls")
         controlsVisible = false
         controlsHideTimer?.invalidate()
 
@@ -1289,15 +1407,19 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             self.playPauseButton.alpha = 0.0
             self.seekBarContainer.alpha = 0.0
             self.mediaCounterLabel.alpha = 0.0
+        } completion: { _ in
+            self.logTouchDebugFrames(context: "hideControls-completion")
         }
     }
 
     /// Resets the auto-hide timer for controls
     private func resetControlsHideTimer() {
+        print("TOUCH DEBUG: resetControlsHideTimer delay=\(controlsHideDelay)")
         controlsHideTimer?.invalidate()
         controlsHideTimer = Timer.scheduledTimer(withTimeInterval: controlsHideDelay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
             let isPlaying = self.isUsingAVPlayer ? (self.avPlayer.rate > 0) : self.vlcPlayer.isPlaying
+            print("TOUCH DEBUG: controlsHideTimer fired isPlaying=\(isPlaying) controlsVisible=\(self.controlsVisible)")
             if isPlaying {
                 self.hideControls()
             }
@@ -1306,6 +1428,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Stops the controls hide timer
     private func stopControlsHideTimer() {
+        print("TOUCH DEBUG: stopControlsHideTimer")
         controlsHideTimer?.invalidate()
         controlsHideTimer = nil
     }
@@ -1313,6 +1436,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     // MARK: - Seek Bar Control Methods
     /// Called when user starts dragging the seek bar
     @objc private func seekBarTouchDown(_ sender: UISlider) {
+        print("TOUCH DEBUG: seekBarTouchDown fired value=\(sender.value)")
+        logTouchDebugFrames(context: "seekBarTouchDown")
         isSeeking = true
         // Keep controls visible while user is seeking
         stopControlsHideTimer()
@@ -1320,6 +1445,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Called when user releases the seek bar
     @objc private func seekBarTouchUp(_ sender: UISlider) {
+        print("TOUCH DEBUG: seekBarTouchUp fired value=\(sender.value) isUsingAVPlayer=\(isUsingAVPlayer)")
         isSeeking = false
         // Record seek time to prevent slider snap-back
         lastSeekTime = Date()
@@ -1347,6 +1473,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
     /// Called when seek bar value changes during dragging
     @objc private func seekBarValueChanged(_ sender: UISlider) {
+        print("TOUCH DEBUG: seekBarValueChanged fired value=\(sender.value) isSeeking=\(isSeeking) isUsingAVPlayer=\(isUsingAVPlayer)")
         if isUsingAVPlayer {
             if let duration = avPlayer.currentItem?.duration {
                 let totalMs = CMTimeGetSeconds(duration) * 1000
@@ -2055,11 +2182,11 @@ extension WebMViewController {
             // Add swipe gestures for navigation
             let swipeUp = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
             swipeUp.direction = .up
-            videoView.addGestureRecognizer(swipeUp)
+            videoTapOverlay.addGestureRecognizer(swipeUp)
 
             let swipeDown = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
             swipeDown.direction = .down
-            videoView.addGestureRecognizer(swipeDown)
+            videoTapOverlay.addGestureRecognizer(swipeDown)
         } else {
             mediaCounterLabel.isHidden = true
         }
