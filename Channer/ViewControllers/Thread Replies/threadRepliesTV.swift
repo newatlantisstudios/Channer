@@ -380,12 +380,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Tracks whether the compose view is currently minimized
     private var isComposeMinimized = false
+    private var floatingReplyButtonWidthConstraint: NSLayoutConstraint?
 
     /// Floating button that appears when there are pending quotes
     private lazy var floatingReplyButton: UIButton = {
         let button = UIButton(type: .system)
         button.backgroundColor = .systemBlue
         button.setTitleColor(.white, for: .normal)
+        button.tintColor = .white
         button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
         button.layer.cornerRadius = 22
         button.layer.shadowColor = UIColor.black.cgColor
@@ -1113,8 +1115,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                           target: self,
                                           action: #selector(showComposeView))
 
+        let buttons = [moreButton, galleryButton, favoriteButton, refreshButton, replyButton].compactMap { $0 }
+        buttons.forEach { $0.tintColor = .black }
+
         // Set the buttons in the navigation bar (rightmost to leftmost order)
-        navigationItem.rightBarButtonItems = [moreButton, galleryButton, favoriteButton, refreshButton, replyButton].compactMap { $0 }
+        navigationItem.rightBarButtonItems = buttons
     }
     
     private func removeReplyButton() {
@@ -3429,6 +3434,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         view.addSubview(floatingReplyButton)
         view.addSubview(clearQuotesButton)
 
+        floatingReplyButtonWidthConstraint = floatingReplyButton.widthAnchor.constraint(equalToConstant: 44)
+
         NSLayoutConstraint.activate([
             floatingReplyButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             floatingReplyButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
@@ -3468,14 +3475,22 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let hasQuotes = !pendingQuotes.isEmpty
 
         if isComposeMinimized {
-            // Show "Continue Reply" button for minimized compose (no clear button)
-            floatingReplyButton.setTitle("  Continue Reply  ", for: .normal)
+            // Show icon-only continue button for minimized compose (no clear button)
+            floatingReplyButton.setTitle(nil, for: .normal)
+            floatingReplyButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
+            floatingReplyButton.accessibilityLabel = "Continue Reply"
             floatingReplyButton.backgroundColor = .systemGreen
+            floatingReplyButton.tintColor = .black
+            floatingReplyButtonWidthConstraint?.isActive = true
             showFloatingButton(showClearButton: false)
         } else if hasQuotes {
             // Show reply button with pending quotes (show clear button to discard quotes)
+            floatingReplyButtonWidthConstraint?.isActive = false
+            floatingReplyButton.setImage(nil, for: .normal)
             floatingReplyButton.setTitle("  Reply (\(pendingQuotes.count))  ", for: .normal)
+            floatingReplyButton.accessibilityLabel = "Reply with \(pendingQuotes.count) quoted posts"
             floatingReplyButton.backgroundColor = .systemBlue
+            floatingReplyButton.tintColor = .white
             showFloatingButton(showClearButton: true)
         } else {
             // Hide the button
