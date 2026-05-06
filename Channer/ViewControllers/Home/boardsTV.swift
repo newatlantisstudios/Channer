@@ -166,6 +166,7 @@ class boardsTV: UITableViewController {
         // Add toolbox button that contains History, Favorites, Search, and Files
         let toolboxImage = UIImage(named: "toolbox")?.withRenderingMode(.alwaysTemplate).resized(to: CGSize(width: 22, height: 22))
         let toolboxButton = UIBarButtonItem(image: toolboxImage, style: .plain, target: self, action: #selector(showToolboxMenu))
+        toolboxButton.tintColor = .black
         navigationItem.leftBarButtonItem = toolboxButton
         
         // Add notification bell button
@@ -174,12 +175,14 @@ class boardsTV: UITableViewController {
         // Scale to exact size to ensure consistency
         let resizedBellImage = bellImage?.resized(to: CGSize(width: 22, height: 22))
         let notificationButton = UIBarButtonItem(image: resizedBellImage, style: .plain, target: self, action: #selector(showNotifications))
+        notificationButton.tintColor = .black
         notificationButton.tag = 100 // Tag for updating badge later
         
         // Add settings button
         let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
         let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
         let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
+        settingsButton.tintColor = .black
         
         // Set both buttons as right bar button items
         navigationItem.rightBarButtonItems = [settingsButton, notificationButton]
@@ -437,11 +440,10 @@ class boardsTV: UITableViewController {
                     iconName = "bell.badge.fill"
                 }
                 
-                // Set tint color to indicate unread
-                notificationButton.tintColor = .systemRed
+                notificationButton.tintColor = .black
             } else {
                 iconName = "bell"
-                notificationButton.tintColor = nil // Use default tint color
+                notificationButton.tintColor = .black
             }
             
             // Create and resize the icon consistently with other nav buttons
