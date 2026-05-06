@@ -108,10 +108,12 @@ class ComposeViewController: UIViewController {
 
         // Navigation buttons
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .cancel,
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
             target: self,
             action: #selector(cancelTapped)
         )
+        navigationItem.leftBarButtonItem?.accessibilityLabel = "Cancel"
 
         // Right side: minimize and post buttons
         let minimizeButton = UIBarButtonItem(
@@ -120,12 +122,14 @@ class ComposeViewController: UIViewController {
             target: self,
             action: #selector(minimizeTapped)
         )
+        minimizeButton.accessibilityLabel = "Minimize"
         let postButton = UIBarButtonItem(
-            title: "Post",
+            image: UIImage(systemName: "paperplane"),
             style: .done,
             target: self,
             action: #selector(postTapped)
         )
+        postButton.accessibilityLabel = "Post"
         navigationItem.rightBarButtonItems = [postButton, minimizeButton]
 
         setupScrollView()
@@ -805,7 +809,7 @@ class ComposeViewController: UIViewController {
     private func setLoading(_ loading: Bool) {
         isPosting = loading
         navigationItem.leftBarButtonItem?.isEnabled = !loading
-        navigationItem.rightBarButtonItem?.isEnabled = !loading
+        navigationItem.rightBarButtonItems?.forEach { $0.isEnabled = !loading }
 
         if loading {
             activityIndicator.startAnimating()
