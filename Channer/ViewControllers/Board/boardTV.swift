@@ -243,7 +243,6 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     private let refreshProgressView = UIProgressView(progressViewStyle: .default)
     private var refreshStatusHeight: NSLayoutConstraint?
     private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
-    private var settingsBarButtonItem: UIBarButtonItem?
     private var moreBarButtonItem: UIBarButtonItem?
 
     // MARK: - Lifecycle Methods
@@ -444,30 +443,16 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     // Home button removed in favor of standard navigation back button
     
     private func setupSortButton() {
-        // Adds a sort button to the navigation bar.
+        // Adds board actions to the navigation bar.
         var buttons: [UIBarButtonItem] = []
 
-        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped(_:)))
-        settingsButton.tintColor = .black
-        settingsBarButtonItem = settingsButton
-        buttons.append(settingsButton)
-
-        if !isFavoritesView {
-            let moreImage = UIImage(named: "more")?.withRenderingMode(.alwaysTemplate)
-            let resizedMoreImage = moreImage?.resized(to: CGSize(width: 22, height: 22))
-            let moreButton = UIBarButtonItem(image: resizedMoreImage, style: .plain, target: self, action: #selector(showActionSheet))
-            moreButton.tintColor = .black
-            moreButton.accessibilityLabel = "More"
-            moreBarButtonItem = moreButton
-            buttons.insert(moreButton, at: 0)
-        }
-
-        // Add sort button
-        let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
-        let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
-        let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
-        sortButton.tintColor = .black
-        buttons.append(sortButton)
+        let moreImage = UIImage(named: "more")?.withRenderingMode(.alwaysTemplate)
+        let resizedMoreImage = moreImage?.resized(to: CGSize(width: 22, height: 22))
+        let moreButton = UIBarButtonItem(image: resizedMoreImage, style: .plain, target: self, action: #selector(showActionSheet))
+        moreButton.tintColor = .black
+        moreButton.accessibilityLabel = "More"
+        moreBarButtonItem = moreButton
+        buttons.append(moreButton)
 
         // Add new thread button for regular board view (not favorites or history)
         if !isFavoritesView && !isHistoryView {
@@ -486,21 +471,14 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         }
     }
 
-    @objc private func settingsButtonTapped(_ sender: Any) {
+    private func showCatalogGridSizeSettings() {
         let settingsVC = CatalogSettingsViewController()
         settingsVC.modalPresentationStyle = .popover
         settingsVC.preferredContentSize = CGSize(width: 400, height: 200)
 
         if let popover = settingsVC.popoverPresentationController {
             popover.delegate = self
-
-            if let sourceView = sender as? UIView {
-                popover.channerAnchor(in: self, sourceView: sourceView, sourceRect: sourceView.bounds, permittedArrowDirections: .up)
-            } else if let barButtonItem = sender as? UIBarButtonItem {
-                popover.channerAnchor(in: self, barButtonItem: barButtonItem, permittedArrowDirections: .up)
-            } else {
-                popover.channerAnchor(in: self, barButtonItem: settingsBarButtonItem, permittedArrowDirections: .up)
-            }
+            popover.channerAnchor(in: self, barButtonItem: moreBarButtonItem, permittedArrowDirections: .up)
         }
 
         present(settingsVC, animated: true)
@@ -518,6 +496,14 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                 self?.clearSearch()
             }))
         }
+
+        actionSheet.addAction(UIAlertAction(title: "Sort", style: .default, handler: { [weak self] _ in
+            self?.presentSortOptions(anchor: self?.moreBarButtonItem)
+        }))
+
+        actionSheet.addAction(UIAlertAction(title: "Catalog Grid Size", style: .default, handler: { [weak self] _ in
+            self?.showCatalogGridSizeSettings()
+        }))
 
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
 
@@ -797,8 +783,8 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         }
     }
     
-    @objc private func sortButtonTapped() {
-        // Presents sorting options when the sort button is tapped.
+    private func presentSortOptions(anchor: UIBarButtonItem?) {
+        // Presents sorting options from the More menu.
         let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
 
         if isHistoryView {
@@ -854,8 +840,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
 
         // iPad-specific popover configuration
         if let popoverController = alertController.popoverPresentationController {
-            let sortButton = navigationItem.rightBarButtonItems?.first { $0.action == #selector(sortButtonTapped) }
-            popoverController.channerAnchor(in: self, barButtonItem: sortButton, permittedArrowDirections: .up)
+            popoverController.channerAnchor(in: self, barButtonItem: anchor ?? moreBarButtonItem, permittedArrowDirections: .up)
         }
 
         // Present the alert controller
