@@ -263,7 +263,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     let cellIdentifier = "threadRepliesCell"
     private var showSpoilers = false
     private var spoilerButton: UIBarButtonItem?
-    private var favoriteButton: UIBarButtonItem?
     private var originalTexts: [String] = []
     private var isLoading = true {
         didSet {
@@ -1085,29 +1084,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                          target: self,
                                          action: #selector(showActionSheet))
 
-        // Create the Gallery button
-        let galleryImage = UIImage(systemName: "photo.on.rectangle.angled")
-        let galleryButton = UIBarButtonItem(image: galleryImage,
-                                            style: .plain,
-                                            target: self,
-                                            action: #selector(showGallery))
-
-        // Create the Favorite button with dynamic image based on state
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv)
-        let favoriteImageName = isFavorited ? "star.fill" : "star"
-        let favoriteImage = UIImage(systemName: favoriteImageName)
-        favoriteButton = UIBarButtonItem(image: favoriteImage,
-                                         style: .plain,
-                                         target: self,
-                                         action: #selector(toggleFavorite))
-
-        // Create the Refresh button
-        let refreshImage = UIImage(systemName: "arrow.clockwise")
-        let refreshButton = UIBarButtonItem(image: refreshImage,
-                                            style: .plain,
-                                            target: self,
-                                            action: #selector(refresh))
-
         // Create the Reply button
         let replyImage = UIImage(systemName: "square.and.pencil")
         let replyButton = UIBarButtonItem(image: replyImage,
@@ -1115,7 +1091,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                           target: self,
                                           action: #selector(showComposeView))
 
-        let buttons = [moreButton, galleryButton, favoriteButton, refreshButton, replyButton].compactMap { $0 }
+        let buttons = [moreButton, replyButton].compactMap { $0 }
         buttons.forEach { $0.tintColor = .black }
 
         // Set the buttons in the navigation bar (rightmost to leftmost order)
@@ -1296,6 +1272,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Add Reply action
         actionSheet.addAction(UIAlertAction(title: "Reply", style: .default, handler: { _ in
             self.showComposeView()
+        }))
+
+        let favoriteTitle = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) ? "Unfavorite" : "Favorite"
+        actionSheet.addAction(UIAlertAction(title: favoriteTitle, style: .default, handler: { _ in
+            self.toggleFavorite()
+        }))
+
+        actionSheet.addAction(UIAlertAction(title: "Gallery", style: .default, handler: { _ in
+            self.showGallery()
         }))
 
         // Add actions for additional navigation options
@@ -2260,13 +2245,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         if FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) {
             print("Removing favorite for thread: \(threadNumber)")
             FavoritesManager.shared.removeFavorite(threadNumber: threadNumber, boardAbv: boardAbv)
-            updateFavoriteButton()
         } else {
             // Show category selection
             showCategorySelectionForFavorite()
         }
         
-        print("Favorite button updated.")
+        print("Favorite state updated.")
     }
     
     private func createThreadDataForFavorite() -> ThreadData {
@@ -2285,13 +2269,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         print("Thread number: \(threadData.number)")
         print("Board: \(threadData.boardAbv)")
         return threadData
-    }
-    
-    private func updateFavoriteButton() {
-        // Update the favorite button icon based on current state
-        let isFavorited = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv)
-        let favoriteImageName = isFavorited ? "star.fill" : "star"
-        favoriteButton?.image = UIImage(systemName: favoriteImageName)
     }
     
     private func addFavorite() {
@@ -2358,7 +2335,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 let favorite = self.createThreadDataForFavorite()
                 print("Created ThreadData with category to be set: \(category.id)")
                 FavoritesManager.shared.addFavorite(favorite, to: category.id)
-                self.updateFavoriteButton()
             }
             
             // Add category color as icon
