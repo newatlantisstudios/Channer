@@ -485,33 +485,87 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     }
 
     @objc private func showActionSheet() {
-        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-
-        actionSheet.addAction(UIAlertAction(title: "Search", style: .default, handler: { [weak self] _ in
-            self?.showSearch()
-        }))
-
+        var primaryOptions: [BoardMoreOption] = [
+            BoardMoreOption(title: "Search", subtitle: "Find text in threads", systemImageName: "magnifyingglass") { [weak self] in
+                self?.showSearch()
+            }
+        ]
+        
         if !searchText.isEmpty {
-            actionSheet.addAction(UIAlertAction(title: "Clear Search", style: .default, handler: { [weak self] _ in
+            primaryOptions.append(BoardMoreOption(title: "Clear Search", subtitle: "Return to the full board", systemImageName: "xmark.circle") { [weak self] in
                 self?.clearSearch()
-            }))
+            })
         }
-
-        actionSheet.addAction(UIAlertAction(title: "Sort", style: .default, handler: { [weak self] _ in
-            self?.presentSortOptions(anchor: self?.moreBarButtonItem)
-        }))
-
-        actionSheet.addAction(UIAlertAction(title: "Catalog Grid Size", style: .default, handler: { [weak self] _ in
-            self?.showCatalogGridSizeSettings()
-        }))
-
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-
-        if let popover = actionSheet.popoverPresentationController {
+        
+        var sortOptions: [BoardMoreOption]
+        if isHistoryView {
+            sortOptions = [
+                BoardMoreOption(title: "Most Recently Visited", subtitle: "Show recent visits first", systemImageName: "clock.arrow.circlepath") { [weak self] in
+                    self?.sortThreads(by: .visitedOrder)
+                },
+                BoardMoreOption(title: "Oldest Visited", subtitle: "Show older visits first", systemImageName: "clock") { [weak self] in
+                    self?.sortHistoryThreadsByOldestVisited()
+                },
+                BoardMoreOption(title: "Highest Reply Count", subtitle: "Show most active threads first", systemImageName: "text.bubble") { [weak self] in
+                    self?.sortThreads(by: .replyCount)
+                },
+                BoardMoreOption(title: "Newest Creation", subtitle: "Show newest threads first", systemImageName: "sparkles") { [weak self] in
+                    self?.sortThreads(by: .newestCreation)
+                }
+            ]
+        } else {
+            sortOptions = [
+                BoardMoreOption(title: "Bump Order", subtitle: "Use the board default order", systemImageName: "arrow.up.arrow.down") { [weak self] in
+                    self?.sortThreads(by: .bumpOrder)
+                },
+                BoardMoreOption(title: "Last Reply", subtitle: "Show latest replies first", systemImageName: "arrow.clockwise") { [weak self] in
+                    self?.sortThreads(by: .lastReply)
+                },
+                BoardMoreOption(title: "Highest Reply Count", subtitle: "Show most active threads first", systemImageName: "text.bubble") { [weak self] in
+                    self?.sortThreads(by: .replyCount)
+                },
+                BoardMoreOption(title: "Newest Creation", subtitle: "Show newest threads first", systemImageName: "sparkles") { [weak self] in
+                    self?.sortThreads(by: .newestCreation)
+                }
+            ]
+        }
+        
+        let sections = [
+            BoardMoreOptionsSection(title: nil, options: primaryOptions),
+            BoardMoreOptionsSection(title: "Sort", options: sortOptions),
+            BoardMoreOptionsSection(title: "Display", options: [
+                BoardMoreOption(title: "Catalog Grid Size", subtitle: "Adjust catalog thumbnail layout", systemImageName: "square.grid.3x3") { [weak self] in
+                    self?.showCatalogGridSizeSettings()
+                }
+            ])
+        ]
+        
+        let optionsController = BoardMoreOptionsViewController(title: "Board Options", subtitle: boardOptionsSubtitle, sections: sections)
+        optionsController.modalPresentationStyle = traitCollection.horizontalSizeClass == .regular ? .popover : .pageSheet
+        
+        if let sheet = optionsController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 18
+        }
+        
+        if let popover = optionsController.popoverPresentationController {
             popover.channerAnchor(in: self, barButtonItem: moreBarButtonItem, permittedArrowDirections: .up)
         }
-
-        present(actionSheet, animated: true)
+        
+        present(optionsController, animated: true)
+    }
+    
+    private var boardOptionsSubtitle: String {
+        if isHistoryView {
+            return "History"
+        }
+        
+        if isFavoritesView {
+            return "Favorites"
+        }
+        
+        return "/\(boardAbv)/"
     }
 
     @objc private func showSearch() {
@@ -783,68 +837,14 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         }
     }
     
-    private func presentSortOptions(anchor: UIBarButtonItem?) {
-        // Presents sorting options from the More menu.
-        let alertController = UIAlertController(title: "Sort", message: nil, preferredStyle: .actionSheet)
-
-        if isHistoryView {
-            // History-specific sort options
-            let visitedOrderAction = UIAlertAction(title: "Most Recently Visited", style: .default) { _ in
-                self.sortThreads(by: .visitedOrder)
-            }
-            let oldestVisitedAction = UIAlertAction(title: "Oldest Visited", style: .default) { _ in
-                // Sort by visited order but reversed (oldest first)
-                let historyThreads = HistoryManager.shared.getHistoryThreads()
-                self.filteredThreadData.sort { thread1, thread2 in
-                    let index1 = historyThreads.firstIndex(where: { $0.number == thread1.number && $0.boardAbv == thread1.boardAbv }) ?? 0
-                    let index2 = historyThreads.firstIndex(where: { $0.number == thread2.number && $0.boardAbv == thread2.boardAbv }) ?? 0
-                    return index1 < index2  // Lower index = older visited
-                }
-                self.tableView.reloadData()
-            }
-            let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
-                self.sortThreads(by: .replyCount)
-            }
-            let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
-                self.sortThreads(by: .newestCreation)
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-
-            alertController.addAction(visitedOrderAction)
-            alertController.addAction(oldestVisitedAction)
-            alertController.addAction(replyCountAction)
-            alertController.addAction(newestCreationAction)
-            alertController.addAction(cancelAction)
-        } else {
-            // Standard board/favorites sort options
-            let bumpOrderAction = UIAlertAction(title: "Bump Order", style: .default) { _ in
-                self.sortThreads(by: .bumpOrder)
-            }
-            let lastReplyAction = UIAlertAction(title: "Last Reply", style: .default) { _ in
-                self.sortThreads(by: .lastReply)
-            }
-            let replyCountAction = UIAlertAction(title: "Highest Reply Count", style: .default) { _ in
-                self.sortThreads(by: .replyCount)
-            }
-            let newestCreationAction = UIAlertAction(title: "Newest Creation", style: .default) { _ in
-                self.sortThreads(by: .newestCreation)
-            }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-
-            alertController.addAction(bumpOrderAction)
-            alertController.addAction(lastReplyAction)
-            alertController.addAction(replyCountAction)
-            alertController.addAction(newestCreationAction)
-            alertController.addAction(cancelAction)
+    private func sortHistoryThreadsByOldestVisited() {
+        let historyThreads = HistoryManager.shared.getHistoryThreads()
+        filteredThreadData.sort { thread1, thread2 in
+            let index1 = historyThreads.firstIndex(where: { $0.number == thread1.number && $0.boardAbv == thread1.boardAbv }) ?? 0
+            let index2 = historyThreads.firstIndex(where: { $0.number == thread2.number && $0.boardAbv == thread2.boardAbv }) ?? 0
+            return index1 < index2
         }
-
-        // iPad-specific popover configuration
-        if let popoverController = alertController.popoverPresentationController {
-            popoverController.channerAnchor(in: self, barButtonItem: anchor ?? moreBarButtonItem, permittedArrowDirections: .up)
-        }
-
-        // Present the alert controller
-        present(alertController, animated: true, completion: nil)
+        tableView.reloadData()
     }
 
     @objc private func showNewThreadCompose() {
@@ -1557,6 +1557,177 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             }
         }
         tableView.reloadData()
+    }
+}
+
+private struct BoardMoreOptionsSection {
+    let title: String?
+    var options: [BoardMoreOption]
+}
+
+private struct BoardMoreOption {
+    let title: String
+    let subtitle: String?
+    let systemImageName: String
+    let isDestructive: Bool
+    let action: () -> Void
+
+    init(title: String, subtitle: String?, systemImageName: String, isDestructive: Bool = false, action: @escaping () -> Void) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImageName = systemImageName
+        self.isDestructive = isDestructive
+        self.action = action
+    }
+}
+
+private final class BoardMoreOptionsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+    private let headerTitle: String
+    private let headerSubtitle: String
+    private let sections: [BoardMoreOptionsSection]
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    init(title: String, subtitle: String, sections: [BoardMoreOptionsSection]) {
+        self.headerTitle = title
+        self.headerSubtitle = subtitle
+        self.sections = sections
+        super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 390, height: estimatedContentHeight)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        configureView()
+        configureHeader()
+        configureTableView()
+        layoutOptions()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        preferredContentSize = CGSize(width: 390, height: estimatedContentHeight)
+    }
+
+    private var estimatedContentHeight: CGFloat {
+        let rows = sections.reduce(0) { $0 + $1.options.count }
+        let sectionChrome = CGFloat(sections.count) * 44
+        return min(720, 88 + CGFloat(rows) * 64 + sectionChrome)
+    }
+
+    private func configureView() {
+        view.backgroundColor = ThemeManager.shared.backgroundColor
+    }
+
+    private func configureHeader() {
+        titleLabel.text = headerTitle
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
+        titleLabel.textColor = ThemeManager.shared.primaryTextColor
+        titleLabel.adjustsFontForContentSizeCategory = true
+
+        subtitleLabel.text = headerSubtitle
+        subtitleLabel.font = .preferredFont(forTextStyle: .subheadline)
+        subtitleLabel.textColor = ThemeManager.shared.secondaryTextColor
+        subtitleLabel.adjustsFontForContentSizeCategory = true
+    }
+
+    private func configureTableView() {
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.separatorColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.35)
+        tableView.rowHeight = 64
+        tableView.estimatedRowHeight = 64
+        tableView.alwaysBounceVertical = false
+
+        if #available(iOS 15.0, *) {
+            tableView.sectionHeaderTopPadding = 8
+        }
+    }
+
+    private func layoutOptions() {
+        let headerStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
+        headerStack.axis = .vertical
+        headerStack.spacing = 4
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(headerStack)
+        view.addSubview(tableView)
+
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            headerStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            headerStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+
+            tableView.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 8),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        sections.count
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        sections[section].options.count
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        sections[section].title
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        guard let header = view as? UITableViewHeaderFooterView else { return }
+        header.textLabel?.textColor = ThemeManager.shared.secondaryTextColor
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let reuseIdentifier = "BoardMoreOptionCell"
+        let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier) ??
+            UITableViewCell(style: .subtitle, reuseIdentifier: reuseIdentifier)
+        let option = sections[indexPath.section].options[indexPath.row]
+        let textColor = option.isDestructive ? UIColor.systemRed : ThemeManager.shared.primaryTextColor
+        let iconColor = option.isDestructive ? UIColor.systemRed : ThemeManager.shared.cellBorderColor
+
+        cell.textLabel?.text = option.title
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.textColor = textColor
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
+
+        cell.detailTextLabel?.text = option.subtitle
+        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .footnote)
+        cell.detailTextLabel?.textColor = ThemeManager.shared.secondaryTextColor
+        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
+
+        cell.imageView?.image = UIImage(systemName: option.systemImageName)
+        cell.imageView?.tintColor = iconColor
+        cell.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        cell.selectedBackgroundView = selectedBackgroundView()
+        cell.accessoryType = .none
+        cell.tintColor = iconColor
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let option = sections[indexPath.section].options[indexPath.row]
+        dismiss(animated: true) {
+            option.action()
+        }
+    }
+
+    private func selectedBackgroundView() -> UIView {
+        let view = UIView()
+        view.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.18)
+        return view
     }
 }
 
