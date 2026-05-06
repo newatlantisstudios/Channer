@@ -3480,6 +3480,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             floatingReplyButton.setImage(UIImage(systemName: "square.and.pencil"), for: .normal)
             floatingReplyButton.accessibilityLabel = "Continue Reply"
             floatingReplyButton.backgroundColor = .systemGreen
+            floatingReplyButton.tintColor = .black
             floatingReplyButtonWidthConstraint?.isActive = true
             showFloatingButton(showClearButton: false)
         } else if hasQuotes {
@@ -3489,6 +3490,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             floatingReplyButton.setTitle("  Reply (\(pendingQuotes.count))  ", for: .normal)
             floatingReplyButton.accessibilityLabel = "Reply with \(pendingQuotes.count) quoted posts"
             floatingReplyButton.backgroundColor = .systemBlue
+            floatingReplyButton.tintColor = .white
             showFloatingButton(showClearButton: true)
         } else {
             // Hide the button

@@ -114,6 +114,7 @@ class ComposeViewController: UIViewController {
             action: #selector(cancelTapped)
         )
         navigationItem.leftBarButtonItem?.accessibilityLabel = "Cancel"
+        navigationItem.leftBarButtonItem?.tintColor = .black
 
         // Right side: minimize and post buttons
         let minimizeButton = UIBarButtonItem(
@@ -123,6 +124,7 @@ class ComposeViewController: UIViewController {
             action: #selector(minimizeTapped)
         )
         minimizeButton.accessibilityLabel = "Minimize"
+        minimizeButton.tintColor = .black
         let postButton = UIBarButtonItem(
             image: UIImage(systemName: "paperplane"),
             style: .done,
@@ -130,6 +132,7 @@ class ComposeViewController: UIViewController {
             action: #selector(postTapped)
         )
         postButton.accessibilityLabel = "Post"
+        postButton.tintColor = .black
         navigationItem.rightBarButtonItems = [postButton, minimizeButton]
 
         setupScrollView()
