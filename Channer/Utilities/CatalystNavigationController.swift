@@ -162,6 +162,45 @@ private final class BottomToolbarSearchContainer: UIView {
     }
 }
 
+private final class EdgeBackPopAnimator: NSObject, UIViewControllerAnimatedTransitioning {
+    func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
+        return 0.28
+    }
+
+    func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
+        guard let toViewController = transitionContext.viewController(forKey: .to),
+              let fromView = transitionContext.view(forKey: .from),
+              let toView = transitionContext.view(forKey: .to) else {
+            transitionContext.completeTransition(false)
+            return
+        }
+
+        let containerView = transitionContext.containerView
+        let finalFrame = transitionContext.finalFrame(for: toViewController)
+        let width = containerView.bounds.width
+        toView.frame = finalFrame.offsetBy(dx: -width * 0.3, dy: 0)
+        containerView.insertSubview(toView, belowSubview: fromView)
+
+        UIView.animate(
+            withDuration: transitionDuration(using: transitionContext),
+            delay: 0,
+            options: [.curveEaseOut, .allowUserInteraction],
+            animations: {
+                fromView.frame = finalFrame.offsetBy(dx: width, dy: 0)
+                toView.frame = finalFrame
+            },
+            completion: { _ in
+                let didComplete = !transitionContext.transitionWasCancelled
+                if !didComplete {
+                    fromView.frame = finalFrame
+                    toView.removeFromSuperview()
+                }
+                transitionContext.completeTransition(didComplete)
+            }
+        )
+    }
+}
+
 class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate, UIGestureRecognizerDelegate, UITextFieldDelegate {
 
     private lazy var bottomBackButton: UIBarButtonItem = {
@@ -198,6 +237,14 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     private weak var manuallyCollapsedSearchOwner: UIViewController?
     private var lastToolbarSignature = ""
     private var mirroredToolbarItems: [ObjectIdentifier: UIBarButtonItem] = [:]
+    private let edgeBackPopAnimator = EdgeBackPopAnimator()
+    private var edgeBackInteractionController: UIPercentDrivenInteractiveTransition?
+    private lazy var edgeBackGestureRecognizer: UIScreenEdgePanGestureRecognizer = {
+        let gestureRecognizer = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleEdgeBackGesture(_:)))
+        gestureRecognizer.edges = .left
+        gestureRecognizer.delegate = self
+        return gestureRecognizer
+    }()
 
     #if targetEnvironment(macCatalyst)
     private var mouseMonitor: AnyObject?
@@ -209,6 +256,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         delegate = self
         configureInteractivePopGesture()
+        configureEdgeBackGesture()
         configureBottomToolbarChrome()
         syncBottomToolbar(animated: false)
 
@@ -259,8 +307,28 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     }
 
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
+        edgeBackInteractionController = nil
         updateInteractivePopGestureState()
         syncBottomToolbar(animated: animated)
+    }
+
+    func navigationController(
+        _ navigationController: UINavigationController,
+        animationControllerFor operation: UINavigationController.Operation,
+        from fromVC: UIViewController,
+        to toVC: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        guard operation == .pop,
+              edgeBackInteractionController != nil else { return nil }
+
+        return edgeBackPopAnimator
+    }
+
+    func navigationController(
+        _ navigationController: UINavigationController,
+        interactionControllerFor animationController: UIViewControllerAnimatedTransitioning
+    ) -> UIViewControllerInteractiveTransitioning? {
+        return edgeBackInteractionController
     }
 
     private func configureInteractivePopGesture() {
@@ -268,13 +336,61 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         updateInteractivePopGestureState()
     }
 
+    private func configureEdgeBackGesture() {
+        view.addGestureRecognizer(edgeBackGestureRecognizer)
+        updateInteractivePopGestureState()
+    }
+
     private func updateInteractivePopGestureState() {
-        interactivePopGestureRecognizer?.isEnabled = viewControllers.count > 1
+        let canNavigateBack = viewControllers.count > 1
+        interactivePopGestureRecognizer?.isEnabled = false
+        edgeBackGestureRecognizer.isEnabled = canNavigateBack || edgeBackInteractionController != nil
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === interactivePopGestureRecognizer else { return true }
-        return viewControllers.count > 1 && transitionCoordinator == nil
+        if gestureRecognizer === interactivePopGestureRecognizer ||
+            gestureRecognizer === edgeBackGestureRecognizer {
+            return viewControllers.count > 1 && transitionCoordinator == nil
+        }
+
+        return true
+    }
+
+    @objc private func handleEdgeBackGesture(_ gestureRecognizer: UIScreenEdgePanGestureRecognizer) {
+        let translationX = max(0, gestureRecognizer.translation(in: view).x)
+        let progress = min(max(translationX / max(view.bounds.width, 1), 0), 1)
+
+        switch gestureRecognizer.state {
+        case .began:
+            guard viewControllers.count > 1,
+                  transitionCoordinator == nil else { return }
+
+            edgeBackInteractionController = UIPercentDrivenInteractiveTransition()
+            edgeBackInteractionController?.completionCurve = .easeOut
+            _ = popViewController(animated: true)
+
+        case .changed:
+            edgeBackInteractionController?.update(progress)
+
+        case .ended:
+            let velocityX = gestureRecognizer.velocity(in: view).x
+            let shouldFinish = progress > 0.35 || velocityX > 700
+            if shouldFinish {
+                edgeBackInteractionController?.finish()
+            } else {
+                edgeBackInteractionController?.cancel()
+            }
+            edgeBackInteractionController = nil
+            updateInteractivePopGestureState()
+
+        case .cancelled, .failed:
+            edgeBackInteractionController?.cancel()
+            edgeBackInteractionController = nil
+            updateInteractivePopGestureState()
+
+        default:
+            break
+        }
     }
 
     private func configureBottomToolbarChrome() {
