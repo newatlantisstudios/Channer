@@ -142,7 +142,7 @@ extension threadRepliesTV {
 /// Main view controller for displaying thread replies
 /// Supports search, filtering, favorites, gallery mode, and offline caching
 /// Includes keyboard shortcuts for iPad and optimized scrolling performance
-class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate, SpoilerTapHandler, QuoteLinkHoverDelegate {
+class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSource, UITableViewDataSourcePrefetching, UITextViewDelegate, UISearchBarDelegate, BottomToolbarSearchDismissHandling, SpoilerTapHandler, QuoteLinkHoverDelegate {
     
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -273,7 +273,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var favorites: [String: [String: Any]] = [:] // Store favorites as [threadNumber: threadData]
     
     // MARK: - Search Properties
-    private let searchBar = UISearchBar()
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var searchBar: UISearchBar {
+        searchController.searchBar
+    }
     private var searchBarContainer: UIView?
     private var searchBarStyledContainer: UIView?
     private var searchText: String = ""
@@ -523,7 +526,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         rc.addTarget(self, action: #selector(refresh), for: .valueChanged)
         tableView.refreshControl = rc
 
-        // Search bar setup
+        // Search is launched from the More menu and rendered in the bottom toolbar.
         setupSearchBar()
         
         // Table view setup
@@ -578,7 +581,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Table constraints
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: searchBarContainer!.bottomAnchor),
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
@@ -868,7 +871,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         refreshStatusHeight = refreshStatusView.heightAnchor.constraint(equalToConstant: 44)
         NSLayoutConstraint.activate([
-            refreshStatusView.topAnchor.constraint(equalTo: searchBarContainer!.bottomAnchor),
+            refreshStatusView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             refreshStatusView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             refreshStatusView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             refreshStatusHeight!,
@@ -1129,21 +1132,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // MARK: - Search Bar Setup
     private func setupSearchBar() {
-        // Configure search bar
         searchBar.delegate = self
         searchBar.placeholder = "Search in thread..."
         searchBar.searchBarStyle = .minimal
         searchBar.showsCancelButton = false
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
 
-        // Make search bar background transparent (styled container will provide the background)
         searchBar.backgroundImage = UIImage()
         searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
         searchBar.backgroundColor = .clear
         searchBar.barTintColor = .clear
         searchBar.tintColor = ThemeManager.shared.primaryTextColor
 
-        // Style the search text field to be fully transparent (styled container provides background)
         let textField = searchBar.searchTextField
         textField.backgroundColor = .clear
         textField.textColor = ThemeManager.shared.primaryTextColor
@@ -1151,79 +1150,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         textField.layer.cornerRadius = 0
         textField.layer.borderWidth = 0
         textField.borderStyle = .none
-
-        // Remove the internal background image/view that creates the nested appearance
         textField.background = nil
 
-        // Set placeholder styling
         textField.attributedPlaceholder = NSAttributedString(
             string: "Search in thread...",
             attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
         )
 
-        // Create main container
-        let containerHeight: CGFloat = 70
-        let container = UIView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor = ThemeManager.shared.backgroundColor
-        searchBarContainer = container
-
-        // Create styled container that matches thread cell design
-        let styledContainer = UIView()
-        styledContainer.translatesAutoresizingMaskIntoConstraints = false
-        styledContainer.backgroundColor = ThemeManager.shared.cellBackgroundColor
-
-        // Match thread cell corner radius
-        let cornerRadius: CGFloat = 22.0
-        styledContainer.layer.cornerRadius = cornerRadius
-        styledContainer.layer.cornerCurve = .continuous
-
-        // Match thread cell border
-        styledContainer.layer.borderWidth = 6.0
-        styledContainer.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
-
-        // Match thread cell shadow
-        styledContainer.layer.shadowColor = UIColor.black.cgColor
-        styledContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
-        styledContainer.layer.shadowOpacity = 0.15
-        styledContainer.layer.shadowRadius = 6
-        styledContainer.layer.masksToBounds = false
-
-        // Store reference for later updates
-        searchBarStyledContainer = styledContainer
-
-        // Add views to hierarchy
-        view.addSubview(container)
-        container.addSubview(styledContainer)
-        styledContainer.addSubview(searchBar)
-
-        // Layout main container
-        NSLayoutConstraint.activate([
-            container.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            container.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            container.heightAnchor.constraint(equalToConstant: containerHeight)
-        ])
-
-        // Layout styled container with padding
-        let horizontalPadding: CGFloat = 16
-        let verticalPadding: CGFloat = 8
-        NSLayoutConstraint.activate([
-            styledContainer.topAnchor.constraint(equalTo: container.topAnchor, constant: verticalPadding),
-            styledContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: horizontalPadding),
-            styledContainer.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -horizontalPadding),
-            styledContainer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -verticalPadding)
-        ])
-
-        // Layout search bar inside styled container
-        NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: styledContainer.topAnchor),
-            searchBar.leadingAnchor.constraint(equalTo: styledContainer.leadingAnchor, constant: 8),
-            searchBar.trailingAnchor.constraint(equalTo: styledContainer.trailingAnchor, constant: -8),
-            searchBar.bottomAnchor.constraint(equalTo: styledContainer.bottomAnchor)
-        ])
-
-        // Update appearance
         updateSearchBarAppearance()
     }
     
@@ -1266,6 +1199,30 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         showComposeViewWithQuote(quotePostNumber: nil)
     }
 
+    @objc private func showSearch() {
+        updateSearchBarAppearance()
+
+        if let navigationController = navigationController as? CatalystNavigationController {
+            navigationController.showBottomToolbarSearch(searchController, owner: self)
+        } else {
+            navigationItem.searchController = searchController
+            searchController.isActive = true
+            searchBar.becomeFirstResponder()
+        }
+    }
+
+    private func clearSearch() {
+        searchBar.text = ""
+        searchText = ""
+        isSearchActive = false
+        searchFilteredIndices.removeAll()
+        debugReloadData(context: "Search filter update")
+    }
+
+    func bottomToolbarSearchDidRequestDismissal() {
+        clearSearch()
+    }
+
     private func showComposeViewWithQuote(quotePostNumber: Int?) {
         guard let threadNum = Int(threadNumber) else { return }
 
@@ -1292,6 +1249,16 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func showActionSheet() {
         // Create an action sheet
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+        actionSheet.addAction(UIAlertAction(title: "Search", style: .default, handler: { _ in
+            self.showSearch()
+        }))
+
+        if isSearchActive {
+            actionSheet.addAction(UIAlertAction(title: "Clear Search", style: .default, handler: { _ in
+                self.clearSearch()
+            }))
+        }
 
         // Add Reply action
         actionSheet.addAction(UIAlertAction(title: "Reply", style: .default, handler: { _ in

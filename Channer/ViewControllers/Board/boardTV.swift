@@ -99,7 +99,7 @@ struct ThreadData: Codable {
 
 /// Main view controller for displaying threads from a selected board
 /// Supports thread searching, favorites management, and keyboard shortcuts on iPad
-class boardTV: UITableViewController, UISearchBarDelegate {
+class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDismissHandling {
     
     // MARK: - Keyboard Shortcuts
     override var keyCommands: [UIKeyCommand]? {
@@ -215,8 +215,11 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     var isFavoritesView: Bool = false
     var boardPassed = false
     
-    // Search bar property
-    private let searchBar = UISearchBar()
+    // Search is launched from the More menu and rendered in the bottom toolbar.
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var searchBar: UISearchBar {
+        searchController.searchBar
+    }
     private var searchText: String = ""
 
     // Image cache configuration
@@ -241,6 +244,7 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private var refreshStatusHeight: NSLayoutConstraint?
     private let threadsDisplayModeKey = ThreadViewControllerFactory.threadsDisplayModeKey
     private var settingsBarButtonItem: UIBarButtonItem?
+    private var moreBarButtonItem: UIBarButtonItem?
 
     // MARK: - Lifecycle Methods
     // Methods related to the view controller's lifecycle.
@@ -282,13 +286,9 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         setupRefreshStatusIndicator()
         setupSortButton()
         
-        // Only setup search bar if not in favorites view (favorites view has its own search)
+        // Only setup search if not in favorites view (favorites view has its own search)
         if !isFavoritesView {
             setupSearchBar()
-            // Force table to reload to show search bar
-            DispatchQueue.main.async {
-                self.tableView.reloadData()
-            }
         }
         
         // Configure back button to only show arrow, no text
@@ -452,6 +452,16 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         settingsBarButtonItem = settingsButton
         buttons.append(settingsButton)
 
+        if !isFavoritesView {
+            let moreImage = UIImage(named: "more")?.withRenderingMode(.alwaysTemplate)
+            let resizedMoreImage = moreImage?.resized(to: CGSize(width: 22, height: 22))
+            let moreButton = UIBarButtonItem(image: resizedMoreImage, style: .plain, target: self, action: #selector(showActionSheet))
+            moreButton.tintColor = .black
+            moreButton.accessibilityLabel = "More"
+            moreBarButtonItem = moreButton
+            buttons.insert(moreButton, at: 0)
+        }
+
         // Add sort button
         let sortImage = UIImage(named: "sort")?.withRenderingMode(.alwaysTemplate)
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
@@ -494,6 +504,52 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         }
 
         present(settingsVC, animated: true)
+    }
+
+    @objc private func showActionSheet() {
+        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+        actionSheet.addAction(UIAlertAction(title: "Search", style: .default, handler: { [weak self] _ in
+            self?.showSearch()
+        }))
+
+        if !searchText.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Clear Search", style: .default, handler: { [weak self] _ in
+                self?.clearSearch()
+            }))
+        }
+
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+
+        if let popover = actionSheet.popoverPresentationController {
+            popover.channerAnchor(in: self, barButtonItem: moreBarButtonItem, permittedArrowDirections: .up)
+        }
+
+        present(actionSheet, animated: true)
+    }
+
+    @objc private func showSearch() {
+        updateSearchBarAppearance()
+
+        if let navigationController = navigationController as? CatalystNavigationController {
+            navigationController.showBottomToolbarSearch(searchController, owner: self)
+        } else {
+            navigationItem.searchController = searchController
+            searchController.isActive = true
+            searchBar.becomeFirstResponder()
+        }
+    }
+
+    private func clearSearch() {
+        searchBar.text = ""
+        searchText = ""
+        isSearching = false
+        filteredThreadData = threadData
+        tableView.reloadData()
+    }
+
+    func bottomToolbarSearchDidRequestDismissal() {
+        clearSearch()
     }
     
     private func setupRefreshStatusIndicator() {
@@ -614,24 +670,19 @@ class boardTV: UITableViewController, UISearchBarDelegate {
     private var searchBarStyledContainer: UIView?
 
     private func setupSearchBar() {
-        // Sets up the search bar for searching threads with styling matching thread cells.
-        print("Setting up search bar for boardTV")
+        print("Setting up bottom toolbar search for boardTV")
 
-        // Configure search bar
         searchBar.delegate = self
         searchBar.placeholder = "Title or Comment"
         searchBar.searchBarStyle = .minimal
         searchBar.showsCancelButton = false
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
 
-        // Make search bar background transparent (styled container will provide the background)
         searchBar.backgroundImage = UIImage()
         searchBar.setBackgroundImage(UIImage(), for: .any, barMetrics: .default)
         searchBar.backgroundColor = .clear
         searchBar.barTintColor = .clear
         searchBar.tintColor = ThemeManager.shared.primaryTextColor
 
-        // Style the search text field to be fully transparent (styled container provides background)
         let textField = searchBar.searchTextField
         textField.backgroundColor = .clear
         textField.textColor = ThemeManager.shared.primaryTextColor
@@ -639,71 +690,14 @@ class boardTV: UITableViewController, UISearchBarDelegate {
         textField.layer.cornerRadius = 0
         textField.layer.borderWidth = 0
         textField.borderStyle = .none
-
-        // Remove the internal background image/view that creates the nested appearance
         textField.background = nil
 
-        // Set placeholder styling
         textField.attributedPlaceholder = NSAttributedString(
             string: "Title or Comment",
             attributes: [NSAttributedString.Key.foregroundColor: ThemeManager.shared.secondaryTextColor]
         )
+        tableView.tableHeaderView = nil
 
-        // Create main container for table header
-        let headerHeight: CGFloat = 70
-        let searchBarContainer = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: headerHeight))
-        searchBarContainer.backgroundColor = ThemeManager.shared.backgroundColor
-
-        // Create styled container that matches thread cell design
-        let styledContainer = UIView()
-        styledContainer.translatesAutoresizingMaskIntoConstraints = false
-        styledContainer.backgroundColor = ThemeManager.shared.cellBackgroundColor
-
-        // Match thread cell corner radius (proportionally scaled for search bar height)
-        let cornerRadius: CGFloat = 22.0
-        styledContainer.layer.cornerRadius = cornerRadius
-        styledContainer.layer.cornerCurve = .continuous
-
-        // Match thread cell border
-        styledContainer.layer.borderWidth = 6.0
-        styledContainer.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
-
-        // Match thread cell shadow
-        styledContainer.layer.shadowColor = UIColor.black.cgColor
-        styledContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
-        styledContainer.layer.shadowOpacity = 0.15
-        styledContainer.layer.shadowRadius = 6
-        styledContainer.layer.masksToBounds = false
-
-        // Store reference for later updates
-        searchBarStyledContainer = styledContainer
-
-        // Add views to hierarchy
-        searchBarContainer.addSubview(styledContainer)
-        styledContainer.addSubview(searchBar)
-
-        // Layout styled container with padding
-        let horizontalPadding: CGFloat = 16
-        let verticalPadding: CGFloat = 8
-        NSLayoutConstraint.activate([
-            styledContainer.topAnchor.constraint(equalTo: searchBarContainer.topAnchor, constant: verticalPadding),
-            styledContainer.leadingAnchor.constraint(equalTo: searchBarContainer.leadingAnchor, constant: horizontalPadding),
-            styledContainer.trailingAnchor.constraint(equalTo: searchBarContainer.trailingAnchor, constant: -horizontalPadding),
-            styledContainer.bottomAnchor.constraint(equalTo: searchBarContainer.bottomAnchor, constant: -verticalPadding)
-        ])
-
-        // Layout search bar inside styled container
-        NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: styledContainer.topAnchor),
-            searchBar.leadingAnchor.constraint(equalTo: styledContainer.leadingAnchor, constant: 8),
-            searchBar.trailingAnchor.constraint(equalTo: styledContainer.trailingAnchor, constant: -8),
-            searchBar.bottomAnchor.constraint(equalTo: styledContainer.bottomAnchor)
-        ])
-
-        // Set container as table header
-        tableView.tableHeaderView = searchBarContainer
-
-        // Update appearance
         updateSearchBarAppearance()
     }
     
