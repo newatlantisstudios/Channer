@@ -48,7 +48,7 @@ class settings: UIViewController {
     private var gridItemSizeHeightConstraint: NSLayoutConstraint!
     private let galleryCellSizeView = UIView()
     private let galleryCellSizeLabel = UILabel()
-    private let galleryCellSizeSegment = UISegmentedControl(items: ["XXXS", "XXS", "XS", "S", "M", "L", "XL"])
+    private let galleryCellSizeButton = UIButton(type: .system)
     private let contentFilteringView = UIView()
     private let contentFilteringLabel = UILabel()
     private let contentFilteringButton = UIButton(type: .system)
@@ -270,6 +270,7 @@ class settings: UIViewController {
             themeSettingsButton,
             contentFilteringButton,
             watchRulesButton,
+            galleryCellSizeButton,
             autoRefreshButton,
             statisticsButton,
             passSettingsButton,
@@ -950,7 +951,10 @@ class settings: UIViewController {
         settingsCardViews.forEach(applySettingsCardStyle)
         primarySettingsLabels.forEach { $0.textColor = ThemeManager.shared.primaryTextColor }
         secondarySettingsLabels.forEach { $0.textColor = ThemeManager.shared.secondaryTextColor }
-        settingsButtons.forEach { $0.tintColor = ThemeManager.shared.cellBorderColor }
+        settingsButtons.forEach {
+            $0.tintColor = ThemeManager.shared.cellBorderColor
+            $0.setTitleColor(ThemeManager.shared.cellBorderColor, for: .normal)
+        }
 
         updateiCloudStatusLabel()
         updatePassStatusIndicator()
@@ -1017,7 +1021,6 @@ class settings: UIViewController {
         [
             newPostBehaviorSegment,
             gridItemSizeSegment,
-            galleryCellSizeSegment,
             thumbnailSizeSegment,
             hoverVideoSizeSegment,
             hoverImageSizeSegment
@@ -1306,13 +1309,6 @@ class settings: UIViewController {
 
     @objc private func gridItemSizeSegmentChanged(_ sender: UISegmentedControl) {
         GridItemSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
-
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-    }
-
-    @objc private func galleryCellSizeSegmentChanged(_ sender: UISegmentedControl) {
-        GalleryCellSizeManager.shared.setSizeIndex(sender.selectedSegmentIndex)
 
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
@@ -1727,21 +1723,14 @@ class settings: UIViewController {
         galleryCellSizeLabel.minimumScaleFactor = 0.8
         galleryCellSizeLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        galleryCellSizeSegment.selectedSegmentIndex = GalleryCellSizeManager.shared.sizeIndex
-        galleryCellSizeSegment.translatesAutoresizingMaskIntoConstraints = false
-        galleryCellSizeSegment.addTarget(self, action: #selector(galleryCellSizeSegmentChanged), for: .valueChanged)
-
-        let galleryCellSizeFont: CGFloat = UIScreen.main.bounds.width <= 375 ? 10 : 12
-        galleryCellSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: galleryCellSizeFont, weight: .medium)],
-            for: .normal)
-        galleryCellSizeSegment.setTitleTextAttributes(
-            [.font: UIFont.systemFont(ofSize: galleryCellSizeFont, weight: .medium)],
-            for: .selected)
+        updateGalleryCellSizeButtonTitle()
+        galleryCellSizeButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        galleryCellSizeButton.translatesAutoresizingMaskIntoConstraints = false
+        galleryCellSizeButton.addTarget(self, action: #selector(galleryCellSizeButtonTapped), for: .touchUpInside)
 
         contentView.addSubview(galleryCellSizeView)
         galleryCellSizeView.addSubview(galleryCellSizeLabel)
-        galleryCellSizeView.addSubview(galleryCellSizeSegment)
+        galleryCellSizeView.addSubview(galleryCellSizeButton)
 
         NSLayoutConstraint.activate([
             galleryCellSizeView.topAnchor.constraint(equalTo: thumbnailSizeView.bottomAnchor, constant: 16),
@@ -1751,13 +1740,60 @@ class settings: UIViewController {
 
             galleryCellSizeLabel.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
             galleryCellSizeLabel.leadingAnchor.constraint(equalTo: galleryCellSizeView.leadingAnchor, constant: 20),
-            galleryCellSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: galleryCellSizeSegment.leadingAnchor, constant: -15),
+            galleryCellSizeLabel.trailingAnchor.constraint(lessThanOrEqualTo: galleryCellSizeButton.leadingAnchor, constant: -15),
 
-            galleryCellSizeSegment.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
-            galleryCellSizeSegment.trailingAnchor.constraint(equalTo: galleryCellSizeView.trailingAnchor, constant: -20),
-            galleryCellSizeSegment.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
-            galleryCellSizeSegment.widthAnchor.constraint(lessThanOrEqualTo: galleryCellSizeView.widthAnchor, multiplier: 0.62)
+            galleryCellSizeButton.centerYAnchor.constraint(equalTo: galleryCellSizeView.centerYAnchor),
+            galleryCellSizeButton.trailingAnchor.constraint(equalTo: galleryCellSizeView.trailingAnchor, constant: -20),
+            galleryCellSizeButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            galleryCellSizeButton.heightAnchor.constraint(equalToConstant: 44)
         ])
+    }
+
+    @objc private func galleryCellSizeButtonTapped() {
+        let alertController = UIAlertController(
+            title: "Gallery Cell Size",
+            message: "Choose a gallery cell size",
+            preferredStyle: .actionSheet
+        )
+
+        for (index, title) in galleryCellSizeOptions.enumerated() {
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                GalleryCellSizeManager.shared.setSizeIndex(index)
+                self?.updateGalleryCellSizeButtonTitle()
+
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+            }
+
+            if index == GalleryCellSizeManager.shared.sizeIndex {
+                action.setValue(true, forKey: "checked")
+            }
+
+            alertController.addAction(action)
+        }
+
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.channerAnchor(
+                in: self,
+                sourceView: galleryCellSizeButton,
+                sourceRect: galleryCellSizeButton.bounds,
+                permittedArrowDirections: .up
+            )
+        }
+
+        present(alertController, animated: true)
+    }
+
+    private var galleryCellSizeOptions: [String] {
+        return ["XXXS", "XXS", "XS", "S", "M", "L", "XL"]
+    }
+
+    private func updateGalleryCellSizeButtonTitle() {
+        let index = GalleryCellSizeManager.shared.sizeIndex
+        let title = galleryCellSizeOptions.indices.contains(index) ? galleryCellSizeOptions[index] : "M"
+        galleryCellSizeButton.setTitle(title, for: .normal)
     }
 
     private func setupPreloadVideosView() {
@@ -3001,6 +3037,7 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
             action: #selector(cancelTapped)
         )
         navigationItem.leftBarButtonItem?.accessibilityLabel = "Cancel"
+        navigationItem.leftBarButtonItem?.tintColor = .black
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "slash.circle"),
             style: .plain,
@@ -3008,6 +3045,7 @@ class BoardSelectorViewController: UIViewController, UITableViewDelegate, UITabl
             action: #selector(noneTapped)
         )
         navigationItem.rightBarButtonItem?.accessibilityLabel = "No Default Board"
+        navigationItem.rightBarButtonItem?.tintColor = .black
         
         setupSearchBar()
         setupTableView()
@@ -3154,6 +3192,7 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
             action: #selector(toggleEditMode)
         )
         navigationItem.rightBarButtonItem?.accessibilityLabel = "Edit Offline Threads"
+        navigationItem.rightBarButtonItem?.tintColor = .black
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -3217,6 +3256,7 @@ class OfflineThreadsVC: UIViewController, UITableViewDelegate, UITableViewDataSo
         tableView.setEditing(!tableView.isEditing, animated: true)
         navigationItem.rightBarButtonItem?.image = UIImage(systemName: tableView.isEditing ? "checkmark" : "square.and.pencil")
         navigationItem.rightBarButtonItem?.accessibilityLabel = tableView.isEditing ? "Done Editing" : "Edit Offline Threads"
+        navigationItem.rightBarButtonItem?.tintColor = .black
     }
     
     // MARK: - UITableViewDataSource

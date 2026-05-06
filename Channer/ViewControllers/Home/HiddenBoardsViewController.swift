@@ -70,6 +70,7 @@ class HiddenBoardsViewController: UIViewController, UITableViewDelegate, UITable
             action: #selector(showAllTapped)
         )
         navigationItem.rightBarButtonItem?.accessibilityLabel = "Show All Boards"
+        navigationItem.rightBarButtonItem?.tintColor = .black
     }
 
     private func setupHeader() {

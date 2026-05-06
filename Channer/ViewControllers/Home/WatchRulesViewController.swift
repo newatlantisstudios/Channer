@@ -45,6 +45,7 @@ class WatchRulesViewController: UIViewController, UITableViewDelegate, UITableVi
             action: #selector(addRuleTapped)
         )
         navigationItem.rightBarButtonItem?.accessibilityLabel = "Add Watch Rule"
+        navigationItem.rightBarButtonItem?.tintColor = .black
 
         NotificationCenter.default.addObserver(
             self,

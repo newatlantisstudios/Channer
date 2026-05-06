@@ -34,6 +34,7 @@ class ContentFilterViewController: UIViewController, UITableViewDelegate, UITabl
             action: #selector(addFilterTapped)
         )
         navigationItem.rightBarButtonItem?.accessibilityLabel = "Add Filter"
+        navigationItem.rightBarButtonItem?.tintColor = .black
     }
     
     // MARK: - UI Setup
