@@ -23,6 +23,26 @@ private class SeekSlider: UISlider {
     }
 }
 
+// MARK: - VideoTapOverlayView
+/// Transparent overlay that catches taps on the video surface while letting visible controls receive touches.
+private class VideoTapOverlayView: UIView {
+    weak var controlsContainer: UIView?
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if let controlsContainer = controlsContainer,
+           controlsContainer.isUserInteractionEnabled,
+           !controlsContainer.isHidden,
+           controlsContainer.alpha > 0.01 {
+            let controlsPoint = convert(point, to: controlsContainer)
+            if controlsContainer.point(inside: controlsPoint, with: event) {
+                return false
+            }
+        }
+
+        return super.point(inside: point, with: event)
+    }
+}
+
 // MARK: - WebMViewController
 /// A view controller responsible for playing and optionally downloading WebM videos.
 class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
@@ -148,8 +168,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     }()
 
     /// Transparent tap target above the renderer so controls can reappear even if the player view swallows touches.
-    private lazy var videoTapOverlay: UIView = {
-        let view = UIView()
+    private lazy var videoTapOverlay: VideoTapOverlayView = {
+        let view = VideoTapOverlayView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .clear
         return view
@@ -447,7 +467,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Add tap gesture above the renderer for control visibility
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(videoViewTapped))
+        tapGesture.cancelsTouchesInView = false
         videoTapOverlay.addGestureRecognizer(tapGesture)
+        videoTapOverlay.controlsContainer = seekBarContainer
 
         // Add media counter for multi-video navigation state
         view.addSubview(mediaCounterLabel)
@@ -457,7 +479,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         conversionProgressTrack.addSubview(conversionProgressFill)
         conversionProgressTrack.addSubview(conversionShimmer)
 
-        // Ensure seek bar container is above tap zones so mouse clicks reach the slider on Catalyst
+        // Keep the tap catcher above the renderer and the controls above the tap catcher.
+        view.bringSubviewToFront(videoTapOverlay)
         view.bringSubviewToFront(seekBarContainer)
 
         NSLayoutConstraint.activate([
@@ -2055,11 +2078,11 @@ extension WebMViewController {
             // Add swipe gestures for navigation
             let swipeUp = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeUp))
             swipeUp.direction = .up
-            videoView.addGestureRecognizer(swipeUp)
+            videoTapOverlay.addGestureRecognizer(swipeUp)
 
             let swipeDown = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
             swipeDown.direction = .down
-            videoView.addGestureRecognizer(swipeDown)
+            videoTapOverlay.addGestureRecognizer(swipeDown)
         } else {
             mediaCounterLabel.isHidden = true
         }
