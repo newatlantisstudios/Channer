@@ -162,7 +162,7 @@ private final class BottomToolbarSearchContainer: UIView {
     }
 }
 
-class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate, UITextFieldDelegate {
+class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate, UIGestureRecognizerDelegate, UITextFieldDelegate {
 
     private lazy var bottomBackButton: UIBarButtonItem = {
         return makeInternalToolbarButtonItem(
@@ -208,6 +208,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         super.viewDidLoad()
 
         delegate = self
+        configureInteractivePopGesture()
         configureBottomToolbarChrome()
         syncBottomToolbar(animated: false)
 
@@ -230,12 +231,14 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
         collapseBottomSearchIfNeeded()
         super.pushViewController(viewController, animated: animated)
+        updateInteractivePopGestureState()
         scheduleBottomToolbarSync(animated: animated)
     }
 
     override func popViewController(animated: Bool) -> UIViewController? {
         collapseBottomSearchIfNeeded()
         let poppedViewController = super.popViewController(animated: animated)
+        updateInteractivePopGestureState()
         scheduleBottomToolbarSync(animated: animated)
         return poppedViewController
     }
@@ -243,6 +246,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     override func popToRootViewController(animated: Bool) -> [UIViewController]? {
         collapseBottomSearchIfNeeded()
         let poppedViewControllers = super.popToRootViewController(animated: animated)
+        updateInteractivePopGestureState()
         scheduleBottomToolbarSync(animated: animated)
         return poppedViewControllers
     }
@@ -250,14 +254,34 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     override func setViewControllers(_ viewControllers: [UIViewController], animated: Bool) {
         collapseBottomSearchIfNeeded()
         super.setViewControllers(viewControllers, animated: animated)
+        updateInteractivePopGestureState()
         scheduleBottomToolbarSync(animated: animated)
     }
 
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
+        updateInteractivePopGestureState()
         syncBottomToolbar(animated: animated)
     }
 
+    private func configureInteractivePopGesture() {
+        interactivePopGestureRecognizer?.delegate = self
+        updateInteractivePopGestureState()
+    }
+
+    private func updateInteractivePopGestureState() {
+        interactivePopGestureRecognizer?.isEnabled = viewControllers.count > 1
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === interactivePopGestureRecognizer else { return true }
+        return viewControllers.count > 1 && transitionCoordinator == nil
+    }
+
     private func configureBottomToolbarChrome() {
+        defer {
+            updateInteractivePopGestureState()
+        }
+
         setNavigationBarHidden(true, animated: false)
         navigationBar.isHidden = true
         setToolbarHidden(false, animated: false)
