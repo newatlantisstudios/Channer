@@ -69,6 +69,10 @@ extension BottomToolbarSearchProviding {
     }
 }
 
+protocol BottomToolbarSearchDismissHandling: AnyObject {
+    func bottomToolbarSearchDidRequestDismissal()
+}
+
 private final class BottomToolbarSearchContainer: UIView {
     private var contentSize: CGSize
 
@@ -335,6 +339,17 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         }
 
         return makeDefaultToolbarItems(for: viewController)
+    }
+
+    func showBottomToolbarSearch(_ searchController: UISearchController, owner viewController: UIViewController) {
+        guard topViewController === viewController else { return }
+
+        activeSearchController = searchController
+        activeSearchOwner = viewController
+        manuallyCollapsedSearchOwner = nil
+        isBottomSearchExpanded = true
+        lastToolbarSignature = ""
+        syncBottomToolbar(animated: true)
     }
 
     private func makeToolbarItems(from groups: [BottomToolbarItemGroup], for viewController: UIViewController) -> [UIBarButtonItem] {
@@ -631,6 +646,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
     @objc private func bottomSearchCancelButtonTapped() {
         manuallyCollapsedSearchOwner = activeSearchOwner ?? topViewController
+        (activeSearchOwner as? BottomToolbarSearchDismissHandling)?.bottomToolbarSearchDidRequestDismissal()
         collapseBottomSearchIfNeeded()
         lastToolbarSignature = ""
         syncBottomToolbar(animated: true)
