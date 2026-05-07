@@ -634,33 +634,48 @@ class ColorCell: UITableViewCell {
     }
     
     @objc private func lightColorViewTapped() {
-        let colorPicker = UIColorPickerViewController()
-        colorPicker.selectedColor = lightColor
-        colorPicker.delegate = self
-        colorPicker.modalPresentationStyle = .popover
-        colorPicker.supportsAlpha = false
-        colorPicker.title = "Light Mode Color"
-        
-        // Store a reference to which color we're editing
-        objc_setAssociatedObject(colorPicker, &AssociatedKeys.isLightMode, true, .OBJC_ASSOCIATION_RETAIN)
-        
-        if let viewController = findViewController() {
-            viewController.present(colorPicker, animated: true)
-        }
+        presentColorPicker(
+            selectedColor: lightColor,
+            title: "Light Mode Color",
+            isLightMode: true,
+            anchorView: lightColorView
+        )
     }
     
     @objc private func darkColorViewTapped() {
+        presentColorPicker(
+            selectedColor: darkColor,
+            title: "Dark Mode Color",
+            isLightMode: false,
+            anchorView: darkColorView
+        )
+    }
+    
+    private func presentColorPicker(
+        selectedColor: UIColor,
+        title: String,
+        isLightMode: Bool,
+        anchorView: UIView
+    ) {
         let colorPicker = UIColorPickerViewController()
-        colorPicker.selectedColor = darkColor
+        colorPicker.selectedColor = selectedColor
         colorPicker.delegate = self
         colorPicker.modalPresentationStyle = .popover
         colorPicker.supportsAlpha = false
-        colorPicker.title = "Dark Mode Color"
+        colorPicker.title = title
         
         // Store a reference to which color we're editing
-        objc_setAssociatedObject(colorPicker, &AssociatedKeys.isLightMode, false, .OBJC_ASSOCIATION_RETAIN)
+        objc_setAssociatedObject(colorPicker, &AssociatedKeys.isLightMode, isLightMode, .OBJC_ASSOCIATION_RETAIN)
         
         if let viewController = findViewController() {
+            if let popover = colorPicker.popoverPresentationController {
+                popover.channerAnchor(
+                    in: viewController,
+                    sourceView: anchorView,
+                    sourceRect: anchorView.bounds,
+                    permittedArrowDirections: [.up, .down]
+                )
+            }
             viewController.present(colorPicker, animated: true)
         }
     }

@@ -1085,7 +1085,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let moreButton = UIBarButtonItem(image: resizedMoreImage,
                                          style: .plain,
                                          target: self,
-                                         action: #selector(showActionSheet))
+                                         action: #selector(showActionSheet(_:)))
+        moreButton.accessibilityLabel = "More"
 
         // Create the Reply button
         let replyImage = UIImage(systemName: "square.and.pencil")
@@ -1222,7 +1223,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         present(navController, animated: true)
     }
 
-    @objc private func showActionSheet() {
+    @objc private func showActionSheet(_ sender: Any? = nil) {
         let allMediaUrls = threadRepliesImages.compactMap { URL(string: $0) }.filter { url in
             url.absoluteString != "https://i.4cdn.org/\(boardAbv)/" &&
             BatchImageDownloadManager.supportedMediaExtensions.contains(url.pathExtension.lowercased())
@@ -1326,14 +1327,46 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
 
         if let popover = optionsController.popoverPresentationController {
-            if let barButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet) }) {
-                popover.channerAnchor(in: self, barButtonItem: barButton, permittedArrowDirections: .up)
-            } else {
-                popover.channerAnchor(in: self, permittedArrowDirections: [])
-            }
+            anchorMoreOptionsPopover(popover, sender: sender)
         }
 
         present(optionsController, animated: true)
+    }
+
+    private func anchorMoreOptionsPopover(_ popover: UIPopoverPresentationController, sender: Any?) {
+        if let barButtonItem = sender as? UIBarButtonItem {
+            popover.channerAnchor(in: self, barButtonItem: barButtonItem, permittedArrowDirections: .up)
+            return
+        }
+
+        if let sourceView = sender as? UIView {
+            popover.channerAnchor(
+                in: self,
+                sourceView: sourceView,
+                sourceRect: sourceView.bounds,
+                permittedArrowDirections: .up
+            )
+            return
+        }
+
+        if let barButton = navigationItem.rightBarButtonItems?.first(where: { $0.action == #selector(showActionSheet(_:)) }) {
+            popover.channerAnchor(in: self, barButtonItem: barButton, permittedArrowDirections: .up)
+            return
+        }
+
+        let anchorView: UIView = navigationController?.toolbar.window == nil ? view : (navigationController?.toolbar ?? view)
+        let anchorRect = CGRect(
+            x: max(anchorView.bounds.maxX - 44, anchorView.bounds.midX),
+            y: anchorView.bounds.midY,
+            width: 1,
+            height: 1
+        )
+        popover.channerAnchor(
+            in: self,
+            sourceView: anchorView,
+            sourceRect: anchorRect,
+            permittedArrowDirections: .up
+        )
     }
     
     @objc private func showGallery() {

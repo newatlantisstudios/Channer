@@ -446,6 +446,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         }
         // Update gradient layer frame to match container
         bottomGradientLayer.frame = seekBarContainer.bounds
+        if isConversionInProgress,
+           !conversionShimmer.isHidden,
+           conversionShimmer.layer.animationKeys()?.isEmpty ?? true {
+            startConversionShimmerAnimationIfPossible()
+        }
         logTouchDebugFrames(context: "viewDidLayoutSubviews")
     }
 
@@ -620,6 +625,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
             conversionShimmer.topAnchor.constraint(equalTo: conversionProgressTrack.topAnchor),
             conversionShimmer.bottomAnchor.constraint(equalTo: conversionProgressTrack.bottomAnchor),
+            conversionShimmer.leadingAnchor.constraint(equalTo: conversionProgressTrack.leadingAnchor),
             conversionShimmer.widthAnchor.constraint(equalTo: conversionProgressTrack.widthAnchor, multiplier: 0.3)
         ])
 
@@ -668,9 +674,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                 }
                 let trackWidth = self.conversionProgressTrack.bounds.width
                 self.conversionProgressFillWidth?.constant = CGFloat(progressValue) * trackWidth
-                UIView.animate(withDuration: 0.2) {
-                    self.conversionProgressTrack.layoutIfNeeded()
-                }
+                self.conversionProgressTrack.setNeedsLayout()
             }) { [weak self] result in
                 guard let self = self else { return }
                 // Ignore stale callbacks from cancelled conversions after rapid navigation
@@ -681,7 +685,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     self.conversionShimmer.layer.removeAllAnimations()
                     self.conversionShimmer.isHidden = true
                     self.conversionProgressFillWidth?.constant = self.conversionProgressTrack.bounds.width
-                    self.conversionProgressTrack.layoutIfNeeded()
+                    self.conversionProgressTrack.setNeedsLayout()
                     self.setupAVPlayer(with: mp4URL)
                 case .failure(let error):
                     self.hideConversionOverlay()
@@ -742,9 +746,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                     }
                     let trackWidth = self.conversionProgressTrack.bounds.width
                     self.conversionProgressFillWidth?.constant = CGFloat(progressValue) * trackWidth
-                    UIView.animate(withDuration: 0.2) {
-                        self.conversionProgressTrack.layoutIfNeeded()
-                    }
+                    self.conversionProgressTrack.setNeedsLayout()
                 }) { [weak self] result in
                     guard let self = self, self.conversionGeneration == expectedGeneration else { return }
                     switch result {
@@ -752,7 +754,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
                         self.conversionShimmer.layer.removeAllAnimations()
                         self.conversionShimmer.isHidden = true
                         self.conversionProgressFillWidth?.constant = self.conversionProgressTrack.bounds.width
-                        self.conversionProgressTrack.layoutIfNeeded()
+                        self.conversionProgressTrack.setNeedsLayout()
                         self.setupAVPlayer(with: mp4URL)
                     case .failure(let error):
                         self.hideConversionOverlay()
@@ -1041,12 +1043,25 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         conversionProgressTrack.isHidden = false
         conversionProgressTrack.alpha = 1
         conversionShimmer.isHidden = false
-        view.layoutIfNeeded()
+        view.setNeedsLayout()
+        conversionProgressTrack.setNeedsLayout()
 
-        // Start shimmer animation (left-to-right sweep)
-        conversionShimmer.transform = CGAffineTransform(translationX: -conversionProgressTrack.bounds.width * 0.3, y: 0)
-        UIView.animate(withDuration: 1.0, delay: 0, options: [.repeat, .curveEaseInOut]) {
-            self.conversionShimmer.transform = CGAffineTransform(translationX: self.conversionProgressTrack.bounds.width, y: 0)
+        DispatchQueue.main.async { [weak self] in
+            self?.startConversionShimmerAnimationIfPossible()
+        }
+    }
+
+    /// Starts the indeterminate shimmer once Auto Layout has produced a usable track width.
+    private func startConversionShimmerAnimationIfPossible() {
+        guard isConversionInProgress, !conversionShimmer.isHidden else { return }
+
+        let trackWidth = conversionProgressTrack.bounds.width
+        guard trackWidth > 0 else { return }
+
+        conversionShimmer.layer.removeAllAnimations()
+        conversionShimmer.transform = CGAffineTransform(translationX: -trackWidth * 0.3, y: 0)
+        UIView.animate(withDuration: 1.0, delay: 0, options: [.repeat, .curveEaseInOut, .allowUserInteraction]) {
+            self.conversionShimmer.transform = CGAffineTransform(translationX: trackWidth, y: 0)
         }
     }
 

@@ -63,7 +63,9 @@ final class WebMConversionService {
         cacheLock.lock()
         if let cached = conversionCache[cacheKey], FileManager.default.fileExists(atPath: cached.path) {
             cacheLock.unlock()
-            completion(.success(cached))
+            DispatchQueue.main.async {
+                completion(.success(cached))
+            }
             return
         }
         cacheLock.unlock()
@@ -81,7 +83,9 @@ final class WebMConversionService {
             cacheLock.lock()
             conversionCache[cacheKey] = outputURL
             cacheLock.unlock()
-            completion(.success(outputURL))
+            DispatchQueue.main.async {
+                completion(.success(outputURL))
+            }
             return
         }
 

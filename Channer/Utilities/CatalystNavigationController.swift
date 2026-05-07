@@ -150,7 +150,11 @@ private final class BottomToolbarSearchContainer: UIView {
         button.tintColor = .black
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityIdentifier = accessibilityLabel
+        #if targetEnvironment(macCatalyst)
+        button.addTarget(target, action: action, for: .primaryActionTriggered)
+        #else
         button.addTarget(target, action: action, for: .touchUpInside)
+        #endif
 
         var configuration = UIButton.Configuration.plain()
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
@@ -251,8 +255,15 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     }()
 
     #if targetEnvironment(macCatalyst)
-    private var mouseMonitor: AnyObject?
-    private var hasHandledSwipeBack = false
+    private lazy var trackpadBackGestureRecognizer: UIPanGestureRecognizer = {
+        let gestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handleTrackpadBackGesture(_:)))
+        gestureRecognizer.allowedScrollTypesMask = .continuous
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.delaysTouchesBegan = false
+        gestureRecognizer.delaysTouchesEnded = false
+        gestureRecognizer.delegate = self
+        return gestureRecognizer
+    }()
     #endif
 
     override func viewDidLoad() {
@@ -261,12 +272,11 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         delegate = self
         configureInteractivePopGesture()
         configureEdgeBackGesture()
+        #if targetEnvironment(macCatalyst)
+        configureTrackpadBackGesture()
+        #endif
         configureBottomToolbarChrome()
         syncBottomToolbar(animated: false)
-
-        #if targetEnvironment(macCatalyst)
-        setupMouseBackButton()
-        #endif
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -345,10 +355,20 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         updateInteractivePopGestureState()
     }
 
+    #if targetEnvironment(macCatalyst)
+    private func configureTrackpadBackGesture() {
+        view.addGestureRecognizer(trackpadBackGestureRecognizer)
+        updateInteractivePopGestureState()
+    }
+    #endif
+
     private func updateInteractivePopGestureState() {
         let canNavigateBack = viewControllers.count > 1
         interactivePopGestureRecognizer?.isEnabled = false
         edgeBackGestureRecognizer.isEnabled = canNavigateBack || edgeBackInteractionController != nil
+        #if targetEnvironment(macCatalyst)
+        trackpadBackGestureRecognizer.isEnabled = canNavigateBack || edgeBackInteractionController != nil
+        #endif
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
@@ -357,7 +377,29 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
             return viewControllers.count > 1 && transitionCoordinator == nil
         }
 
+        #if targetEnvironment(macCatalyst)
+        if gestureRecognizer === trackpadBackGestureRecognizer {
+            guard viewControllers.count > 1,
+                  transitionCoordinator == nil,
+                  let panGestureRecognizer = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+
+            let velocity = panGestureRecognizer.velocity(in: view)
+            return velocity.x > 0 && abs(velocity.x) > abs(velocity.y) * 1.25
+        }
+        #endif
+
         return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        #if targetEnvironment(macCatalyst)
+        if gestureRecognizer === trackpadBackGestureRecognizer ||
+            otherGestureRecognizer === trackpadBackGestureRecognizer {
+            return true
+        }
+        #endif
+
+        return false
     }
 
     @objc private func handleEdgeBackGesture(_ gestureRecognizer: UIScreenEdgePanGestureRecognizer) {
@@ -396,6 +438,46 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
             break
         }
     }
+
+    #if targetEnvironment(macCatalyst)
+    @objc private func handleTrackpadBackGesture(_ gestureRecognizer: UIPanGestureRecognizer) {
+        let translationX = max(0, gestureRecognizer.translation(in: view).x)
+        let progressDistance = min(max(view.bounds.width * 0.45, 180), 360)
+        let progress = min(max(translationX / progressDistance, 0), 1)
+
+        switch gestureRecognizer.state {
+        case .began:
+            guard viewControllers.count > 1,
+                  transitionCoordinator == nil else { return }
+
+            edgeBackInteractionController = UIPercentDrivenInteractiveTransition()
+            edgeBackInteractionController?.completionCurve = .easeOut
+            _ = popViewController(animated: true)
+
+        case .changed:
+            edgeBackInteractionController?.update(progress)
+
+        case .ended:
+            let velocity = gestureRecognizer.velocity(in: view)
+            let shouldFinish = progress > 0.35 || velocity.x > 650
+            if shouldFinish {
+                edgeBackInteractionController?.finish()
+            } else {
+                edgeBackInteractionController?.cancel()
+            }
+            edgeBackInteractionController = nil
+            updateInteractivePopGestureState()
+
+        case .cancelled, .failed:
+            edgeBackInteractionController?.cancel()
+            edgeBackInteractionController = nil
+            updateInteractivePopGestureState()
+
+        default:
+            break
+        }
+    }
+    #endif
 
     private func configureBottomToolbarChrome() {
         defer {
@@ -699,7 +781,11 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         }
 
         if let action = sourceItem.action {
+            #if targetEnvironment(macCatalyst)
+            button.addTarget(sourceItem.target, action: action, for: .primaryActionTriggered)
+            #else
             button.addTarget(sourceItem.target, action: action, for: .touchUpInside)
+            #endif
         }
 
         return button
@@ -713,7 +799,11 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         button.tintColor = .black
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityIdentifier = accessibilityLabel
+        #if targetEnvironment(macCatalyst)
+        button.addTarget(self, action: action, for: .primaryActionTriggered)
+        #else
         button.addTarget(self, action: action, for: .touchUpInside)
+        #endif
 
         NSLayoutConstraint.activate([
             button.widthAnchor.constraint(equalToConstant: 44),
@@ -815,68 +905,4 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         activeToolbarSearchSize = .zero
     }
 
-    #if targetEnvironment(macCatalyst)
-    private func setupMouseBackButton() {
-        guard let nsEventClass = NSClassFromString("NSEvent") else {
-            print("DEBUG MOUSE: NSEvent class not found")
-            return
-        }
-        print("DEBUG MOUSE: NSEvent class found")
-
-        // NSEventMaskSwipe = 1 << 31
-        let mask: UInt64 = 1 << 31
-
-        let handler: @convention(block) (AnyObject) -> AnyObject? = { [weak self] event in
-            let deltaX = event.value(forKey: "deltaX") as? CGFloat ?? 0
-            let deltaY = event.value(forKey: "deltaY") as? CGFloat ?? 0
-            print("DEBUG MOUSE SWIPE: deltaX=\(deltaX) deltaY=\(deltaY)")
-
-            // Swipe right (deltaX > 0) = navigate back
-            // Swipe left (deltaX < 0) = navigate forward
-            // Use a flag to only handle once per gesture
-            if deltaX != 0 {
-                if deltaX > 0, self?.hasHandledSwipeBack == false {
-                    self?.hasHandledSwipeBack = true
-                    print("DEBUG MOUSE: Back swipe detected! Popping view controller.")
-                    DispatchQueue.main.async {
-                        if (self?.viewControllers.count ?? 0) > 1 {
-                            self?.popViewController(animated: true)
-                        }
-                        // Reset flag after a short delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            self?.hasHandledSwipeBack = false
-                        }
-                    }
-                    return nil
-                }
-            }
-            return event
-        }
-
-        let sel = NSSelectorFromString("addLocalMonitorForEventsMatchingMask:handler:")
-        guard let msgSendPtr = dlsym(dlopen(nil, RTLD_LAZY), "objc_msgSend") else {
-            print("DEBUG MOUSE: Could not get objc_msgSend")
-            return
-        }
-
-        typealias MsgSendType = @convention(c) (AnyObject, Selector, UInt64, Any) -> AnyObject?
-        let msgSend = unsafeBitCast(msgSendPtr, to: MsgSendType.self)
-
-        mouseMonitor = msgSend(nsEventClass, sel, mask, handler)
-        print("DEBUG MOUSE: Swipe monitor installed, mouseMonitor=\(mouseMonitor != nil ? "set" : "nil")")
-    }
-
-    deinit {
-        if let monitor = mouseMonitor {
-            guard let nsEventClass = NSClassFromString("NSEvent") else { return }
-            let sel = NSSelectorFromString("removeMonitor:")
-            guard let msgSendPtr = dlsym(dlopen(nil, RTLD_LAZY), "objc_msgSend") else { return }
-
-            typealias MsgSendType = @convention(c) (AnyObject, Selector, AnyObject) -> Void
-            let msgSend = unsafeBitCast(msgSendPtr, to: MsgSendType.self)
-
-            msgSend(nsEventClass, sel, monitor)
-        }
-    }
-    #endif
 }
