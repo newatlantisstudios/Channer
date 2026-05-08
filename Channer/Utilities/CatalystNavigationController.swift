@@ -209,6 +209,42 @@ private final class EdgeBackPopAnimator: NSObject, UIViewControllerAnimatedTrans
     }
 }
 
+#if targetEnvironment(macCatalyst)
+private final class MouseBackButtonGestureRecognizer: UIGestureRecognizer {
+    // UIEvent button masks are one-based: primary = 1, secondary = 2, middle = 3, back = 4.
+    private static let backButtonMask = UIEvent.ButtonMask(rawValue: 1 << 3)
+    private var isTrackingBackButton = false
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard event.buttonMask.contains(Self.backButtonMask),
+              touches.contains(where: { $0.type == .indirectPointer }) else {
+            state = .failed
+            return
+        }
+
+        isTrackingBackButton = true
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard isTrackingBackButton else {
+            state = .failed
+            return
+        }
+
+        state = .recognized
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        isTrackingBackButton = false
+        state = .cancelled
+    }
+
+    override func reset() {
+        isTrackingBackButton = false
+    }
+}
+#endif
+
 class CatalystNavigationController: UINavigationController, UINavigationControllerDelegate, UIGestureRecognizerDelegate, UITextFieldDelegate {
 
     private lazy var bottomBackButton: UIBarButtonItem = {
@@ -255,6 +291,15 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     }()
 
     #if targetEnvironment(macCatalyst)
+    private lazy var mouseBackButtonGestureRecognizer: MouseBackButtonGestureRecognizer = {
+        let gestureRecognizer = MouseBackButtonGestureRecognizer(target: self, action: #selector(handleMouseBackButton(_:)))
+        gestureRecognizer.cancelsTouchesInView = true
+        gestureRecognizer.delaysTouchesBegan = false
+        gestureRecognizer.delaysTouchesEnded = false
+        gestureRecognizer.delegate = self
+        return gestureRecognizer
+    }()
+
     private lazy var trackpadBackGestureRecognizer: UIPanGestureRecognizer = {
         let gestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handleTrackpadBackGesture(_:)))
         gestureRecognizer.allowedScrollTypesMask = .continuous
@@ -274,6 +319,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         configureEdgeBackGesture()
         #if targetEnvironment(macCatalyst)
         configureTrackpadBackGesture()
+        configureMouseBackButton()
         #endif
         configureBottomToolbarChrome()
         syncBottomToolbar(animated: false)
@@ -289,6 +335,19 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         super.viewDidLayoutSubviews()
         syncBottomToolbar(animated: false)
     }
+
+    #if targetEnvironment(macCatalyst)
+    override var keyCommands: [UIKeyCommand]? {
+        let backCommand = UIKeyCommand(
+            title: "Back",
+            action: #selector(handleCommandBack),
+            input: "[",
+            modifierFlags: .command
+        )
+
+        return (super.keyCommands ?? []) + [backCommand]
+    }
+    #endif
 
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
         collapseBottomSearchIfNeeded()
@@ -360,6 +419,29 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         view.addGestureRecognizer(trackpadBackGestureRecognizer)
         updateInteractivePopGestureState()
     }
+
+    private func configureMouseBackButton() {
+        view.addGestureRecognizer(mouseBackButtonGestureRecognizer)
+        updateInteractivePopGestureState()
+    }
+
+    private var canPopFromMouseBackButton: Bool {
+        return view.window != nil &&
+            viewControllers.count > 1 &&
+            transitionCoordinator == nil &&
+            presentedViewController == nil
+    }
+
+    @objc private func handleCommandBack() {
+        guard canPopFromMouseBackButton else { return }
+        _ = popViewController(animated: true)
+    }
+
+    @objc private func handleMouseBackButton(_ gestureRecognizer: MouseBackButtonGestureRecognizer) {
+        guard gestureRecognizer.state == .recognized,
+              canPopFromMouseBackButton else { return }
+        _ = popViewController(animated: true)
+    }
     #endif
 
     private func updateInteractivePopGestureState() {
@@ -367,6 +449,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         interactivePopGestureRecognizer?.isEnabled = false
         edgeBackGestureRecognizer.isEnabled = canNavigateBack || edgeBackInteractionController != nil
         #if targetEnvironment(macCatalyst)
+        mouseBackButtonGestureRecognizer.isEnabled = canNavigateBack
         trackpadBackGestureRecognizer.isEnabled = canNavigateBack || edgeBackInteractionController != nil
         #endif
     }
@@ -378,6 +461,10 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         }
 
         #if targetEnvironment(macCatalyst)
+        if gestureRecognizer === mouseBackButtonGestureRecognizer {
+            return canPopFromMouseBackButton
+        }
+
         if gestureRecognizer === trackpadBackGestureRecognizer {
             guard viewControllers.count > 1,
                   transitionCoordinator == nil,
