@@ -1237,8 +1237,16 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         // iPad support
         if let popover = activityVC.popoverPresentationController {
             if let cell = collectionView.cellForItem(at: sourceIndexPath) {
-                popover.sourceView = cell
-                popover.sourceRect = cell.bounds
+                popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds)
+            } else {
+                popover.sourceView = collectionView
+                popover.sourceRect = CGRect(
+                    x: collectionView.bounds.midX,
+                    y: collectionView.bounds.midY,
+                    width: 1,
+                    height: 1
+                )
+                popover.permittedArrowDirections = .any
             }
         }
 

@@ -1094,8 +1094,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                           style: .plain,
                                           target: self,
                                           action: #selector(showComposeView))
+        replyButton.accessibilityLabel = "Reply"
 
-        let buttons = [moreButton, replyButton].compactMap { $0 }
+        let galleryButton = UIBarButtonItem(image: UIImage(systemName: "photo.on.rectangle"),
+                                            style: .plain,
+                                            target: self,
+                                            action: #selector(showGallery))
+        galleryButton.accessibilityLabel = "Gallery"
+
+        let buttons = [moreButton, galleryButton, replyButton].compactMap { $0 }
         buttons.forEach { $0.tintColor = .black }
 
         // Set the buttons in the navigation bar (rightmost to leftmost order)
@@ -1248,9 +1255,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 },
                 ThreadMoreOption(title: favoriteTitle, subtitle: "Save this thread to bookmarks", systemImageName: favoriteTitle == "Favorite" ? "star" : "star.slash") { [weak self] in
                     self?.toggleFavorite()
-                },
-                ThreadMoreOption(title: "Gallery", subtitle: "\(allMediaUrls.count) media item\(allMediaUrls.count == 1 ? "" : "s")", systemImageName: "photo.on.rectangle") { [weak self] in
-                    self?.showGallery()
                 }
             ]),
             ThreadMoreOptionsSection(title: "Navigation", options: [

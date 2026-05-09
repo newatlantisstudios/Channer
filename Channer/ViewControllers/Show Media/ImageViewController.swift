@@ -23,6 +23,8 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
     private var isZoomedIn = false
     /// Holds a cropped/edited image if the user modifies the original
     private var editedImage: UIImage?
+    /// Stable anchor for image actions and share popovers on iPad.
+    private var menuBarButtonItem: UIBarButtonItem?
 
     /// Array of image URLs for navigation (optional)
     var imageURLs: [URL] = []
@@ -157,6 +159,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
             action: #selector(showActionsMenu)
         )
         menuButton.tintColor = .white
+        menuBarButtonItem = menuButton
 
         var items = [menuButton, downloadButton]
 
@@ -248,7 +251,7 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         // iPad support
         if let popover = alertController.popoverPresentationController {
-            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
+            popover.channerAnchor(in: self, barButtonItem: menuBarButtonItem)
         }
 
         present(alertController, animated: true)
@@ -481,10 +484,21 @@ class ImageViewController: UIViewController, UIScrollViewDelegate {
 
         // iPad support
         if let popover = activityVC.popoverPresentationController {
-            popover.channerAnchor(in: self, barButtonItem: navigationItem.rightBarButtonItem)
+            anchorImageActivityPopover(popover)
         }
 
         present(activityVC, animated: true)
+    }
+
+    private func anchorImageActivityPopover(_ popover: UIPopoverPresentationController) {
+        popover.sourceView = view
+        popover.sourceRect = CGRect(
+            x: view.bounds.maxX - view.safeAreaInsets.right - 44,
+            y: view.safeAreaInsets.top + 22,
+            width: 1,
+            height: 1
+        )
+        popover.permittedArrowDirections = .up
     }
 
     /// Copies the current image to clipboard
