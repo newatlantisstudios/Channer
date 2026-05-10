@@ -38,6 +38,8 @@ enum PostingError: Error, LocalizedError {
     case banned
     case threadClosed
     case threadArchived
+    case captchaRequired
+    case invalidCaptcha
 
     var errorDescription: String? {
         switch self {
@@ -63,6 +65,10 @@ enum PostingError: Error, LocalizedError {
             return "This thread is closed"
         case .threadArchived:
             return "This thread is archived"
+        case .captchaRequired:
+            return "Please complete the captcha before posting"
+        case .invalidCaptcha:
+            return "The captcha response was rejected. Please reload the captcha and try again"
         }
     }
 }

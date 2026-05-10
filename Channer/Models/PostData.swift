@@ -32,6 +32,12 @@ struct PostData {
     /// Whether the image should be marked as a spoiler
     var spoiler: Bool = false
 
+    /// 4chan TCaptcha challenge id, required when posting without Pass
+    var captchaChallenge: String?
+
+    /// 4chan TCaptcha response, when the challenge requires one
+    var captchaResponse: String?
+
     /// Whether this is a new thread (resto == 0)
     var isNewThread: Bool {
         return resto == 0
