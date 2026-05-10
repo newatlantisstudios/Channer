@@ -36,6 +36,11 @@ class TextFormatter {
         // Decode HTML entities and remove unnecessary tags, but keep <s>, </s>, <span class="quote">, </span>, <a href=... class="quotelink">, and </a>
         let processedText = text
             .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(
+                of: "<span class=\"deadlink\">(?:&gt;&gt;|>>)(\\d+)</span>",
+                with: "<a href=\"#p$1\" class=\"quotelink\">&gt;&gt;$1</a>",
+                options: .regularExpression
+            )
             // Remove all HTML tags except allowed ones
             .replacingOccurrences(of: "<(?!/?s>|span class=\"quote\">|/span>|a href=\"#p\\d+\" class=\"quotelink\">|/a>).+?>", with: "", options: .regularExpression)
 

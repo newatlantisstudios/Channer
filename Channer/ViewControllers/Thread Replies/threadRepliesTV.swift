@@ -258,6 +258,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var threadNumber = ""
     /// When true, loads thread data from cache instead of the network (e.g., for viewing dead favorited threads)
     var forceLoadFromCache = false
+    /// When true, loads the thread from the configured archive instead of the live 4chan API.
+    var forceLoadFromArchive = false
     /// Post number to scroll to after thread loads (used for notification navigation)
     var scrollToPostNumber: String?
     let cellIdentifier = "threadRepliesCell"
@@ -1854,6 +1856,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
         print("Loading data from: \(urlString)") // Debug print
         
+        if forceLoadFromArchive {
+            loadArchivedThreadCopy()
+            return
+        }
+
         // Check if thread should be loaded from cache (forced or offline)
         if forceLoadFromCache || (ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork()) {
             print("Device is offline, checking cache")
@@ -2045,16 +2052,23 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         messageLabel.numberOfLines = 0
         container.addSubview(messageLabel)
 
-        // Info button
-        let infoButton = UIButton(type: .system)
-        infoButton.translatesAutoresizingMaskIntoConstraints = false
-        let infoImage = UIImage(systemName: "info.circle")
-        infoButton.setImage(infoImage, for: .normal)
-        infoButton.setTitle(" Thread Info", for: .normal)
-        infoButton.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
-        infoButton.tintColor = .systemBlue
-        infoButton.addTarget(self, action: #selector(showDeadThreadInfo), for: .touchUpInside)
-        container.addSubview(infoButton)
+        let actionsStack = UIStackView()
+        actionsStack.translatesAutoresizingMaskIntoConstraints = false
+        actionsStack.axis = .vertical
+        actionsStack.alignment = .center
+        actionsStack.spacing = 10
+        container.addSubview(actionsStack)
+
+        let infoButton = deadThreadButton(title: "Thread Info", systemImageName: "info.circle", action: #selector(showDeadThreadInfo))
+        actionsStack.addArrangedSubview(infoButton)
+
+        if ArchiveManager.shared.canFetchArchivedThread(boardAbv: boardAbv) {
+            actionsStack.addArrangedSubview(deadThreadButton(title: "Load Archive Copy", systemImageName: "archivebox", action: #selector(loadArchivedThreadCopy)))
+        }
+
+        if !ArchiveManager.shared.archiveThreadURLs(boardAbv: boardAbv, threadNumber: threadNumber).isEmpty {
+            actionsStack.addArrangedSubview(deadThreadButton(title: "Open Archive", systemImageName: "safari", action: #selector(openArchiveThread)))
+        }
 
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
@@ -2067,11 +2081,22 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             messageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 32),
             messageLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -32),
 
-            infoButton.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            infoButton.topAnchor.constraint(equalTo: messageLabel.bottomAnchor, constant: 16)
+            actionsStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            actionsStack.topAnchor.constraint(equalTo: messageLabel.bottomAnchor, constant: 16)
         ])
 
         deadThreadView = container
+    }
+
+    private func deadThreadButton(title: String, systemImageName: String, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: systemImageName), for: .normal)
+        button.setTitle(" \(title)", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 15, weight: .regular)
+        button.tintColor = .systemBlue
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
     }
 
     @objc private func showDeadThreadInfo() {
@@ -2086,6 +2111,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             infoLines.append("Created: \(formatted)")
         }
 
+        let archives = ArchiveManager.shared.supportedArchives(for: boardAbv).map(\.name)
+        if !archives.isEmpty {
+            infoLines.append("Archives: \(archives.joined(separator: ", "))")
+        }
+
         let alert = UIAlertController(
             title: "Thread Information",
             message: infoLines.joined(separator: "\n"),
@@ -2093,6 +2123,53 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    @objc private func openArchiveThread() {
+        let targets = ArchiveManager.shared.archiveThreadURLs(boardAbv: boardAbv, threadNumber: threadNumber)
+        openArchiveTargets(targets, title: "Open Archive")
+    }
+
+    @objc private func loadArchivedThreadCopy() {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return }
+
+        isLoading = true
+        loadingIndicator.startAnimating()
+        ArchiveManager.shared.fetchArchivedThread(boardAbv: boardAbv, threadNumber: threadNumber) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.deadThreadView?.removeFromSuperview()
+                self.deadThreadView = nil
+
+                switch result {
+                case .success(let data):
+                    do {
+                        let json = try JSON(data: data)
+                        self.processThreadData(json)
+                        self.rebuildSearchFilterIndices()
+                        self.structureThreadReplies()
+                        self.preloadThreadContent { [weak self] in
+                            guard let self = self else { return }
+                            self.isLoading = false
+                            self.loadingIndicator.stopAnimating()
+                            self.tableView.reloadData()
+                            self.restoreScrollPositionIfNeeded()
+                            self.scrollToPostIfNeeded()
+                            self.onViewReady?()
+                        }
+                    } catch {
+                        self.isLoading = false
+                        self.loadingIndicator.stopAnimating()
+                        self.showAlert(title: "Archive Error", message: error.localizedDescription)
+                    }
+                case .failure(let error):
+                    self.isLoading = false
+                    self.loadingIndicator.stopAnimating()
+                    self.showDeadThreadView()
+                    self.showAlert(title: "Archive Error", message: error.localizedDescription)
+                }
+            }
+        }
     }
 
     private func handleLoadError() {
@@ -2278,7 +2355,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let imageTimestamp = post["tim"].stringValue
         let imageExtension = post["ext"].stringValue
         let imageName = post["filename"].stringValue
-        let imageURL = imageTimestamp.isEmpty ? "" : "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
+        let archiveImageURL = post["archive_image_url"].stringValue
+        let imageURL = !archiveImageURL.isEmpty ? archiveImageURL : (imageTimestamp.isEmpty ? "" : "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)")
         threadRepliesImages.append(imageURL.isEmpty ? "https://i.4cdn.org/\(boardAbv)/" : imageURL)
 
         // Debug logging for PNG images
@@ -3084,7 +3162,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             images: navigationReplyImages,
             replyMap: navigationReplyMap,
             metadataList: navigationMetadata
-        ) else { return }
+        ) else {
+            showArchiveLookupForMissingPost(postNumber)
+            return
+        }
 
         // Create and configure new threadRepliesTV instance
         let newThreadVC = threadRepliesTV()
@@ -3242,6 +3323,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             self.extractKeywords(from: indexPath.row)
         }))
 
+        addArchiveActions(to: actionSheet, postNumber: postNo)
+
         // Add cancel action
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
@@ -3258,6 +3341,162 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         present(actionSheet, animated: true)
+    }
+
+    private func addArchiveActions(to actionSheet: UIAlertController, postNumber: String) {
+        let archiveTargets = ArchiveManager.shared.archiveThreadURLs(boardAbv: boardAbv, threadNumber: threadNumber, postNumber: postNumber)
+        if !archiveTargets.isEmpty {
+            actionSheet.addAction(UIAlertAction(title: "Open in Archive", style: .default, handler: { [weak self] _ in
+                self?.openArchiveTargets(archiveTargets, title: "Open Archive")
+            }))
+        }
+
+        if ArchiveManager.shared.supportedArchives(for: boardAbv).contains(where: { $0.reports == true }) {
+            actionSheet.addAction(UIAlertAction(title: "Report to Archives...", style: .destructive, handler: { [weak self] _ in
+                self?.confirmArchiveReport(postNumber: postNumber)
+            }))
+        }
+    }
+
+    private func openArchiveTargets(_ targets: [(ArchiveEndpoint, URL)], title: String) {
+        guard !targets.isEmpty else {
+            showAlert(title: "No Archive", message: "No archive is configured for /\(boardAbv)/.")
+            return
+        }
+
+        if targets.count == 1, let url = targets.first?.1 {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            return
+        }
+
+        let alert = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
+        for (archive, url) in targets {
+            alert.addAction(UIAlertAction(title: archive.name, style: .default, handler: { _ in
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            }))
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func showArchiveLookupForMissingPost(_ postNumber: String) {
+        guard ArchiveManager.shared.canFetchArchivedPost(boardAbv: boardAbv) else {
+            showAlert(title: "Post Not Found", message: "Post >>\(postNumber) is not in the loaded thread and no archive supports post lookup for /\(boardAbv)/.")
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Post Not Found",
+            message: "Post >>\(postNumber) is not in the loaded thread. Look it up in the archive?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Lookup", style: .default, handler: { [weak self] _ in
+            self?.loadArchivedPost(postNumber)
+        }))
+        present(alert, animated: true)
+    }
+
+    private func loadArchivedPost(_ postNumber: String) {
+        ArchiveManager.shared.fetchArchivedPost(boardAbv: boardAbv, postNumber: postNumber) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch result {
+                case .success(let data):
+                    do {
+                        let json = try JSON(data: data)
+                        guard let post = json["posts"].array?.first else {
+                            self.showAlert(title: "Archive Error", message: "The archive did not return post >>\(postNumber).")
+                            return
+                        }
+                        self.showSingleArchivedPost(post)
+                    } catch {
+                        self.showAlert(title: "Archive Error", message: error.localizedDescription)
+                    }
+                case .failure(let error):
+                    self.showAlert(title: "Archive Error", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func showSingleArchivedPost(_ post: JSON) {
+        let postNumber = post["no"].stringValue
+        let imageURL = post["archive_image_url"].stringValue.isEmpty
+            ? "https://i.4cdn.org/\(boardAbv)/"
+            : post["archive_image_url"].stringValue
+
+        let newThreadVC = threadRepliesTV()
+        newThreadVC.boardAbv = boardAbv
+        newThreadVC.threadNumber = threadNumber
+        newThreadVC.shouldLoadFullThread = false
+        newThreadVC.replyViewRootPostNumber = postNumber
+        newThreadVC.title = "\(postNumber) Archive"
+        newThreadVC.threadBoardReplyNumber = [postNumber]
+        newThreadVC.threadRepliesImages = [imageURL]
+        newThreadVC.threadReplies = [TextFormatter.formatText(post["com"].stringValue, showSpoilers: showSpoilers, postNumber: postNumber)]
+        newThreadVC.originalTexts = [post["com"].stringValue]
+        newThreadVC.replyCount = 1
+        newThreadVC.postMetadataList = [
+            PostMetadata(
+                postNumber: postNumber,
+                comment: post["com"].stringValue,
+                posterId: post["id"].stringValue.isEmpty ? nil : post["id"].stringValue,
+                tripCode: post["trip"].stringValue.isEmpty ? nil : post["trip"].stringValue,
+                countryCode: post["country"].stringValue.isEmpty ? nil : post["country"].stringValue,
+                countryName: post["country_name"].stringValue.isEmpty ? nil : post["country_name"].stringValue,
+                timestamp: post["time"].int,
+                imageUrl: imageURL == "https://i.4cdn.org/\(boardAbv)/" ? nil : imageURL,
+                imageExtension: post["ext"].stringValue.isEmpty ? nil : post["ext"].stringValue,
+                imageName: post["filename"].stringValue.isEmpty ? nil : post["filename"].stringValue,
+                fileHash: post["md5"].stringValue.isEmpty ? nil : post["md5"].stringValue
+            )
+        ]
+
+        navigationController?.pushViewController(newThreadVC, animated: true)
+    }
+
+    private func confirmArchiveReport(postNumber: String) {
+        let alert = UIAlertController(
+            title: "Report to Archives",
+            message: "Submit an offsite archive report for post \(postNumber).",
+            preferredStyle: .alert
+        )
+        alert.addTextField { textField in
+            textField.text = "Illegal content"
+            textField.placeholder = "Reason"
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Submit Report", style: .destructive, handler: { [weak self, weak alert] _ in
+            let reason = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+            self?.submitArchiveReport(postNumber: postNumber, reason: reason?.isEmpty == false ? reason! : "Illegal content")
+        }))
+        present(alert, animated: true)
+    }
+
+    private func submitArchiveReport(postNumber: String, reason: String) {
+        ArchiveManager.shared.reportPost(boardAbv: boardAbv, postNumber: postNumber, reason: reason) { [weak self] results in
+            guard let self = self else { return }
+            let message: String
+            if results.isEmpty {
+                message = "No archive supports offsite reports for /\(self.boardAbv)/."
+            } else {
+                message = results.map { result in
+                    if let success = result.successMessage {
+                        return "\(result.archiveName): \(success)"
+                    }
+                    return "\(result.archiveName): \(result.errorMessage ?? "Error reporting post.")"
+                }.joined(separator: "\n")
+            }
+            self.showAlert(title: "Archive Report", message: message)
+        }
     }
 
     // MARK: - Mac Catalyst Right-Click Context Menu

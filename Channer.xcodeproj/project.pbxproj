@@ -26,6 +26,7 @@
 		171A76BA2DD8726100D75B34 /* ConflictResolutionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */; };
 		17NAVSEARCHBLD1234567890 /* UIViewController+NavigationSearchController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */; };
 		17APPEARLOGBLD1234567890 /* UIViewController+AppearanceLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */; };
+		17ARCHIVEMGRBUILD1234567 /* ArchiveManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ARCHIVEMGR123456789 /* ArchiveManager.swift */; };
 		171A83492DDD36CC00D75B34 /* boardsTVCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83482DDD36CC00D75B34 /* boardsTVCell.swift */; };
 		171A834A2DDD36CC00D75B34 /* boardsTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171A83472DDD36CC00D75B34 /* boardsTV.swift */; };
 		176EC63F2245F144009F2A8D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176EC63E2245F144009F2A8D /* AppDelegate.swift */; };
@@ -199,6 +200,7 @@
 		171A76B92DD8726100D75B34 /* ConflictResolutionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolutionViewController.swift; sourceTree = "<group>"; };
 		17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+NavigationSearchController.swift"; sourceTree = "<group>"; };
 		17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIViewController+AppearanceLogging.swift"; sourceTree = "<group>"; };
+		17ARCHIVEMGR123456789 /* ArchiveManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveManager.swift; sourceTree = "<group>"; };
 		171A83472DDD36CC00D75B34 /* boardsTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTV.swift; sourceTree = "<group>"; };
 		171A83482DDD36CC00D75B34 /* boardsTVCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = boardsTVCell.swift; sourceTree = "<group>"; };
 		176EC63B2245F144009F2A8D /* Channer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Channer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -357,6 +359,7 @@
 				171A76AF2DD8490100D75B34 /* String+HTMLEntities.swift */,
 				17NAVSEARCHCTRL1234567890 /* UIViewController+NavigationSearchController.swift */,
 				17APPEARLOGCTRL1234567890 /* UIViewController+AppearanceLogging.swift */,
+				17ARCHIVEMGR123456789 /* ArchiveManager.swift */,
 				17MEDIASETTINGS1234567890AC /* MediaSettings.swift */,
 				171A75DF2DD6F9FF00D75B34 /* AdvancedFilter.swift */,
 				171A75DE2DD6F9FF00D75B34 /* ContentFilterManager.swift */,
@@ -845,6 +848,7 @@
 				17CODESYNTAX123456789012 /* CodeSyntaxHighlighter.swift in Sources */,
 				17MATHRENDER123456789012 /* MathRenderer.swift in Sources */,
 				17ENHANCEDTF123456789012 /* EnhancedTextFormatter.swift in Sources */,
+				17ARCHIVEMGRBUILD1234567 /* ArchiveManager.swift in Sources */,
 				171A75F42DD7B19600D75B34 /* CategorizedFavoritesViewController.swift in Sources */,
 				177BC7F52CDECD0B000FE370 /* ImageViewController.swift in Sources */,
 				17IMAGECROPVC1234567890AB /* ImageCropViewController.swift in Sources */,
