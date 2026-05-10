@@ -567,6 +567,8 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     #endif
 
     private func configureBottomToolbarChrome() {
+        debugPrintBottomToolbarChrome("configureBottomToolbarChrome before")
+
         defer {
             updateInteractivePopGestureState()
         }
@@ -576,6 +578,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         setToolbarHidden(false, animated: false)
 
         if #available(iOS 26.0, *) {
+            debugPrintBottomToolbarChrome("configureBottomToolbarChrome after iOS26 return")
             return
         } else {
             let appearance = UIToolbarAppearance()
@@ -587,6 +590,8 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
                 toolbar.compactScrollEdgeAppearance = appearance
             }
         }
+
+        debugPrintBottomToolbarChrome("configureBottomToolbarChrome after")
     }
 
     private func scheduleBottomToolbarSync(animated: Bool) {
@@ -598,6 +603,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     private func syncBottomToolbar(animated: Bool) {
         guard let viewController = topViewController else { return }
 
+        debugPrintBottomToolbarChrome("syncBottomToolbar start top=\(String(describing: type(of: viewController))) animated=\(animated)")
         configureBottomToolbarChrome()
 
         if activeSearchOwner !== viewController {
@@ -619,8 +625,10 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         let toolbarItems = makeToolbarItems(for: viewController)
         let signature = toolbarSignature(for: viewController, items: toolbarItems)
         let shouldHideToolbar = (viewController as? BottomToolbarConfigurable)?.prefersBottomToolbarHidden ?? false
+        debugPrintBottomToolbarChrome("syncBottomToolbar items=\(toolbarItems.count) signature=\(signature) last=\(lastToolbarSignature) shouldHideToolbar=\(shouldHideToolbar)")
         guard signature != lastToolbarSignature else {
             setToolbarHidden(shouldHideToolbar, animated: animated)
+            debugPrintBottomToolbarChrome("syncBottomToolbar unchanged after setToolbarHidden")
             return
         }
 
@@ -629,6 +637,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         viewController.setToolbarItems(toolbarItems, animated: animated)
 
         setToolbarHidden(shouldHideToolbar, animated: animated)
+        debugPrintBottomToolbarChrome("syncBottomToolbar applied toolbar items")
 
         if isBottomSearchExpanded, let textField = activeToolbarSearchTextField {
             DispatchQueue.main.async { [weak self, weak textField] in
@@ -636,6 +645,41 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
                 textField?.becomeFirstResponder()
             }
         }
+    }
+
+    private func debugPrintBottomToolbarChrome(_ context: String) {
+        guard shouldPrintBottomToolbarChromeDebug else { return }
+
+        print("[BottomToolbarNavDebug] \(context)")
+        print("[BottomToolbarNavDebug] top=\(String(describing: topViewController.map { type(of: $0) })) viewControllers=\(viewControllers.map { String(describing: type(of: $0)) })")
+        print("[BottomToolbarNavDebug] isNavigationBarHidden=\(isNavigationBarHidden) navBar.isHidden=\(navigationBar.isHidden) navBar.isTranslucent=\(navigationBar.isTranslucent) navBar.backgroundColor=\(String(describing: navigationBar.backgroundColor)) navBar.frame=\(navigationBar.frame)")
+        print("[BottomToolbarNavDebug] toolbarHidden=\(isToolbarHidden) toolbar.isHidden=\(toolbar.isHidden) toolbar.isTranslucent=\(toolbar.isTranslucent) toolbar.backgroundColor=\(String(describing: toolbar.backgroundColor)) toolbar.frame=\(toolbar.frame)")
+        debugPrintToolbarAppearance("standard", toolbar.standardAppearance)
+        debugPrintToolbarAppearance("scrollEdge", toolbar.scrollEdgeAppearance)
+        debugPrintToolbarAppearance("compact", toolbar.compactAppearance)
+        if #available(iOS 15.0, *) {
+            debugPrintToolbarAppearance("compactScrollEdge", toolbar.compactScrollEdgeAppearance)
+        }
+    }
+
+    private var shouldPrintBottomToolbarChromeDebug: Bool {
+        let debugViewControllerNames = viewControllers.map { String(describing: type(of: $0)) }
+        return debugViewControllerNames.contains { name in
+            name.contains("threadReplies") ||
+            name.contains("ImageViewController") ||
+            name.contains("WebMViewController") ||
+            name.contains("urlWeb") ||
+            name.contains("ImageGalleryVC")
+        }
+    }
+
+    private func debugPrintToolbarAppearance(_ name: String, _ appearance: UIToolbarAppearance?) {
+        guard let appearance else {
+            print("[BottomToolbarNavDebug] \(name) appearance=nil")
+            return
+        }
+
+        print("[BottomToolbarNavDebug] \(name) backgroundColor=\(String(describing: appearance.backgroundColor)) backgroundEffect=\(String(describing: appearance.backgroundEffect)) shadowColor=\(String(describing: appearance.shadowColor)) backgroundImage=\(String(describing: appearance.backgroundImage)) shadowImage=\(String(describing: appearance.shadowImage))")
     }
 
     private func makeToolbarItems(for viewController: UIViewController) -> [UIBarButtonItem] {

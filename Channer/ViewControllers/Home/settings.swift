@@ -358,6 +358,12 @@ class settings: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updatePassStatusIndicator()
+        updateSettingsScrollInsets()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateSettingsScrollInsets()
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -390,7 +396,7 @@ class settings: UIViewController {
         // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
-        scrollView.contentInsetAdjustmentBehavior = .automatic
+        scrollView.contentInsetAdjustmentBehavior = .never
         view.addSubview(scrollView)
         
         // Setup content view
@@ -966,6 +972,25 @@ class settings: UIViewController {
         view.layer.borderWidth = 1
         view.layer.borderColor = ThemeManager.shared.cellBorderColor.resolvedColor(with: traitCollection).cgColor
         view.clipsToBounds = true
+    }
+
+    private func updateSettingsScrollInsets() {
+        let topInset = view.safeAreaInsets.top
+        let bottomInset = view.safeAreaInsets.bottom
+        var contentInset = scrollView.contentInset
+        let oldTopInset = contentInset.top
+        let oldBottomInset = contentInset.bottom
+
+        guard abs(oldTopInset - topInset) > 0.5 || abs(oldBottomInset - bottomInset) > 0.5 else { return }
+
+        let viewportTop = scrollView.contentOffset.y + oldTopInset
+        contentInset.top = topInset
+        contentInset.bottom = bottomInset
+        scrollView.contentInset = contentInset
+        scrollView.scrollIndicatorInsets = contentInset
+
+        let adjustedOffsetY = viewportTop - topInset
+        scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: adjustedOffsetY), animated: false)
     }
 
     private func configureSettingsTextFitting() {
@@ -2403,7 +2428,7 @@ class settings: UIViewController {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             // Scroll View
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),

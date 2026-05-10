@@ -227,6 +227,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         collectionView.dataSource = self
         collectionView.register(MediaCell.self, forCellWithReuseIdentifier: cellIdentifier)
         collectionView.backgroundColor = .systemBackground
+        collectionView.contentInsetAdjustmentBehavior = .never
         
         // Use Auto Layout constraints instead of frame-based layout
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -234,7 +235,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         
         // Pin collection view to all edges of the view
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -261,6 +262,33 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         }
 
         NotificationCenter.default.addObserver(self, selector: #selector(galleryCellSizeDidChange), name: .galleryCellSizeDidChange, object: nil)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGalleryCollectionInsets()
+    }
+
+    private func updateGalleryCollectionInsets() {
+        let topInset = view.safeAreaInsets.top
+        let bottomInset = view.safeAreaInsets.bottom
+        var contentInset = collectionView.contentInset
+        let oldTopInset = contentInset.top
+        let oldBottomInset = contentInset.bottom
+
+        guard abs(oldTopInset - topInset) > 0.5 || abs(oldBottomInset - bottomInset) > 0.5 else { return }
+
+        let viewportTop = collectionView.contentOffset.y + oldTopInset
+        contentInset.top = topInset
+        contentInset.bottom = bottomInset
+        collectionView.contentInset = contentInset
+        collectionView.scrollIndicatorInsets = contentInset
+
+        let adjustedOffsetY = viewportTop - topInset
+        collectionView.setContentOffset(
+            CGPoint(x: collectionView.contentOffset.x, y: adjustedOffsetY),
+            animated: false
+        )
     }
 
     @objc private func galleryCellSizeDidChange() {
@@ -1298,13 +1326,13 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     /// Updates gallery state when returning from full-screen view
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        updateGalleryCollectionInsets()
 
         // Restore navigation bar appearance from theme when returning from media viewers
         // Media viewers (WebMViewController, ImageViewController, urlWeb) set black nav bar
         // and reset to "default" which doesn't match the app's theme
         let appearance = UINavigationBarAppearance()
         appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = ThemeManager.shared.backgroundColor
         appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
 
         // Animate the navigation bar color transition

@@ -348,6 +348,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private let refreshStatusLabel = UILabel()
     private let refreshProgressView = UIProgressView(progressViewStyle: .default)
     private var refreshStatusHeight: NSLayoutConstraint?
+    private let refreshStatusInsetHeight: CGFloat = 44
     
     // Scroll performance optimization
     private var isScrolling = false
@@ -580,7 +581,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Table constraints
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor) // table above input bar
@@ -630,35 +631,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        navigationController?.navigationBar.isHidden = false
-
-        // Restore navigation bar appearance from theme when returning from media viewers
-        // Media viewers (WebMViewController, ImageViewController, urlWeb) set black nav bar
-        // Use configureWithOpaqueBackground to match the global AppDelegate configuration
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = ThemeManager.shared.backgroundColor
-        appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
-
-        // Animate the navigation bar color transition
-        if let coordinator = transitionCoordinator {
-            coordinator.animate(alongsideTransition: { _ in
-                self.navigationController?.navigationBar.standardAppearance = appearance
-                self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
-                self.navigationController?.navigationBar.compactAppearance = appearance
-                self.navigationController?.navigationBar.isTranslucent = false
-                self.navigationController?.navigationBar.tintColor = nil
-            }, completion: nil)
-        } else {
-            // Fallback if no transition coordinator (e.g., not during navigation)
-            UIView.animate(withDuration: 0.3) {
-                self.navigationController?.navigationBar.standardAppearance = appearance
-                self.navigationController?.navigationBar.scrollEdgeAppearance = appearance
-                self.navigationController?.navigationBar.compactAppearance = appearance
-                self.navigationController?.navigationBar.isTranslucent = false
-                self.navigationController?.navigationBar.tintColor = nil
-            }
-        }
+        debugPrintThreadNavigationChrome("viewWillAppear before restore")
+        restoreThreadNavigationChrome(animated: animated)
 
         // Ensure view is visible
         view.isHidden = false
@@ -671,9 +645,121 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         setupAutoRefreshTimer()
     }
 
+    private func restoreThreadNavigationChrome(animated: Bool) {
+        guard let navigationController else { return }
+
+        debugPrintThreadNavigationChrome("restore start")
+
+        if navigationController is CatalystNavigationController {
+            navigationController.setNavigationBarHidden(true, animated: animated)
+            navigationController.navigationBar.isHidden = true
+            navigationController.navigationBar.tintColor = nil
+            debugPrintThreadNavigationChrome("restore catalyst hidden top nav")
+            DispatchQueue.main.async { [weak self] in
+                self?.debugPrintThreadNavigationChrome("restore catalyst next runloop")
+            }
+            return
+        }
+
+        navigationController.setNavigationBarHidden(false, animated: animated)
+
+        // Media viewers temporarily install opaque black chrome. Thread replies should
+        // return to translucent system chrome instead of a solid themed bar.
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.titleTextAttributes = [.foregroundColor: ThemeManager.shared.primaryTextColor]
+
+        let applyAppearance = {
+            navigationController.navigationBar.standardAppearance = appearance
+            navigationController.navigationBar.scrollEdgeAppearance = appearance
+            navigationController.navigationBar.compactAppearance = appearance
+            if #available(iOS 15.0, *) {
+                navigationController.navigationBar.compactScrollEdgeAppearance = appearance
+            }
+            navigationController.navigationBar.isTranslucent = true
+            navigationController.navigationBar.tintColor = nil
+            self.debugPrintThreadNavigationChrome("restore apply appearance")
+        }
+
+        if let coordinator = transitionCoordinator {
+            coordinator.animate(alongsideTransition: { _ in
+                applyAppearance()
+            }, completion: { [weak self] context in
+                self?.debugPrintThreadNavigationChrome("restore transition completion cancelled=\(context.isCancelled)")
+            })
+        } else {
+            UIView.animate(withDuration: 0.3, animations: applyAppearance) { [weak self] _ in
+                self?.debugPrintThreadNavigationChrome("restore animation completion")
+            }
+        }
+    }
+
+    private func debugPrintThreadNavigationChrome(_ context: String) {
+        guard let navigationController else {
+            print("[ThreadRepliesNavDebug] \(context): navigationController=nil")
+            return
+        }
+
+        let navBar = navigationController.navigationBar
+        print("[ThreadRepliesNavDebug] \(context)")
+        print("[ThreadRepliesNavDebug] navController=\(type(of: navigationController)) top=\(String(describing: navigationController.topViewController.map { type(of: $0) })) viewControllers=\(navigationController.viewControllers.map { String(describing: type(of: $0)) })")
+        print("[ThreadRepliesNavDebug] isNavigationBarHidden=\(navigationController.isNavigationBarHidden) navBar.isHidden=\(navBar.isHidden) isTranslucent=\(navBar.isTranslucent) navBar.backgroundColor=\(String(describing: navBar.backgroundColor)) navController.view.backgroundColor=\(String(describing: navigationController.view.backgroundColor))")
+        print("[ThreadRepliesNavDebug] navBar.frame=\(navBar.frame) bounds=\(navBar.bounds) alpha=\(navBar.alpha) isOpaque=\(navBar.isOpaque) tintColor=\(String(describing: navBar.tintColor)) barTintColor=\(String(describing: navBar.barTintColor))")
+        print("[ThreadRepliesNavDebug] view.frame=\(view.frame) view.bounds=\(view.bounds) view.safeAreaInsets=\(view.safeAreaInsets) table.frame=\(tableView.frame) table.bounds=\(tableView.bounds)")
+        print("[ThreadRepliesNavDebug] table.contentInset=\(tableView.contentInset) adjusted=\(tableView.adjustedContentInset) verticalScrollIndicatorInsets=\(tableView.verticalScrollIndicatorInsets) horizontalScrollIndicatorInsets=\(tableView.horizontalScrollIndicatorInsets) contentOffset=\(tableView.contentOffset) contentSize=\(tableView.contentSize) contentInsetAdjustmentBehavior=\(tableView.contentInsetAdjustmentBehavior.rawValue)")
+        debugPrintNavigationBarAppearance("standard", navBar.standardAppearance)
+        debugPrintNavigationBarAppearance("scrollEdge", navBar.scrollEdgeAppearance)
+        debugPrintNavigationBarAppearance("compact", navBar.compactAppearance)
+        if #available(iOS 15.0, *) {
+            debugPrintNavigationBarAppearance("compactScrollEdge", navBar.compactScrollEdgeAppearance)
+        }
+
+        if let catalystNavigationController = navigationController as? CatalystNavigationController {
+            print("[ThreadRepliesNavDebug] catalyst toolbarHidden=\(catalystNavigationController.isToolbarHidden) toolbar.frame=\(catalystNavigationController.toolbar.frame) toolbar.backgroundColor=\(String(describing: catalystNavigationController.toolbar.backgroundColor)) toolbar.isTranslucent=\(catalystNavigationController.toolbar.isTranslucent)")
+        }
+    }
+
+    private func debugPrintNavigationBarAppearance(_ name: String, _ appearance: UINavigationBarAppearance?) {
+        guard let appearance else {
+            print("[ThreadRepliesNavDebug] \(name) appearance=nil")
+            return
+        }
+
+        print("[ThreadRepliesNavDebug] \(name) backgroundColor=\(String(describing: appearance.backgroundColor)) backgroundEffect=\(String(describing: appearance.backgroundEffect)) shadowColor=\(String(describing: appearance.shadowColor)) backgroundImage=\(String(describing: appearance.backgroundImage)) shadowImage=\(String(describing: appearance.shadowImage))")
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        debugPrintThreadNavigationChrome("viewDidAppear")
         becomeFirstResponder()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateThreadTableInsets()
+        debugPrintThreadNavigationChrome("viewDidLayoutSubviews")
+    }
+
+    private func updateThreadTableInsets() {
+        let refreshInset = refreshStatusView.isHidden ? 0 : refreshStatusInsetHeight
+        let topInset = view.safeAreaInsets.top + refreshInset
+
+        var contentInset = tableView.contentInset
+        let oldTopInset = contentInset.top
+        guard abs(oldTopInset - topInset) > 0.5 else { return }
+
+        let viewportTop = tableView.contentOffset.y + oldTopInset
+        contentInset.top = topInset
+        tableView.contentInset = contentInset
+        tableView.scrollIndicatorInsets = contentInset
+
+        let adjustedOffsetY = viewportTop - topInset
+        tableView.setContentOffset(
+            CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(adjustedOffsetY)),
+            animated: false
+        )
+
+        debugPrintThreadNavigationChrome("updateThreadTableInsets oldTop=\(oldTopInset) newTop=\(topInset)")
     }
 
     override var canBecomeFirstResponder: Bool {
@@ -769,8 +855,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         tableView.backgroundColor = ThemeManager.shared.backgroundColor
         
         // Configure navigation bar
+        debugPrintThreadNavigationChrome("configureView before nav background assignment")
         navigationController?.navigationBar.backgroundColor = ThemeManager.shared.backgroundColor
         navigationController?.view.backgroundColor = ThemeManager.shared.backgroundColor
+        debugPrintThreadNavigationChrome("configureView after nav background assignment")
         
         // Configure table view
         tableView.separatorStyle = .none
@@ -848,12 +936,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let interval = UserDefaults.standard.integer(forKey: threadsAutoRefreshIntervalKey)
         let shouldShow = interval > 0
         refreshStatusView.isHidden = !shouldShow
-        if shouldShow {
-            var contentInset = tableView.contentInset
-            contentInset.top = 44
-            tableView.contentInset = contentInset
-            tableView.scrollIndicatorInsets = contentInset
-        }
+        updateThreadTableInsets()
         
         refreshStatusLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         refreshStatusLabel.textColor = ThemeManager.shared.secondaryTextColor
@@ -3785,10 +3868,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
             self.refreshStatusView.isHidden = false
             self.updateRefreshStatus()
-            var contentInset = self.tableView.contentInset
-            contentInset.top = 44
-            self.tableView.contentInset = contentInset
-            self.tableView.scrollIndicatorInsets = contentInset
+            self.updateThreadTableInsets()
         }
     }
 
@@ -3797,10 +3877,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             guard let self = self else { return }
             guard !self.refreshStatusView.isHidden else { return }
             self.refreshStatusView.isHidden = true
-            var contentInset = self.tableView.contentInset
-            contentInset.top = 0
-            self.tableView.contentInset = contentInset
-            self.tableView.scrollIndicatorInsets = contentInset
+            self.updateThreadTableInsets()
         }
     }
     

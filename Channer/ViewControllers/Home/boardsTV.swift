@@ -440,7 +440,7 @@ class boardsTV: UITableViewController {
                     iconName = "bell.badge.fill"
                 }
                 
-                notificationButton.tintColor = .black
+                notificationButton.tintColor = .systemRed
             } else {
                 iconName = "bell"
                 notificationButton.tintColor = .black
@@ -449,7 +449,7 @@ class boardsTV: UITableViewController {
             // Create and resize the icon consistently with other nav buttons
             let symbolConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
             let baseImage = UIImage(systemName: iconName)?.withConfiguration(symbolConfig)
-            let resizedImage = baseImage?.resized(to: CGSize(width: 22, height: 22))
+            let resizedImage = baseImage?.resized(to: CGSize(width: 22, height: 22))?.withRenderingMode(.alwaysTemplate)
             notificationButton.image = resizedImage
         }
     }
