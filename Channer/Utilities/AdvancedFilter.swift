@@ -239,6 +239,55 @@ struct PostMetadata: Codable {
     let imageExtension: String?
     let imageName: String?
     let fileHash: String?
+    let isSpoiler: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case postNumber, comment, posterId, tripCode, countryCode, countryName, timestamp, imageUrl, imageExtension, imageName, fileHash, isSpoiler
+    }
+
+    init(
+        postNumber: String,
+        comment: String,
+        posterId: String?,
+        tripCode: String?,
+        countryCode: String?,
+        countryName: String?,
+        timestamp: Int?,
+        imageUrl: String?,
+        imageExtension: String?,
+        imageName: String?,
+        fileHash: String? = nil,
+        isSpoiler: Bool = false
+    ) {
+        self.postNumber = postNumber
+        self.comment = comment
+        self.posterId = posterId
+        self.tripCode = tripCode
+        self.countryCode = countryCode
+        self.countryName = countryName
+        self.timestamp = timestamp
+        self.imageUrl = imageUrl
+        self.imageExtension = imageExtension
+        self.imageName = imageName
+        self.fileHash = fileHash
+        self.isSpoiler = isSpoiler
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        postNumber = try container.decode(String.self, forKey: .postNumber)
+        comment = try container.decode(String.self, forKey: .comment)
+        posterId = try container.decodeIfPresent(String.self, forKey: .posterId)
+        tripCode = try container.decodeIfPresent(String.self, forKey: .tripCode)
+        countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
+        countryName = try container.decodeIfPresent(String.self, forKey: .countryName)
+        timestamp = try container.decodeIfPresent(Int.self, forKey: .timestamp)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        imageExtension = try container.decodeIfPresent(String.self, forKey: .imageExtension)
+        imageName = try container.decodeIfPresent(String.self, forKey: .imageName)
+        fileHash = try container.decodeIfPresent(String.self, forKey: .fileHash)
+        isSpoiler = try container.decodeIfPresent(Bool.self, forKey: .isSpoiler) ?? false
+    }
 
     /// Checks if post has an attachment
     var hasAttachment: Bool {

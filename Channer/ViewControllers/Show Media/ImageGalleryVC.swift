@@ -551,6 +551,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellIdentifier, for: indexPath) as! MediaCell
         let imageURL = images[indexPath.row]
+        let fileExtension = imageURL.pathExtension.lowercased()
         
         print("📱 Configuring cell at index \(indexPath.row)")
         
@@ -558,7 +559,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         cell.setSelected(indexPath.row == selectedIndex, animated: false)
         
         // Simplified approach: Treat all cells as potential videos in preload mode
-        if preloadVideos {
+        if fileExtension == "pdf" {
+            setupPDFCell(cell, url: imageURL)
+        } else if preloadVideos || (MediaSettings.replaceVideoThumbnails && (fileExtension == "webm" || fileExtension == "mp4")) {
             // Choose URL based on correctness map or fallback
             var videoURL = imageURL
             
@@ -645,6 +648,14 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         cell.imageView?.kf.setImage(with: displayURL) { _ in
             cell.activityIndicator?.stopAnimating()
         }
+    }
+
+    private func setupPDFCell(_ cell: MediaCell, url: URL) {
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        cell.setupForVideo(configuration: config)
+        cell.webView?.navigationDelegate = self
+        cell.webView?.load(URLRequest(url: url))
     }
     
     /// Set up a cell to display a video - simpler, more reliable approach
@@ -1058,6 +1069,22 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             urlWebVC.images = images
             urlWebVC.currentIndex = indexPath.row
             urlWebVC.enableSwipes = true
+            urlWebVC.refererString = refererString
+            urlWebVC.replyCount = postReplyCount
+            urlWebVC.onShowReplies = onShowRepliesForPost
+
+            if let navController = navigationController {
+                navController.pushViewController(urlWebVC, animated: true)
+            } else {
+                let navController = CatalystNavigationController(rootViewController: urlWebVC)
+                navController.modalPresentationStyle = .fullScreen
+                present(navController, animated: true)
+            }
+        } else if fileExtension == "pdf" {
+            let urlWebVC = urlWeb()
+            urlWebVC.images = [selectedURL]
+            urlWebVC.currentIndex = 0
+            urlWebVC.enableSwipes = false
             urlWebVC.refererString = refererString
             urlWebVC.replyCount = postReplyCount
             urlWebVC.onShowReplies = onShowRepliesForPost

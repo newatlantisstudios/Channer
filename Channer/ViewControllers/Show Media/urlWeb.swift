@@ -313,7 +313,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         player.allowsExternalPlayback = true
         let startMuted = MediaSettings.defaultMuted
         player.isMuted = startMuted
-        player.volume = startMuted ? 0.0 : 0.5
+        player.volume = startMuted ? 0.0 : MediaSettings.defaultVideoVolume
         return player
     }()
     
@@ -941,9 +941,9 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
     private func loadContentInternal() {
         isMuted = MediaSettings.defaultMuted
         avPlayer.isMuted = isMuted
-        avPlayer.volume = isMuted ? 0.0 : 0.5
+        avPlayer.volume = isMuted ? 0.0 : MediaSettings.defaultVideoVolume
         vlcPlayer?.audio?.isMuted = isMuted
-        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : Int32(50)
+        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : MediaSettings.defaultVLCVolume
         shouldForceMuteOnNextPlay = isMuted
         setupNavigationButtons()
 
@@ -1237,7 +1237,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         vlcPlayer?.media = media
 
         vlcPlayer?.audio?.isMuted = isMuted
-        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : Int32(50)
+        vlcPlayer?.audio?.volume = isMuted ? Int32(0) : MediaSettings.defaultVLCVolume
         
         // Start playback
         print("DEBUG: urlWeb - Starting VLC playback")
@@ -1268,7 +1268,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
             }
         } else {
             vlcPlayer.audio?.isMuted = false
-            vlcPlayer.audio?.volume = 50
+            vlcPlayer.audio?.volume = MediaSettings.defaultVLCVolume
             setupNavigationButtons()
         }
     }
@@ -1314,7 +1314,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         print("🎵 DEBUG: urlWeb - Periodic check - Player Muted: \(playerIsMuted), Player Volume: \(playerVolume), User Preference: \(isMuted)")
         
         // Enforce user's mute preference
-        let expectedVolume = isMuted ? Int32(0) : Int32(50)
+        let expectedVolume = isMuted ? Int32(0) : MediaSettings.defaultVLCVolume
         if playerIsMuted != isMuted || playerVolume != expectedVolume {
             print("🎵 DEBUG: urlWeb - Enforcing user mute preference...")
             vlcPlayer.audio?.isMuted = isMuted
@@ -1451,7 +1451,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
             
             let defaultMuted = isMuted
             let mutedAttribute = defaultMuted ? "muted" : ""
-            let defaultVolume = defaultMuted ? "0" : "0.5"
+            let defaultVolume = defaultMuted ? "0" : "\(MediaSettings.defaultVideoVolume)"
 
             // Create custom HTML for video display with proper controls
             let videoHTML = """
@@ -1549,8 +1549,20 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
                     var sourceIndex = 0;
                     var sources = video.querySelectorAll('source');
                     const defaultMuted = \(defaultMuted ? "true" : "false");
-                    const defaultVolume = \(defaultMuted ? "0" : "0.5");
+                    const defaultVolume = \(defaultMuted ? "0" : "\(MediaSettings.defaultVideoVolume)");
+                    const wheelVolumeEnabled = \(MediaSettings.mouseWheelVolumeEnabled ? "true" : "false");
                     window._channerEnforceMuted = defaultMuted;
+
+                    if (wheelVolumeEnabled) {
+                        video.addEventListener('wheel', function(event) {
+                            if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || video.muted) { return; }
+                            event.preventDefault();
+                            var volume = video.volume + 0.1;
+                            if (event.deltaY < 0) { volume *= 1.1; }
+                            if (event.deltaY > 0) { volume /= 1.1; }
+                            video.volume = Math.max(0, Math.min(1, volume - 0.1));
+                        }, { passive: false });
+                    }
                     
                     function shouldEnforceMute() {
                         return window._channerEnforceMuted === true;
@@ -1862,7 +1874,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         // Apply mute state to VLC player if it's active
         if let vlcPlayer = vlcPlayer {
             vlcPlayer.audio?.isMuted = isMuted
-            vlcPlayer.audio?.volume = isMuted ? Int32(0) : Int32(50)
+            vlcPlayer.audio?.volume = isMuted ? Int32(0) : MediaSettings.defaultVLCVolume
             print("🎵 DEBUG: urlWeb - toggleMute() - Applied VLC settings")
             print("🎵 DEBUG: urlWeb - toggleMute() - VLC Audio Muted AFTER: \(vlcPlayer.audio?.isMuted ?? false)")
             print("🎵 DEBUG: urlWeb - toggleMute() - VLC Audio Volume AFTER: \(vlcPlayer.audio?.volume ?? -1)")
@@ -1870,7 +1882,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         
         // Apply mute state to AVPlayer if it's active
         avPlayer.isMuted = isMuted
-        avPlayer.volume = isMuted ? 0.0 : 0.5
+        avPlayer.volume = isMuted ? 0.0 : MediaSettings.defaultVideoVolume
         print("🎵 DEBUG: urlWeb - toggleMute() - Applied AVPlayer settings")
         print("🎵 DEBUG: urlWeb - toggleMute() - AVPlayer Muted AFTER: \(avPlayer.isMuted)")
         print("🎵 DEBUG: urlWeb - toggleMute() - AVPlayer Volume AFTER: \(avPlayer.volume)")
@@ -1882,7 +1894,7 @@ class urlWeb: UIViewController, WKScriptMessageHandler, VLCMediaPlayerDelegate {
         if !webView.isHidden {
             let jsCommand = isMuted ?
                 "var video = document.getElementById('videoPlayer'); if (video) { video.muted = true; video.volume = 0; } window._channerEnforceMuted = true;" :
-                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = false; video.volume = 0.5; } window._channerEnforceMuted = false;"
+                "var video = document.getElementById('videoPlayer'); if (video) { video.muted = false; video.volume = \(MediaSettings.defaultVideoVolume); } window._channerEnforceMuted = false;"
             webView.evaluateJavaScript(jsCommand) { result, error in
                 if let error = error {
                     print("DEBUG: urlWeb - Error updating web video mute state: \(error)")
