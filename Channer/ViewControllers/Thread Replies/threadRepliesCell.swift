@@ -573,6 +573,61 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         updatePointerInteractionIfNeeded()
     }
 
+    func flashQuoteTarget() {
+        let originalBackgroundColor = customBackgroundView.backgroundColor?.cgColor ?? UIColor.clear.cgColor
+        let originalBorderColor = customBackgroundView.layer.borderColor ?? UIColor.clear.cgColor
+        let originalBorderWidth = customBackgroundView.layer.borderWidth
+
+        let flashBackgroundColor = UIColor.systemYellow.withAlphaComponent(0.36).cgColor
+        let flashBorderColor = UIColor.systemYellow.cgColor
+        let flashBorderWidth = max(originalBorderWidth, 8)
+        let keyTimes: [NSNumber] = [0, 0.14, 0.34, 0.54, 1]
+        let wasRasterized = customBackgroundView.layer.shouldRasterize
+
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBackground")
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBorderColor")
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBorderWidth")
+        customBackgroundView.layer.shouldRasterize = false
+
+        let backgroundAnimation = CAKeyframeAnimation(keyPath: "backgroundColor")
+        backgroundAnimation.values = [
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor
+        ]
+        backgroundAnimation.keyTimes = keyTimes
+        backgroundAnimation.duration = 0.8
+        backgroundAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderColorAnimation = CAKeyframeAnimation(keyPath: "borderColor")
+        borderColorAnimation.values = [
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor
+        ]
+        borderColorAnimation.keyTimes = keyTimes
+        borderColorAnimation.duration = 0.8
+        borderColorAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderWidthAnimation = CAKeyframeAnimation(keyPath: "borderWidth")
+        borderWidthAnimation.values = [originalBorderWidth, flashBorderWidth, originalBorderWidth, flashBorderWidth, originalBorderWidth]
+        borderWidthAnimation.keyTimes = keyTimes
+        borderWidthAnimation.duration = 0.8
+        borderWidthAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        customBackgroundView.layer.add(backgroundAnimation, forKey: "quoteTargetFlashBackground")
+        customBackgroundView.layer.add(borderColorAnimation, forKey: "quoteTargetFlashBorderColor")
+        customBackgroundView.layer.add(borderWidthAnimation, forKey: "quoteTargetFlashBorderWidth")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + backgroundAnimation.duration) { [weak self] in
+            self?.customBackgroundView.layer.shouldRasterize = wasRasterized
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         // Provide a shadowPath to avoid offscreen rendering cost per frame

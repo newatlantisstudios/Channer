@@ -1113,12 +1113,31 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITex
         if URL.scheme == "postjump" {
             let postNumber = URL.host ?? ""
             if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
-                collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .centeredVertically, animated: true)
+                let indexPath = IndexPath(item: index, section: 0)
+                collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: true)
+                flashPost(at: indexPath)
             }
             return false
         }
 
         return true
+    }
+
+    private func flashPost(at indexPath: IndexPath) {
+        flashPost(at: indexPath, remainingAttempts: 4)
+    }
+
+    private func flashPost(at indexPath: IndexPath, remainingAttempts: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self = self else { return }
+
+            if let cell = self.collectionView.cellForItem(at: indexPath) as? threadReplyCell {
+                cell.flashQuoteTarget()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } else if remainingAttempts > 0 {
+                self.flashPost(at: indexPath, remainingAttempts: remainingAttempts - 1)
+            }
+        }
     }
 }
 

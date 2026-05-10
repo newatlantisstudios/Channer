@@ -1069,17 +1069,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
 
             self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
-
-            // Briefly highlight the cell to draw attention
-            if let cell = self.tableView.cellForRow(at: indexPath) {
-                UIView.animate(withDuration: 0.3, animations: {
-                    cell.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.3)
-                }) { _ in
-                    UIView.animate(withDuration: 0.5, delay: 0.5) {
-                        cell.backgroundColor = ThemeManager.shared.backgroundColor
-                    }
-                }
-            }
+            self.flashPost(at: indexPath)
 
             self.scrollToPostNumber = nil
         }
@@ -2701,7 +2691,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             visibleRow = dataIndex
         }
 
-        tableView.scrollToRow(at: IndexPath(row: visibleRow, section: 0), at: .middle, animated: true)
+        let indexPath = IndexPath(row: visibleRow, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+        flashPost(at: indexPath)
+    }
+
+    private func flashPost(at indexPath: IndexPath) {
+        flashPost(at: indexPath, remainingAttempts: 4)
+    }
+
+    private func flashPost(at indexPath: IndexPath, remainingAttempts: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self = self else { return }
+
+            if let cell = self.tableView.cellForRow(at: indexPath) as? threadRepliesCell {
+                cell.flashQuoteTarget()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } else if remainingAttempts > 0 {
+                self.flashPost(at: indexPath, remainingAttempts: remainingAttempts - 1)
+            }
+        }
     }
     
     func textViewDidBeginEditing(_ textView: UITextView) {
