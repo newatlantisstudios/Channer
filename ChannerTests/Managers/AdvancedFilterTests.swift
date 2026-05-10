@@ -141,6 +141,75 @@ class AdvancedFilterTests: XCTestCase {
         XCTAssertFalse(filter.matches(post: recentPost))
     }
 
+    func testXTGeneralFilterMatchesSubjectAndBoard() throws {
+        let filter = try AdvancedFilter.xt("/general/i;boards:v;op:only;type:subject;reason:General", type: .xtGeneral)
+        let matchingPost = createTestPost(
+            comment: "body",
+            boardAbv: "v",
+            subject: "Daily General",
+            isOP: true
+        )
+        let wrongBoard = createTestPost(
+            comment: "body",
+            boardAbv: "g",
+            subject: "Daily General",
+            isOP: true
+        )
+        let reply = createTestPost(
+            comment: "body",
+            boardAbv: "v",
+            subject: "Daily General",
+            isOP: false
+        )
+
+        XCTAssertTrue(filter.matches(post: matchingPost))
+        XCTAssertFalse(filter.matches(post: wrongBoard))
+        XCTAssertFalse(filter.matches(post: reply))
+        XCTAssertEqual(filter.matchEffect(post: matchingPost, defaultShowStub: true)?.reason, "General")
+    }
+
+    func testXTCombinedFieldsMatch() throws {
+        let filter = try AdvancedFilter.xt("/wallpaper\\n1024\\n1920x1080/;type:filename+filesize+dimensions", type: .xtGeneral)
+        let post = createTestPost(
+            imageName: "wallpaper",
+            imageDimensions: "1920x1080",
+            imageFileSize: "1024"
+        )
+
+        XCTAssertTrue(filter.matches(post: post))
+    }
+
+    func testMD5FilterUsesExactMatching() {
+        let filter = AdvancedFilter.md5("abc123")
+        let matchingPost = createTestPost(fileHash: "abc123")
+        let partialPost = createTestPost(fileHash: "abc123-extra")
+
+        XCTAssertTrue(filter.matches(post: matchingPost))
+        XCTAssertFalse(filter.matches(post: partialPost))
+    }
+
+    func testRecursiveReplyResults() throws {
+        ContentFilterManager.shared.clearAllAdvancedFilters()
+        XCTAssertTrue(ContentFilterManager.shared.addXTFilterLine("/bait/i;replies;reason:Bait"))
+
+        let op = createTestPost(postNumber: "100", comment: "bait")
+        let reply = createTestPost(postNumber: "101", comment: ">>100 reply")
+        let nestedReply = createTestPost(postNumber: "102", comment: ">>101 reply")
+        let results = ContentFilterManager.shared.filterResults(for: [op, reply, nestedReply])
+
+        XCTAssertTrue(results["100"]?.isFiltered == true)
+        XCTAssertTrue(results["101"]?.isFiltered == true)
+        XCTAssertTrue(results["102"]?.isFiltered == true)
+    }
+
+    func testQuickMD5FilterAddsExactFilter() {
+        ContentFilterManager.shared.clearAllAdvancedFilters()
+        XCTAssertTrue(ContentFilterManager.shared.quickFilterMD5("md5hash"))
+        let post = createTestPost(fileHash: "md5hash")
+
+        XCTAssertTrue(ContentFilterManager.shared.shouldFilter(post: post))
+    }
+
     func testDisabledFilterDoesNotMatch() {
         var filter = AdvancedFilter.keyword("test")
         filter.isEnabled = false
@@ -295,7 +364,13 @@ class AdvancedFilterTests: XCTestCase {
         timestamp: Int? = nil,
         imageUrl: String? = nil,
         imageExtension: String? = nil,
-        imageName: String? = nil
+        imageName: String? = nil,
+        fileHash: String? = nil,
+        boardAbv: String? = nil,
+        subject: String? = nil,
+        imageDimensions: String? = nil,
+        imageFileSize: String? = nil,
+        isOP: Bool = false
     ) -> PostMetadata {
         return PostMetadata(
             postNumber: postNumber,
@@ -307,7 +382,13 @@ class AdvancedFilterTests: XCTestCase {
             timestamp: timestamp,
             imageUrl: imageUrl ?? (imageExtension != nil ? "https://example.com/test\(imageExtension!)" : nil),
             imageExtension: imageExtension,
-            imageName: imageName
+            imageName: imageName,
+            fileHash: fileHash,
+            boardAbv: boardAbv,
+            subject: subject,
+            imageDimensions: imageDimensions,
+            imageFileSize: imageFileSize,
+            isOP: isOP
         )
     }
 }

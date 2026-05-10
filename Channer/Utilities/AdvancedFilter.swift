@@ -4,6 +4,7 @@ import Foundation
 
 /// Represents the different types of advanced filters available
 enum FilterType: String, Codable, CaseIterable {
+    case xtGeneral = "xt_general"
     case keyword = "keyword"
     case regex = "regex"
     case posterId = "poster_id"
@@ -12,9 +13,17 @@ enum FilterType: String, Codable, CaseIterable {
     case countryFlag = "country_flag"
     case tripCode = "trip_code"
     case timeBased = "time_based"
+    case subject = "subject"
+    case email = "email"
+    case capcode = "capcode"
+    case passDate = "pass"
+    case dimensions = "dimensions"
+    case fileSize = "filesize"
+    case md5 = "md5"
 
     var displayName: String {
         switch self {
+        case .xtGeneral: return "XT General"
         case .keyword: return "Keyword"
         case .regex: return "Regex Pattern"
         case .posterId: return "Poster ID"
@@ -23,11 +32,19 @@ enum FilterType: String, Codable, CaseIterable {
         case .countryFlag: return "Country Flag"
         case .tripCode: return "Trip Code"
         case .timeBased: return "Time-Based"
+        case .subject: return "Subject"
+        case .email: return "Email"
+        case .capcode: return "Capcode"
+        case .passDate: return "Pass Date"
+        case .dimensions: return "Image Dimensions"
+        case .fileSize: return "Filesize"
+        case .md5: return "Image MD5"
         }
     }
 
     var description: String {
         switch self {
+        case .xtGeneral: return "Filter posts using XT's multi-field filter syntax"
         case .keyword: return "Filter posts containing specific text"
         case .regex: return "Filter posts matching a regex pattern"
         case .posterId: return "Filter posts from specific poster IDs"
@@ -36,6 +53,116 @@ enum FilterType: String, Codable, CaseIterable {
         case .countryFlag: return "Filter posts by country flag"
         case .tripCode: return "Filter posts by trip code"
         case .timeBased: return "Filter posts older than specified time"
+        case .subject: return "Filter posts by subject"
+        case .email: return "Filter posts by email/options"
+        case .capcode: return "Filter posts by capcode"
+        case .passDate: return "Filter posts by 4chan Pass date"
+        case .dimensions: return "Filter posts by image dimensions"
+        case .fileSize: return "Filter posts by filesize"
+        case .md5: return "Filter posts by image MD5"
+        }
+    }
+}
+
+// MARK: - XT Filter Language
+
+enum XTFilterField: String, Codable, CaseIterable {
+    case postID
+    case name
+    case uniqueID
+    case tripcode
+    case capcode
+    case pass
+    case email
+    case subject
+    case comment
+    case flag
+    case filename
+    case dimensions
+    case filesize
+    case MD5
+}
+
+enum XTPostScope: String, Codable {
+    case any
+    case repliesOnly
+    case opOnly
+}
+
+enum XTFileScope: String, Codable {
+    case any
+    case withFileOnly
+    case withoutFileOnly
+}
+
+struct XTFilterOptions: Codable, Equatable {
+    var boards: [String]?
+    var excludedBoards: [String]?
+    var postScope: XTPostScope
+    var fileScope: XTFileScope
+    var stub: Bool?
+    var highlightClass: String?
+    var pinToTop: Bool?
+    var notify: Bool
+    var samePoster: Bool
+    var recursiveReplies: Bool
+    var hide: Bool
+    var reason: String?
+    var generalFieldGroups: [[XTFilterField]]?
+
+    init(
+        boards: [String]? = nil,
+        excludedBoards: [String]? = nil,
+        postScope: XTPostScope = .any,
+        fileScope: XTFileScope = .any,
+        stub: Bool? = nil,
+        highlightClass: String? = nil,
+        pinToTop: Bool? = nil,
+        notify: Bool = false,
+        samePoster: Bool = false,
+        recursiveReplies: Bool = false,
+        hide: Bool = true,
+        reason: String? = nil,
+        generalFieldGroups: [[XTFilterField]]? = nil
+    ) {
+        self.boards = boards
+        self.excludedBoards = excludedBoards
+        self.postScope = postScope
+        self.fileScope = fileScope
+        self.stub = stub
+        self.highlightClass = highlightClass
+        self.pinToTop = pinToTop
+        self.notify = notify
+        self.samePoster = samePoster
+        self.recursiveReplies = recursiveReplies
+        self.hide = hide
+        self.reason = reason
+        self.generalFieldGroups = generalFieldGroups
+    }
+}
+
+struct AdvancedFilterEffect: Equatable {
+    let filterID: UUID
+    let shouldHide: Bool
+    let showStub: Bool?
+    let reason: String?
+    let highlightClass: String?
+    let pinToTop: Bool
+    let notify: Bool
+    let samePoster: Bool
+    let recursiveReplies: Bool
+}
+
+enum XTFilterParseError: Error, LocalizedError {
+    case missingPattern
+    case unknownField(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingPattern:
+            return "XT filters must start with a /pattern/ expression."
+        case .unknownField(let field):
+            return "Unknown XT filter field: \(field)"
         }
     }
 }
@@ -126,6 +253,10 @@ struct AdvancedFilter: Codable, Equatable, Identifiable {
     var timeValue: Int?
     var timeUnit: TimeUnit?
 
+    // XT filter language specific
+    var xtOptions: XTFilterOptions?
+    var xtRegexFlags: String?
+
     // Metadata
     var createdAt: Date
     var modifiedAt: Date
@@ -139,7 +270,9 @@ struct AdvancedFilter: Codable, Equatable, Identifiable {
         filterMode: FilterMode = .blacklist,
         fileTypeFilter: FileTypeFilter? = nil,
         timeValue: Int? = nil,
-        timeUnit: TimeUnit? = nil
+        timeUnit: TimeUnit? = nil,
+        xtOptions: XTFilterOptions? = nil,
+        xtRegexFlags: String? = nil
     ) {
         self.id = UUID()
         self.filterType = filterType
@@ -150,6 +283,8 @@ struct AdvancedFilter: Codable, Equatable, Identifiable {
         self.fileTypeFilter = fileTypeFilter
         self.timeValue = timeValue
         self.timeUnit = timeUnit
+        self.xtOptions = xtOptions
+        self.xtRegexFlags = xtRegexFlags
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.hitCount = 0
@@ -204,10 +339,28 @@ struct AdvancedFilter: Codable, Equatable, Identifiable {
         )
     }
 
+    /// Creates an exact MD5 filter, matching XT's MD5 filter behavior.
+    static func md5(_ hash: String) -> AdvancedFilter {
+        return AdvancedFilter(filterType: .md5, value: hash)
+    }
+
+    /// Creates a filter from an XT line such as "/pattern/i;boards:g;op:only;reason:Bait".
+    static func xt(_ line: String, type: FilterType = .xtGeneral) throws -> AdvancedFilter {
+        let parsed = try XTFilterLineParser.parse(line, defaultType: type)
+        return AdvancedFilter(
+            filterType: parsed.type,
+            value: parsed.pattern,
+            isCaseSensitive: !parsed.flags.contains("i"),
+            filterMode: .blacklist,
+            xtOptions: parsed.options,
+            xtRegexFlags: parsed.flags
+        )
+    }
+
     /// Display name for the filter
     var displayName: String {
         switch filterType {
-        case .keyword, .regex, .posterId, .imageName:
+        case .keyword, .regex, .posterId, .imageName, .xtGeneral, .subject, .email, .capcode, .passDate, .dimensions, .fileSize, .md5:
             return value
         case .fileType:
             return fileTypeFilter?.displayName ?? value
@@ -230,15 +383,26 @@ struct AdvancedFilter: Codable, Equatable, Identifiable {
 struct PostMetadata: Codable {
     let postNumber: String
     let comment: String
-    let posterId: String?
-    let tripCode: String?
-    let countryCode: String?
-    let countryName: String?
-    let timestamp: Int?  // Unix timestamp
-    let imageUrl: String?
-    let imageExtension: String?
-    let imageName: String?
-    let fileHash: String?
+    var posterId: String? = nil
+    var tripCode: String? = nil
+    var countryCode: String? = nil
+    var countryName: String? = nil
+    var timestamp: Int? = nil  // Unix timestamp
+    var imageUrl: String? = nil
+    var imageExtension: String? = nil
+    var imageName: String? = nil
+    var fileHash: String? = nil
+    var boardAbv: String? = nil
+    var threadNumber: String? = nil
+    var subject: String? = nil
+    var name: String? = nil
+    var email: String? = nil
+    var capcode: String? = nil
+    var passDate: String? = nil
+    var imageDimensions: String? = nil
+    var imageFileSize: String? = nil
+    var isOP: Bool = false
+    var isTopThread: Bool = false
 
     /// Checks if post has an attachment
     var hasAttachment: Bool {
@@ -268,6 +432,16 @@ struct PostMetadata: Codable {
         guard let ts = timestamp else { return nil }
         return Date().timeIntervalSince1970 - TimeInterval(ts)
     }
+
+    var quotedPostNumbers: [String] {
+        let pattern = ">>([0-9]+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return [] }
+        let nsRange = NSRange(comment.startIndex..<comment.endIndex, in: comment)
+        return regex.matches(in: comment, options: [], range: nsRange).compactMap { match in
+            guard let range = Range(match.range(at: 1), in: comment) else { return nil }
+            return String(comment[range])
+        }
+    }
 }
 
 // MARK: - Filter Matching Logic
@@ -278,9 +452,32 @@ extension AdvancedFilter {
     /// - Parameter post: The post metadata to check
     /// - Returns: True if the post should be hidden (for blacklist) or shown (for whitelist)
     func matches(post: PostMetadata) -> Bool {
-        guard isEnabled else { return false }
+        guard isEnabled, appliesToPostContext(post) else { return false }
+        return rawMatches(post: post)
+    }
 
+    func matchEffect(post: PostMetadata, defaultShowStub: Bool) -> AdvancedFilterEffect? {
+        guard matches(post: post) else { return nil }
+        let options = xtOptions
+        let shouldHide = options?.hide ?? (filterMode == .blacklist)
+        return AdvancedFilterEffect(
+            filterID: id,
+            shouldHide: shouldHide,
+            showStub: options?.stub ?? defaultShowStub,
+            reason: options?.reason ?? defaultReason,
+            highlightClass: options?.highlightClass,
+            pinToTop: options?.pinToTop ?? false,
+            notify: options?.notify ?? false,
+            samePoster: options?.samePoster ?? false,
+            recursiveReplies: options?.recursiveReplies ?? false
+        )
+    }
+
+    private func rawMatches(post: PostMetadata) -> Bool {
         switch filterType {
+        case .xtGeneral:
+            return matchesXTGeneral(post)
+
         case .keyword:
             return matchesKeyword(post.comment)
 
@@ -308,6 +505,41 @@ extension AdvancedFilter {
 
         case .timeBased:
             return matchesTimeBased(post)
+
+        case .subject:
+            return post.subject.map { matchesRegexOrContains($0) } ?? false
+
+        case .email:
+            return post.email.map { matchesRegexOrContains($0) } ?? false
+
+        case .capcode:
+            return post.capcode.map { matchesRegexOrContains($0) } ?? false
+
+        case .passDate:
+            return post.passDate.map { matchesRegexOrContains($0) } ?? false
+
+        case .dimensions:
+            return post.imageDimensions.map { matchesRegexOrContains($0) } ?? false
+
+        case .fileSize:
+            return post.imageFileSize.map { matchesRegexOrContains($0) } ?? false
+
+        case .md5:
+            return post.fileHash.map { matchesExact($0, against: value) } ?? false
+        }
+    }
+
+    private var defaultReason: String {
+        switch filterType {
+        case .xtGeneral:
+            let fields = xtOptions?.generalFieldGroups?.map { group in
+                group.map(\.rawValue).joined(separator: "+")
+            }.joined(separator: ",") ?? "general"
+            return "Filtered \(fields) /\(value)/"
+        case .md5:
+            return "Filtered MD5 \(value)"
+        default:
+            return "Filtered \(filterType.displayName) \(value)"
         }
     }
 
@@ -321,7 +553,13 @@ extension AdvancedFilter {
 
     private func matchesRegex(_ content: String) -> Bool {
         do {
-            let options: NSRegularExpression.Options = isCaseSensitive ? [] : .caseInsensitive
+            var options: NSRegularExpression.Options = isCaseSensitive ? [] : .caseInsensitive
+            if xtRegexFlags?.contains("m") == true {
+                options.insert(.anchorsMatchLines)
+            }
+            if xtRegexFlags?.contains("s") == true {
+                options.insert(.dotMatchesLineSeparators)
+            }
             let regex = try NSRegularExpression(pattern: value, options: options)
             let range = NSRange(location: 0, length: content.utf16.count)
             return regex.firstMatch(in: content, options: [], range: range) != nil
@@ -345,6 +583,13 @@ extension AdvancedFilter {
         } else {
             return content.lowercased().contains(filter.lowercased())
         }
+    }
+
+    private func matchesRegexOrContains(_ content: String) -> Bool {
+        if xtOptions != nil || xtRegexFlags != nil {
+            return matchesRegex(content)
+        }
+        return matchesContains(content, against: value)
     }
 
     private func matchesFileType(_ post: PostMetadata) -> Bool {
@@ -371,6 +616,201 @@ extension AdvancedFilter {
         }
         let thresholdSeconds = tu.toSeconds(tv)
         return age > thresholdSeconds
+    }
+
+    private func appliesToPostContext(_ post: PostMetadata) -> Bool {
+        guard let options = xtOptions else { return true }
+
+        let board = post.boardAbv?.lowercased()
+        if let boards = options.boards, !boards.isEmpty {
+            guard let board = board, boards.contains("*") || boards.contains(board) else { return false }
+        }
+        if let excludedBoards = options.excludedBoards, let board = board {
+            if excludedBoards.contains("*") || excludedBoards.contains(board) {
+                return false
+            }
+        }
+
+        switch options.postScope {
+        case .any:
+            break
+        case .repliesOnly:
+            if post.isOP { return false }
+        case .opOnly:
+            if !post.isOP { return false }
+        }
+
+        switch options.fileScope {
+        case .any:
+            break
+        case .withFileOnly:
+            if !post.hasAttachment { return false }
+        case .withoutFileOnly:
+            if post.hasAttachment { return false }
+        }
+
+        return true
+    }
+
+    private func matchesXTGeneral(_ post: PostMetadata) -> Bool {
+        let groups = xtOptions?.generalFieldGroups ?? [[.subject], [.name], [.filename], [.comment]]
+        for group in groups {
+            let joined = group.map { values(for: $0, post: post).joined(separator: "\n") }.joined(separator: "\n")
+            if matchesRegex(joined) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func values(for field: XTFilterField, post: PostMetadata) -> [String] {
+        switch field {
+        case .postID:
+            return [post.postNumber]
+        case .name:
+            return [post.name].compactMap { $0 }
+        case .uniqueID:
+            return [post.posterId].compactMap { $0 }
+        case .tripcode:
+            return [post.tripCode].compactMap { $0 }
+        case .capcode:
+            return [post.capcode].compactMap { $0 }
+        case .pass:
+            return [post.passDate].compactMap { $0 }
+        case .email:
+            return [post.email].compactMap { $0 }
+        case .subject:
+            return [post.subject ?? (post.isOP ? "" : nil)].compactMap { $0 }
+        case .comment:
+            return [post.comment]
+        case .flag:
+            return [post.countryCode].compactMap { $0 }
+        case .filename:
+            return [post.imageName].compactMap { $0 }
+        case .dimensions:
+            return [post.imageDimensions].compactMap { $0 }
+        case .filesize:
+            return [post.imageFileSize].compactMap { $0 }
+        case .MD5:
+            return [post.fileHash].compactMap { $0 }
+        }
+    }
+}
+
+private struct XTParsedFilterLine {
+    let pattern: String
+    let flags: String
+    let type: FilterType
+    let options: XTFilterOptions
+}
+
+private enum XTFilterLineParser {
+    static func parse(_ line: String, defaultType: FilterType) throws -> XTParsedFilterLine {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), trimmed.first == "/" else {
+            throw XTFilterParseError.missingPattern
+        }
+
+        guard let closingSlash = lastUnescapedSlash(in: trimmed) else {
+            throw XTFilterParseError.missingPattern
+        }
+
+        let patternStart = trimmed.index(after: trimmed.startIndex)
+        let pattern = String(trimmed[patternStart..<closingSlash])
+        let afterSlash = trimmed.index(after: closingSlash)
+        let remainder = String(trimmed[afterSlash...])
+        let flagEnd = remainder.firstIndex(of: ";") ?? remainder.endIndex
+        let flags = String(remainder[..<flagEnd])
+        let optionsText = flagEnd == remainder.endIndex ? "" : String(remainder[flagEnd...])
+        let parsedOptions = try parseOptions(optionsText)
+        return XTParsedFilterLine(pattern: pattern, flags: flags, type: defaultType, options: parsedOptions)
+    }
+
+    private static func lastUnescapedSlash(in line: String) -> String.Index? {
+        var index = line.index(before: line.endIndex)
+        while index > line.startIndex {
+            if line[index] == "/" {
+                let before = line.index(before: index)
+                if line[before] != "\\" {
+                    return index
+                }
+            }
+            index = line.index(before: index)
+        }
+        return nil
+    }
+
+    private static func parseOptions(_ text: String) throws -> XTFilterOptions {
+        var options = XTFilterOptions()
+        let parts = text.split(separator: ";", omittingEmptySubsequences: true)
+        for rawPart in parts {
+            let part = rawPart.trimmingCharacters(in: .whitespacesAndNewlines)
+            if part.hasPrefix("boards:") {
+                options.boards = parseBoards(String(part.dropFirst("boards:".count)))
+            } else if part.hasPrefix("exclude:") {
+                options.excludedBoards = parseBoards(String(part.dropFirst("exclude:".count)))
+            } else if part == "op:no" {
+                options.postScope = .repliesOnly
+            } else if part == "op:only" {
+                options.postScope = .opOnly
+            } else if part == "file:no" {
+                options.fileScope = .withoutFileOnly
+            } else if part == "file:only" {
+                options.fileScope = .withFileOnly
+            } else if part == "stub:yes" {
+                options.stub = true
+            } else if part == "stub:no" {
+                options.stub = false
+            } else if part == "highlight" {
+                options.highlightClass = "filter-highlight"
+                options.pinToTop = true
+                options.hide = false
+            } else if part.hasPrefix("highlight:") {
+                let value = String(part.dropFirst("highlight:".count))
+                options.highlightClass = value.isEmpty ? "filter-highlight" : value
+                options.pinToTop = true
+                options.hide = false
+            } else if part == "top:yes" {
+                options.pinToTop = true
+            } else if part == "top:no" {
+                options.pinToTop = false
+            } else if part == "notify" {
+                options.notify = true
+                options.hide = false
+            } else if part == "poster" {
+                options.samePoster = true
+            } else if part == "replies" {
+                options.recursiveReplies = true
+            } else if part == "hide" {
+                options.hide = true
+            } else if part.hasPrefix("reason:") {
+                options.reason = String(part.dropFirst("reason:".count))
+            } else if part.hasPrefix("type:") {
+                options.generalFieldGroups = try parseFieldGroups(String(part.dropFirst("type:".count)))
+            }
+        }
+        return options
+    }
+
+    private static func parseBoards(_ raw: String) -> [String] {
+        return raw.split(separator: ",").map { part in
+            let board = part.split(separator: ":").last.map(String.init) ?? String(part)
+            return board.trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+                .replacingOccurrences(of: "/", with: "")
+        }.filter { !$0.isEmpty }
+    }
+
+    private static func parseFieldGroups(_ raw: String) throws -> [[XTFilterField]] {
+        try raw.split(separator: ",").map { group in
+            try group.split(separator: "+").map { rawField in
+                let name = String(rawField).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let field = XTFilterField(rawValue: name) else {
+                    throw XTFilterParseError.unknownField(name)
+                }
+                return field
+            }
+        }.filter { !$0.isEmpty }
     }
 }
 

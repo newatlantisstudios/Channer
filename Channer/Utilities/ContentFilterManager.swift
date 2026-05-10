@@ -1,5 +1,27 @@
 import Foundation
 
+struct ContentFilterResult: Equatable {
+    var isFiltered: Bool
+    var showStub: Bool
+    var reasons: [String]
+    var matchedFilterIDs: [UUID]
+    var highlightClasses: [String]
+    var pinToTop: Bool
+    var notify: Bool
+    var filteredBacklinksVisible: Bool
+
+    static let visible = ContentFilterResult(
+        isFiltered: false,
+        showStub: false,
+        reasons: [],
+        matchedFilterIDs: [],
+        highlightClasses: [],
+        pinToTop: false,
+        notify: false,
+        filteredBacklinksVisible: false
+    )
+}
+
 /// Manages content filtering settings and operations for Channer
 /// Supports both legacy simple filters and advanced filters (regex, file type, country, trip code, time-based)
 class ContentFilterManager {
@@ -15,6 +37,11 @@ class ContentFilterManager {
     // MARK: - Constants (Advanced)
     private let advancedFiltersKey = "advanced_content_filters"
     private let advancedFilterEnabledKey = "advanced_filter_enabled"
+    private let showStubsKey = "advanced_filter_show_stubs"
+    private let showFilterReasonKey = "advanced_filter_show_reason"
+    private let filteredBacklinksKey = "advanced_filter_filtered_backlinks"
+    private let recursiveHidingKey = "advanced_filter_recursive_hiding"
+    private let anonymizeModeKey = "advanced_filter_anonymize_mode"
 
     // MARK: - Thread Safety
     private let queue = DispatchQueue(label: "com.channer.contentfilter", attributes: .concurrent)
@@ -26,7 +53,7 @@ class ContentFilterManager {
             queue.sync { _advancedFilters }
         }
         set {
-            queue.async(flags: .barrier) { [weak self] in
+            queue.sync(flags: .barrier) { [weak self] in
                 self?._advancedFilters = newValue
             }
         }
@@ -40,6 +67,21 @@ class ContentFilterManager {
         }
         if UserDefaults.standard.object(forKey: advancedFilterEnabledKey) == nil {
             UserDefaults.standard.set(true, forKey: advancedFilterEnabledKey)
+        }
+        if UserDefaults.standard.object(forKey: showStubsKey) == nil {
+            UserDefaults.standard.set(true, forKey: showStubsKey)
+        }
+        if UserDefaults.standard.object(forKey: showFilterReasonKey) == nil {
+            UserDefaults.standard.set(true, forKey: showFilterReasonKey)
+        }
+        if UserDefaults.standard.object(forKey: filteredBacklinksKey) == nil {
+            UserDefaults.standard.set(false, forKey: filteredBacklinksKey)
+        }
+        if UserDefaults.standard.object(forKey: recursiveHidingKey) == nil {
+            UserDefaults.standard.set(true, forKey: recursiveHidingKey)
+        }
+        if UserDefaults.standard.object(forKey: anonymizeModeKey) == nil {
+            UserDefaults.standard.set(false, forKey: anonymizeModeKey)
         }
 
         // Load advanced filters into cache
@@ -154,6 +196,47 @@ class ContentFilterManager {
         UserDefaults.standard.set(enabled, forKey: advancedFilterEnabledKey)
     }
 
+    func showStubsForFilteredPosts() -> Bool {
+        return UserDefaults.standard.bool(forKey: showStubsKey)
+    }
+
+    func setShowStubsForFilteredPosts(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: showStubsKey)
+    }
+
+    func showFilterReasons() -> Bool {
+        return UserDefaults.standard.bool(forKey: showFilterReasonKey)
+    }
+
+    func setShowFilterReasons(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: showFilterReasonKey)
+    }
+
+    func showFilteredBacklinks() -> Bool {
+        return UserDefaults.standard.bool(forKey: filteredBacklinksKey)
+    }
+
+    func setShowFilteredBacklinks(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: filteredBacklinksKey)
+    }
+
+    func isRecursiveHidingEnabled() -> Bool {
+        return UserDefaults.standard.bool(forKey: recursiveHidingKey)
+    }
+
+    func setRecursiveHidingEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: recursiveHidingKey)
+    }
+
+    func isAnonymizeModeEnabled() -> Bool {
+        return UserDefaults.standard.bool(forKey: anonymizeModeKey)
+    }
+
+    func setAnonymizeModeEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: anonymizeModeKey)
+        NotificationCenter.default.post(name: .advancedFiltersDidChange, object: nil)
+    }
+
     /// Gets all advanced filters
     func getAdvancedFilters() -> [AdvancedFilter] {
         return advancedFilters
@@ -186,6 +269,24 @@ class ContentFilterManager {
 
         NotificationCenter.default.post(name: .advancedFiltersDidChange, object: nil)
         return true
+    }
+
+    @discardableResult
+    func addXTFilterLine(_ line: String, type: FilterType = .xtGeneral) -> Bool {
+        do {
+            let filter = try AdvancedFilter.xt(line, type: type)
+            return addAdvancedFilter(filter)
+        } catch {
+            print("Failed to parse XT filter line: \(error)")
+            return false
+        }
+    }
+
+    @discardableResult
+    func quickFilterMD5(_ hash: String) -> Bool {
+        let cleaned = hash.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+        return addAdvancedFilter(.md5(cleaned))
     }
 
     /// Removes an advanced filter by ID
@@ -257,6 +358,10 @@ class ContentFilterManager {
     /// - Parameter post: The post metadata to check
     /// - Returns: True if the post should be hidden
     func shouldFilter(post: PostMetadata) -> Bool {
+        return filterResult(for: post).isFiltered
+    }
+
+    func filterResult(for post: PostMetadata) -> ContentFilterResult {
         // Check legacy filters first
         if isFilteringEnabled() {
             let legacyFilters = getAllFilters()
@@ -264,7 +369,7 @@ class ContentFilterManager {
             // Check keyword filters
             for keyword in legacyFilters.keywords {
                 if post.comment.lowercased().contains(keyword.lowercased()) {
-                    return true
+                    return legacyFilterResult(reason: "Filtered keyword \(keyword)")
                 }
             }
 
@@ -272,7 +377,7 @@ class ContentFilterManager {
             if let posterId = post.posterId {
                 for poster in legacyFilters.posters {
                     if posterId.lowercased().contains(poster.lowercased()) {
-                        return true
+                        return legacyFilterResult(reason: "Filtered poster \(poster)")
                     }
                 }
             }
@@ -281,7 +386,7 @@ class ContentFilterManager {
             if let imageUrl = post.imageUrl {
                 for image in legacyFilters.images {
                     if imageUrl.lowercased().contains(image.lowercased()) {
-                        return true
+                        return legacyFilterResult(reason: "Filtered image \(image)")
                     }
                 }
             }
@@ -299,20 +404,136 @@ class ContentFilterManager {
             if !whitelistFilters.isEmpty {
                 let matchesWhitelist = whitelistFilters.contains { $0.matches(post: post) }
                 if !matchesWhitelist {
-                    return true  // Hide if doesn't match whitelist
+                    return legacyFilterResult(reason: "Filtered by whitelist")
                 }
             }
 
             // Check blacklist filters
+            var result = ContentFilterResult.visible
             for filter in blacklistFilters {
-                if filter.matches(post: post) {
+                if let effect = filter.matchEffect(post: post, defaultShowStub: showStubsForFilteredPosts()) {
                     recordFilterHit(id: filter.id)
-                    return true
+                    result.matchedFilterIDs.append(effect.filterID)
+                    if let highlightClass = effect.highlightClass, !result.highlightClasses.contains(highlightClass) {
+                        result.highlightClasses.append(highlightClass)
+                    }
+                    result.pinToTop = result.pinToTop || effect.pinToTop
+                    result.notify = result.notify || effect.notify
+
+                    guard effect.shouldHide else { continue }
+                    result.isFiltered = true
+                    result.showStub = effect.showStub ?? showStubsForFilteredPosts()
+                    result.filteredBacklinksVisible = showFilteredBacklinks()
+                    if showFilterReasons(), let reason = effect.reason {
+                        result.reasons.append(reason)
+                    }
+                }
+            }
+            if result.isFiltered || !result.highlightClasses.isEmpty || result.pinToTop || result.notify {
+                return result
+            }
+        }
+
+        return .visible
+    }
+
+    func filterResults(for posts: [PostMetadata]) -> [String: ContentFilterResult] {
+        var results: [String: ContentFilterResult] = [:]
+        var recursiveRoots = Set<String>()
+        var hiddenPosterIds = Set<String>()
+
+        for post in posts {
+            let result = filterResult(for: post)
+            guard result.isFiltered || result.pinToTop || result.notify || !result.highlightClasses.isEmpty else { continue }
+            results[post.postNumber] = result
+
+            let matchedFilters = getEnabledAdvancedFilters().filter { result.matchedFilterIDs.contains($0.id) }
+            if matchedFilters.contains(where: { $0.xtOptions?.recursiveReplies == true }) {
+                recursiveRoots.insert(post.postNumber)
+            }
+            if matchedFilters.contains(where: { $0.xtOptions?.samePoster == true }),
+               let posterId = post.posterId,
+               !posterId.isEmpty {
+                hiddenPosterIds.insert(posterId)
+            }
+        }
+
+        if !hiddenPosterIds.isEmpty {
+            for post in posts where hiddenPosterIds.contains(post.posterId ?? "") && results[post.postNumber]?.isFiltered != true {
+                results[post.postNumber] = recursiveResult(reason: "Hidden because it is the same poster as a filtered post")
+            }
+        }
+
+        if isRecursiveHidingEnabled(), !recursiveRoots.isEmpty {
+            var hidden = recursiveRoots
+            var changed = true
+            while changed {
+                changed = false
+                for post in posts where results[post.postNumber]?.isFiltered != true {
+                    if post.quotedPostNumbers.contains(where: { hidden.contains($0) }) {
+                        results[post.postNumber] = recursiveResult(reason: "Hidden recursively from filtered post")
+                        hidden.insert(post.postNumber)
+                        changed = true
+                    }
                 }
             }
         }
 
-        return false
+        return results
+    }
+
+    func anonymized(post: PostMetadata) -> PostMetadata {
+        guard isAnonymizeModeEnabled() else { return post }
+        return PostMetadata(
+            postNumber: post.postNumber,
+            comment: post.comment,
+            posterId: nil,
+            tripCode: nil,
+            countryCode: post.countryCode,
+            countryName: post.countryName,
+            timestamp: post.timestamp,
+            imageUrl: post.imageUrl,
+            imageExtension: post.imageExtension,
+            imageName: post.imageName,
+            fileHash: post.fileHash,
+            boardAbv: post.boardAbv,
+            threadNumber: post.threadNumber,
+            subject: post.subject,
+            name: "Anonymous",
+            email: nil,
+            capcode: nil,
+            passDate: nil,
+            imageDimensions: post.imageDimensions,
+            imageFileSize: post.imageFileSize,
+            isOP: post.isOP,
+            isTopThread: post.isTopThread
+        )
+    }
+
+    private func legacyFilterResult(reason: String) -> ContentFilterResult {
+        return ContentFilterResult(
+            isFiltered: true,
+            showStub: showStubsForFilteredPosts(),
+            reasons: showFilterReasons() ? [reason] : [],
+            matchedFilterIDs: [],
+            highlightClasses: [],
+            pinToTop: false,
+            notify: false,
+            filteredBacklinksVisible: showFilteredBacklinks()
+        )
+    }
+
+    private func recursiveResult(reason: String) -> ContentFilterResult {
+        return ContentFilterResult(
+            isFiltered: true,
+            showStub: showStubsForFilteredPosts(),
+            reasons: showFilterReasons() ? [reason] : [],
+            matchedFilterIDs: [],
+            highlightClasses: [],
+            pinToTop: false,
+            notify: false,
+            filteredBacklinksVisible: showFilteredBacklinks()
+        )
     }
 
     /// Validates a regex pattern

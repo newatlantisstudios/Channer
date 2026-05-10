@@ -38,6 +38,12 @@ class Reachability {
     }
 }
 
+private extension String {
+    var nilIfEmptyForFiltering: String? {
+        return isEmpty ? nil : self
+    }
+}
+
 // MARK: - Preloading Pipeline
 /// Extensions for optimizing thread content loading and caching
 extension threadRepliesTV {
@@ -315,6 +321,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var fullThreadPostMetadataList: [PostMetadata]?
     private var replyViewRootPostNumber: String?
     var filteredReplyIndices = Set<Int>() // Track indices of filtered replies
+    private var hiddenFilteredReplyIndices = Set<Int>()
+    private var filteredReplyReasons: [Int: String] = [:]
     var totalImagesInThread: Int = 0
 
     // Post metadata for advanced filtering
@@ -1606,11 +1614,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Table View Data Source Methods
     /// Methods required to display data in the table view
     private func actualIndex(for indexPath: IndexPath) -> Int? {
-        guard isSearchActive && !searchText.isEmpty else { return indexPath.row }
-
         var visibleIndex = 0
         for dataIndex in 0..<threadReplies.count {
-            if !searchFilteredIndices.contains(dataIndex) {
+            if !isRowHiddenByActiveFilters(dataIndex) {
                 if visibleIndex == indexPath.row {
                     return dataIndex
                 }
@@ -1629,13 +1635,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         if isLoading {
             return 0
         }
-        
-        // If search is active, only count unfiltered rows
-        if isSearchActive && !searchText.isEmpty {
-            return threadReplies.count - searchFilteredIndices.count
+
+        return (0..<threadReplies.count).filter { !isRowHiddenByActiveFilters($0) }.count
+    }
+
+    private func isRowHiddenByActiveFilters(_ index: Int) -> Bool {
+        if isSearchActive && !searchText.isEmpty && searchFilteredIndices.contains(index) {
+            return true
         }
-        
-        return threadReplies.count
+        return hiddenFilteredReplyIndices.contains(index)
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -1693,6 +1701,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             let attributedText = threadReplies[actualIndex]
             let boardNumber = threadBoardReplyNumber[actualIndex]
             let isFiltered = filteredReplyIndices.contains(actualIndex)
+            let displayedText: NSAttributedString
+            if isFiltered, let reason = filteredReplyReasons[actualIndex], !reason.isEmpty {
+                displayedText = NSAttributedString(
+                    string: "Filtered: \(reason)",
+                    attributes: [
+                        .foregroundColor: ThemeManager.shared.secondaryTextColor,
+                        .font: UIFont.italicSystemFont(ofSize: 15)
+                    ]
+                )
+            } else {
+                displayedText = attributedText
+            }
 
             // Get the reply count for this post (how many posts replied to it)
             let replyCount = threadBoardReplies[boardNumber]?.count ?? 0
@@ -1705,7 +1725,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
-                           text: attributedText,
+                           text: displayedText,
                            boardNumber: boardNumber,
                            isFiltered: isFiltered,
                            replyCount: replyCount,
@@ -1714,10 +1734,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Set the attributed text based on whether the cell has an image
             if hasImage {
                 //print("Debug: Cell contains an image, setting replyText")
-                cell.replyText.attributedText = attributedText
+                cell.replyText.attributedText = displayedText
             } else {
                 //print("Debug: Cell does not contain an image, setting replyTextNoImage")
-                cell.replyTextNoImage.attributedText = attributedText
+                cell.replyTextNoImage.attributedText = displayedText
             }
             
             // Set up image if present
@@ -2303,6 +2323,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let countryName = post["country_name"].stringValue  // Country name
         let timestamp = post["time"].int  // Unix timestamp
         let fileHash = post["md5"].stringValue  // File hash (if available)
+        let name = post["name"].stringValue
+        let email = post["email"].stringValue
+        let capcode = post["capcode"].stringValue
+        let passDate = post["since4pass"].stringValue
+        let dimensions: String?
+        if let width = post["w"].int, let height = post["h"].int {
+            dimensions = "\(width)x\(height)"
+        } else {
+            dimensions = nil
+        }
+        let fileSize = post["fsize"].int.map { "\($0)" }
 
         // Create PostMetadata for advanced filtering
         let metadata = PostMetadata(
@@ -2315,8 +2346,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             timestamp: timestamp,
             imageUrl: imageURL.isEmpty ? nil : imageURL,
             imageExtension: imageExtension.isEmpty ? nil : imageExtension,
-            imageName: imageName.isEmpty ? nil : imageName,
-            fileHash: fileHash.isEmpty ? nil : fileHash
+            imageName: imageName.isEmpty ? nil : "\(imageName)\(imageExtension)",
+            fileHash: fileHash.isEmpty ? nil : fileHash,
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            subject: post["sub"].stringValue.nilIfEmptyForFiltering,
+            name: name.nilIfEmptyForFiltering,
+            email: email.nilIfEmptyForFiltering,
+            capcode: capcode.nilIfEmptyForFiltering,
+            passDate: passDate.nilIfEmptyForFiltering,
+            imageDimensions: dimensions,
+            imageFileSize: fileSize,
+            isOP: postMetadataList.isEmpty,
+            isTopThread: postMetadataList.isEmpty
         )
         postMetadataList.append(metadata)
     }
@@ -3115,6 +3157,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return replyContent.replyNumbers.firstIndex(of: originalNumber)
         })
         newThreadVC.filteredReplyIndices = filteredIndicesInNew
+        newThreadVC.filteredReplyReasons = filteredReplyReasons.reduce(into: [Int: String]()) { partial, item in
+            guard threadBoardReplyNumber.indices.contains(item.key) else { return }
+            let originalNumber = threadBoardReplyNumber[item.key]
+            if let newIndex = replyContent.replyNumbers.firstIndex(of: originalNumber) {
+                partial[newIndex] = item.value
+            }
+        }
 
         print("Selected post: \(postNumber)")
         print("Filtered replies: \(replyContent.replyNumbers.dropFirst())")
@@ -4333,6 +4382,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func applyContentFiltering() {
         // Clear existing filters before reapplying
         filteredReplyIndices.removeAll()
+        hiddenFilteredReplyIndices.removeAll()
+        filteredReplyReasons.removeAll()
 
         let filterManager = ContentFilterManager.shared
 
@@ -4359,7 +4410,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
 
-        // Apply filters to each reply using PostMetadata
+        var metadataForResults: [PostMetadata] = []
+        metadataForResults.reserveCapacity(threadReplies.count)
+
         for (index, _) in threadReplies.enumerated() {
             // Use PostMetadata if available, otherwise create basic metadata
             let metadata: PostMetadata
@@ -4392,13 +4445,24 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     imageUrl: imageUrl,
                     imageExtension: imageExt,
                     imageName: nil,
-                    fileHash: nil
+                    fileHash: nil,
+                    boardAbv: boardAbv,
+                    threadNumber: threadNumber,
+                    isOP: index == 0,
+                    isTopThread: index == 0
                 )
             }
+            metadataForResults.append(metadata)
+        }
 
-            // Check if post should be filtered using the centralized filter manager
-            if filterManager.shouldFilter(post: metadata) {
+        let resultsByPostNumber = filterManager.filterResults(for: metadataForResults)
+        for (index, metadata) in metadataForResults.enumerated() {
+            guard let result = resultsByPostNumber[metadata.postNumber], result.isFiltered else { continue }
+            if result.showStub {
                 filteredReplyIndices.insert(index)
+                filteredReplyReasons[index] = result.reasons.joined(separator: " & ")
+            } else {
+                hiddenFilteredReplyIndices.insert(index)
             }
         }
 
@@ -4410,6 +4474,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func clearAllFilters() {
         // Clear local view filters
         filteredReplyIndices.removeAll()
+        hiddenFilteredReplyIndices.removeAll()
+        filteredReplyReasons.removeAll()
         debugReloadData(context: "Search filter update")
     }
 
