@@ -12,7 +12,7 @@ import UserNotifications
 
 /// iPad-optimized collection view controller for displaying thread replies
 /// Uses collection view layout for better performance on larger iPad screens
-class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
+class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITextViewDelegate {
     
     // MARK: - HTML Parsing Methods
     
@@ -374,6 +374,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             
         }
         
+        structureThreadReplies()
         collectionView?.reloadData()
         restoreScrollPositionIfNeeded()
         checkWatchRulesForNewMatches()
@@ -486,6 +487,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "threadReplyCell", for: indexPath) as! threadReplyCell
         cell.quoteLinkHoverDelegate = self
+        cell.replyText.delegate = self
+        cell.replyTextNoImage.delegate = self
 
         // Set up hover features for Apple Pencil
         if #available(iOS 13.4, *) {
@@ -668,6 +671,77 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         cell.threadReplyCount.text = "Loading..."
         cell.replyText.text = "Loading..."
     }
+
+    private func structureThreadReplies() {
+        threadBoardReplies.removeAll()
+        for (index, comment) in threadReplies.enumerated() where index < threadBoardReplyNumber.count {
+            let decodedComment = comment.decodingHTMLEntities()
+            for candidate in threadBoardReplyNumber where decodedComment.contains(">>\(candidate)") && candidate != threadBoardReplyNumber[index] {
+                var replies = threadBoardReplies[candidate] ?? []
+                if !replies.contains(threadBoardReplyNumber[index]) {
+                    replies.append(threadBoardReplyNumber[index])
+                }
+                threadBoardReplies[candidate] = replies
+            }
+        }
+    }
+
+    private func quoteFormattingContext() -> QuoteFormattingContext {
+        let userPosts = MyPostsManager.shared
+            .getUserPosts(forThread: threadNumber, board: boardAbv)
+            .map(\.postNo)
+
+        return QuoteFormattingContext(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            opPostNumber: threadBoardReplyNumber.first,
+            availablePostNumbers: Set(threadBoardReplyNumber),
+            userPostNumbers: Set(userPosts),
+            filteredPostNumbers: [],
+            includeHashNavigation: true
+        )
+    }
+
+    private func formattedReply(at index: Int) -> NSAttributedString {
+        guard index < threadReplies.count, index < threadBoardReplyNumber.count else {
+            return NSAttributedString(string: "")
+        }
+
+        let postNumber = threadBoardReplyNumber[index]
+        let context = quoteFormattingContext()
+        let formatted = TextFormatter.formatText(
+            threadReplies[index].replacingOccurrences(of: "null", with: ""),
+            postNumber: postNumber,
+            quoteContext: context
+        )
+        return TextFormatter.appendBacklinks(
+            to: formatted,
+            replyNumbers: threadBoardReplies[postNumber] ?? [],
+            quoteContext: context
+        )
+    }
+
+    private func applyQuoteHighlight(to cell: threadReplyCell, at index: Int) {
+        guard index < threadBoardReplyNumber.count else { return }
+        let postNumber = threadBoardReplyNumber[index]
+        let isOwnPost = MyPostsManager.shared.isUserPost(postNo: postNumber, threadNo: threadNumber, boardAbv: boardAbv)
+        let userPosts = Set(MyPostsManager.shared.getUserPosts(forThread: threadNumber, board: boardAbv).map(\.postNo))
+        let decodedComment = threadReplies[index].decodingHTMLEntities()
+        let quotesUser = userPosts.contains { decodedComment.contains(">>\($0)") }
+
+        if quotesUser {
+            cell.contentView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.2)
+            cell.contentView.layer.borderColor = UIColor.systemOrange.cgColor
+            cell.contentView.layer.borderWidth = 2
+        } else if isOwnPost {
+            cell.contentView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.12)
+            cell.contentView.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.8).cgColor
+            cell.contentView.layer.borderWidth = 2
+        } else {
+            cell.contentView.backgroundColor = .clear
+            cell.contentView.layer.borderWidth = 0
+        }
+    }
     
     private func configureCell(_ cell: threadReplyCell, at indexPath: IndexPath) {
         // Reply button hidden - feature moved to long press menu
@@ -702,7 +776,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         cell.replyTextNoImage.isHidden = false
         cell.replyText.isHidden = true
         cell.threadImage.isHidden = true
-        cell.replyTextNoImage.text = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        cell.replyTextNoImage.attributedText = formattedReply(at: indexPath.row)
+        applyQuoteHighlight(to: cell, at: indexPath.row)
     }
     
     private func configureMediaCell(_ cell: threadReplyCell, at indexPath: IndexPath, imageUrl: String) {
@@ -710,7 +785,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         cell.replyTextNoImage.isHidden = true
         cell.replyText.isHidden = false
         cell.threadImage.isHidden = false
-        cell.replyText.text = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        cell.replyText.attributedText = formattedReply(at: indexPath.row)
+        applyQuoteHighlight(to: cell, at: indexPath.row)
         
         print("Debug (iPad): Configuring media cell with image URL: \(imageUrl)")
                 
@@ -1023,6 +1099,26 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         replyVC.modalPresentationStyle = .fullScreen
 
         present(replyVC, animated: true, completion: nil)
+    }
+
+    func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {
+        if URL.scheme == "post" {
+            let postNumber = URL.host ?? ""
+            if !postNumber.isEmpty {
+                showThreadForPostNumber(postNumber)
+            }
+            return false
+        }
+
+        if URL.scheme == "postjump" {
+            let postNumber = URL.host ?? ""
+            if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
+                collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .centeredVertically, animated: true)
+            }
+            return false
+        }
+
+        return true
     }
 }
 

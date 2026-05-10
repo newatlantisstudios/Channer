@@ -269,6 +269,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         filterBadge.isHidden = true
         subjectLabel.isHidden = true
         subjectLabel.text = nil
+        customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         replyCountTrailingToFilterBadge?.isActive = false
         replyCountTrailingToBackground?.isActive = true
         updateThumbnailSize()
@@ -477,7 +479,16 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0, subject: String? = nil) {
+    func configure(
+        withImage: Bool,
+        text: NSAttributedString,
+        boardNumber: String,
+        isFiltered: Bool = false,
+        replyCount: Int = 0,
+        subject: String? = nil,
+        isOwnPost: Bool = false,
+        quotesUser: Bool = false
+    ) {
         print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
@@ -527,6 +538,17 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         } else {
             filterBadge.isHidden = true
             customBackgroundView.alpha = 1.0 // Normal opacity
+        }
+
+        if quotesUser {
+            customBackgroundView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.22)
+            customBackgroundView.layer.borderColor = UIColor.systemOrange.cgColor
+        } else if isOwnPost {
+            customBackgroundView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.14)
+            customBackgroundView.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.8).cgColor
+        } else {
+            customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         }
 
         // Handle reply count display
