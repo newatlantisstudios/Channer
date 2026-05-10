@@ -54,6 +54,17 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     }()
     private var subjectLabelAdded = false
 
+    private let linkPreviewStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 8
+        stackView.isHidden = true
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+    private var linkPreviewStackAdded = false
+    private var linkPreviewConstraints: [NSLayoutConstraint] = []
+
     override func awakeFromNib() {
         super.awakeFromNib()
         setupPointerInteraction()
@@ -83,6 +94,7 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         removeHoverPreview()
         removeQuoteLinkPreview()
         quoteLinkHoverDelegate = nil
+        clearLinkPreviews()
         subjectLabel.isHidden = true
         subjectLabel.text = nil
     }
@@ -768,6 +780,46 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
         subjectLabel.text = subject
         subjectLabel.textColor = ThemeManager.shared.primaryTextColor
         subjectLabel.isHidden = false
+    }
+
+    func configureLinkPreviews(from text: String, attachedTo textView: UITextView?) {
+        clearLinkPreviews()
+
+        let links = Array(LinkPreviewManager.shared.extractLinks(from: text).prefix(3))
+        guard !links.isEmpty, let textView = textView else { return }
+
+        if !linkPreviewStackAdded {
+            contentView.addSubview(linkPreviewStackView)
+            linkPreviewStackAdded = true
+        }
+
+        NSLayoutConstraint.deactivate(linkPreviewConstraints)
+        linkPreviewConstraints = [
+            linkPreviewStackView.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
+            linkPreviewStackView.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
+            linkPreviewStackView.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 6),
+            linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -8)
+        ]
+        NSLayoutConstraint.activate(linkPreviewConstraints)
+
+        let previewWidth = max(bounds.width - 120, UIScreen.main.bounds.width * 0.45)
+        links.forEach { link in
+            let preview = LinkPreviewView()
+            preview.configure(with: link, width: previewWidth) { url in
+                UIApplication.shared.open(url)
+            }
+            linkPreviewStackView.addArrangedSubview(preview)
+        }
+
+        linkPreviewStackView.isHidden = false
+    }
+
+    private func clearLinkPreviews() {
+        linkPreviewStackView.arrangedSubviews.forEach { view in
+            linkPreviewStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        linkPreviewStackView.isHidden = true
     }
 
     func setImageURL(_ url: String?) {
