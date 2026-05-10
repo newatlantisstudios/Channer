@@ -153,6 +153,10 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     /// Thread subject from OP
     var threadSubject: String = ""
     private var hasRestoredSavedScrollPosition = false
+    private var unreadPostNumbers = Set<String>()
+    private var firstUnreadPostNumber: String?
+    private var newPosterPostNumbers = Set<String>()
+    private var prunedPostNumbers = Set<String>()
 
     private lazy var postInfoDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -374,6 +378,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             
         }
         
+        updateReadStateFromLoadedPosts()
         collectionView?.reloadData()
         restoreScrollPositionIfNeeded()
         checkWatchRulesForNewMatches()
@@ -382,6 +387,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         saveCurrentScrollPosition()
+        markThreadReadThroughVisibleContent()
     }
 
     deinit {
@@ -436,13 +442,21 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
               !threadNumber.isEmpty,
               !boardAbv.isEmpty,
               let collectionView = collectionView,
-              collectionView.numberOfItems(inSection: 0) > 0,
-              let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+              collectionView.numberOfItems(inSection: 0) > 0 else {
             return
         }
 
         hasRestoredSavedScrollPosition = true
         collectionView.layoutIfNeeded()
+
+        guard let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+            if let firstUnreadPostNumber,
+               let index = threadBoardReplyNumber.firstIndex(of: firstUnreadPostNumber),
+               index < collectionView.numberOfItems(inSection: 0) {
+                collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .top, animated: false)
+            }
+            return
+        }
 
         if let index = restoreIndex(for: position, itemCount: collectionView.numberOfItems(inSection: 0)) {
             let indexPath = IndexPath(item: index, section: 0)
@@ -473,6 +487,54 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         let minY = -collectionView.adjustedContentInset.top
         let maxY = max(minY, collectionView.contentSize.height - collectionView.bounds.height + collectionView.adjustedContentInset.bottom)
         return min(max(proposedY, minY), maxY)
+    }
+
+    private func updateReadStateFromLoadedPosts() {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty, !forBoardThread else { return }
+
+        let state = ThreadReadStateManager.shared.updateThread(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumbers: threadBoardReplyNumber
+        )
+        unreadPostNumbers = state.unreadPostNumbers
+        prunedPostNumbers = state.prunedPostNumbers
+        firstUnreadPostNumber = threadBoardReplyNumber.first { unreadPostNumbers.contains($0) }
+        updateNewPosterMarkers()
+        if !unreadPostNumbers.isEmpty {
+            title = "(\(unreadPostNumbers.count)) /\(boardAbv)/ \(threadNumber)"
+        }
+    }
+
+    private func updateNewPosterMarkers() {
+        newPosterPostNumbers.removeAll()
+        guard let firstUnreadPostNumber,
+              let firstUnreadIndex = threadBoardReplyNumber.firstIndex(of: firstUnreadPostNumber) else {
+            return
+        }
+
+        var seenPosterIds = Set<String>()
+        for index in 0..<threadRepliesPosterIds.count {
+            guard let posterId = threadRepliesPosterIds[index], !posterId.isEmpty else { continue }
+            if index >= firstUnreadIndex && !seenPosterIds.contains(posterId), index < threadBoardReplyNumber.count {
+                newPosterPostNumbers.insert(threadBoardReplyNumber[index])
+            }
+            seenPosterIds.insert(posterId)
+        }
+    }
+
+    private func markThreadReadThroughVisibleContent() {
+        guard !forBoardThread, !boardAbv.isEmpty, !threadNumber.isEmpty,
+              let lastVisibleIndex = collectionView?.indexPathsForVisibleItems.map(\.item).max(),
+              lastVisibleIndex < threadBoardReplyNumber.count else {
+            return
+        }
+
+        ThreadReadStateManager.shared.markReadThrough(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: threadBoardReplyNumber[lastVisibleIndex]
+        )
     }
 
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -678,7 +740,11 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
         // Set post number
         let boardNumber = threadBoardReplyNumber[indexPath.row]
-        cell.boardReplyCount.text = boardNumber
+        let newPosterSuffix = newPosterPostNumbers.contains(boardNumber) ? "  NEW IP" : ""
+        cell.boardReplyCount.text = "\(boardNumber)\(newPosterSuffix)"
+        cell.contentView.layer.borderWidth = firstUnreadPostNumber == boardNumber ? 3 : 0
+        cell.contentView.layer.borderColor = UIColor.systemBlue.cgColor
+        cell.contentView.layer.cornerRadius = 12
 
         // Set reply count (number of replies to this post)
         let replyCount = threadBoardReplies[boardNumber]?.count ?? 0
