@@ -90,6 +90,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.dataDetectorTypes = [.link]
+        textView.tintColor = threadRepliesCell.quoteLinkColor
+        textView.linkTextAttributes = threadRepliesCell.quoteLinkTextAttributes
         textView.backgroundColor = .clear
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -104,6 +106,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.dataDetectorTypes = [.link]
+        textView.tintColor = threadRepliesCell.quoteLinkColor
+        textView.linkTextAttributes = threadRepliesCell.quoteLinkTextAttributes
         textView.backgroundColor = .clear
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -233,6 +237,15 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     private var imageTopToBoardReply: NSLayoutConstraint?
     private var replyCountTrailingToBackground: NSLayoutConstraint?
     private var replyCountTrailingToFilterBadge: NSLayoutConstraint?
+    private static let quoteLinkColor = UIColor { traitCollection in
+        traitCollection.userInterfaceStyle == .dark
+            ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            : UIColor.systemBlue
+    }
+    private static let quoteLinkTextAttributes: [NSAttributedString.Key: Any] = [
+        .foregroundColor: quoteLinkColor,
+        .underlineStyle: NSUnderlineStyle.single.rawValue
+    ]
 
     // MARK: - Initializer
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -1155,11 +1168,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
                 return
             }
 
-            // Check for a .link attribute with post:// scheme
-            if let link = attributedText.attribute(.link, at: characterIndex, effectiveRange: nil),
-               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
-               url.scheme == "post",
-               let postNum = url.host, !postNum.isEmpty {
+            if let postNum = hoveredQuotePostNumber(in: attributedText, at: characterIndex) {
                 // Avoid re-showing for the same post
                 if currentlyHoveredPostNumber == postNum { return }
                 removeQuoteLinkPreview()
@@ -1174,6 +1183,41 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         default:
             break
         }
+    }
+
+    private func hoveredQuotePostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
+        if let postNum = quoteLinkPostNumber(in: attributedText, at: characterIndex) {
+            return postNum
+        }
+
+        let nsText = attributedText.string as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        guard let regex = try? NSRegularExpression(pattern: ">>(\\d+)") else { return nil }
+
+        return regex
+            .matches(in: attributedText.string, range: range)
+            .first(where: { NSLocationInRange(characterIndex, $0.range) })
+            .map { nsText.substring(with: $0.range(at: 1)) }
+    }
+
+    private func quoteLinkPostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
+        let candidateIndexes = [
+            characterIndex,
+            max(characterIndex - 1, 0),
+            min(characterIndex + 1, max(attributedText.length - 1, 0))
+        ]
+
+        for index in candidateIndexes where index < attributedText.length {
+            if let link = attributedText.attribute(.link, at: index, effectiveRange: nil),
+               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
+               (url.scheme == "post" || url.scheme == "postjump"),
+               let postNum = url.host,
+               !postNum.isEmpty {
+                return postNum
+            }
+        }
+
+        return nil
     }
 
     private func showQuoteLinkPreview(for postNum: String) {

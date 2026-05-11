@@ -110,6 +110,14 @@ class EnhancedTextFormatter {
                     if isSpoiler {
                         let isRevealed = showAllSpoilers || isSpoilerRevealed(postNumber: postNumber, index: spoilerIndex)
                         attributes = getSpoilerAttributes(revealed: isRevealed, spoilerIndex: spoilerIndex)
+                    } else if isQuotelink, let postNum = quotelinkPostNumber {
+                        let reference = QuoteReference(boardAbv: nil, threadNumber: nil, postNumber: postNum)
+                        attributes = getQuotelinkAttributes(postNumber: postNum, quoteContext: quoteContext)
+                        result.append(NSAttributedString(
+                            string: processedContent + (quoteContext?.annotations(for: reference) ?? ""),
+                            attributes: attributes
+                        ))
+                        continue
                     } else if isQuote {
                         attributes = getGreentextAttributes()
                         // Check if this is the start of the greentext (begins with >)
@@ -120,23 +128,6 @@ class EnhancedTextFormatter {
                             result.append(arrow)
                             processedContent = String(processedContent.dropFirst())
                         }
-                    } else if isQuotelink, let postNum = quotelinkPostNumber {
-                        let reference = QuoteReference(boardAbv: nil, threadNumber: nil, postNumber: postNum)
-                        attributes = getQuotelinkAttributes(postNumber: postNum, quoteContext: quoteContext)
-                        result.append(NSAttributedString(
-                            string: processedContent + (quoteContext?.annotations(for: reference) ?? ""),
-                            attributes: attributes
-                        ))
-                        if let hashURL = quoteContext?.hashURL(for: reference) {
-                            let hashAttributes: [NSAttributedString.Key: Any] = [
-                                .foregroundColor: UIColor.systemTeal,
-                                .underlineStyle: NSUnderlineStyle.single.rawValue,
-                                .font: UIFont.systemFont(ofSize: 14, weight: .medium),
-                                .link: hashURL
-                            ]
-                            result.append(NSAttributedString(string: " #", attributes: hashAttributes))
-                        }
-                        continue
                     } else {
                         // Process inline math on math boards
                         if MathBoards.isMathBoard(boardAbv) && MathRenderer.shared.containsMath(processedContent) {

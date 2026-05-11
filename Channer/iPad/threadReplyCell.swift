@@ -41,6 +41,15 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     private var quoteLinkPreviewView: UIView?
     private var quoteLinkOverlayView: UIView?
     private var currentlyHoveredPostNumber: String?
+    private static let quoteLinkColor = UIColor { traitCollection in
+        traitCollection.userInterfaceStyle == .dark
+            ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            : UIColor.systemBlue
+    }
+    private static let quoteLinkTextAttributes: [NSAttributedString.Key: Any] = [
+        .foregroundColor: quoteLinkColor,
+        .underlineStyle: NSUnderlineStyle.single.rawValue
+    ]
 
     // Subject label for OP
     lazy var subjectLabel: UILabel = {
@@ -56,6 +65,8 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
 
     override func awakeFromNib() {
         super.awakeFromNib()
+        configureQuoteLinkTextView(replyText)
+        configureQuoteLinkTextView(replyTextNoImage)
         setupPointerInteraction()
         setupQuoteLinkHoverGestures()
 
@@ -75,6 +86,11 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
             // Increase size (will need to adjust constraints in storyboard)
             threadButton.transform = CGAffineTransform(scaleX: 1.5, y: 1.5)
         }
+    }
+
+    private func configureQuoteLinkTextView(_ textView: UITextView?) {
+        textView?.tintColor = Self.quoteLinkColor
+        textView?.linkTextAttributes = Self.quoteLinkTextAttributes
     }
     
     // Prepare for reuse to clean up resources

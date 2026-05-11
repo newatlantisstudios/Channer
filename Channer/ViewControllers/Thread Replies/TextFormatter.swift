@@ -50,7 +50,8 @@ struct QuoteFormattingContext {
 
     func quoteURL(for reference: QuoteReference) -> URL? {
         if isSameThread(reference) {
-            return URL(string: "post://\(reference.postNumber)")
+            let scheme = includeHashNavigation ? "postjump" : "post"
+            return URL(string: "\(scheme)://\(reference.postNumber)")
         }
 
         guard let board = reference.boardAbv else { return nil }
@@ -191,18 +192,6 @@ class TextFormatter {
 
                 if isSpoiler {
                     attributes = spoilerAttributes
-                } else if isQuote {
-                    attributes = greenAttributes
-                    // Bold the > character for better visual distinction
-                    if processedContent.hasPrefix(">") {
-                        let arrowAttrs: [NSAttributedString.Key: Any] = [
-                            .foregroundColor: ThemeManager.shared.greentextColor,
-                            .font: UIFont.systemFont(ofSize: 14, weight: .bold),
-                            .isGreentext: true
-                        ]
-                        attributedText.append(NSAttributedString(string: ">", attributes: arrowAttrs))
-                        processedContent = String(processedContent.dropFirst())
-                    }
                 } else if isQuotelink, let reference = quotelinkReference {
                     attributes = [
                         .foregroundColor: quotelinkColor,
@@ -221,6 +210,18 @@ class TextFormatter {
                     ]
                     appendQuoteLink(displayText: processedContent, reference: reference, context: quoteContext, attributes: attributes, to: attributedText)
                     continue
+                } else if isQuote {
+                    attributes = greenAttributes
+                    // Bold the > character for better visual distinction
+                    if processedContent.hasPrefix(">") {
+                        let arrowAttrs: [NSAttributedString.Key: Any] = [
+                            .foregroundColor: ThemeManager.shared.greentextColor,
+                            .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+                            .isGreentext: true
+                        ]
+                        attributedText.append(NSAttributedString(string: ">", attributes: arrowAttrs))
+                        processedContent = String(processedContent.dropFirst())
+                    }
                 } else {
                     // Check for external links in regular text
                     let links = LinkPreviewManager.shared.extractLinks(from: processedContent)
@@ -441,19 +442,15 @@ class TextFormatter {
         attributes: [NSAttributedString.Key: Any],
         to result: NSMutableAttributedString
     ) {
+        var linkAttributes = attributes
+        if linkAttributes[.link] == nil {
+            linkAttributes[.link] = context?.quoteURL(for: reference) ?? URL(string: "post://\(reference.postNumber)")!
+        }
+
         result.append(NSAttributedString(
             string: displayText + (context?.annotations(for: reference) ?? ""),
-            attributes: attributes
+            attributes: linkAttributes
         ))
-
-        guard let hashURL = context?.hashURL(for: reference) else { return }
-        let hashAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.systemTeal,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-            .font: attributes[.font] ?? UIFont.systemFont(ofSize: 14),
-            .link: hashURL
-        ]
-        result.append(NSAttributedString(string: " #", attributes: hashAttributes))
     }
 
     private static func reference(fromHref href: String) -> QuoteReference {
