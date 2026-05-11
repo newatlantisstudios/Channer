@@ -192,26 +192,18 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         var newThreadData: [ThreadData] = []
         var errors: [Error] = []
         let serialQueue = DispatchQueue(label: "com.channer.threadCatalogDataQueue")
-        let processingQueue = DispatchQueue(label: "com.channer.threadCatalogProcessing", qos: .userInitiated)
-
-        for page in 1...totalPages {
+        let threadListURLs = BoardsService.shared.threadListURLs(for: boardAbv, totalPages: totalPages)
+        for url in threadListURLs {
             dispatchGroup.enter()
-            let url = "https://a.4cdn.org/\(boardAbv)/\(page).json"
 
-            AF.request(url).responseData(queue: processingQueue) { response in
+            BoardsService.shared.fetchData(from: url) { response in
                 defer { dispatchGroup.leave() }
 
-                switch response.result {
-                case .success(let data):
+                switch response {
+                case .success(let dataResponse):
                     do {
-                        let json = try JSON(data: data)
-                        if let threads = json["threads"].array {
-                            let pageThreads = threads.enumerated().compactMap { (index, threadJson) in
-                                var thread = ThreadData(from: threadJson, boardAbv: self.boardAbv)
-                                thread.bumpIndex = (page - 1) * threads.count + index
-                                return thread.number.isEmpty ? nil : thread
-                            }
-
+                        let pageThreads = try ThreadData.parseThreadList(from: dataResponse.data, boardAbv: self.boardAbv)
+                        if !pageThreads.isEmpty {
                             serialQueue.sync {
                                 newThreadData.append(contentsOf: pageThreads)
                             }
@@ -259,6 +251,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             self.threadData = Array(dedupedThreads.values).sorted {
                 Int($0.number) ?? 0 > Int($1.number) ?? 0
             }
+            ThreadData.logFetchedThreads(self.threadData, boardAbv: self.boardAbv, source: "catalog view")
 
             self.applyFiltersAndSearch()
             self.collectionView.reloadData()
@@ -287,7 +280,7 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     // MARK: - UICollectionView Delegate
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let thread = filteredThreadData[indexPath.row]
-        let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
+        let url = BoardsService.shared.threadJSONURL(board: thread.boardAbv, threadNumber: thread.number)
 
         HistoryManager.shared.addThreadToHistory(thread)
 
@@ -303,14 +296,14 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         ])
         indicator.startAnimating()
 
-        AF.request(url).response { response in
+        BoardsService.shared.fetchData(from: url) { response in
             DispatchQueue.main.async {
                 loadingView.removeFromSuperview()
             }
 
-            guard let data = response.data,
-                  let json = try? JSON(data: data),
-                  !json["posts"].isEmpty else {
+            guard case .success(let dataResponse) = response,
+                  let json = try? ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: thread.boardAbv),
+                  !ThreadData.postsArray(from: json).isEmpty else {
                 print("Thread not available or invalid response.")
                 return
             }

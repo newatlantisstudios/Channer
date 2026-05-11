@@ -3,6 +3,7 @@ import UIKit
 class boardsTVCell: UITableViewCell {
     
     // MARK: - UI Components
+    private let containerView = UIView()
     let boardNameLabel = UILabel()
     let boardAbvLabel = UILabel()
     
@@ -19,36 +20,58 @@ class boardsTVCell: UITableViewCell {
     // MARK: - View Setup
     private func setupViews() {
         // Cell appearance
-        backgroundColor = ThemeManager.shared.backgroundColor
+        backgroundColor = .clear
         selectionStyle = .none
+
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = .secondarySystemBackground
+        containerView.layer.cornerRadius = 8
+        containerView.layer.borderWidth = 1
+        containerView.layer.borderColor = UIColor.separator.withAlphaComponent(0.35).cgColor
+        contentView.addSubview(containerView)
         
         // Board name label
-        boardNameLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        boardNameLabel.textColor = ThemeManager.shared.primaryTextColor
-        boardNameLabel.numberOfLines = 0
+        boardNameLabel.font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        boardNameLabel.textColor = .label
+        boardNameLabel.numberOfLines = 1
+        boardNameLabel.lineBreakMode = .byTruncatingTail
         boardNameLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(boardNameLabel)
+        containerView.addSubview(boardNameLabel)
         
         // Board abbreviation label
-        boardAbvLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        boardAbvLabel.textColor = ThemeManager.shared.secondaryTextColor
+        boardAbvLabel.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
+        boardAbvLabel.textColor = .secondaryLabel
+        boardAbvLabel.textAlignment = .center
         boardAbvLabel.numberOfLines = 1
         boardAbvLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(boardAbvLabel)
+        boardAbvLabel.backgroundColor = .tertiarySystemFill
+        boardAbvLabel.layer.cornerRadius = 6
+        boardAbvLabel.clipsToBounds = true
+        containerView.addSubview(boardAbvLabel)
         
         // Add constraints
         NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+
             // Board name label
-            boardNameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            boardNameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            boardNameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            boardNameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 14),
+            boardNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: boardAbvLabel.leadingAnchor, constant: -12),
+            boardNameLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             
             // Board abbreviation label
-            boardAbvLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            boardAbvLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            boardAbvLabel.topAnchor.constraint(equalTo: boardNameLabel.bottomAnchor, constant: 4),
-            boardAbvLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
+            boardAbvLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
+            boardAbvLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            boardAbvLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            boardAbvLabel.heightAnchor.constraint(equalToConstant: 24)
         ])
+    }
+
+    func configure(name: String, abbreviation: String) {
+        boardNameLabel.text = name
+        boardAbvLabel.text = "/\(abbreviation)/"
     }
     
     // MARK: - Theme Update
@@ -57,10 +80,18 @@ class boardsTVCell: UITableViewCell {
         
         // Update colors for theme changes (light/dark mode)
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            backgroundColor = ThemeManager.shared.backgroundColor
-            boardNameLabel.textColor = ThemeManager.shared.primaryTextColor
-            boardAbvLabel.textColor = ThemeManager.shared.secondaryTextColor
-            selectedBackgroundView?.backgroundColor = ThemeManager.shared.cellBorderColor
+            backgroundColor = .clear
+            containerView.backgroundColor = .secondarySystemBackground
+            containerView.layer.borderColor = UIColor.separator.withAlphaComponent(0.35).cgColor
+            boardNameLabel.textColor = .label
+            boardAbvLabel.textColor = .secondaryLabel
+            boardAbvLabel.backgroundColor = .tertiarySystemFill
         }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        boardNameLabel.text = nil
+        boardAbvLabel.text = nil
     }
 }

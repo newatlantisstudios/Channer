@@ -118,6 +118,9 @@ extension threadRepliesTV {
     ///   - useHQ: Whether to use high-quality thumbnails
     /// - Returns: Thumbnail URL or nil if conversion fails
     private func thumbnailURL(from raw: String, useHQ: Bool) -> URL? {
+        if raw.contains("/.media/") {
+            return URL(string: raw)
+        }
         if raw.hasSuffix(".webm") || raw.hasSuffix(".mp4") {
             let comps = raw.split(separator: "/")
             if let last = comps.last {
@@ -1851,8 +1854,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         
-        let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
-        print("Loading data from: \(urlString)") // Debug print
+        let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
+        print("Loading data from: \(threadURL.absoluteString)") // Debug print
         
         // Check if thread should be loaded from cache (forced or offline)
         if forceLoadFromCache || (ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork()) {
@@ -1862,7 +1865,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 DispatchQueue.main.async {
                     do {
                         // Parse JSON response from cached data
-                        let json = try JSON(data: cachedData)
+                        let json = try ThreadData.parseThreadResponse(from: cachedData, boardAbv: self.boardAbv)
                         self.processThreadData(json)
                         self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
@@ -1890,8 +1893,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         // Perform network request
-        let request = AF.request(urlString)
-        request.responseData { [weak self] response in
+        BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
             
             // Process the response on main thread
@@ -1901,19 +1903,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
     
-    private func handleNetworkResponse(_ response: AFDataResponse<Data>) {
-        if let statusCode = response.response?.statusCode, statusCode == 404 {
+    private func handleNetworkResponse(_ response: Result<BoardsService.FetchDataResponse, Error>) {
+        if case .success(let dataResponse) = response, dataResponse.response?.statusCode == 404 {
             handleThreadUnavailable()
             onViewReady?()
             return
         }
 
-        switch response.result {
-        case .success(let data):
+        switch response {
+        case .success(let dataResponse):
             do {
                 // Parse JSON response
-                let json = try JSON(data: data)
-                guard !json["posts"].arrayValue.isEmpty else {
+                let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
+                guard !ThreadData.postsArray(from: json).isEmpty else {
                     self.handleThreadUnavailable()
                     self.onViewReady?()
                     return
@@ -1956,10 +1958,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         
-        let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
+        let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
         
-        let request = AF.request(urlString)
-        request.responseData { [weak self] response in
+        BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
             
             DispatchQueue.main.async {
@@ -1968,17 +1969,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
     
-    private func handleLoadDataResponse(_ response: AFDataResponse<Data>) {
-        if let statusCode = response.response?.statusCode, statusCode == 404 {
+    private func handleLoadDataResponse(_ response: Result<BoardsService.FetchDataResponse, Error>) {
+        if case .success(let dataResponse) = response, dataResponse.response?.statusCode == 404 {
             handleThreadUnavailable()
             return
         }
 
-        switch response.result {
-        case .success(let data):
+        switch response {
+        case .success(let dataResponse):
             do {
-                let json = try JSON(data: data)
-                guard !json["posts"].arrayValue.isEmpty else {
+                let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
+                guard !ThreadData.postsArray(from: json).isEmpty else {
                     self.handleThreadUnavailable()
                     return
                 }
@@ -2163,22 +2164,30 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Record this visit in history regardless of how the thread was opened
         // (board list, search, notifications, offline cache, handoff, etc.)
-        if !boardAbv.isEmpty, json["posts"].array?.first != nil {
+        let rawPosts = ThreadData.postsArray(from: json)
+
+        if !boardAbv.isEmpty, !rawPosts.isEmpty {
             HistoryManager.shared.addThreadToHistory(ThreadData(from: json, boardAbv: boardAbv))
         }
 
         // Extract thread subject from OP (decode HTML entities)
-        threadSubject = json["posts"][0]["sub"].stringValue.decodingHTMLEntities()
+        let originalPost = rawPosts.first ?? JSON()
+        threadSubject = ThreadData.postSubject(from: originalPost).decodingHTMLEntities()
 
         // Store OP creation timestamp for dead thread info
-        threadCreatedTimestamp = json["posts"][0]["time"].int
+        threadCreatedTimestamp = ThreadData.postUnixTimestamp(from: originalPost)
 
-        // Get original reply count
-        replyCount = Int(json["posts"][0]["replies"].stringValue) ?? 0
+        // Get original reply count. Non-4chan adapters may omit replies/replyposts
+        // on the OP but still provide every post in the normalized post array.
+        replyCount = originalPost["replies"].int
+            ?? originalPost["replyposts"].int
+            ?? originalPost["postCount"].int.map { max($0 - 1, 0) }
+            ?? originalPost["posts_count"].int.map { max($0 - 1, 0) }
+            ?? max(rawPosts.count - 1, 0)
         
         // Handle case with no replies
-        if replyCount == 0 {
-            processPost(json["posts"][0], index: 0)
+        if replyCount == 0 && rawPosts.count <= 1 {
+            processPost(originalPost, index: 0)
             replyCount = 1
             structureThreadReplies()
             return
@@ -2186,7 +2195,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Apply content filtering to JSON if enabled
         var filteredJson: JSON = json
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
+        if json["posts"].array != nil,
+           let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
            let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
            let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
            isEnabled {
@@ -2197,9 +2207,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
         
         // Process all posts in the thread
-        let posts = filteredJson["posts"].arrayValue
-        for post in posts {
-            processPost(post, index: posts.firstIndex(of: post) ?? 0)
+        let posts = ThreadData.postsArray(from: filteredJson)
+        for (index, post) in posts.enumerated() {
+            processPost(post, index: index)
         }
         
         // Apply additional content filtering
@@ -2271,15 +2281,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func processPost(_ post: JSON, index: Int) {
         // Extract the board reply number
-        let replyNumber = post["no"].stringValue
+        let replyNumber = ThreadData.postNumber(from: post) ?? ""
         threadBoardReplyNumber.append(replyNumber)
 
         // Extract the image URL and related data
-        let imageTimestamp = post["tim"].stringValue
-        let imageExtension = post["ext"].stringValue
-        let imageName = post["filename"].stringValue
-        let imageURL = imageTimestamp.isEmpty ? "" : "https://i.4cdn.org/\(boardAbv)/\(imageTimestamp)\(imageExtension)"
-        threadRepliesImages.append(imageURL.isEmpty ? "https://i.4cdn.org/\(boardAbv)/" : imageURL)
+        let imageExtension = post["ext"].stringValue.isEmpty
+            ? (post["files"].array?.first?["extension"].stringValue ?? "")
+            : post["ext"].stringValue
+        let imageName = post["filename"].stringValue.isEmpty
+            ? (post["files"].array?.first?["originalFilename"].stringValue ?? post["files"].array?.first?["filename"].stringValue ?? "")
+            : post["filename"].stringValue
+        let imageURL = ThreadData.postImageURL(from: post, boardAbv: boardAbv)
+        let emptyImagePlaceholder = BoardsService.shared.selectedSite == ImageboardSite.fourChan ? "https://i.4cdn.org/\(boardAbv)/" : ""
+        threadRepliesImages.append(imageURL.isEmpty ? emptyImagePlaceholder : imageURL)
 
         // Debug logging for PNG images
         if imageExtension == ".png" {
@@ -2287,7 +2301,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
 
         // Extract and process the comment text
-        let comment = post["com"].stringValue
+        let comment = ThreadData.postComment(from: post)
 
         // Store the original unprocessed text for toggling spoilers later
         originalTexts.append(comment)
@@ -2297,12 +2311,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadReplies.append(formattedComment)
 
         // Extract additional metadata for advanced filtering
-        let posterId = post["id"].stringValue  // Poster ID (if available on board)
-        let tripCode = post["trip"].stringValue  // Trip code
+        let posterId = post["id"].stringValue.isEmpty ? post["userId"].stringValue : post["id"].stringValue  // Poster ID (if available on board)
+        let tripCode = post["trip"].stringValue.isEmpty ? post["tripcode"].stringValue : post["trip"].stringValue  // Trip code
         let countryCode = post["country"].stringValue  // Country code (e.g., "US")
         let countryName = post["country_name"].stringValue  // Country name
-        let timestamp = post["time"].int  // Unix timestamp
-        let fileHash = post["md5"].stringValue  // File hash (if available)
+        let timestamp = ThreadData.postUnixTimestamp(from: post)  // Unix timestamp
+        let fileHash = post["md5"].stringValue.isEmpty
+            ? (post["files"].array?.first?["hash"].stringValue ?? "")
+            : post["md5"].stringValue  // File hash (if available)
 
         // Create PostMetadata for advanced filtering
         let metadata = PostMetadata(
@@ -2746,6 +2762,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 // Use the original full-quality image URL
                 finalUrl = imageUrl
                 print("Debug: Using high-quality image: \(finalUrl)")
+            } else if imageUrl.contains("/.media/") {
+                finalUrl = imageUrl
+                print("Debug: Using original media URL for LynxChan image: \(finalUrl)")
             } else {
                 // Use the thumbnail URL by adding "s" before the extension
                 let components = imageUrl.components(separatedBy: "/")
@@ -2787,10 +2806,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             .backgroundDecode,   // Decode in background to prevent UI stutter
             .retryStrategy(DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(1))), // Retry failed loads
             .callbackQueue(.mainAsync), // Ensure callbacks are on main thread
+            .requestModifier(AnyModifier { request in
+                var request = request
+                if request.url?.host?.lowercased() == "8chan.moe" {
+                    EightChanMoePOWBlock.applyStoredCookies(to: &request)
+                }
+                return request
+            }),
             .loadDiskFileSynchronously
         ]
         
         print("Debug: Loading image with URL: \(url)")
+
+        if cell.displayedThumbnailURL != url {
+            cell.threadImage.thumbnailImageView.kf.cancelDownloadTask()
+        }
 
         let placeholderImage: UIImage?
         if cell.displayedThumbnailURL == url {
@@ -2819,12 +2849,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                         cell.setNeedsLayout()
                     }
                 case .failure(let error):
+                    guard !self.isKingfisherStaleSourceError(error) else {
+                        print("Debug: Ignoring stale Kingfisher image result for URL: \(url)")
+                        return
+                    }
+
                     print("Debug: Failed to load image: \(error.localizedDescription)")
                     cell.displayedThumbnailURL = nil
                     
                     // We shouldn't need fallbacks anymore since we're always using JPG thumbnails,
                     // but let's keep this just in case for robustness
-                    if finalUrl.hasSuffix(".png") {
+                    if finalUrl.hasSuffix(".png") && !finalUrl.contains("/.media/") {
                         let jpgUrl = finalUrl.replacingOccurrences(of: ".png", with: ".jpg")
                         print("Debug: Thumbnail loading failed. Trying explicit JPG fallback: \(jpgUrl)")
                         
@@ -2973,9 +3008,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     self?.showThreadForPostNumber(postNo)
                 }
             }
-            // Provide referer for 4chan
+            // Provide a board/thread referer for hosts that require it.
             if !boardAbv.isEmpty && !threadNumber.isEmpty {
-                imageVC.refererString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
+                imageVC.refererString = BoardsService.shared
+                    .webThreadURL(board: boardAbv, threadNumber: threadNumber)
+                    .absoluteString
             }
 
             // Handle navigation stack
@@ -4008,27 +4045,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let previousVisibleReplyMap = threadBoardReplies
         let previousVisibleMetadata = postMetadataList
 
-        let urlString = "https://a.4cdn.org/\(boardAbv)/thread/\(threadNumber).json"
+        let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
 
-        let request = AF.request(urlString)
-        request.responseData { [weak self] response in
+        BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
 
             DispatchQueue.main.async {
                 // Check for 404 during auto-refresh
                 self.tableView.refreshControl?.endRefreshing()
 
-                if let statusCode = response.response?.statusCode, statusCode == 404 {
+                if case .success(let dataResponse) = response, dataResponse.response?.statusCode == 404 {
                     self.handleThreadUnavailable()
                     return
                 }
 
-                switch response.result {
-                case .success(let data):
+                switch response {
+                case .success(let dataResponse):
                     do {
-                        let json = try JSON(data: data)
+                        let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
 
-                        guard !json["posts"].arrayValue.isEmpty else {
+                        guard !ThreadData.postsArray(from: json).isEmpty else {
                             self.handleThreadUnavailable()
                             return
                         }
@@ -4530,10 +4566,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     @objc private func openInBrowser() {
         guard !boardAbv.isEmpty && !threadNumber.isEmpty else { return }
         
-        let urlString = "https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)"
-        if let url = URL(string: urlString) {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        }
+        UIApplication.shared.open(
+            BoardsService.shared.webThreadURL(board: boardAbv, threadNumber: threadNumber),
+            options: [:],
+            completionHandler: nil
+        )
     }
     
     private func updateLoadingUI() {
@@ -4841,6 +4878,13 @@ extension threadRepliesTV {
             .scaleFactor(UIScreen.main.scale),
             .backgroundDecode,
             .callbackQueue(.mainAsync),
+            .requestModifier(AnyModifier { request in
+                var request = request
+                if request.url?.host?.lowercased() == "8chan.moe" {
+                    EightChanMoePOWBlock.applyStoredCookies(to: &request)
+                }
+                return request
+            }),
             .loadDiskFileSynchronously
         ]
 
@@ -4868,11 +4912,20 @@ extension threadRepliesTV {
                         cell.setNeedsLayout()
                     }
                 case .failure(let error):
+                    guard self?.isKingfisherStaleSourceError(error) != true else {
+                        print("⚠️ LOAD: Ignoring stale scroll image result, remaining: \(newCount)")
+                        return
+                    }
+
                     cell.displayedThumbnailURL = nil
                     print("❌ LOAD: Failed scroll load: \(error), remaining: \(newCount)")
                 }
             }
         )
+    }
+
+    private func isKingfisherStaleSourceError(_ error: KingfisherError) -> Bool {
+        error.localizedDescription.contains("not the one currently expected")
     }
 }
 
