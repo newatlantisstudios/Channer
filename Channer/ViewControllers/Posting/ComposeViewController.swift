@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 #if canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
@@ -56,10 +57,38 @@ class ComposeViewController: UIViewController {
     private let postButton = UIButton(type: .system)
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
 
+    // Quick Reply controls
+    private let quickReplyContainerView = UIView()
+    private let quickReplyStackView = UIStackView()
+    private let personaButton = UIButton(type: .system)
+    private let sjisPreviewButton = UIButton(type: .system)
+    private let qrSizeControl = UISegmentedControl(items: ["S", "M", "L"])
+    private let dumpModeLabel = UILabel()
+    private let dumpModeSwitch = UISwitch()
+    private let autoPostLabel = UILabel()
+    private let autoPostSwitch = UISwitch()
+    private let manualCaptchaLabel = UILabel()
+    private let manualCaptchaSwitch = UISwitch()
+
+    // Captcha UI
+    private let captchaContainerView = UIView()
+    private let captchaStatusLabel = UILabel()
+    private let manualCaptchaStackView = UIStackView()
+    private let captchaChallengeField = UITextField()
+    private let captchaResponseField = UITextField()
+    private var captchaWebView: WKWebView?
+    private var captchaContainerHeightConstraint: NSLayoutConstraint?
+    private var commentHeightConstraint: NSLayoutConstraint?
+
     // State
     private var selectedImage: SelectedImage?
     private let imagePicker = ImagePickerHelper()
     private var isPosting = false
+    private var isSJISPreviewEnabled = false
+    private var captchaChallenge: String?
+    private var captchaResponse: String?
+    private var captchaReady = false
+    private var pendingCaptchaPost = false
 
     // Constants
     private let maxCommentLength = 2000
@@ -98,6 +127,7 @@ class ComposeViewController: UIViewController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        captchaWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "captcha")
     }
 
     // MARK: - UI Setup
@@ -146,8 +176,12 @@ class ComposeViewController: UIViewController {
         }
 
         setupCommentTextView()
+        setupQuickReplyControls()
+        setupCaptchaSection()
         setupImageSection()
         setupConstraints()
+        configureCaptchaVisibility()
+        applySavedPersona()
     }
 
     private func setupScrollView() {
@@ -223,6 +257,155 @@ class ComposeViewController: UIViewController {
         characterCountLabel.text = "0/\(maxCommentLength)"
         characterCountLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(characterCountLabel)
+    }
+
+    private func setupQuickReplyControls() {
+        quickReplyContainerView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        quickReplyContainerView.layer.cornerRadius = 8
+        quickReplyContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(quickReplyContainerView)
+
+        quickReplyStackView.axis = .vertical
+        quickReplyStackView.spacing = 8
+        quickReplyStackView.translatesAutoresizingMaskIntoConstraints = false
+        quickReplyContainerView.addSubview(quickReplyStackView)
+
+        personaButton.setImage(UIImage(systemName: "person.crop.circle"), for: .normal)
+        personaButton.setTitle(" Persona", for: .normal)
+        personaButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        personaButton.showsMenuAsPrimaryAction = true
+        updatePersonaMenu()
+
+        sjisPreviewButton.setImage(UIImage(systemName: "textformat"), for: .normal)
+        sjisPreviewButton.setTitle(" SJIS", for: .normal)
+        sjisPreviewButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        sjisPreviewButton.addTarget(self, action: #selector(toggleSJISPreview), for: .touchUpInside)
+
+        qrSizeControl.selectedSegmentIndex = QuickReplyPreferences.shared.sizeIndex
+        qrSizeControl.addTarget(self, action: #selector(qrSizeChanged), for: .valueChanged)
+
+        dumpModeLabel.text = "Dump"
+        dumpModeLabel.font = UIFont.systemFont(ofSize: 13)
+        dumpModeLabel.textColor = ThemeManager.shared.secondaryTextColor
+        dumpModeSwitch.isOn = QuickReplyPreferences.shared.dumpModeEnabled
+        dumpModeSwitch.addTarget(self, action: #selector(dumpModeChanged), for: .valueChanged)
+
+        autoPostLabel.text = "Auto-post captcha"
+        autoPostLabel.font = UIFont.systemFont(ofSize: 13)
+        autoPostLabel.textColor = ThemeManager.shared.secondaryTextColor
+        autoPostSwitch.isOn = QuickReplyPreferences.shared.postOnCaptchaCompletion
+        autoPostSwitch.addTarget(self, action: #selector(autoPostChanged), for: .valueChanged)
+
+        manualCaptchaLabel.text = "Manual captcha"
+        manualCaptchaLabel.font = UIFont.systemFont(ofSize: 13)
+        manualCaptchaLabel.textColor = ThemeManager.shared.secondaryTextColor
+        manualCaptchaSwitch.isOn = QuickReplyPreferences.shared.manualCaptchaMode
+        manualCaptchaSwitch.addTarget(self, action: #selector(manualCaptchaModeChanged), for: .valueChanged)
+
+        let firstRow = UIStackView(arrangedSubviews: [personaButton, sjisPreviewButton, qrSizeControl])
+        firstRow.axis = .horizontal
+        firstRow.spacing = 8
+        firstRow.distribution = .fillEqually
+
+        let dumpStack = makeSwitchStack(label: dumpModeLabel, toggle: dumpModeSwitch)
+        let autoPostStack = makeSwitchStack(label: autoPostLabel, toggle: autoPostSwitch)
+        let manualStack = makeSwitchStack(label: manualCaptchaLabel, toggle: manualCaptchaSwitch)
+        let secondRow = UIStackView(arrangedSubviews: [dumpStack, autoPostStack, manualStack])
+        secondRow.axis = .horizontal
+        secondRow.spacing = 8
+        secondRow.distribution = .fillEqually
+
+        quickReplyStackView.addArrangedSubview(firstRow)
+        quickReplyStackView.addArrangedSubview(secondRow)
+
+        NSLayoutConstraint.activate([
+            quickReplyStackView.topAnchor.constraint(equalTo: quickReplyContainerView.topAnchor, constant: 10),
+            quickReplyStackView.leadingAnchor.constraint(equalTo: quickReplyContainerView.leadingAnchor, constant: 10),
+            quickReplyStackView.trailingAnchor.constraint(equalTo: quickReplyContainerView.trailingAnchor, constant: -10),
+            quickReplyStackView.bottomAnchor.constraint(equalTo: quickReplyContainerView.bottomAnchor, constant: -10)
+        ])
+    }
+
+    private func makeSwitchStack(label: UILabel, toggle: UISwitch) -> UIStackView {
+        toggle.transform = CGAffineTransform(scaleX: 0.78, y: 0.78)
+        let stack = UIStackView(arrangedSubviews: [label, toggle])
+        stack.axis = .horizontal
+        stack.spacing = 4
+        stack.alignment = .center
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        toggle.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return stack
+    }
+
+    private func setupCaptchaSection() {
+        captchaContainerView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        captchaContainerView.layer.cornerRadius = 8
+        captchaContainerView.clipsToBounds = true
+        captchaContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(captchaContainerView)
+
+        captchaStatusLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        captchaStatusLabel.textColor = ThemeManager.shared.secondaryTextColor
+        captchaStatusLabel.numberOfLines = 2
+        captchaStatusLabel.text = "Captcha loading..."
+        captchaStatusLabel.translatesAutoresizingMaskIntoConstraints = false
+        captchaContainerView.addSubview(captchaStatusLabel)
+
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.add(self, name: "captcha")
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.navigationDelegate = self
+        webView.scrollView.isScrollEnabled = false
+        webView.backgroundColor = .clear
+        webView.isOpaque = false
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        captchaContainerView.addSubview(webView)
+        captchaWebView = webView
+
+        captchaChallengeField.placeholder = "t-challenge"
+        captchaChallengeField.font = UIFont.systemFont(ofSize: 14)
+        captchaChallengeField.textColor = ThemeManager.shared.primaryTextColor
+        captchaChallengeField.backgroundColor = ThemeManager.shared.backgroundColor
+        captchaChallengeField.layer.cornerRadius = 6
+        captchaChallengeField.autocapitalizationType = .none
+        captchaChallengeField.autocorrectionType = .no
+        captchaChallengeField.delegate = self
+        captchaChallengeField.addTarget(self, action: #selector(manualCaptchaChanged), for: .editingChanged)
+
+        captchaResponseField.placeholder = "t-response"
+        captchaResponseField.font = UIFont.systemFont(ofSize: 14)
+        captchaResponseField.textColor = ThemeManager.shared.primaryTextColor
+        captchaResponseField.backgroundColor = ThemeManager.shared.backgroundColor
+        captchaResponseField.layer.cornerRadius = 6
+        captchaResponseField.autocapitalizationType = .none
+        captchaResponseField.autocorrectionType = .no
+        captchaResponseField.delegate = self
+        captchaResponseField.addTarget(self, action: #selector(manualCaptchaChanged), for: .editingChanged)
+
+        manualCaptchaStackView.axis = .vertical
+        manualCaptchaStackView.spacing = 8
+        manualCaptchaStackView.isHidden = true
+        manualCaptchaStackView.translatesAutoresizingMaskIntoConstraints = false
+        manualCaptchaStackView.addArrangedSubview(captchaChallengeField)
+        manualCaptchaStackView.addArrangedSubview(captchaResponseField)
+        captchaContainerView.addSubview(manualCaptchaStackView)
+
+        NSLayoutConstraint.activate([
+            captchaStatusLabel.topAnchor.constraint(equalTo: captchaContainerView.topAnchor, constant: 8),
+            captchaStatusLabel.leadingAnchor.constraint(equalTo: captchaContainerView.leadingAnchor, constant: 12),
+            captchaStatusLabel.trailingAnchor.constraint(equalTo: captchaContainerView.trailingAnchor, constant: -12),
+
+            webView.topAnchor.constraint(equalTo: captchaStatusLabel.bottomAnchor, constant: 8),
+            webView.centerXAnchor.constraint(equalTo: captchaContainerView.centerXAnchor),
+            webView.widthAnchor.constraint(equalToConstant: 312),
+            webView.heightAnchor.constraint(equalToConstant: 154),
+
+            manualCaptchaStackView.topAnchor.constraint(equalTo: captchaStatusLabel.bottomAnchor, constant: 10),
+            manualCaptchaStackView.leadingAnchor.constraint(equalTo: captchaContainerView.leadingAnchor, constant: 12),
+            manualCaptchaStackView.trailingAnchor.constraint(equalTo: captchaContainerView.trailingAnchor, constant: -12),
+            captchaChallengeField.heightAnchor.constraint(equalToConstant: 36),
+            captchaResponseField.heightAnchor.constraint(equalToConstant: 36)
+        ])
     }
 
 #if targetEnvironment(macCatalyst)
@@ -355,6 +538,8 @@ class ComposeViewController: UIViewController {
 
     private func setupConstraints() {
         let topAnchor = isNewThread ? subjectField.bottomAnchor : emailField.bottomAnchor
+        commentHeightConstraint = commentTextView.heightAnchor.constraint(equalToConstant: QuickReplyPreferences.shared.commentHeight)
+        captchaContainerHeightConstraint = captchaContainerView.heightAnchor.constraint(equalToConstant: PassAuthManager.shared.isAuthenticated ? 0 : captchaHeight)
 
         var constraints = [
             // Scroll view
@@ -386,14 +571,26 @@ class ComposeViewController: UIViewController {
             commentTextView.topAnchor.constraint(equalTo: topAnchor, constant: 12),
             commentTextView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             commentTextView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            commentTextView.heightAnchor.constraint(greaterThanOrEqualToConstant: 150),
+            commentHeightConstraint!,
 
             // Character count
             characterCountLabel.topAnchor.constraint(equalTo: commentTextView.bottomAnchor, constant: 4),
             characterCountLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
 
+            // Quick reply controls
+            quickReplyContainerView.topAnchor.constraint(equalTo: characterCountLabel.bottomAnchor, constant: 12),
+            quickReplyContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            quickReplyContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            quickReplyContainerView.heightAnchor.constraint(equalToConstant: 92),
+
+            // Captcha
+            captchaContainerView.topAnchor.constraint(equalTo: quickReplyContainerView.bottomAnchor, constant: 12),
+            captchaContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            captchaContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            captchaContainerHeightConstraint!,
+
             // Image button
-            imageButton.topAnchor.constraint(equalTo: characterCountLabel.bottomAnchor, constant: 16),
+            imageButton.topAnchor.constraint(equalTo: captchaContainerView.bottomAnchor, constant: 16),
             imageButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             imageButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             imageButton.heightAnchor.constraint(equalToConstant: 44),
@@ -512,52 +709,44 @@ class ComposeViewController: UIViewController {
             return
         }
 
-        // Validate
-        let comment = commentTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        submitCurrentPost()
+    }
 
-        if comment.isEmpty && selectedImage == nil {
-            showAlert(title: "Error", message: "Please enter a comment or attach a file")
-            return
-        }
+    @objc private func toggleSJISPreview() {
+        isSJISPreviewEnabled.toggle()
+        commentTextView.font = isSJISPreviewEnabled
+            ? UIFont.monospacedSystemFont(ofSize: 16, weight: .regular)
+            : UIFont.systemFont(ofSize: 16)
+        sjisPreviewButton.tintColor = isSJISPreviewEnabled ? .systemBlue : nil
+    }
 
-        if isNewThread && selectedImage == nil {
-            showAlert(title: "Error", message: "An image is required to start a new thread")
-            return
-        }
+    @objc private func qrSizeChanged() {
+        QuickReplyPreferences.shared.sizeIndex = qrSizeControl.selectedSegmentIndex
+        commentHeightConstraint?.constant = QuickReplyPreferences.shared.commentHeight
+        view.layoutIfNeeded()
+    }
 
-        if !PassAuthManager.shared.isAuthenticated {
-            showAlert(title: "Not Authenticated", message: "Please configure your 4chan Pass in Settings to post")
-            return
-        }
+    @objc private func dumpModeChanged() {
+        QuickReplyPreferences.shared.dumpModeEnabled = dumpModeSwitch.isOn
+    }
 
-        // Submit post
-        setLoading(true)
+    @objc private func autoPostChanged() {
+        QuickReplyPreferences.shared.postOnCaptchaCompletion = autoPostSwitch.isOn
+    }
 
-        let postData = PostData(
-            board: board,
-            resto: threadNumber,
-            name: nameField.text?.isEmpty == false ? nameField.text : nil,
-            email: emailField.text?.isEmpty == false ? emailField.text : nil,
-            subject: isNewThread ? subjectField.text : nil,
-            comment: comment,
-            imageData: selectedImage?.data,
-            imageFilename: selectedImage?.filename,
-            imageMimeType: selectedImage?.mimeType,
-            spoiler: spoilerSwitch.isOn
-        )
+    @objc private func manualCaptchaModeChanged() {
+        QuickReplyPreferences.shared.manualCaptchaMode = manualCaptchaSwitch.isOn
+        captchaChallenge = nil
+        captchaResponse = nil
+        captchaReady = false
+        configureCaptchaVisibility()
+    }
 
-        PostingManager.shared.submitPost(postData) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.setLoading(false)
-
-                switch result {
-                case .success(let postResult):
-                    self?.handlePostSuccess(postResult)
-                case .failure(let error):
-                    self?.showAlert(title: "Error", message: error.localizedDescription)
-                }
-            }
-        }
+    @objc private func manualCaptchaChanged() {
+        captchaChallenge = captchaChallengeField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        captchaResponse = captchaResponseField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        captchaReady = captchaChallenge?.isEmpty == false
+        captchaStatusLabel.text = captchaReady ? "Manual captcha ready" : "Paste t-challenge and t-response"
     }
 
     @objc private func attachImageTapped() {
@@ -660,6 +849,224 @@ class ComposeViewController: UIViewController {
     }
 
     // MARK: - Helpers
+
+    private var captchaHeight: CGFloat {
+        QuickReplyPreferences.shared.manualCaptchaMode ? 132 : 210
+    }
+
+    private func submitCurrentPost() {
+        guard !isPosting else { return }
+
+        let comment = commentTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if comment.isEmpty && selectedImage == nil {
+            showAlert(title: "Error", message: "Please enter a comment or attach a file")
+            return
+        }
+
+        if isNewThread && selectedImage == nil {
+            showAlert(title: "Error", message: "An image is required to start a new thread")
+            return
+        }
+
+        if !PassAuthManager.shared.isAuthenticated && !captchaReady {
+            pendingCaptchaPost = autoPostSwitch.isOn
+            captchaStatusLabel.text = pendingCaptchaPost
+                ? "Complete the captcha to post automatically"
+                : "Complete the captcha, then tap Post again"
+            loadCaptchaIfNeeded(forceReload: false)
+            if !pendingCaptchaPost {
+                showAlert(title: "Captcha Required", message: "Complete the captcha before posting without 4chan Pass.")
+            }
+            return
+        }
+
+        pendingCaptchaPost = false
+        setLoading(true)
+
+        let postData = PostData(
+            board: board,
+            resto: threadNumber,
+            name: nameField.text?.isEmpty == false ? nameField.text : nil,
+            email: emailField.text?.isEmpty == false ? emailField.text : nil,
+            subject: isNewThread ? subjectField.text : nil,
+            comment: comment,
+            imageData: selectedImage?.data,
+            imageFilename: selectedImage?.filename,
+            imageMimeType: selectedImage?.mimeType,
+            spoiler: spoilerSwitch.isOn,
+            captchaChallenge: PassAuthManager.shared.isAuthenticated ? nil : captchaChallenge,
+            captchaResponse: PassAuthManager.shared.isAuthenticated ? nil : captchaResponse
+        )
+
+        PostingManager.shared.submitPost(postData) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.setLoading(false)
+
+                switch result {
+                case .success(let postResult):
+                    self?.handlePostSuccess(postResult)
+                case .failure(let error):
+                    self?.captchaReady = false
+                    self?.captchaChallenge = nil
+                    self?.captchaResponse = nil
+                    self?.captchaStatusLabel.text = error.localizedDescription
+                    self?.loadCaptchaIfNeeded(forceReload: true)
+                    self?.showAlert(title: "Error", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func configureCaptchaVisibility() {
+        let usesCaptcha = !PassAuthManager.shared.isAuthenticated
+        captchaContainerView.isHidden = !usesCaptcha
+        captchaContainerHeightConstraint?.constant = usesCaptcha ? captchaHeight : 0
+        manualCaptchaStackView.isHidden = !QuickReplyPreferences.shared.manualCaptchaMode
+        captchaWebView?.isHidden = QuickReplyPreferences.shared.manualCaptchaMode
+
+        if usesCaptcha {
+            captchaStatusLabel.text = QuickReplyPreferences.shared.manualCaptchaMode
+                ? "Paste t-challenge and t-response"
+                : "Captcha loading..."
+            if QuickReplyPreferences.shared.manualCaptchaMode {
+                manualCaptchaChanged()
+            } else {
+                loadCaptchaIfNeeded(forceReload: false)
+            }
+        }
+    }
+
+    private func loadCaptchaIfNeeded(forceReload: Bool) {
+        guard !PassAuthManager.shared.isAuthenticated,
+              !QuickReplyPreferences.shared.manualCaptchaMode else { return }
+        guard forceReload || !captchaReady else { return }
+        let darkMode = traitCollection.userInterfaceStyle == .dark
+        let autoLoadScript = QuickReplyPreferences.shared.autoLoadCaptcha
+            ? "setTimeout(function() { TCaptcha.onReloadClick(); }, 350);"
+            : ""
+        let html = """
+        <!doctype html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+            #t-root { margin: 4px auto 0 auto; }
+          </style>
+          <script src="https://s.4cdn.org/js/tcaptcha.min.7.js"></script>
+        </head>
+        <body>
+          <div id="t-root"></div>
+          <script>
+            function notifyCaptcha() {
+              var challenge = document.querySelector('input[name="t-challenge"]');
+              var response = document.querySelector('input[name="t-response"]');
+              var task = document.getElementById('t-task');
+              var payload = {
+                challenge: challenge ? challenge.value : '',
+                response: response ? response.value : '',
+                done: window.TCaptcha && TCaptcha.isDone ? TCaptcha.isDone() : false,
+                status: task ? task.innerText : ''
+              };
+              window.webkit.messageHandlers.captcha.postMessage(payload);
+            }
+            function wrapCaptcha() {
+              if (!window.TCaptcha) { setTimeout(wrapCaptcha, 100); return; }
+              var oldNext = TCaptcha.onNextClick;
+              TCaptcha.onNextClick = function() {
+                var result = oldNext.apply(TCaptcha, arguments);
+                setTimeout(notifyCaptcha, 120);
+                return result;
+              };
+              var oldBuild = TCaptcha.buildFromJson;
+              TCaptcha.buildFromJson = function(data) {
+                var result = oldBuild.apply(TCaptcha, arguments);
+                setTimeout(notifyCaptcha, 120);
+                return result;
+              };
+              TCaptcha.init(document.getElementById('t-root'), '\(board)', \(threadNumber), 1, \(darkMode ? "true" : "false"));
+              TCaptcha.setErrorCb(function(error) {
+                window.webkit.messageHandlers.captcha.postMessage({ error: error || '' });
+              });
+              setInterval(notifyCaptcha, 800);
+              \(autoLoadScript)
+            }
+            wrapCaptcha();
+          </script>
+        </body>
+        </html>
+        """
+        captchaWebView?.loadHTMLString(html, baseURL: URL(string: "https://boards.4chan.org/\(board)/"))
+    }
+
+    private func updateCaptcha(challenge: String?, response: String?, done: Bool, status: String?) {
+        captchaChallenge = challenge?.trimmingCharacters(in: .whitespacesAndNewlines)
+        captchaResponse = response?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasChallenge = captchaChallenge?.isEmpty == false
+        captchaReady = done && hasChallenge
+
+        if captchaReady {
+            captchaStatusLabel.text = "Captcha complete"
+            if pendingCaptchaPost {
+                submitCurrentPost()
+            }
+        } else if let status = status, !status.isEmpty {
+            captchaStatusLabel.text = status
+        }
+    }
+
+    private func applySavedPersona() {
+        if let persona = QuickReplyPreferences.shared.selectedPersona {
+            nameField.text = persona.name
+            emailField.text = persona.email
+            subjectField.text = persona.subject
+        }
+    }
+
+    private func updatePersonaMenu() {
+        var actions = QuickReplyPreferences.shared.personas.map { persona in
+            UIAction(title: persona.title, image: UIImage(systemName: "person")) { [weak self] _ in
+                self?.apply(persona: persona)
+            }
+        }
+
+        if !actions.isEmpty {
+            actions.append(UIAction(title: "Clear Persona", image: UIImage(systemName: "xmark.circle")) { [weak self] _ in
+                QuickReplyPreferences.shared.selectedPersonaID = nil
+                self?.nameField.text = nil
+                self?.emailField.text = nil
+                self?.subjectField.text = nil
+                self?.updatePersonaMenu()
+            })
+        }
+
+        actions.append(UIAction(title: "Save Current", image: UIImage(systemName: "plus.circle")) { [weak self] _ in
+            self?.saveCurrentPersona()
+        })
+
+        personaButton.menu = UIMenu(title: "Personas", children: actions)
+    }
+
+    private func apply(persona: QuickReplyPersona) {
+        QuickReplyPreferences.shared.selectedPersonaID = persona.id
+        nameField.text = persona.name
+        emailField.text = persona.email
+        subjectField.text = persona.subject
+        updatePersonaMenu()
+    }
+
+    private func saveCurrentPersona() {
+        let persona = QuickReplyPersona(
+            title: nameField.text?.isEmpty == false ? nameField.text! : "Anonymous",
+            name: nameField.text,
+            email: emailField.text,
+            subject: subjectField.text
+        )
+        QuickReplyPreferences.shared.save(persona: persona)
+        QuickReplyPreferences.shared.selectedPersonaID = persona.id
+        updatePersonaMenu()
+    }
 
     /// Generate a random filename (8 characters alphanumeric)
     private func generateRandomFilename() -> String {
@@ -813,6 +1220,17 @@ class ComposeViewController: UIViewController {
     private func handlePostSuccess(_ result: PostResult) {
         let postNumber = result.postNumber ?? result.threadNumber
         delegate?.composeViewControllerDidPost(self, postNumber: postNumber)
+        if dumpModeSwitch.isOn {
+            commentTextView.text = ""
+            updateCharacterCount()
+            removeImageTapped()
+            captchaChallenge = nil
+            captchaResponse = nil
+            captchaReady = false
+            captchaStatusLabel.text = "Posted. Captcha reloading for next dump."
+            loadCaptchaIfNeeded(forceReload: true)
+            return
+        }
         dismiss(animated: true)
     }
 
@@ -877,6 +1295,10 @@ extension ComposeViewController: UITextFieldDelegate {
         } else if textField == filenameField {
             // Dismiss keyboard when done is pressed on filename field
             textField.resignFirstResponder()
+        } else if textField == captchaChallengeField {
+            captchaResponseField.becomeFirstResponder()
+        } else if textField == captchaResponseField {
+            textField.resignFirstResponder()
         }
         return true
     }
@@ -886,6 +1308,124 @@ extension ComposeViewController: UITextFieldDelegate {
 extension ComposeViewController: UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         updateCharacterCount()
+    }
+}
+
+// MARK: - WKScriptMessageHandler
+extension ComposeViewController: WKScriptMessageHandler, WKNavigationDelegate {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "captcha" else { return }
+
+        if let body = message.body as? [String: Any] {
+            if let error = body["error"] as? String, !error.isEmpty {
+                captchaStatusLabel.text = error
+                return
+            }
+
+            let challenge = body["challenge"] as? String
+            let response = body["response"] as? String
+            let done = body["done"] as? Bool ?? false
+            let status = body["status"] as? String
+            updateCaptcha(challenge: challenge, response: response, done: done, status: status)
+        }
+    }
+}
+
+// MARK: - Quick Reply Preferences
+struct QuickReplyPersona: Codable, Equatable {
+    let id: String
+    let title: String
+    let name: String?
+    let email: String?
+    let subject: String?
+
+    init(id: String = UUID().uuidString, title: String, name: String?, email: String?, subject: String?) {
+        self.id = id
+        self.title = title
+        self.name = name?.isEmpty == false ? name : nil
+        self.email = email?.isEmpty == false ? email : nil
+        self.subject = subject?.isEmpty == false ? subject : nil
+    }
+}
+
+final class QuickReplyPreferences {
+    static let shared = QuickReplyPreferences()
+
+    private let autoLoadCaptchaKey = "channer_qr_auto_load_captcha"
+    private let postOnCaptchaCompletionKey = "channer_qr_post_on_captcha_completion"
+    private let dumpModeEnabledKey = "channer_qr_dump_mode_enabled"
+    private let manualCaptchaModeKey = "channer_qr_manual_captcha_mode"
+    private let sizeIndexKey = "channer_qr_size_index"
+    private let personasKey = "channer_qr_personas"
+    private let selectedPersonaIDKey = "channer_qr_selected_persona_id"
+    private let defaults = UserDefaults.standard
+
+    var autoLoadCaptcha: Bool {
+        if defaults.object(forKey: autoLoadCaptchaKey) == nil { return true }
+        return defaults.bool(forKey: autoLoadCaptchaKey)
+    }
+
+    var postOnCaptchaCompletion: Bool {
+        get { defaults.bool(forKey: postOnCaptchaCompletionKey) }
+        set { defaults.set(newValue, forKey: postOnCaptchaCompletionKey) }
+    }
+
+    var dumpModeEnabled: Bool {
+        get { defaults.bool(forKey: dumpModeEnabledKey) }
+        set { defaults.set(newValue, forKey: dumpModeEnabledKey) }
+    }
+
+    var manualCaptchaMode: Bool {
+        get { defaults.bool(forKey: manualCaptchaModeKey) }
+        set { defaults.set(newValue, forKey: manualCaptchaModeKey) }
+    }
+
+    var sizeIndex: Int {
+        get {
+            let stored = defaults.integer(forKey: sizeIndexKey)
+            return min(max(stored, 0), 2)
+        }
+        set { defaults.set(min(max(newValue, 0), 2), forKey: sizeIndexKey) }
+    }
+
+    var commentHeight: CGFloat {
+        switch sizeIndex {
+        case 0: return 110
+        case 2: return 230
+        default: return 160
+        }
+    }
+
+    var personas: [QuickReplyPersona] {
+        guard let data = defaults.data(forKey: personasKey),
+              let decoded = try? JSONDecoder().decode([QuickReplyPersona].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    var selectedPersonaID: String? {
+        get { defaults.string(forKey: selectedPersonaIDKey) }
+        set {
+            if let newValue = newValue {
+                defaults.set(newValue, forKey: selectedPersonaIDKey)
+            } else {
+                defaults.removeObject(forKey: selectedPersonaIDKey)
+            }
+        }
+    }
+
+    var selectedPersona: QuickReplyPersona? {
+        guard let id = selectedPersonaID else { return nil }
+        return personas.first { $0.id == id }
+    }
+
+    func save(persona: QuickReplyPersona) {
+        var updated = personas.filter { $0.id != persona.id }
+        updated.append(persona)
+        if let data = try? JSONEncoder().encode(updated) {
+            defaults.set(data, forKey: personasKey)
+        }
     }
 }
 

@@ -31,12 +31,6 @@ class PostingManager {
             return
         }
 
-        // Check authentication
-        guard PassAuthManager.shared.isAuthenticated else {
-            completion(.failure(.notAuthenticated))
-            return
-        }
-
         // Validate post data
         if let validationError = validatePost(postData) {
             completion(.failure(validationError))
@@ -104,6 +98,14 @@ class PostingManager {
                 multipartFormData.append("on".data(using: .utf8)!, withName: "spoiler")
             }
 
+            if let captchaChallenge = postData.captchaChallenge, !captchaChallenge.isEmpty {
+                multipartFormData.append(captchaChallenge.data(using: .utf8)!, withName: "t-challenge")
+            }
+
+            if let captchaResponse = postData.captchaResponse, !captchaResponse.isEmpty {
+                multipartFormData.append(captchaResponse.data(using: .utf8)!, withName: "t-response")
+            }
+
         }, to: url, headers: headers)
         .responseData { [weak self] response in
             self?.handlePostResponse(response, completion: completion)
@@ -121,6 +123,8 @@ class PostingManager {
     ///   - imageFilename: Optional image filename
     ///   - imageMimeType: Optional image MIME type
     ///   - spoiler: Whether to spoiler the image
+    ///   - captchaChallenge: Captcha challenge id for non-Pass posting
+    ///   - captchaResponse: Captcha response for non-Pass posting
     ///   - completion: Callback with result
     func submitReply(
         board: String,
@@ -132,6 +136,8 @@ class PostingManager {
         imageFilename: String? = nil,
         imageMimeType: String? = nil,
         spoiler: Bool = false,
+        captchaChallenge: String? = nil,
+        captchaResponse: String? = nil,
         completion: @escaping (Result<PostResult, PostingError>) -> Void
     ) {
         let postData = PostData(
@@ -144,7 +150,9 @@ class PostingManager {
             imageData: imageData,
             imageFilename: imageFilename,
             imageMimeType: imageMimeType,
-            spoiler: spoiler
+            spoiler: spoiler,
+            captchaChallenge: captchaChallenge,
+            captchaResponse: captchaResponse
         )
 
         submitPost(postData, completion: completion)
@@ -161,6 +169,8 @@ class PostingManager {
     ///   - imageFilename: Image filename
     ///   - imageMimeType: Image MIME type
     ///   - spoiler: Whether to spoiler the image
+    ///   - captchaChallenge: Captcha challenge id for non-Pass posting
+    ///   - captchaResponse: Captcha response for non-Pass posting
     ///   - completion: Callback with result
     func submitNewThread(
         board: String,
@@ -172,6 +182,8 @@ class PostingManager {
         imageFilename: String,
         imageMimeType: String,
         spoiler: Bool = false,
+        captchaChallenge: String? = nil,
+        captchaResponse: String? = nil,
         completion: @escaping (Result<PostResult, PostingError>) -> Void
     ) {
         let postData = PostData(
@@ -184,7 +196,9 @@ class PostingManager {
             imageData: imageData,
             imageFilename: imageFilename,
             imageMimeType: imageMimeType,
-            spoiler: spoiler
+            spoiler: spoiler,
+            captchaChallenge: captchaChallenge,
+            captchaResponse: captchaResponse
         )
 
         submitPost(postData, completion: completion)
@@ -280,6 +294,13 @@ class PostingManager {
             }
         }
 
+        if !PassAuthManager.shared.isAuthenticated {
+            let challenge = postData.captchaChallenge?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if challenge.isEmpty {
+                return .captchaRequired
+            }
+        }
+
         return nil
     }
 
@@ -323,6 +344,8 @@ class PostingManager {
                 let msg = errorMessage.lowercased()
                 if msg.contains("banned") {
                     completion(.failure(.banned))
+                } else if msg.contains("captcha") || msg.contains("verification") {
+                    completion(.failure(.invalidCaptcha))
                 } else if msg.contains("wait") || msg.contains("flood") {
                     completion(.failure(.rateLimited))
                 } else if msg.contains("closed") {
