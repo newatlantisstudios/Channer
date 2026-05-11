@@ -21,11 +21,13 @@ struct ThreadData: Codable {
     var categoryId: String? // Category ID for organizing favorites
     let lastReplyTime: Int? // Unix timestamp of last reply for sorting
     var bumpIndex: Int? // Original board bump order (position from top)
+    var boardPage: Int? // 4chan catalog page where the thread was last seen
+    var purgePosition: Int? // Approximate bump-order position, useful for purge risk
     var isDead: Bool = false // Flag to indicate thread no longer exists (404)
 
     // Custom coding keys to include all properties
     enum CodingKeys: String, CodingKey {
-        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId, lastReplyTime, bumpIndex, isDead
+        case number, stats, title, comment, imageUrl, boardAbv, replies, currentReplies, createdAt, hasNewReplies, categoryId, lastReplyTime, bumpIndex, boardPage, purgePosition, isDead
     }
 
     // Initializer from JSON
@@ -64,6 +66,8 @@ struct ThreadData: Codable {
                 self.lastReplyTime = ThreadData.postUnixTimestamp(from: firstPost)
             }
             self.bumpIndex = nil // This will be set based on position in board
+            self.boardPage = nil
+            self.purgePosition = nil
         } else {
             self.number = ""
             self.stats = "0/0"
@@ -74,6 +78,8 @@ struct ThreadData: Codable {
             self.createdAt = ""
             self.lastReplyTime = nil
             self.bumpIndex = nil
+            self.boardPage = nil
+            self.purgePosition = nil
         }
     }
 
@@ -90,10 +96,12 @@ struct ThreadData: Codable {
         self.categoryId = categoryId
         self.lastReplyTime = nil
         self.bumpIndex = nil
+        self.boardPage = nil
+        self.purgePosition = nil
     }
     
     // Extended initializer including all properties
-    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil, lastReplyTime: Int? = nil, bumpIndex: Int? = nil, isDead: Bool = false) {
+    init(number: String, stats: String, title: String, comment: String, imageUrl: String, boardAbv: String, replies: Int, currentReplies: Int? = nil, createdAt: String, hasNewReplies: Bool = false, categoryId: String? = nil, lastReplyTime: Int? = nil, bumpIndex: Int? = nil, boardPage: Int? = nil, purgePosition: Int? = nil, isDead: Bool = false) {
         self.number = number
         self.stats = stats
         self.title = title
@@ -107,6 +115,8 @@ struct ThreadData: Codable {
         self.categoryId = categoryId
         self.lastReplyTime = lastReplyTime
         self.bumpIndex = bumpIndex
+        self.boardPage = boardPage
+        self.purgePosition = purgePosition
         self.isDead = isDead
     }
 
@@ -560,6 +570,10 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     @objc private func thumbnailSizeDidChange() {
         tableView.reloadData()
     }
+
+    @objc private func threadUnreadCountDidChange() {
+        tableView.reloadData()
+    }
     
     // MARK: - Properties
     // This section contains properties and variables used throughout the class,
@@ -631,6 +645,10 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         NotificationCenter.default.addObserver(self,
                                              selector: #selector(thumbnailSizeDidChange),
                                              name: .thumbnailSizeDidChange,
+                                             object: nil)
+        NotificationCenter.default.addObserver(self,
+                                             selector: #selector(threadUnreadCountDidChange),
+                                             name: ThreadReadStateManager.unreadCountDidChangeNotification,
                                              object: nil)
         
         print("=== boardTV viewDidLoad ===")
@@ -1275,7 +1293,8 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         let serialQueue = DispatchQueue(label: "com.channer.threadDataQueue")
     
         let threadListURLs = BoardsService.shared.threadListURLs(for: boardAbv, totalPages: totalPages)
-        for url in threadListURLs {
+        for (pageOffset, url) in threadListURLs.enumerated() {
+            let page = pageOffset + 1
             dispatchGroup.enter()
 
             BoardsService.shared.fetchData(from: url) { response in
@@ -1284,8 +1303,16 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                 switch response {
                 case .success(let dataResponse):
                     do {
-                        let pageThreads = try ThreadData.parseThreadList(from: dataResponse.data, boardAbv: self.boardAbv)
+                        var pageThreads = try ThreadData.parseThreadList(from: dataResponse.data, boardAbv: self.boardAbv)
                         if !pageThreads.isEmpty {
+                            let pageThreadCount = pageThreads.count
+                            pageThreads = pageThreads.enumerated().map { index, thread in
+                                var thread = thread
+                                thread.bumpIndex = (page - 1) * pageThreadCount + index
+                                thread.boardPage = page
+                                thread.purgePosition = thread.bumpIndex.map { $0 + 1 }
+                                return thread
+                            }
                             serialQueue.sync {
                                 newThreadData.append(contentsOf: pageThreads)
                             }

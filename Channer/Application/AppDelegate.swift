@@ -275,6 +275,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                             var replyPreview = ""
                             var latestReplyNo: String? = nil
                             if let posts = json["posts"].array, posts.count > 1 {
+                                let postNumbers = posts.map { $0["no"].stringValue }.filter { !$0.isEmpty }
+                                ThreadReadStateManager.shared.updateThread(
+                                    boardAbv: favorite.boardAbv,
+                                    threadNumber: favorite.number,
+                                    postNumbers: postNumbers,
+                                    boardPage: favorite.boardPage,
+                                    purgePosition: favorite.purgePosition,
+                                    replyCount: currentReplies,
+                                    imageCount: firstPost["images"].int
+                                )
+                                ThreadReadStateManager.shared.markUnread(
+                                    boardAbv: favorite.boardAbv,
+                                    threadNumber: favorite.number,
+                                    postNumbers: Array(postNumbers.suffix(newReplies))
+                                )
+
                                 // Get the last post (most recent reply)
                                 let latestPost = posts[posts.count - 1]
                                 let hasImage = latestPost["tim"].exists()
@@ -644,10 +660,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         // Use NotificationManager's unread count for badge
         let notificationBadgeCount = NotificationManager.shared.getUnreadCount()
+        let threadUnreadCount = ThreadReadStateManager.shared.totalUnreadCount()
 
         // Update the application badge
         DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = notificationBadgeCount
+            UIApplication.shared.applicationIconBadgeNumber = notificationBadgeCount + threadUnreadCount
         }
     }
     

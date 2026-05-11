@@ -431,6 +431,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var newPostCount: Int = 0
     /// UserDefaults key for new post behavior setting
     private let newPostBehaviorKey = "channer_new_post_behavior"
+    private var unreadPostNumbers = Set<String>()
+    private var firstUnreadPostNumber: String?
+    private var newPosterPostNumbers = Set<String>()
+    private var prunedPostNumbers = Set<String>()
 
     // MARK: - Jump to New Posts Button
     /// Floating button shown when new posts are detected
@@ -620,13 +624,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
         if !threadNumber.isEmpty { // Use threadNumber instead of threadID
+            markThreadReadThroughVisibleContent()
             FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
             FavoritesManager.shared.clearNewRepliesFlag(threadNumber: threadNumber)
             
             // Update application badge count
             DispatchQueue.main.async {
                 let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-                let badgeCount = notificationsEnabled ? NotificationManager.shared.getUnreadCount() : 0
+                let badgeCount = notificationsEnabled ? NotificationManager.shared.getUnreadCount() + ThreadReadStateManager.shared.totalUnreadCount() : 0
                 UIApplication.shared.applicationIconBadgeNumber = badgeCount
             }
         }
@@ -1128,13 +1133,21 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
               scrollToPostNumber == nil,
               !threadNumber.isEmpty,
               !boardAbv.isEmpty,
-              tableView.numberOfRows(inSection: 0) > 0,
-              let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+              tableView.numberOfRows(inSection: 0) > 0 else {
             return
         }
 
         hasRestoredSavedScrollPosition = true
         tableView.layoutIfNeeded()
+
+        guard let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
+            if let firstUnreadPostNumber,
+               let index = threadBoardReplyNumber.firstIndex(of: firstUnreadPostNumber),
+               index < tableView.numberOfRows(inSection: 0) {
+                tableView.scrollToRow(at: IndexPath(row: index, section: 0), at: .top, animated: false)
+            }
+            return
+        }
 
         if let index = restoreIndex(for: position) {
             let indexPath = IndexPath(row: index, section: 0)
@@ -1364,6 +1377,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 },
                 ThreadMoreOption(title: "Bottom", subtitle: "Jump to the newest loaded reply", systemImageName: "arrow.down.to.line") { [weak self] in
                     self?.down()
+                },
+                ThreadMoreOption(title: "Prune Read Replies", subtitle: "Hide replies already marked read", systemImageName: "scissors") { [weak self] in
+                    self?.pruneReadReplies()
+                },
+                ThreadMoreOption(title: "Restore Pruned Replies", subtitle: "Show replies hidden by pruning", systemImageName: "arrow.uturn.backward") { [weak self] in
+                    self?.restorePrunedReplies()
                 },
                 ThreadMoreOption(title: showSpoilers ? "Hide Spoilers" : "Show Spoilers", subtitle: "Toggle spoiler visibility", systemImageName: showSpoilers ? "eye.slash" : "eye") { [weak self] in
                     self?.toggleSpoilers()
@@ -1624,11 +1643,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Table View Data Source Methods
     /// Methods required to display data in the table view
     private func actualIndex(for indexPath: IndexPath) -> Int? {
-        guard isSearchActive && !searchText.isEmpty else { return indexPath.row }
-
         var visibleIndex = 0
         for dataIndex in 0..<threadReplies.count {
-            if !searchFilteredIndices.contains(dataIndex) {
+            let postNumber = dataIndex < threadBoardReplyNumber.count ? threadBoardReplyNumber[dataIndex] : nil
+            let isPruned = postNumber.map { prunedPostNumbers.contains($0) } ?? false
+            let isSearchFiltered = isSearchActive && !searchText.isEmpty && searchFilteredIndices.contains(dataIndex)
+            if !isPruned && !isSearchFiltered {
                 if visibleIndex == indexPath.row {
                     return dataIndex
                 }
@@ -1650,10 +1670,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // If search is active, only count unfiltered rows
         if isSearchActive && !searchText.isEmpty {
-            return threadReplies.count - searchFilteredIndices.count
+            return (0..<threadReplies.count).filter { index in
+                let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
+                let isPruned = postNumber.map { prunedPostNumbers.contains($0) } ?? false
+                return !isPruned && !searchFilteredIndices.contains(index)
+            }.count
         }
         
-        return threadReplies.count
+        return threadReplies.indices.filter { index in
+            let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
+            return !(postNumber.map { prunedPostNumbers.contains($0) } ?? false)
+        }.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -1720,6 +1747,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
             // Pass subject only for the first cell (OP)
             let subject = actualIndex == 0 ? threadSubject : nil
+            let isLastReadBoundary = firstUnreadPostNumber == boardNumber
+            let isNewPosterAfterRead = newPosterPostNumbers.contains(boardNumber)
 
             // Configure the cell with text and other details
             cell.configure(withImage: hasImage,
@@ -1727,7 +1756,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                            boardNumber: boardNumber,
                            isFiltered: isFiltered,
                            replyCount: replyCount,
-                           subject: subject)
+                           subject: subject,
+                           isLastReadBoundary: isLastReadBoundary,
+                           isNewPosterAfterRead: isNewPosterAfterRead)
             
             // Set the attributed text based on whether the cell has an image
             if hasImage {
@@ -2309,12 +2340,102 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Finalize thread structure
         structureThreadReplies()
+        updateReadStateFromLoadedPosts()
 
         // Check for new replies to watched posts
         checkWatchedPostsForNewReplies()
 
         // Check watch rules for new matches
         checkWatchRulesForNewMatches()
+    }
+
+    private func updateReadStateFromLoadedPosts() {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return }
+
+        let state = ThreadReadStateManager.shared.updateThread(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumbers: threadBoardReplyNumber,
+            replyCount: replyCount,
+            imageCount: totalImagesInThread
+        )
+
+        unreadPostNumbers = state.unreadPostNumbers
+        prunedPostNumbers = state.prunedPostNumbers
+        firstUnreadPostNumber = threadBoardReplyNumber.first { unreadPostNumbers.contains($0) }
+        updateNewPosterMarkers()
+        updateUnreadChrome()
+    }
+
+    private func updateNewPosterMarkers() {
+        newPosterPostNumbers.removeAll()
+        guard let firstUnreadPostNumber,
+              let firstUnreadIndex = threadBoardReplyNumber.firstIndex(of: firstUnreadPostNumber) else {
+            return
+        }
+
+        var seenPosterIds = Set<String>()
+        for index in 0..<postMetadataList.count {
+            guard let posterId = postMetadataList[index].posterId, !posterId.isEmpty else { continue }
+            if index >= firstUnreadIndex && !seenPosterIds.contains(posterId) {
+                newPosterPostNumbers.insert(postMetadataList[index].postNumber)
+            }
+            seenPosterIds.insert(posterId)
+        }
+    }
+
+    private func updateUnreadChrome() {
+        let unreadCount = unreadPostNumbers.count
+        if unreadCount > 0 {
+            title = "(\(unreadCount)) /\(boardAbv)/ \(threadNumber)"
+        } else if title?.isEmpty ?? true {
+            title = "/\(boardAbv)/ \(threadNumber)"
+        }
+    }
+
+    private func markThreadReadThroughVisibleContent() {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return }
+
+        let visibleRows = tableView.indexPathsForVisibleRows ?? []
+        let lastVisibleActualIndex = visibleRows
+            .compactMap { actualIndex(for: $0) }
+            .max()
+
+        let fallbackIndex = threadBoardReplyNumber.indices.last
+        guard let index = lastVisibleActualIndex ?? fallbackIndex,
+              index < threadBoardReplyNumber.count else { return }
+
+        let postNumber = threadBoardReplyNumber[index]
+        ThreadReadStateManager.shared.markReadThrough(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            postNumber: postNumber
+        )
+    }
+
+    private func pruneReadReplies() {
+        guard !threadBoardReplyNumber.isEmpty else { return }
+        let lastReadPostNumber = ThreadReadStateManager.shared.state(boardAbv: boardAbv, threadNumber: threadNumber)?.lastReadPostNumber
+        guard let lastReadPostNumber,
+              let lastReadIndex = threadBoardReplyNumber.firstIndex(of: lastReadPostNumber),
+              lastReadIndex > 1 else {
+            showToast(message: "No read replies to prune")
+            return
+        }
+
+        let unread = unreadPostNumbers
+        let readReplies = threadBoardReplyNumber[1...lastReadIndex].filter { !unread.contains($0) }
+        prunedPostNumbers.formUnion(readReplies)
+        ThreadReadStateManager.shared.setPrunedPostNumbers(prunedPostNumbers, boardAbv: boardAbv, threadNumber: threadNumber)
+        debugReloadData(context: "Prune read replies")
+        showToast(message: "Pruned \(readReplies.count) read replies")
+    }
+
+    private func restorePrunedReplies() {
+        guard !prunedPostNumbers.isEmpty else { return }
+        prunedPostNumbers.removeAll()
+        ThreadReadStateManager.shared.setPrunedPostNumbers([], boardAbv: boardAbv, threadNumber: threadNumber)
+        debugReloadData(context: "Restore pruned replies")
     }
 
     /// Checks watched posts for new replies and creates notifications

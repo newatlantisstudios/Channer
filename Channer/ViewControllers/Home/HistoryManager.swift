@@ -287,3 +287,186 @@ class ThreadScrollPositionManager {
         }
     }
 }
+
+struct ThreadReadState: Codable, Equatable {
+    let boardAbv: String
+    let threadNumber: String
+    var knownPostNumbers: [String]
+    var unreadPostNumbers: Set<String>
+    var lastReadPostNumber: String?
+    var boardPage: Int?
+    var purgePosition: Int?
+    var replyCount: Int?
+    var imageCount: Int?
+    var prunedPostNumbers: Set<String>
+    var updatedAt: Date
+}
+
+class ThreadReadStateManager {
+    static let shared = ThreadReadStateManager()
+    static let unreadCountDidChangeNotification = Notification.Name("ThreadReadStateUnreadCountDidChange")
+
+    private let statesKey = "threadReadStates"
+    private let maxStoredStates = 500
+    private let defaults: UserDefaults
+    private var states: [String: ThreadReadState] = [:]
+    private let lock = NSLock()
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        loadStates()
+    }
+
+    @discardableResult
+    func updateThread(
+        boardAbv: String,
+        threadNumber: String,
+        postNumbers: [String],
+        boardPage: Int? = nil,
+        purgePosition: Int? = nil,
+        replyCount: Int? = nil,
+        imageCount: Int? = nil
+    ) -> ThreadReadState {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
+        var state = states[stateKey] ?? ThreadReadState(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            knownPostNumbers: [],
+            unreadPostNumbers: [],
+            lastReadPostNumber: nil,
+            boardPage: nil,
+            purgePosition: nil,
+            replyCount: nil,
+            imageCount: nil,
+            prunedPostNumbers: [],
+            updatedAt: Date()
+        )
+
+        let known = Set(state.knownPostNumbers)
+        let newPosts = postNumbers.filter { !known.contains($0) }
+        if !state.knownPostNumbers.isEmpty {
+            state.unreadPostNumbers.formUnion(newPosts)
+        }
+
+        let currentPosts = Set(postNumbers)
+        state.unreadPostNumbers = state.unreadPostNumbers.intersection(currentPosts)
+        state.prunedPostNumbers = state.prunedPostNumbers.intersection(currentPosts)
+        state.knownPostNumbers = postNumbers
+        state.boardPage = boardPage ?? state.boardPage
+        state.purgePosition = purgePosition ?? state.purgePosition
+        state.replyCount = replyCount ?? state.replyCount
+        state.imageCount = imageCount ?? state.imageCount
+        state.updatedAt = Date()
+
+        states[stateKey] = state
+        pruneOldStatesIfNeeded()
+        persistStates()
+        postUnreadCountDidChange()
+        return state
+    }
+
+    func state(boardAbv: String, threadNumber: String) -> ThreadReadState? {
+        lock.lock()
+        defer { lock.unlock() }
+        return states[key(boardAbv: boardAbv, threadNumber: threadNumber)]
+    }
+
+    func markReadThrough(boardAbv: String, threadNumber: String, postNumber: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
+        guard var state = states[stateKey] else { return }
+
+        if let index = state.knownPostNumbers.firstIndex(of: postNumber) {
+            let readPosts = Set(state.knownPostNumbers.prefix(through: index))
+            state.unreadPostNumbers.subtract(readPosts)
+        } else {
+            state.unreadPostNumbers.remove(postNumber)
+        }
+
+        state.lastReadPostNumber = postNumber
+        state.updatedAt = Date()
+        states[stateKey] = state
+        persistStates()
+        postUnreadCountDidChange()
+    }
+
+    func markUnread(boardAbv: String, threadNumber: String, postNumbers: [String]) {
+        guard !postNumbers.isEmpty else { return }
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
+        guard var state = states[stateKey] else { return }
+        state.unreadPostNumbers.formUnion(postNumbers)
+        state.unreadPostNumbers = state.unreadPostNumbers.intersection(Set(state.knownPostNumbers))
+        state.updatedAt = Date()
+        states[stateKey] = state
+        persistStates()
+        postUnreadCountDidChange()
+    }
+
+    func setPrunedPostNumbers(_ postNumbers: Set<String>, boardAbv: String, threadNumber: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
+        guard var state = states[stateKey] else { return }
+        state.prunedPostNumbers = postNumbers.intersection(Set(state.knownPostNumbers))
+        state.updatedAt = Date()
+        states[stateKey] = state
+        persistStates()
+    }
+
+    func unreadCount(boardAbv: String, threadNumber: String) -> Int {
+        state(boardAbv: boardAbv, threadNumber: threadNumber)?.unreadPostNumbers.count ?? 0
+    }
+
+    func totalUnreadCount() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return states.values.reduce(0) { $0 + $1.unreadPostNumbers.count }
+    }
+
+    private func key(boardAbv: String, threadNumber: String) -> String {
+        "\(boardAbv)/\(threadNumber)"
+    }
+
+    private func loadStates() {
+        guard let data = defaults.data(forKey: statesKey),
+              let savedStates = try? JSONDecoder().decode([String: ThreadReadState].self, from: data) else {
+            states = [:]
+            return
+        }
+        states = savedStates
+    }
+
+    private func persistStates() {
+        guard let data = try? JSONEncoder().encode(states) else { return }
+        defaults.set(data, forKey: statesKey)
+    }
+
+    private func pruneOldStatesIfNeeded() {
+        guard states.count > maxStoredStates else { return }
+
+        let keysToRemove = states
+            .sorted { $0.value.updatedAt < $1.value.updatedAt }
+            .prefix(states.count - maxStoredStates)
+            .map(\.key)
+
+        for key in keysToRemove {
+            states.removeValue(forKey: key)
+        }
+    }
+
+    private func postUnreadCountDidChange() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.unreadCountDidChangeNotification, object: nil)
+        }
+    }
+}

@@ -201,6 +201,28 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         return label
     }()
 
+    let newPosterBadge: UILabel = {
+        let label = UILabel()
+        label.text = "NEW IP"
+        label.font = UIFont.systemFont(ofSize: 11, weight: .bold)
+        label.textAlignment = .center
+        label.textColor = .white
+        label.backgroundColor = UIColor.systemIndigo
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    let lastReadLineView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.systemBlue
+        view.isHidden = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+
     // Reply count label to show how many replies this post has received
     let replyCountLabel: UILabel = {
         let label = UILabel()
@@ -267,6 +289,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         replyCountLabel.isHidden = true
         replyCountLabel.text = nil
         filterBadge.isHidden = true
+        newPosterBadge.isHidden = true
+        lastReadLineView.isHidden = true
         subjectLabel.isHidden = true
         subjectLabel.text = nil
         replyCountTrailingToFilterBadge?.isActive = false
@@ -390,6 +414,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         contentView.addSubview(subjectLabel)
         // Reply bubble button removed - feature moved to long press menu
         contentView.addSubview(filterBadge)
+        contentView.addSubview(newPosterBadge)
+        contentView.addSubview(lastReadLineView)
         contentView.addSubview(replyCountLabel)
     }
 
@@ -414,6 +440,11 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             customBackgroundView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
             customBackgroundView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
 
+            lastReadLineView.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: 18),
+            lastReadLineView.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -18),
+            lastReadLineView.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: 8),
+            lastReadLineView.heightAnchor.constraint(equalToConstant: 3),
+
             imageWidthConstraint!,
             imageHeightConstraint!,
             threadImage.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: sideInset),
@@ -432,6 +463,11 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             filterBadge.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
             filterBadge.widthAnchor.constraint(equalToConstant: 80),
             filterBadge.heightAnchor.constraint(equalToConstant: 24),
+
+            newPosterBadge.topAnchor.constraint(equalTo: filterBadge.bottomAnchor, constant: 4),
+            newPosterBadge.trailingAnchor.constraint(equalTo: filterBadge.trailingAnchor),
+            newPosterBadge.widthAnchor.constraint(equalToConstant: 72),
+            newPosterBadge.heightAnchor.constraint(equalToConstant: 20),
 
             // Reply count label constraints - positioned at top right
             replyCountLabel.topAnchor.constraint(equalTo: customBackgroundView.topAnchor, constant: cornerInset),
@@ -477,7 +513,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0, subject: String? = nil) {
+    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0, subject: String? = nil, isLastReadBoundary: Bool = false, isNewPosterAfterRead: Bool = false) {
         print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
@@ -519,6 +555,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         }
 
         boardReplyCount.text = boardNumber
+        lastReadLineView.isHidden = !isLastReadBoundary
+        newPosterBadge.isHidden = !isNewPosterAfterRead
 
         // Handle filtered content
         if isFiltered {

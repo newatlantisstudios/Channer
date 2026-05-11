@@ -402,18 +402,28 @@ class boardTVCell: UITableViewCell {
     private func displayStats(for thread: ThreadData, isFavoritesView: Bool) -> String {
         let imageCount = thread.stats.split(separator: "/").last.map(String.init)
         let replyCount = thread.currentReplies ?? thread.replies
-        let statsText: String
+        var parts: [String] = []
 
         if let imageCount {
-            statsText = "\(replyCount)/\(imageCount)"
+            parts.append("\(replyCount)/\(imageCount)")
         } else {
-            statsText = thread.stats
+            parts.append(thread.stats)
         }
 
-        guard isFavoritesView else {
-            return statsText
+        let unreadCount = ThreadReadStateManager.shared.unreadCount(boardAbv: thread.boardAbv, threadNumber: thread.number)
+        if unreadCount > 0 {
+            parts.append("+\(unreadCount)")
         }
-        return statsText
+
+        if let page = thread.boardPage {
+            parts.append("p\(page)")
+        }
+
+        if let purgePosition = thread.purgePosition {
+            parts.append("#\(purgePosition)")
+        }
+
+        return parts.joined(separator: " ")
     }
     
     private func formatText(_ text: String) -> NSAttributedString {

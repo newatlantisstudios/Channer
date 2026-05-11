@@ -311,6 +311,24 @@ class BackgroundTaskManager {
                 var replyPreview = ""
                 var latestReplyNo: String? = nil
                 if let posts = json["posts"].array, posts.count > 1 {
+                    let postNumbers = posts.map { $0["no"].stringValue }.filter { !$0.isEmpty }
+                    await MainActor.run {
+                        ThreadReadStateManager.shared.updateThread(
+                            boardAbv: favorite.boardAbv,
+                            threadNumber: favorite.number,
+                            postNumbers: postNumbers,
+                            boardPage: favorite.boardPage,
+                            purgePosition: favorite.purgePosition,
+                            replyCount: currentReplies,
+                            imageCount: firstPost["images"].int
+                        )
+                        ThreadReadStateManager.shared.markUnread(
+                            boardAbv: favorite.boardAbv,
+                            threadNumber: favorite.number,
+                            postNumbers: Array(postNumbers.suffix(newReplies))
+                        )
+                    }
+
                     let latestPost = posts[posts.count - 1]
                     let hasImage = latestPost["tim"].exists()
 
@@ -720,7 +738,7 @@ class BackgroundTaskManager {
             return
         }
 
-        let badgeCount = NotificationManager.shared.getUnreadCount()
+        let badgeCount = NotificationManager.shared.getUnreadCount() + ThreadReadStateManager.shared.totalUnreadCount()
 
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = badgeCount
