@@ -15,6 +15,7 @@ enum PushNotificationOption: String, CaseIterable, Codable {
     case savedSearches
     case watchedPosts
     case repliesToYourPosts
+    case watchRules
 
     var title: String {
         switch self {
@@ -26,6 +27,8 @@ enum PushNotificationOption: String, CaseIterable, Codable {
             return "Watched Posts"
         case .repliesToYourPosts:
             return "Reply to Your Posts"
+        case .watchRules:
+            return "Watch Rules"
         }
     }
 
@@ -39,6 +42,8 @@ enum PushNotificationOption: String, CaseIterable, Codable {
             return "Replies to posts you watch"
         case .repliesToYourPosts:
             return "Replies to posts you made"
+        case .watchRules:
+            return "New matches for watch rules"
         }
     }
 
@@ -52,6 +57,8 @@ enum PushNotificationOption: String, CaseIterable, Codable {
             return .watchedPostReply
         case .repliesToYourPosts:
             return .myPostReply
+        case .watchRules:
+            return .watchRuleMatch
         }
     }
 }
@@ -259,16 +266,17 @@ class NotificationManager {
     /// Gets the count of unread notifications
     /// Thread-safe method that ensures UserDefaults access on main thread
     /// - Returns: Number of unread notifications
-    func getUnreadCount() -> Int {
+    func getUnreadCount(respectingPushPreferences: Bool = false) -> Int {
         // Ensure we're on the main thread when accessing UserDefaults
         if !Thread.isMainThread {
             var count = 0
             DispatchQueue.main.sync {
-                count = getNotifications().filter { !$0.isRead }.count
+                count = getUnreadCount(respectingPushPreferences: respectingPushPreferences)
             }
             return count
         }
-        return getNotifications().filter { !$0.isRead }.count
+        let notifications = respectingPushPreferences ? getNotificationsForEnabledPushOptions() : getNotifications()
+        return notifications.filter { !$0.isRead }.count
     }
 
     // MARK: - Filtering & Grouping
@@ -282,8 +290,8 @@ class NotificationManager {
 
     /// Gets notifications grouped by type for sectioned display
     /// - Returns: Dictionary with notification type as key and array of notifications as value
-    func getNotificationsGroupedByType() -> [NotificationType: [ReplyNotification]] {
-        let allNotifications = getNotifications()
+    func getNotificationsGroupedByType(respectingPushPreferences: Bool = false) -> [NotificationType: [ReplyNotification]] {
+        let allNotifications = respectingPushPreferences ? getNotificationsForEnabledPushOptions() : getNotifications()
         var grouped: [NotificationType: [ReplyNotification]] = [:]
 
         for type in [NotificationType.myPostReply, .threadUpdate, .savedSearchAlert, .watchedPostReply, .watchRuleMatch] {
@@ -294,6 +302,17 @@ class NotificationManager {
         }
 
         return grouped
+    }
+
+    /// Gets notifications that match the user's enabled notification categories.
+    /// This is used by the in-app notifications screen so it mirrors push notification preferences.
+    func getNotificationsForEnabledPushOptions() -> [ReplyNotification] {
+        guard UserDefaults.standard.bool(forKey: Self.notificationsEnabledKey) else {
+            return []
+        }
+
+        let enabledTypes = Set(enabledPushNotificationOptions.map { $0.notificationType })
+        return getNotifications().filter { enabledTypes.contains($0.notificationType) }
     }
 
     // MARK: - Push Notification Preferences

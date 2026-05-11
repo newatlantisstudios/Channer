@@ -567,7 +567,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             return
         }
         
-        let unreadCount = NotificationManager.shared.getUnreadCount()
+        let unreadCount = NotificationManager.shared.getUnreadCount(respectingPushPreferences: true)
         
         if let notificationButton = navigationItem.rightBarButtonItems?.first(where: { $0.tag == 100 }) {
             // Create a properly sized icon
