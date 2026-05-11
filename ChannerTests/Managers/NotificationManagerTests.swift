@@ -11,11 +11,22 @@ import XCTest
 class NotificationManagerTests: XCTestCase {
 
     var manager: NotificationManager!
+    private var originalNotificationsEnabled: Any?
+    private var originalEnabledPushOptions: Any?
+    private var originalLegacyPushPreference: Any?
 
     // MARK: - Setup & Teardown
 
     override func setUp() {
         super.setUp()
+
+        originalNotificationsEnabled = UserDefaults.standard.object(forKey: NotificationManager.notificationsEnabledKey)
+        originalEnabledPushOptions = UserDefaults.standard.object(forKey: NotificationManager.enabledPushNotificationOptionsKey)
+        originalLegacyPushPreference = UserDefaults.standard.object(forKey: NotificationManager.pushNotificationPreferenceKey)
+
+        UserDefaults.standard.set(true, forKey: NotificationManager.notificationsEnabledKey)
+        UserDefaults.standard.removeObject(forKey: NotificationManager.enabledPushNotificationOptionsKey)
+        UserDefaults.standard.removeObject(forKey: NotificationManager.pushNotificationPreferenceKey)
 
         // Get manager instance
         manager = NotificationManager.shared
@@ -27,9 +38,20 @@ class NotificationManagerTests: XCTestCase {
     override func tearDown() {
         // Clean up
         manager.clearAllNotifications()
+        restoreUserDefault(originalNotificationsEnabled, forKey: NotificationManager.notificationsEnabledKey)
+        restoreUserDefault(originalEnabledPushOptions, forKey: NotificationManager.enabledPushNotificationOptionsKey)
+        restoreUserDefault(originalLegacyPushPreference, forKey: NotificationManager.pushNotificationPreferenceKey)
         manager = nil
 
         super.tearDown()
+    }
+
+    private func restoreUserDefault(_ value: Any?, forKey key: String) {
+        if let value = value {
+            UserDefaults.standard.set(value, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     // MARK: - Initialization Tests
@@ -158,11 +180,11 @@ class NotificationManagerTests: XCTestCase {
     func testNotificationManagerGetNotificationsSortedByDate() {
         // Arrange
         let old = TestDataFactory.createTestNotification(replyNo: "old")
+        Thread.sleep(forTimeInterval: 0.1) // Small delay to ensure different timestamps
         let new = TestDataFactory.createTestNotification(replyNo: "new")
 
         // Add in reverse chronological order
         manager.addNotification(old)
-        Thread.sleep(forTimeInterval: 0.1) // Small delay to ensure different timestamps
         manager.addNotification(new)
 
         // Act
@@ -386,6 +408,95 @@ class NotificationManagerTests: XCTestCase {
         // Assert
         XCTAssertCount(threadNotifications, 1, "Should only return notifications for board 'g'")
         XCTAssertEqual(threadNotifications.first?.boardAbv, "g", "Should be from board 'g'")
+    }
+
+    // MARK: - Push Preference Filtering Tests
+
+    func testNotificationManagerShouldSendPushNotificationForEnabledWatchRules() {
+        // Arrange
+        manager.enabledPushNotificationOptions = [.watchRules]
+
+        // Act & Assert
+        XCTAssertTrue(manager.shouldSendPushNotification(for: .watchRuleMatch), "Watch rule pushes should follow the watch rules option")
+        XCTAssertFalse(manager.shouldSendPushNotification(for: .threadUpdate), "Disabled notification types should not send pushes")
+    }
+
+    func testNotificationManagerGroupedNotificationsRespectPushPreferences() {
+        // Arrange
+        manager.enabledPushNotificationOptions = [.watchedPosts]
+        let watchedPostNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "12345",
+            replyNo: "67890",
+            replyToNo: "11111",
+            replyText: "Watched post reply",
+            notificationType: .watchedPostReply
+        )
+        let threadUpdateNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "22222",
+            replyNo: "33333",
+            replyToNo: "",
+            replyText: "Thread update",
+            notificationType: .threadUpdate
+        )
+        manager.addNotification(watchedPostNotification)
+        manager.addNotification(threadUpdateNotification)
+
+        // Act
+        let groupedNotifications = manager.getNotificationsGroupedByType(respectingPushPreferences: true)
+
+        // Assert
+        XCTAssertEqual(groupedNotifications[.watchedPostReply]?.count, 1, "Enabled notification types should be shown")
+        XCTAssertNil(groupedNotifications[.threadUpdate], "Disabled notification types should be hidden")
+    }
+
+    func testNotificationManagerUnreadCountCanRespectPushPreferences() {
+        // Arrange
+        manager.enabledPushNotificationOptions = [.watchedPosts]
+        let watchedPostNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "12345",
+            replyNo: "67890",
+            replyToNo: "11111",
+            replyText: "Watched post reply",
+            notificationType: .watchedPostReply
+        )
+        let threadUpdateNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "22222",
+            replyNo: "33333",
+            replyToNo: "",
+            replyText: "Thread update",
+            notificationType: .threadUpdate
+        )
+        manager.addNotification(watchedPostNotification)
+        manager.addNotification(threadUpdateNotification)
+
+        // Act & Assert
+        XCTAssertEqual(manager.getUnreadCount(), 2, "The default unread count should include all notifications")
+        XCTAssertEqual(manager.getUnreadCount(respectingPushPreferences: true), 1, "Preference-aware unread count should only include enabled notification types")
+    }
+
+    func testNotificationManagerGroupedNotificationsHideAllWhenNotificationsDisabled() {
+        // Arrange
+        manager.enabledPushNotificationOptions = Set(PushNotificationOption.allCases)
+        let notification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "12345",
+            replyNo: "67890",
+            replyToNo: "11111",
+            replyText: "Watched post reply",
+            notificationType: .watchedPostReply
+        )
+        manager.addNotification(notification)
+        UserDefaults.standard.set(false, forKey: NotificationManager.notificationsEnabledKey)
+
+        // Act
+        let groupedNotifications = manager.getNotificationsGroupedByType(respectingPushPreferences: true)
+
+        // Assert
+        XCTAssertTrue(groupedNotifications.isEmpty, "The notification center should hide notifications when notifications are disabled")
     }
 
     // MARK: - Persistence Tests

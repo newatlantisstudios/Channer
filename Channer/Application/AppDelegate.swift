@@ -659,7 +659,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         // Use NotificationManager's unread count for badge
-        let notificationBadgeCount = NotificationManager.shared.getUnreadCount()
+        let notificationBadgeCount = NotificationManager.shared.getUnreadCount(respectingPushPreferences: true)
         let threadUnreadCount = ThreadReadStateManager.shared.totalUnreadCount()
 
         // Update the application badge

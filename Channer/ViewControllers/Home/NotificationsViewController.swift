@@ -65,6 +65,12 @@ class NotificationsViewController: UITableViewController {
             name: .notificationDataChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationDataChanged),
+            name: .pushNotificationSettingsChanged,
+            object: nil
+        )
 
         // Load notifications
         loadNotifications()
@@ -132,7 +138,7 @@ class NotificationsViewController: UITableViewController {
     }
 
     private func loadNotifications() {
-        groupedNotifications = NotificationManager.shared.getNotificationsGroupedByType()
+        groupedNotifications = NotificationManager.shared.getNotificationsGroupedByType(respectingPushPreferences: true)
 
         // Build active sections in the correct order
         activeSections = sectionOrder.filter { groupedNotifications[$0] != nil }

@@ -738,7 +738,7 @@ class BackgroundTaskManager {
             return
         }
 
-        let badgeCount = NotificationManager.shared.getUnreadCount() + ThreadReadStateManager.shared.totalUnreadCount()
+        let badgeCount = NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount()
 
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = badgeCount
