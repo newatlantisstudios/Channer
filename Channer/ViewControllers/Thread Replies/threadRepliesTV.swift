@@ -3333,6 +3333,35 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }))
         }
 
+        // XT-style post utility links
+        actionSheet.addAction(UIAlertAction(title: "Report Post", style: .default, handler: { [weak self] _ in
+            self?.openReportLink(for: postNo)
+        }))
+
+        actionSheet.addAction(UIAlertAction(title: "Copy Text", style: .default, handler: { [weak self] _ in
+            self?.copyPostText(at: indexPath.row)
+        }))
+
+        if archiveURL(forPostNumber: postNo) != nil {
+            actionSheet.addAction(UIAlertAction(title: "Archive", style: .default, handler: { [weak self] _ in
+                self?.openArchiveLink(for: postNo)
+            }))
+        }
+
+        actionSheet.addAction(UIAlertAction(title: "Delete Post...", style: .destructive, handler: { [weak self] _ in
+            self?.showDeletePrompt(postNumber: postNo, imageOnly: false)
+        }))
+
+        if metadata?.hasAttachment == true {
+            actionSheet.addAction(UIAlertAction(title: "Delete Image...", style: .destructive, handler: { [weak self] _ in
+                self?.showDeletePrompt(postNumber: postNo, imageOnly: true)
+            }))
+
+            actionSheet.addAction(UIAlertAction(title: "Edit Image in Tegaki", style: .default, handler: { [weak self] _ in
+                self?.openTegakiEditLink(for: indexPath.row)
+            }))
+        }
+
         // Watch for replies option
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
         let watchTitle = isWatching ? "Stop Watching for Replies" : "Watch for Replies"
@@ -3482,6 +3511,191 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
 
+    private enum XTArchiveSoftware {
+        case fuuka
+        case foolfuuka
+    }
+
+    private struct XTArchive {
+        let domain: String
+        let software: XTArchiveSoftware
+        let boards: Set<String>
+    }
+
+    private static let xtArchives: [XTArchive] = [
+        XTArchive(
+            domain: "archive.4plebs.org",
+            software: .foolfuuka,
+            boards: Set(["adv", "f", "hr", "mlpol", "mo", "o", "pol", "s4s", "sp", "tg", "trv", "tv", "x"])
+        ),
+        XTArchive(
+            domain: "warosu.org",
+            software: .fuuka,
+            boards: Set(["3", "biz", "cgl", "ck", "diy", "fa", "ic", "jp", "lit", "sci", "vr", "vt"])
+        ),
+        XTArchive(
+            domain: "desuarchive.org",
+            software: .foolfuuka,
+            boards: Set(["a", "aco", "an", "c", "cgl", "co", "d", "fit", "g", "his", "int", "k", "m", "mlp", "mu", "q", "qa", "r9k", "tg", "trash", "vr", "wsg"])
+        ),
+        XTArchive(
+            domain: "boards.fireden.net",
+            software: .foolfuuka,
+            boards: Set(["cm", "co", "ic", "sci", "vip", "y"])
+        ),
+        XTArchive(
+            domain: "arch.b4k.dev",
+            software: .foolfuuka,
+            boards: Set(["g", "mlp", "qb", "v", "vg", "vm", "vmg", "vp", "vrpg", "vst"])
+        ),
+        XTArchive(
+            domain: "archived.moe",
+            software: .foolfuuka,
+            boards: Set("3 a aco adv an asp b bant biz c can cgl ck cm co cock con d diy e f fa fap fit fitlit g gd gif h hc his hm hr i ic int jp k lgbt lit m mlp mlpol mo mtv mu n news o out outsoc p po pol pw q qa qb qst r r9k s s4s sci soc sp spa t tg toy trash trv tv u v vg vint vip vm vmg vp vr vrpg vst vt w wg wsg wsr x xs y".split(separator: " ").map(String.init))
+        ),
+        XTArchive(
+            domain: "thebarchive.com",
+            software: .foolfuuka,
+            boards: Set(["b", "bant"])
+        ),
+        XTArchive(
+            domain: "archiveofsins.com",
+            software: .foolfuuka,
+            boards: Set(["h", "hc", "hm", "i", "lgbt", "r", "s", "soc", "t", "u"])
+        ),
+        XTArchive(
+            domain: "archive.palanq.win",
+            software: .foolfuuka,
+            boards: Set(["bant", "c", "con", "e", "i", "n", "news", "out", "p", "pw", "qst", "toy", "vip", "vp", "vt", "w", "wg", "wsr"])
+        ),
+        XTArchive(
+            domain: "eientei.xyz",
+            software: .foolfuuka,
+            boards: Set(["3", "i", "sci", "xs"])
+        )
+    ]
+
+    private func openReportLink(for postNumber: String) {
+        openExternalURL("https://sys.4chan.org/\(boardAbv)/imgboard.php?mode=report&no=\(postNumber)")
+    }
+
+    private func copyPostText(at index: Int) {
+        let rawText: String
+        if index < postMetadataList.count {
+            rawText = postMetadataList[index].comment
+        } else if index < threadReplies.count {
+            rawText = threadReplies[index].string
+        } else {
+            rawText = ""
+        }
+
+        let text = plainText(fromPostHTML: rawText)
+        UIPasteboard.general.string = text
+        showToast(message: text.isEmpty ? "Post has no text to copy" : "Post text copied")
+    }
+
+    private func showDeletePrompt(postNumber: String, imageOnly: Bool) {
+        let title = imageOnly ? "Delete Image" : "Delete Post"
+        let message = "Enter the deletion password for post #\(postNumber)."
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+
+        alert.addTextField { textField in
+            textField.placeholder = "Deletion password"
+            textField.text = PostData.storedDeletionPassword()
+            textField.isSecureTextEntry = true
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: title, style: .destructive, handler: { [weak self, weak alert] _ in
+            let password = alert?.textFields?.first?.text ?? ""
+            self?.deletePost(postNumber: postNumber, password: password, imageOnly: imageOnly)
+        }))
+
+        present(alert, animated: true)
+    }
+
+    private func deletePost(postNumber: String, password: String, imageOnly: Bool) {
+        PostingManager.shared.deletePost(
+            board: boardAbv,
+            postNumber: postNumber,
+            password: password,
+            imageOnly: imageOnly
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self?.showToast(message: imageOnly ? "Image deleted" : "Post deleted")
+                    self?.refresh()
+
+                case .failure(let error):
+                    self?.showToast(message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func openArchiveLink(for postNumber: String) {
+        guard let url = archiveURL(forPostNumber: postNumber) else {
+            showToast(message: "No XT archive configured for /\(boardAbv)/")
+            return
+        }
+
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
+
+    private func archiveURL(forPostNumber postNumber: String) -> URL? {
+        guard let archive = Self.xtArchives.first(where: { $0.boards.contains(boardAbv) }) else {
+            return nil
+        }
+
+        let urlString: String
+        switch archive.software {
+        case .foolfuuka:
+            urlString = "https://\(archive.domain)/\(boardAbv)/thread/\(threadNumber)/#\(postNumber)"
+        case .fuuka:
+            urlString = "https://\(archive.domain)/\(boardAbv)/thread/\(threadNumber)#p\(postNumber)"
+        }
+
+        return URL(string: urlString)
+    }
+
+    private func openTegakiEditLink(for index: Int) {
+        guard index < postMetadataList.count,
+              let imageURL = postMetadataList[index].imageUrl,
+              !imageURL.isEmpty else {
+            showToast(message: "No image available for Tegaki")
+            return
+        }
+
+        UIPasteboard.general.string = imageURL
+        showToast(message: "Image URL copied for Tegaki")
+        openExternalURL("https://boards.4chan.org/\(boardAbv)/thread/\(threadNumber)#p\(postMetadataList[index].postNumber)")
+    }
+
+    private func openExternalURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
+
+    private func plainText(fromPostHTML html: String) -> String {
+        var text = html
+            .replacingOccurrences(of: "<br\\s*/?>", with: "\n", options: .regularExpression)
+            .replacingOccurrences(of: "<wbr>", with: "")
+            .decodingHTMLEntities()
+
+        if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: []) {
+            text = regex.stringByReplacingMatches(
+                in: text,
+                range: NSRange(text.startIndex..., in: text),
+                withTemplate: ""
+            )
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func showSingleArchivedPost(_ post: JSON) {
         let postNumber = post["no"].stringValue
         let imageURL = post["archive_image_url"].stringValue.isEmpty
@@ -3594,6 +3808,44 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 self?.toggleQuote(postNumber: postNo)
             })
         }
+
+        actions.append(UIAction(title: "Report Post", image: UIImage(systemName: "exclamationmark.bubble")) { [weak self] _ in
+            self?.openReportLink(for: postNo)
+        })
+
+        actions.append(UIAction(title: "Copy Text", image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in
+            self?.copyPostText(at: indexPath.row)
+        })
+
+        var xtLinkActions: [UIAction] = []
+        if archiveURL(forPostNumber: postNo) != nil {
+            xtLinkActions.append(UIAction(title: "Archive", image: UIImage(systemName: "archivebox")) { [weak self] _ in
+                self?.openArchiveLink(for: postNo)
+            })
+        }
+
+        if metadata?.hasAttachment == true {
+            xtLinkActions.append(UIAction(title: "Edit Image in Tegaki", image: UIImage(systemName: "pencil.tip")) { [weak self] _ in
+                self?.openTegakiEditLink(for: indexPath.row)
+            })
+        }
+
+        if !xtLinkActions.isEmpty {
+            actions.append(UIMenu(title: "Links", image: UIImage(systemName: "link"), children: xtLinkActions))
+        }
+
+        var deleteActions: [UIAction] = [
+            UIAction(title: "Delete Post...", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+                self?.showDeletePrompt(postNumber: postNo, imageOnly: false)
+            }
+        ]
+
+        if metadata?.hasAttachment == true {
+            deleteActions.append(UIAction(title: "Delete Image...", image: UIImage(systemName: "photo.badge.minus"), attributes: .destructive) { [weak self] _ in
+                self?.showDeletePrompt(postNumber: postNo, imageOnly: true)
+            })
+        }
+        actions.append(UIMenu(title: "Delete", image: UIImage(systemName: "trash"), children: deleteActions))
 
         // Watch for replies
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)

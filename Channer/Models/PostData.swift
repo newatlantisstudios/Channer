@@ -2,6 +2,8 @@ import Foundation
 
 /// Data model for post submission to 4chan
 struct PostData {
+    private static let deletionPasswordKey = "channer_deletion_password"
+
     /// Board abbreviation (e.g., "g", "v", "a")
     let board: String
 
@@ -39,7 +41,24 @@ struct PostData {
 
     /// Generate a random deletion password
     static func generatePassword() -> String {
+        if let existingPassword = UserDefaults.standard.string(forKey: deletionPasswordKey),
+           !existingPassword.isEmpty {
+            return existingPassword
+        }
+
         let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        return String((0..<8).map { _ in characters.randomElement()! })
+        let password = String((0..<8).map { _ in characters.randomElement()! })
+        UserDefaults.standard.set(password, forKey: deletionPasswordKey)
+        return password
+    }
+
+    /// Stored deletion password used for posts submitted from this app.
+    static func storedDeletionPassword() -> String? {
+        guard let password = UserDefaults.standard.string(forKey: deletionPasswordKey),
+              !password.isEmpty else {
+            return nil
+        }
+
+        return password
     }
 }

@@ -190,6 +190,68 @@ class PostingManager {
         submitPost(postData, completion: completion)
     }
 
+    /// Delete a post or only its attached image using 4chan's deletion form.
+    /// - Parameters:
+    ///   - board: Board abbreviation.
+    ///   - postNumber: Post number to delete.
+    ///   - password: Deletion password used when the post was submitted.
+    ///   - imageOnly: Whether to delete only the attached image.
+    ///   - completion: Callback with the deletion result.
+    func deletePost(
+        board: String,
+        postNumber: String,
+        password: String,
+        imageOnly: Bool,
+        completion: @escaping (Result<Void, PostingError>) -> Void
+    ) {
+        guard !board.isEmpty, !postNumber.isEmpty else {
+            completion(.failure(.invalidBoard))
+            return
+        }
+
+        let url = "\(postingBaseURL)/\(board)/imgboard.php"
+
+        var headers: HTTPHeaders = [
+            "Referer": "https://boards.4chan.org/\(board)/",
+            "Origin": "https://boards.4chan.org"
+        ]
+
+        if let cookieHeader = PassAuthManager.shared.getCookieHeader() {
+            headers.add(name: "Cookie", value: cookieHeader)
+        }
+
+        var parameters: [String: String] = [
+            "mode": "usrdel",
+            "pwd": password,
+            postNumber: "delete"
+        ]
+
+        if imageOnly {
+            parameters["onlyimgdel"] = "on"
+        }
+
+        AF.request(url, method: .post, parameters: parameters, encoder: URLEncodedFormParameterEncoder.default, headers: headers)
+            .responseString { [weak self] response in
+                switch response.result {
+                case .success(let htmlString):
+                    if let errorMessage = self?.parseErrorResponse(htmlString) {
+                        completion(.failure(.serverError(errorMessage)))
+                        return
+                    }
+
+                    if htmlString.lowercased().contains("banned") {
+                        completion(.failure(.banned))
+                        return
+                    }
+
+                    completion(.success(()))
+
+                case .failure(let error):
+                    completion(.failure(.networkError(error)))
+                }
+            }
+    }
+
     // MARK: - Private Methods
 
     /// Validate post data before submission
