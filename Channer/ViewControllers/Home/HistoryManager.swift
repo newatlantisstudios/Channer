@@ -392,11 +392,15 @@ class ThreadReadStateManager {
     }
 
     func markReadThrough(boardAbv: String, threadNumber: String, postNumber: String) {
+        let statesSnapshot: [String: ThreadReadState]
+
         lock.lock()
-        defer { lock.unlock() }
 
         let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
-        guard var state = states[stateKey] else { return }
+        guard var state = states[stateKey] else {
+            lock.unlock()
+            return
+        }
 
         if let index = state.knownPostNumbers.firstIndex(of: postNumber) {
             let readPosts = Set(state.knownPostNumbers.prefix(through: index))
@@ -408,36 +412,53 @@ class ThreadReadStateManager {
         state.lastReadPostNumber = postNumber
         state.updatedAt = Date()
         states[stateKey] = state
-        persistStates()
+        statesSnapshot = states
+        lock.unlock()
+
+        persistStatesAsync(statesSnapshot, context: "markReadThrough \(boardAbv)/\(threadNumber)")
         postUnreadCountDidChange()
     }
 
     func markUnread(boardAbv: String, threadNumber: String, postNumbers: [String]) {
         guard !postNumbers.isEmpty else { return }
 
+        let statesSnapshot: [String: ThreadReadState]
+
         lock.lock()
-        defer { lock.unlock() }
 
         let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
-        guard var state = states[stateKey] else { return }
+        guard var state = states[stateKey] else {
+            lock.unlock()
+            return
+        }
         state.unreadPostNumbers.formUnion(postNumbers)
         state.unreadPostNumbers = state.unreadPostNumbers.intersection(Set(state.knownPostNumbers))
         state.updatedAt = Date()
         states[stateKey] = state
-        persistStates()
+        statesSnapshot = states
+        lock.unlock()
+
+        persistStatesAsync(statesSnapshot, context: "markUnread \(boardAbv)/\(threadNumber)")
         postUnreadCountDidChange()
     }
 
     func setPrunedPostNumbers(_ postNumbers: Set<String>, boardAbv: String, threadNumber: String) {
+        let statesSnapshot: [String: ThreadReadState]
+
         lock.lock()
-        defer { lock.unlock() }
 
         let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
-        guard var state = states[stateKey] else { return }
+        guard var state = states[stateKey] else {
+            lock.unlock()
+            return
+        }
         state.prunedPostNumbers = postNumbers.intersection(Set(state.knownPostNumbers))
         state.updatedAt = Date()
         states[stateKey] = state
-        persistStates()
+        statesSnapshot = states
+        lock.unlock()
+
+        persistStatesAsync(statesSnapshot, context: "setPrunedPostNumbers \(boardAbv)/\(threadNumber)")
     }
 
     func unreadCount(boardAbv: String, threadNumber: String) -> Int {

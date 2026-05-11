@@ -644,16 +644,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
         /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
         if !threadNumber.isEmpty { // Use threadNumber instead of threadID
-            markThreadReadThroughVisibleContent()
-            FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
-            FavoritesManager.shared.clearNewRepliesFlag(threadNumber: threadNumber)
-            
-            // Update application badge count
-            DispatchQueue.main.async {
-                let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-                let badgeCount = notificationsEnabled ? NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount() : 0
-                UIApplication.shared.applicationIconBadgeNumber = badgeCount
-            }
+            scheduleThreadExitStateUpdates(readThroughPostNumber: visibleReadThroughPostNumber())
         }
     }
 
@@ -2568,8 +2559,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
     }
 
-    private func markThreadReadThroughVisibleContent() {
-        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return }
+    private func visibleReadThroughPostNumber() -> String? {
+        guard !boardAbv.isEmpty, !threadNumber.isEmpty else { return nil }
 
         let visibleRows = tableView.indexPathsForVisibleRows ?? []
         let lastVisibleActualIndex = visibleRows
@@ -2578,14 +2569,45 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         let fallbackIndex = threadBoardReplyNumber.indices.last
         guard let index = lastVisibleActualIndex ?? fallbackIndex,
-              index < threadBoardReplyNumber.count else { return }
+              index < threadBoardReplyNumber.count else { return nil }
 
-        let postNumber = threadBoardReplyNumber[index]
+        return threadBoardReplyNumber[index]
+    }
+
+    private func markThreadReadThroughVisibleContent() {
+        guard let postNumber = visibleReadThroughPostNumber() else { return }
+
         ThreadReadStateManager.shared.markReadThrough(
             boardAbv: boardAbv,
             threadNumber: threadNumber,
             postNumber: postNumber
         )
+    }
+
+    private func scheduleThreadExitStateUpdates(readThroughPostNumber: String?) {
+        let boardAbv = self.boardAbv
+        let threadNumber = self.threadNumber
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
+
+        DispatchQueue.global(qos: .utility).async {
+            if let readThroughPostNumber {
+                ThreadReadStateManager.shared.markReadThrough(
+                    boardAbv: boardAbv,
+                    threadNumber: threadNumber,
+                    postNumber: readThroughPostNumber
+                )
+            }
+
+            FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
+            FavoritesManager.shared.clearNewRepliesFlag(threadNumber: threadNumber)
+
+            DispatchQueue.main.async {
+                let badgeCount = notificationsEnabled
+                    ? NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount()
+                    : 0
+                UIApplication.shared.applicationIconBadgeNumber = badgeCount
+            }
+        }
     }
 
     private func pruneReadReplies() {
