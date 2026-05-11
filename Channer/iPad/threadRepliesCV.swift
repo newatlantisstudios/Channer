@@ -771,7 +771,9 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         cell.replyTextNoImage.isHidden = false
         cell.replyText.isHidden = true
         cell.threadImage.isHidden = true
-        cell.replyTextNoImage.text = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        let rawText = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        cell.replyTextNoImage.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[indexPath.row])
+        cell.configureLinkPreviews(from: rawText, attachedTo: cell.replyTextNoImage)
     }
     
     private func configureMediaCell(_ cell: threadReplyCell, at indexPath: IndexPath, imageUrl: String) {
@@ -779,7 +781,9 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         cell.replyTextNoImage.isHidden = true
         cell.replyText.isHidden = false
         cell.threadImage.isHidden = false
-        cell.replyText.text = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        let rawText = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
+        cell.replyText.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[indexPath.row])
+        cell.configureLinkPreviews(from: rawText, attachedTo: cell.replyText)
         
         print("Debug (iPad): Configuring media cell with image URL: \(imageUrl)")
                 

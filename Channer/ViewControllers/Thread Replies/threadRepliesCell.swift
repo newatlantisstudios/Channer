@@ -237,6 +237,15 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         return label
     }()
 
+    private let linkPreviewStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 8
+        stackView.isHidden = true
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+
     // MARK: - Properties
     weak var replyTextDelegate: UITextViewDelegate? {
         didSet {
@@ -248,6 +257,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     private var replyTextWithImageConstraints: [NSLayoutConstraint] = []
     private var replyTextNoImageConstraints: [NSLayoutConstraint] = []
     private var replyTextNoImageWithSubjectConstraints: [NSLayoutConstraint] = []
+    private var linkPreviewWithImageConstraints: [NSLayoutConstraint] = []
+    private var linkPreviewNoImageConstraints: [NSLayoutConstraint] = []
     private var minHeightConstraint: NSLayoutConstraint?
     private var imageWidthConstraint: NSLayoutConstraint?
     private var imageHeightConstraint: NSLayoutConstraint?
@@ -288,6 +299,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         quoteLinkHoverDelegate = nil
         replyCountLabel.isHidden = true
         replyCountLabel.text = nil
+        clearLinkPreviews()
         filterBadge.isHidden = true
         newPosterBadge.isHidden = true
         lastReadLineView.isHidden = true
@@ -417,6 +429,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         contentView.addSubview(newPosterBadge)
         contentView.addSubview(lastReadLineView)
         contentView.addSubview(replyCountLabel)
+        contentView.addSubview(linkPreviewStackView)
     }
 
     private func setupConstraints() {
@@ -510,6 +523,20 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             replyTextNoImage.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
             replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
         ]
+
+        linkPreviewWithImageConstraints = [
+            linkPreviewStackView.leadingAnchor.constraint(equalTo: replyText.leadingAnchor),
+            linkPreviewStackView.trailingAnchor.constraint(equalTo: replyText.trailingAnchor),
+            linkPreviewStackView.topAnchor.constraint(equalTo: replyText.bottomAnchor, constant: 6),
+            linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+        ]
+
+        linkPreviewNoImageConstraints = [
+            linkPreviewStackView.leadingAnchor.constraint(equalTo: replyTextNoImage.leadingAnchor),
+            linkPreviewStackView.trailingAnchor.constraint(equalTo: replyTextNoImage.trailingAnchor),
+            linkPreviewStackView.topAnchor.constraint(equalTo: replyTextNoImage.bottomAnchor, constant: 6),
+            linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+        ]
     }
 
     // MARK: - Configuration Method
@@ -542,17 +569,24 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         NSLayoutConstraint.deactivate(replyTextWithImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageConstraints)
         NSLayoutConstraint.deactivate(replyTextNoImageWithSubjectConstraints)
+        NSLayoutConstraint.deactivate(linkPreviewWithImageConstraints)
+        NSLayoutConstraint.deactivate(linkPreviewNoImageConstraints)
 
         if withImage {
             NSLayoutConstraint.activate(replyTextWithImageConstraints)
+            NSLayoutConstraint.activate(linkPreviewWithImageConstraints)
             replyText.attributedText = text
         } else if hasSubject {
             NSLayoutConstraint.activate(replyTextNoImageWithSubjectConstraints)
+            NSLayoutConstraint.activate(linkPreviewNoImageConstraints)
             replyTextNoImage.attributedText = text
         } else {
             NSLayoutConstraint.activate(replyTextNoImageConstraints)
+            NSLayoutConstraint.activate(linkPreviewNoImageConstraints)
             replyTextNoImage.attributedText = text
         }
+
+        configureLinkPreviews(from: text)
 
         boardReplyCount.text = boardNumber
         lastReadLineView.isHidden = !isLastReadBoundary
@@ -587,6 +621,32 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
 
         // Update hover interaction
         updatePointerInteractionIfNeeded()
+    }
+
+    private func configureLinkPreviews(from text: NSAttributedString) {
+        clearLinkPreviews()
+
+        let links = Array(LinkPreviewManager.shared.extractLinks(from: text.string).prefix(3))
+        guard !links.isEmpty else { return }
+
+        let previewWidth = max(bounds.width - 160, UIScreen.main.bounds.width - 96)
+        links.forEach { link in
+            let preview = LinkPreviewView()
+            preview.configure(with: link, width: previewWidth) { url in
+                UIApplication.shared.open(url)
+            }
+            linkPreviewStackView.addArrangedSubview(preview)
+        }
+
+        linkPreviewStackView.isHidden = false
+    }
+
+    private func clearLinkPreviews() {
+        linkPreviewStackView.arrangedSubviews.forEach { view in
+            linkPreviewStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+        linkPreviewStackView.isHidden = true
     }
 
     override func layoutSubviews() {
