@@ -818,7 +818,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         buttons.append(moreButton)
 
         // Add new thread button for regular board view (not favorites or history)
-        if !isFavoritesView && !isHistoryView {
+        if !isFavoritesView && !isHistoryView && BoardsService.shared.selectedSite.supportsPosting {
             let newThreadImage = UIImage(systemName: "plus.square")
             let newThreadButton = UIBarButtonItem(image: newThreadImage, style: .plain, target: self, action: #selector(showNewThreadCompose))
             newThreadButton.tintColor = .black
@@ -1211,6 +1211,8 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     }
 
     @objc private func showNewThreadCompose() {
+        guard BoardsService.shared.selectedSite.supportsPosting else { return }
+
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
         composeVC.delegate = self
         let navController = CatalystNavigationController(rootViewController: composeVC)

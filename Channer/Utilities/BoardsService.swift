@@ -43,23 +43,20 @@ struct ImageboardSite: Equatable {
     )
 
     static let supportedSites: [ImageboardSite] = [
-        .fourChan,
-        vichan(id: "nukechan.net", displayName: "Nukechan", aliases: ["erischan.org", "www.erischan.org"]),
-        lynxchan(id: "8chan.moe", aliases: ["8chan.se", "redchannit.com", "redchannit.net"]),
-        lynxchan(id: "endchan.net", aliases: ["endchan.org"]),
-        htmlScrape(id: "22chan.org"),
         vichan(id: "28chan.org", rootPath: "board"),
-        vichan(id: "39chan.moe"),
-        vichan(id: "9ch.site", aliases: ["9-chan.eu", "9ch.moe", "9ch.fun"], fallbackHosts: ["9ch.moe", "9ch.fun"]),
-        htmlScrape(id: "1chan.us", boardListPath: "board.html"),
         makaba(id: "2ch.org", aliases: ["2ch.hk", "2ch.su"]),
+        vichan(id: "39chan.moe"),
+        .fourChan,
+        lynxchan(id: "8chan.moe", aliases: ["8chan.se", "redchannit.com", "redchannit.net"]),
+        vichan(id: "9ch.site", aliases: ["9-chan.eu", "9ch.moe", "9ch.fun"], fallbackHosts: ["9ch.moe", "9ch.fun"]),
         htmlScrape(id: "crystal.cafe"),
-        vichan(id: "hispachan.in"),
+        lynxchan(id: "endchan.net", aliases: ["endchan.org"]),
         vichan(id: "fufufu.moe"),
         vichan(id: "kakashinenpo.com"),
         vichan(id: "kissu.moe", aliases: ["original.kissu.moe"]),
         vichan(id: "lainchan.org"),
         vichan(id: "merorin.com"),
+        vichan(id: "nukechan.net", displayName: "Nukechan", aliases: ["erischan.org", "www.erischan.org"]),
         vichan(id: "ponyville.us"),
         vichan(id: "smuglo.li", aliases: ["notso.smuglo.li", "smugloli.net", "smug.nepu.moe"]),
         vichan(id: "sportschan.org"),
@@ -70,6 +67,10 @@ struct ImageboardSite: Equatable {
     static func site(for id: String?) -> ImageboardSite {
         guard let id = id else { return .fourChan }
         return supportedSites.first { $0.id == id || $0.hostAliases.contains(id) } ?? .fourChan
+    }
+
+    var supportsPosting: Bool {
+        id == Self.fourChan.id
     }
 
     private static func vichan(id: String, displayName: String? = nil, rootPath: String? = nil, aliases: [String] = [], fallbackHosts: [String] = []) -> ImageboardSite {
@@ -267,7 +268,7 @@ class BoardsService {
         BoardInfo(code: "xs", title: "Extreme Sports"),
         BoardInfo(code: "y", title: "Yaoi")
     ].sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-    
+
     /// Array of all available boards
     private(set) var boards: [BoardInfo] = []
     
@@ -481,7 +482,7 @@ class BoardsService {
     private func fetchBoards(for site: ImageboardSite, urls: [URL], completion: (() -> Void)?) {
         guard let url = urls.first else {
             DispatchQueue.main.async {
-                self.ensureBundledBoardsAvailable()
+                self.ensureBundledBoardsAvailable(for: site)
                 self.logFetchedBoards(self.boards, site: site, source: "fallback after no board endpoints")
                 completion?()
             }
@@ -507,7 +508,7 @@ class BoardsService {
                         completion?()
                         return
                     }
-                    self.ensureBundledBoardsAvailable()
+                    self.ensureBundledBoardsAvailable(for: site)
                     self.logFetchedBoards(self.boards, site: site, source: "fallback after fetch error")
                     completion?()
                 }
@@ -527,7 +528,7 @@ class BoardsService {
                             completion?()
                             return
                         }
-                        self.ensureBundledBoardsAvailable()
+                        self.ensureBundledBoardsAvailable(for: site)
                         self.logFetchedBoards(self.boards, site: site, source: "fallback after blocked or unavailable HTTP response")
                         completion?()
                     }
@@ -548,7 +549,7 @@ class BoardsService {
                         return
                     }
                     if sorted.isEmpty {
-                        self.ensureBundledBoardsAvailable()
+                        self.ensureBundledBoardsAvailable(for: site)
                         self.logFetchedBoards(self.boards, site: site, source: "fallback after empty parsed response")
                     } else {
                         self.boards = sorted
@@ -571,7 +572,7 @@ class BoardsService {
                         completion?()
                         return
                     }
-                    self.ensureBundledBoardsAvailable()
+                    self.ensureBundledBoardsAvailable(for: site)
                     self.logFetchedBoards(self.boards, site: site, source: "fallback after parse error")
                     completion?()
                 }
@@ -616,8 +617,6 @@ class BoardsService {
 
     private func htmlCatalogURL(board: String) -> URL {
         switch selectedSite.id {
-        case "22chan.org":
-            return selectedSite.rootURL.appendingPathComponent(board).appendingPathComponent("catalog")
         case "crystal.cafe":
             return selectedSite.rootURL.appendingPathComponent(board).appendingPathComponent("catalog")
         default:
@@ -627,8 +626,6 @@ class BoardsService {
 
     private func htmlThreadURL(board: String, threadNumber: String) -> URL {
         switch selectedSite.id {
-        case "22chan.org":
-            return selectedSite.rootURL.appendingPathComponent(board).appendingPathComponent(threadNumber)
         default:
             return selectedSite.rootURL.appendingPathComponent(board).appendingPathComponent("res").appendingPathComponent("\(threadNumber).html")
         }
@@ -804,10 +801,6 @@ class BoardsService {
             items.append(BoardInfo(code: code, title: title, siteID: site.id))
         }
 
-        if items.isEmpty, site.id == "1chan.us", let singleBoard = parseHiddenBoardInput(html, site: site) {
-            return [singleBoard]
-        }
-
         return items
     }
 
@@ -874,15 +867,6 @@ class BoardsService {
             return normalizeBoardTitle(nestedTitle, code: code)
         }
         return normalizeBoardTitle(anchorHTML, code: code)
-    }
-
-    private static func parseHiddenBoardInput(_ html: String, site: ImageboardSite) -> BoardInfo? {
-        guard let code = firstMatch(in: html, pattern: #"<input\b[^>]*\bname\s*=\s*["']board["'][^>]*\bvalue\s*=\s*["']([^"']+)["'][^>]*>"#) else {
-            return nil
-        }
-        let title = firstMatch(in: html, pattern: #"<title>(.*?)</title>"#)
-            .map { normalizeBoardTitle($0, code: code) } ?? code
-        return BoardInfo(code: code, title: title, siteID: site.id)
     }
 
     private static func attributeValue(named name: String, in attributes: String) -> String? {
@@ -1056,8 +1040,9 @@ class BoardsService {
         return ""
     }
 
-    private func ensureBundledBoardsAvailable() {
-        if selectedSite == ImageboardSite.fourChan, boards.isEmpty {
+    private func ensureBundledBoardsAvailable(for site: ImageboardSite? = nil) {
+        let fallbackSite = site ?? selectedSite
+        if fallbackSite == ImageboardSite.fourChan, boards.isEmpty {
             boards = Self.bundledBoards
         }
     }

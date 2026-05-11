@@ -386,6 +386,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Tracks whether the compose view is currently minimized
     private var isComposeMinimized = false
+    private var isPostingSupported: Bool {
+        BoardsService.shared.selectedSite.supportsPosting
+    }
     private var floatingReplyButtonWidthConstraint: NSLayoutConstraint?
 
     /// Floating button that appears when there are pending quotes
@@ -1188,7 +1191,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                             action: #selector(showGallery))
         galleryButton.accessibilityLabel = "Gallery"
 
-        let buttons = [moreButton, galleryButton, replyButton].compactMap { $0 }
+        let buttons = [moreButton, galleryButton, isPostingSupported ? replyButton : nil].compactMap { $0 }
         buttons.forEach { $0.tintColor = .black }
 
         // Set the buttons in the navigation bar (rightmost to leftmost order)
@@ -1266,6 +1269,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     @objc private func showComposeView() {
+        guard isPostingSupported else { return }
         showComposeViewWithQuote(quotePostNumber: nil)
     }
 
@@ -1294,6 +1298,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     private func showComposeViewWithQuote(quotePostNumber: Int?) {
+        guard isPostingSupported else { return }
         guard let threadNum = Int(threadNumber) else { return }
 
         var quoteText: String? = nil
@@ -1331,18 +1336,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
 
         let favoriteTitle = FavoritesManager.shared.isFavorited(threadNumber: threadNumber, boardAbv: boardAbv) ? "Unfavorite" : "Favorite"
-        var sections: [ThreadMoreOptionsSection] = [
-            ThreadMoreOptionsSection(title: nil, options: [
-                ThreadMoreOption(title: "Search", subtitle: "Find text in this thread", systemImageName: "magnifyingglass") { [weak self] in
-                    self?.showSearch()
-                },
+        var generalOptions = [
+            ThreadMoreOption(title: "Search", subtitle: "Find text in this thread", systemImageName: "magnifyingglass") { [weak self] in
+                self?.showSearch()
+            }
+        ]
+        if isPostingSupported {
+            generalOptions.append(
                 ThreadMoreOption(title: "Reply", subtitle: "Compose a reply to this thread", systemImageName: "square.and.pencil") { [weak self] in
                     self?.showComposeView()
-                },
-                ThreadMoreOption(title: favoriteTitle, subtitle: "Save this thread to bookmarks", systemImageName: favoriteTitle == "Favorite" ? "star" : "star.slash") { [weak self] in
-                    self?.toggleFavorite()
                 }
-            ]),
+            )
+        }
+        generalOptions.append(
+            ThreadMoreOption(title: favoriteTitle, subtitle: "Save this thread to bookmarks", systemImageName: favoriteTitle == "Favorite" ? "star" : "star.slash") { [weak self] in
+                self?.toggleFavorite()
+            }
+        )
+
+        var sections: [ThreadMoreOptionsSection] = [
+            ThreadMoreOptionsSection(title: nil, options: generalOptions),
             ThreadMoreOptionsSection(title: "Navigation", options: [
                 ThreadMoreOption(title: "Refresh", subtitle: "Load the latest replies", systemImageName: "arrow.clockwise") { [weak self] in
                     self?.refresh()
@@ -1757,13 +1770,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let postNo = threadBoardReplyNumber[actualIndex]
         var actions: [UIContextualAction] = []
 
-        let replyAction = UIContextualAction(style: .normal, title: "Reply") { [weak self] _, _, completion in
-            self?.replyToPost(postNumber: postNo)
-            completion(true)
+        if isPostingSupported {
+            let replyAction = UIContextualAction(style: .normal, title: "Reply") { [weak self] _, _, completion in
+                self?.replyToPost(postNumber: postNo)
+                completion(true)
+            }
+            replyAction.backgroundColor = .systemBlue
+            replyAction.image = UIImage(systemName: "square.and.pencil")
+            actions.append(replyAction)
         }
-        replyAction.backgroundColor = .systemBlue
-        replyAction.image = UIImage(systemName: "square.and.pencil")
-        actions.append(replyAction)
 
         let infoAction = UIContextualAction(style: .normal, title: "Info") { [weak self] _, _, completion in
             self?.showPostInfo(for: actualIndex)
@@ -3222,17 +3237,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }))
         }
 
-        // Reply to this post option (immediate reply)
-        actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
-            self?.replyToPost(postNumber: postNo)
-        }))
+        if isPostingSupported {
+            // Reply to this post option (immediate reply)
+            actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
+                self?.replyToPost(postNumber: postNo)
+            }))
 
-        // Quote post option (add to pending quotes for multi-reply)
-        let isAlreadyQuoted = pendingQuotes.contains(postNo)
-        let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
-        actionSheet.addAction(UIAlertAction(title: quoteTitle, style: .default, handler: { [weak self] _ in
-            self?.toggleQuote(postNumber: postNo)
-        }))
+            // Quote post option (add to pending quotes for multi-reply)
+            let isAlreadyQuoted = pendingQuotes.contains(postNo)
+            let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
+            actionSheet.addAction(UIAlertAction(title: quoteTitle, style: .default, handler: { [weak self] _ in
+                self?.toggleQuote(postNumber: postNo)
+            }))
+        }
 
         // Watch for replies option
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
@@ -3323,18 +3340,20 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             })
         }
 
-        // Reply to this post
-        actions.append(UIAction(title: "Reply to Post", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
-            self?.replyToPost(postNumber: postNo)
-        })
+        if isPostingSupported {
+            // Reply to this post
+            actions.append(UIAction(title: "Reply to Post", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
+                self?.replyToPost(postNumber: postNo)
+            })
 
-        // Quote post
-        let isAlreadyQuoted = pendingQuotes.contains(postNo)
-        let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
-        let quoteImage = isAlreadyQuoted ? UIImage(systemName: "quote.bubble.fill") : UIImage(systemName: "quote.bubble")
-        actions.append(UIAction(title: quoteTitle, image: quoteImage) { [weak self] _ in
-            self?.toggleQuote(postNumber: postNo)
-        })
+            // Quote post
+            let isAlreadyQuoted = pendingQuotes.contains(postNo)
+            let quoteTitle = isAlreadyQuoted ? "Remove Quote" : "Quote Post"
+            let quoteImage = isAlreadyQuoted ? UIImage(systemName: "quote.bubble.fill") : UIImage(systemName: "quote.bubble")
+            actions.append(UIAction(title: quoteTitle, image: quoteImage) { [weak self] _ in
+                self?.toggleQuote(postNumber: postNo)
+            })
+        }
 
         // Watch for replies
         let isWatching = WatchedPostsManager.shared.isWatching(postNo: postNo, threadNo: threadNumber, boardAbv: boardAbv)
@@ -3476,6 +3495,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Opens the compose view controller to reply to a specific post
     private func replyToPost(postNumber: String) {
+        guard isPostingSupported else { return }
         guard let threadNo = Int(threadNumber) else { return }
 
         // If a compose view already exists (visible or minimized), append the
@@ -3547,6 +3567,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Toggles a post number in the pending quotes list, or inserts directly if compose exists
     private func toggleQuote(postNumber: String) {
+        guard isPostingSupported else { return }
+
         // If compose view exists (visible or minimized), insert the quote directly
         if let composeVC = activeComposeVC {
             if let postNo = Int(postNumber) {
@@ -3569,6 +3591,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Updates the floating reply button appearance and visibility
     private func updateFloatingReplyButton() {
+        guard isPostingSupported else {
+            hideFloatingButton()
+            clearQuotesButton.isHidden = true
+            return
+        }
+
         let hasQuotes = !pendingQuotes.isEmpty
 
         if isComposeMinimized {
@@ -3632,6 +3660,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Called when the floating reply button is tapped
     @objc private func floatingReplyButtonTapped() {
+        guard isPostingSupported else { return }
+
         print("[DEBUG] floatingReplyButtonTapped called")
         print("[DEBUG] isComposeMinimized: \(isComposeMinimized)")
         print("[DEBUG] activeComposeVC: \(String(describing: activeComposeVC))")

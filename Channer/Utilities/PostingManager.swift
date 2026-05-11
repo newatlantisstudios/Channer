@@ -26,6 +26,11 @@ class PostingManager {
     ///   - postData: The post data to submit
     ///   - completion: Callback with the result
     func submitPost(_ postData: PostData, completion: @escaping (Result<PostResult, PostingError>) -> Void) {
+        guard BoardsService.shared.selectedSite.supportsPosting else {
+            completion(.failure(.serverError("Posting is only supported on 4chan. Other imageboard sites are read-only.")))
+            return
+        }
+
         // Check authentication
         guard PassAuthManager.shared.isAuthenticated else {
             completion(.failure(.notAuthenticated))

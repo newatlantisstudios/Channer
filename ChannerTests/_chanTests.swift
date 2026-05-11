@@ -26,6 +26,18 @@ class _chanTests: XCTestCase {
         XCTAssertEqual(ImageboardSite.site(for: "endchan.org").id, "endchan.net")
         XCTAssertEqual(ImageboardSite.site(for: "9-chan.eu").id, "9ch.site")
         XCTAssertEqual(ImageboardSite.site(for: "9ch.moe").id, "9ch.site")
+        XCTAssertFalse(ImageboardSite.supportedSites.contains { $0.id == "1chan.us" })
+        XCTAssertFalse(ImageboardSite.supportedSites.contains { $0.id == "hispachan.in" })
+        XCTAssertTrue(ImageboardSite.fourChan.supportsPosting)
+        XCTAssertFalse(ImageboardSite.site(for: "8chan.moe").supportsPosting)
+    }
+
+    func testSupportedImageboardSitesAreAlphabetizedByDisplayName() {
+        let displayNames = ImageboardSite.supportedSites.map { $0.displayName }
+        let sortedDisplayNames = displayNames.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        XCTAssertEqual(displayNames, sortedDisplayNames)
     }
 
     func testTopImageboardURLConstruction() {
@@ -90,13 +102,6 @@ class _chanTests: XCTestCase {
         XCTAssertTrue(makabaHTMLBoards.contains { $0.code == "au" && $0.title == "Автомобили" })
         XCTAssertTrue(makabaHTMLBoards.contains { $0.code == "b" && $0.title == "Бред" })
 
-        let singleBoardHTML = """
-        <title>1channel</title>
-        <input type="hidden" name="board"value="1chan">
-        """
-        let singleBoards = try BoardsService.parseBoards(from: Data(singleBoardHTML.utf8), for: ImageboardSite.site(for: "1chan.us"))
-        XCTAssertEqual(singleBoards.first?.code, "1chan")
-        XCTAssertEqual(singleBoards.first?.title, "1channel")
     }
 
     func testThreadParsersForNewAdapterFamilies() throws {

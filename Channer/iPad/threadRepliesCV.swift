@@ -153,6 +153,9 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     /// Thread subject from OP
     var threadSubject: String = ""
     private var hasRestoredSavedScrollPosition = false
+    private var isPostingSupported: Bool {
+        BoardsService.shared.selectedSite.supportsPosting
+    }
 
     private lazy var postInfoDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -523,7 +526,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         let postNo = threadBoardReplyNumber[indexPath.row]
         var actions: [UIContextualAction] = []
 
-        if let postNoInt = Int(postNo) {
+        if isPostingSupported, let postNoInt = Int(postNo) {
             let replyAction = UIContextualAction(style: .normal, title: "Reply") { [weak self] _, _, completion in
                 self?.showComposeView(quotePostNumber: postNoInt)
                 completion(true)
@@ -884,6 +887,11 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     // MARK: - Navigation Items
 
     private func setupNavigationItems() {
+        guard isPostingSupported else {
+            navigationItem.rightBarButtonItems = []
+            return
+        }
+
         // Create the Reply button
         let replyImage = UIImage(systemName: "square.and.pencil")
         let replyButton = UIBarButtonItem(image: replyImage,
@@ -895,10 +903,12 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     }
 
     @objc private func showComposeView() {
+        guard isPostingSupported else { return }
         showComposeView(quotePostNumber: nil)
     }
 
     private func showComposeView(quotePostNumber: Int?) {
+        guard isPostingSupported else { return }
         guard let threadNum = Int(threadNumber) else { return }
 
         var quoteText: String? = nil
@@ -942,7 +952,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
 
         // Reply to this post option
-        if let postNumber = Int(postNo) {
+        if isPostingSupported, let postNumber = Int(postNo) {
             actionSheet.addAction(UIAlertAction(title: "Reply to Post", style: .default, handler: { [weak self] _ in
                 self?.showComposeView(quotePostNumber: postNumber)
             }))
@@ -992,7 +1002,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
 
         // Reply to this post
-        if let postNumber = Int(postNo) {
+        if isPostingSupported, let postNumber = Int(postNo) {
             actions.append(UIAction(title: "Reply to Post", image: UIImage(systemName: "arrowshape.turn.up.left")) { [weak self] _ in
                 self?.showComposeView(quotePostNumber: postNumber)
             })

@@ -372,16 +372,20 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         let resizedSortImage = sortImage?.resized(to: CGSize(width: 22, height: 22))
         let sortButton = UIBarButtonItem(image: resizedSortImage, style: .plain, target: self, action: #selector(sortButtonTapped))
 
-        let newThreadButton = UIBarButtonItem(image: UIImage(systemName: "plus.square"), style: .plain, target: self, action: #selector(showNewThreadCompose))
-
         let settingsButton = UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(settingsButtonTapped(_:)))
         settingsBarButtonItem = settingsButton
 
+        var buttons = [settingsButton, sortButton]
+        if BoardsService.shared.selectedSite.supportsPosting {
+            let newThreadButton = UIBarButtonItem(image: UIImage(systemName: "plus.square"), style: .plain, target: self, action: #selector(showNewThreadCompose))
+            buttons.append(newThreadButton)
+        }
+
         if var rightBarButtonItems = navigationItem.rightBarButtonItems {
-            rightBarButtonItems.append(contentsOf: [settingsButton, sortButton, newThreadButton])
+            rightBarButtonItems.append(contentsOf: buttons)
             navigationItem.rightBarButtonItems = rightBarButtonItems
         } else {
-            navigationItem.rightBarButtonItems = [settingsButton, sortButton, newThreadButton]
+            navigationItem.rightBarButtonItems = buttons
         }
     }
 
@@ -406,6 +410,8 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     }
 
     @objc private func showNewThreadCompose() {
+        guard BoardsService.shared.selectedSite.supportsPosting else { return }
+
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
         composeVC.delegate = self
         let navController = CatalystNavigationController(rootViewController: composeVC)
