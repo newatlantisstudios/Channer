@@ -430,7 +430,21 @@ class BoardsService {
     }
 
     private func fetchData(from url: URL, site: ImageboardSite, hasRetriedAfterChallenge: Bool, completion: @escaping (Result<FetchDataResponse, Error>) -> Void) {
+        let debugID = String(UUID().uuidString.prefix(8))
+        let startedAt = Date()
+        print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] start url=\(url.absoluteString) site=\(site.id) retry=\(hasRetriedAfterChallenge)")
+
         let completeOnMain: (Result<FetchDataResponse, Error>) -> Void = { result in
+            let elapsed = String(format: "%.2f", Date().timeIntervalSince(startedAt))
+            switch result {
+            case .success(let dataResponse):
+                let statusCode = dataResponse.response?.statusCode ?? -1
+                let mimeType = dataResponse.response?.mimeType ?? "nil"
+                print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] success status=\(statusCode) bytes=\(dataResponse.data.count) mime=\(mimeType) elapsed=\(elapsed)s mainThread=\(Thread.isMainThread)")
+            case .failure(let error):
+                print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] failure error=\(error.localizedDescription) elapsed=\(elapsed)s mainThread=\(Thread.isMainThread)")
+            }
+
             if Thread.isMainThread {
                 completion(result)
             } else {
@@ -441,6 +455,8 @@ class BoardsService {
         }
 
         var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] request timeout=\(request.timeoutInterval)s")
         if site.id == "8chan.moe" {
             EightChanMoePOWBlock.applyStoredCookies(to: &request)
         }
@@ -458,6 +474,7 @@ class BoardsService {
                let httpResponse = httpResponse,
                Self.requiresEightChanPOWBlockSolve(httpResponse),
                !hasRetriedAfterChallenge {
+                print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] 8chan POW challenge status=\(httpResponse.statusCode); solving")
                 EightChanMoePOWBlock.shared.solve { result in
                     switch result {
                     case .success:

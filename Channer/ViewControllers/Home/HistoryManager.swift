@@ -47,9 +47,14 @@ class HistoryManager {
     /// Adds a thread to the history if it doesn't already exist.
     /// - Parameter thread: The `ThreadData` object to be added.
     func addThreadToHistory(_ thread: ThreadData) {
+        print("[ChannerThreadLoadDebug][HistoryManager] addThreadToHistory start board=/\(thread.boardAbv)/ thread=\(thread.number) currentCount=\(history.count)")
         if !history.contains(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
+            print("[ChannerThreadLoadDebug][HistoryManager] addThreadToHistory appending and saving board=/\(thread.boardAbv)/ thread=\(thread.number)")
             history.append(thread)
             saveHistory()
+            print("[ChannerThreadLoadDebug][HistoryManager] addThreadToHistory saved board=/\(thread.boardAbv)/ thread=\(thread.number) newCount=\(history.count)")
+        } else {
+            print("[ChannerThreadLoadDebug][HistoryManager] addThreadToHistory skipped duplicate board=/\(thread.boardAbv)/ thread=\(thread.number)")
         }
     }
     
@@ -311,6 +316,7 @@ class ThreadReadStateManager {
     private let defaults: UserDefaults
     private var states: [String: ThreadReadState] = [:]
     private let lock = NSLock()
+    private let persistenceQueue = DispatchQueue(label: "com.channer.threadReadState.persistence", qos: .utility)
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -327,11 +333,16 @@ class ThreadReadStateManager {
         replyCount: Int? = nil,
         imageCount: Int? = nil
     ) -> ThreadReadState {
+        let debugPrefix = "[ChannerThreadLoadDebug][ThreadReadStateManager board=/\(boardAbv)/ thread=\(threadNumber)]"
+        print("\(debugPrefix) updateThread start posts=\(postNumbers.count)")
+
+        let state: ThreadReadState
+        let statesSnapshot: [String: ThreadReadState]
         lock.lock()
-        defer { lock.unlock() }
+        print("\(debugPrefix) updateThread acquired lock")
 
         let stateKey = key(boardAbv: boardAbv, threadNumber: threadNumber)
-        var state = states[stateKey] ?? ThreadReadState(
+        var updatedState = states[stateKey] ?? ThreadReadState(
             boardAbv: boardAbv,
             threadNumber: threadNumber,
             knownPostNumbers: [],
@@ -345,26 +356,32 @@ class ThreadReadStateManager {
             updatedAt: Date()
         )
 
-        let known = Set(state.knownPostNumbers)
+        let known = Set(updatedState.knownPostNumbers)
         let newPosts = postNumbers.filter { !known.contains($0) }
-        if !state.knownPostNumbers.isEmpty {
-            state.unreadPostNumbers.formUnion(newPosts)
+        if !updatedState.knownPostNumbers.isEmpty {
+            updatedState.unreadPostNumbers.formUnion(newPosts)
         }
 
         let currentPosts = Set(postNumbers)
-        state.unreadPostNumbers = state.unreadPostNumbers.intersection(currentPosts)
-        state.prunedPostNumbers = state.prunedPostNumbers.intersection(currentPosts)
-        state.knownPostNumbers = postNumbers
-        state.boardPage = boardPage ?? state.boardPage
-        state.purgePosition = purgePosition ?? state.purgePosition
-        state.replyCount = replyCount ?? state.replyCount
-        state.imageCount = imageCount ?? state.imageCount
-        state.updatedAt = Date()
+        updatedState.unreadPostNumbers = updatedState.unreadPostNumbers.intersection(currentPosts)
+        updatedState.prunedPostNumbers = updatedState.prunedPostNumbers.intersection(currentPosts)
+        updatedState.knownPostNumbers = postNumbers
+        updatedState.boardPage = boardPage ?? updatedState.boardPage
+        updatedState.purgePosition = purgePosition ?? updatedState.purgePosition
+        updatedState.replyCount = replyCount ?? updatedState.replyCount
+        updatedState.imageCount = imageCount ?? updatedState.imageCount
+        updatedState.updatedAt = Date()
 
-        states[stateKey] = state
+        states[stateKey] = updatedState
         pruneOldStatesIfNeeded()
-        persistStates()
+        state = updatedState
+        statesSnapshot = states
+        lock.unlock()
+
+        print("\(debugPrefix) updateThread released lock unread=\(state.unreadPostNumbers.count) known=\(state.knownPostNumbers.count); scheduling persist")
+        persistStatesAsync(statesSnapshot, context: "updateThread \(boardAbv)/\(threadNumber)")
         postUnreadCountDidChange()
+        print("\(debugPrefix) updateThread returning")
         return state
     }
 
@@ -449,6 +466,19 @@ class ThreadReadStateManager {
     private func persistStates() {
         guard let data = try? JSONEncoder().encode(states) else { return }
         defaults.set(data, forKey: statesKey)
+    }
+
+    private func persistStatesAsync(_ statesSnapshot: [String: ThreadReadState], context: String) {
+        persistenceQueue.async { [defaults, statesKey] in
+            let startedAt = Date()
+            guard let data = try? JSONEncoder().encode(statesSnapshot) else {
+                print("[ChannerThreadLoadDebug][ThreadReadStateManager] persist failed context=\(context)")
+                return
+            }
+            defaults.set(data, forKey: statesKey)
+            let elapsed = String(format: "%.2f", Date().timeIntervalSince(startedAt))
+            print("[ChannerThreadLoadDebug][ThreadReadStateManager] persist complete context=\(context) states=\(statesSnapshot.count) bytes=\(data.count) elapsed=\(elapsed)s")
+        }
     }
 
     private func pruneOldStatesIfNeeded() {
