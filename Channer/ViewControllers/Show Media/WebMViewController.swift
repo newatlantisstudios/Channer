@@ -175,7 +175,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         player.allowsExternalPlayback = true
         let startMuted = MediaSettings.defaultMuted
         player.isMuted = startMuted
-        player.volume = startMuted ? 0.0 : 0.5
+        player.volume = startMuted ? 0.0 : MediaSettings.defaultVideoVolume
         return player
     }()
     /// AVPlayerLayer for rendering converted video
@@ -249,7 +249,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         player.drawable = videoView
         let startMuted = MediaSettings.defaultMuted
         player.audio?.isMuted = startMuted
-        player.audio?.volume = startMuted ? 0 : 50
+        player.audio?.volume = startMuted ? 0 : MediaSettings.defaultVLCVolume
         
         print("🎵 DEBUG: WebMViewController - VLC Player created")
         print("🎵 DEBUG: WebMViewController - Initial Audio Muted: \(player.audio?.isMuted ?? false)")
@@ -941,7 +941,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         // Apply mute settings
         avPlayer.isMuted = isMuted
-        avPlayer.volume = isMuted ? 0.0 : 0.5
+        avPlayer.volume = isMuted ? 0.0 : MediaSettings.defaultVideoVolume
 
         // Observe end of playback for looping
         avPlayerEndObserver = NotificationCenter.default.addObserver(
@@ -1205,7 +1205,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         }
 
         vlcPlayer.audio?.isMuted = false
-        vlcPlayer.audio?.volume = 50
+        vlcPlayer.audio?.volume = MediaSettings.defaultVLCVolume
     }
 
     private func logAudioDebug(_ context: String) {
@@ -1299,7 +1299,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 
         if isUsingAVPlayer {
             avPlayer.isMuted = isMuted
-            avPlayer.volume = isMuted ? 0.0 : 0.5
+            avPlayer.volume = isMuted ? 0.0 : MediaSettings.defaultVideoVolume
             updateOverlayMuteButton()
             print("🎵 DEBUG: WebMViewController - toggleMute() - Applied to AVPlayer, muted=\(avPlayer.isMuted)")
             return
@@ -1908,7 +1908,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         logAudioDebug("periodic-check")
         
         // Enforce user's mute preference
-        let expectedVolume = isMuted ? Int32(0) : Int32(50)
+        let expectedVolume = isMuted ? Int32(0) : MediaSettings.defaultVLCVolume
         if playerIsMuted != isMuted || playerVolume != expectedVolume {
             print("🎵 DEBUG: WebMViewController - Enforcing user mute preference...")
             if isMuted {

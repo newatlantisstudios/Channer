@@ -108,6 +108,18 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
         let fileHash = dict["md5"] as? String
         threadRepliesFileHashes.append(fileHash)
+
+        let spoiler: Bool
+        if let boolValue = dict["spoiler"] as? Bool {
+            spoiler = boolValue
+        } else if let intValue = dict["spoiler"] as? Int {
+            spoiler = intValue != 0
+        } else if let numberValue = dict["spoiler"] as? NSNumber {
+            spoiler = numberValue.boolValue
+        } else {
+            spoiler = false
+        }
+        threadRepliesSpoilers.append(spoiler)
     }
     
     // MARK: - Properties
@@ -136,6 +148,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     var threadRepliesPosterIds: [String?] = []
     /// Array of thread reply file hashes
     var threadRepliesFileHashes: [String?] = []
+    /// Array of spoiler flags for media attachments
+    var threadRepliesSpoilers: [Bool] = []
     /// Backup array of old thread replies
     var threadRepliesOld: [String] = []
     /// Array of thread board reply numbers
@@ -280,6 +294,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             threadRepliesTimestamps = []
             threadRepliesPosterIds = []
             threadRepliesFileHashes = []
+            threadRepliesSpoilers = []
 
             for dict in posts {
                 
@@ -320,6 +335,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
             threadRepliesTimestamps = []
             threadRepliesPosterIds = []
             threadRepliesFileHashes = []
+            threadRepliesSpoilers = []
             
             for dict in posts {
                 
@@ -543,9 +559,27 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
         return 1
     }
+
+    private func visibleReplyIndices() -> [Int] {
+        guard MediaSettings.hidePostsWithoutImages else {
+            return Array(threadReplies.indices)
+        }
+
+        return threadReplies.indices.filter { index in
+            guard index < threadRepliesImages.count else { return false }
+            let raw = threadRepliesImages[index]
+            return !raw.isEmpty && raw != "https://i.4cdn.org/\(boardAbv)/"
+        }
+    }
+
+    private func dataIndex(for visibleIndex: Int) -> Int? {
+        let indices = visibleReplyIndices()
+        guard visibleIndex >= 0 && visibleIndex < indices.count else { return nil }
+        return indices[visibleIndex]
+    }
     
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return threadReplies.count
+        return visibleReplyIndices().count
     }
     
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -555,8 +589,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         // Set up hover features for Apple Pencil
         if #available(iOS 13.4, *) {
             // Configure hover for thread image button if we have an image URL
-            if indexPath.row < threadRepliesImages.count {
-                let imageUrl = threadRepliesImages[indexPath.row]
+            if let dataIndex = dataIndex(for: indexPath.row), dataIndex < threadRepliesImages.count {
+                let imageUrl = threadRepliesImages[dataIndex]
                 let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
                 
                 if hasImage && cell.threadImage != nil {
@@ -581,11 +615,12 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
     }
 
     override func collectionView(_ collectionView: UICollectionView, leadingSwipeActionsConfigurationForItemAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard indexPath.row < threadBoardReplyNumber.count else {
+        guard let dataIndex = dataIndex(for: indexPath.row),
+              dataIndex < threadBoardReplyNumber.count else {
             return nil
         }
 
-        let postNo = threadBoardReplyNumber[indexPath.row]
+        let postNo = threadBoardReplyNumber[dataIndex]
         var actions: [UIContextualAction] = []
 
         if isPostingSupported, let postNoInt = Int(postNo) {
@@ -599,7 +634,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
 
         let infoAction = UIContextualAction(style: .normal, title: "Info") { [weak self] _, _, completion in
-            self?.showPostInfo(for: indexPath.row)
+            self?.showPostInfo(for: dataIndex)
             completion(true)
         }
         infoAction.backgroundColor = .systemGray
@@ -608,7 +643,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
         if let replies = threadBoardReplies[postNo], !replies.isEmpty {
             let repliesAction = UIContextualAction(style: .normal, title: "Replies") { [weak self] _, _, completion in
-                self?.showThreadForIndex(indexPath.row)
+                self?.showThreadForIndex(dataIndex)
                 completion(true)
             }
             repliesAction.backgroundColor = .systemTeal
@@ -652,8 +687,29 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
 
         let posterText = index < threadRepliesPosterIds.count ? (threadRepliesPosterIds[index] ?? "Unknown") : "Unknown"
         let hashText = index < threadRepliesFileHashes.count ? (threadRepliesFileHashes[index] ?? "None") : "None"
-        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)"
+        let spoilerText = (index < threadRepliesSpoilers.count && threadRepliesSpoilers[index]) ? "\nSpoiler: Yes" : ""
+        let soundURL = MediaSettings.soundPostURL(from: index < threadRepliesFileNames.count ? threadRepliesFileNames[index] : nil)
+        let soundText = soundURL.map { "\nSound: \($0.absoluteString)" } ?? ""
+        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)\(spoilerText)\(soundText)"
         let alert = UIAlertController(title: "Post Info", message: message, preferredStyle: .alert)
+        if MediaSettings.webMMetadataEnabled,
+           index < threadRepliesImages.count,
+           let url = URL(string: threadRepliesImages[index]),
+           url.pathExtension.lowercased() == "webm" {
+            alert.addAction(UIAlertAction(title: "Fetch WebM Title", style: .default) { [weak self] _ in
+                WebMMetadataFetcher.shared.fetchTitle(for: url) { title in
+                    let titleText = title?.isEmpty == false ? title! : "No title metadata found."
+                    let titleAlert = UIAlertController(title: "WebM Metadata", message: titleText, preferredStyle: .alert)
+                    titleAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self?.present(titleAlert, animated: true)
+                }
+            })
+        }
+        if let soundURL = soundURL {
+            alert.addAction(UIAlertAction(title: "Open Sound", style: .default) { _ in
+                UIApplication.shared.open(soundURL, options: [:], completionHandler: nil)
+            })
+        }
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
@@ -738,11 +794,13 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         // Reply button hidden - feature moved to long press menu
         cell.thread.isHidden = true
 
-        // Show subject for first cell (OP)
-        cell.configureSubject(indexPath.row == 0 ? threadSubject : nil)
-
         // Set post number
-        let boardNumber = threadBoardReplyNumber[indexPath.row]
+        guard let dataIndex = dataIndex(for: indexPath.row) else { return }
+
+        // Show subject for first cell (OP)
+        cell.configureSubject(dataIndex == 0 ? threadSubject : nil)
+
+        let boardNumber = threadBoardReplyNumber[dataIndex]
         let newPosterSuffix = newPosterPostNumbers.contains(boardNumber) ? "  NEW IP" : ""
         cell.boardReplyCount.text = "\(boardNumber)\(newPosterSuffix)"
         cell.contentView.layer.borderWidth = firstUnreadPostNumber == boardNumber ? 3 : 0
@@ -759,67 +817,41 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         }
 
         // Configure content
-        let imageUrl = threadRepliesImages[indexPath.row]
-        if imageUrl.contains("nullnull") {
-            configureTextOnlyCell(cell, at: indexPath)
+        let imageUrl = threadRepliesImages[dataIndex]
+        if imageUrl.contains("nullnull") || imageUrl == "https://i.4cdn.org/\(boardAbv)/" || MediaSettings.hideAllImages {
+            configureTextOnlyCell(cell, dataIndex: dataIndex)
         } else {
-            configureMediaCell(cell, at: indexPath, imageUrl: imageUrl)
+            configureMediaCell(cell, at: indexPath, dataIndex: dataIndex, imageUrl: imageUrl)
         }
     }
     
-    private func configureTextOnlyCell(_ cell: threadReplyCell, at indexPath: IndexPath) {
+    private func configureTextOnlyCell(_ cell: threadReplyCell, dataIndex: Int) {
         cell.replyTextNoImage.isHidden = false
         cell.replyText.isHidden = true
         cell.threadImage.isHidden = true
-        let rawText = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
-        cell.replyTextNoImage.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[indexPath.row])
+        let rawText = threadReplies[dataIndex].replacingOccurrences(of: "null", with: "")
+        cell.replyTextNoImage.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[dataIndex])
         cell.configureLinkPreviews(from: rawText, attachedTo: cell.replyTextNoImage)
     }
     
-    private func configureMediaCell(_ cell: threadReplyCell, at indexPath: IndexPath, imageUrl: String) {
+    private func configureMediaCell(_ cell: threadReplyCell, at indexPath: IndexPath, dataIndex: Int, imageUrl: String) {
         
         cell.replyTextNoImage.isHidden = true
         cell.replyText.isHidden = false
         cell.threadImage.isHidden = false
-        let rawText = threadReplies[indexPath.row].replacingOccurrences(of: "null", with: "")
-        cell.replyText.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[indexPath.row])
+        let rawText = threadReplies[dataIndex].replacingOccurrences(of: "null", with: "")
+        cell.replyText.attributedText = TextFormatter.formatText(rawText, postNumber: threadBoardReplyNumber[dataIndex])
         cell.configureLinkPreviews(from: rawText, attachedTo: cell.replyText)
         
         print("Debug (iPad): Configuring media cell with image URL: \(imageUrl)")
-                
-        let finalImageUrl: String
-        if imageUrl.contains(".webm") {
-            finalImageUrl = imageUrl.replacingOccurrences(of: ".webm", with: "s.jpg")
-            print("Debug (iPad): Using JPG thumbnail for WebM: \(finalImageUrl)")
-        } else if imageUrl.contains(".mp4") {
-            finalImageUrl = imageUrl.replacingOccurrences(of: ".mp4", with: "s.jpg")
-            print("Debug (iPad): Using JPG thumbnail for MP4: \(finalImageUrl)")
-        } else if imageUrl.contains(".png") {
-            // Get thumbnail URL for PNG image - 4chan uses JPG thumbnails even for PNG files
-            let components = imageUrl.components(separatedBy: "/")
-            if let last = components.last, let range = last.range(of: ".") {
-                let filename = String(last[..<range.lowerBound])
-                // Always use .jpg extension for thumbnails, even for PNG files
-                let thumbnailFilename = filename + "s.jpg"
-                finalImageUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
-                print("Debug (iPad): Using JPG thumbnail for PNG: \(finalImageUrl)")
-            } else {
-                finalImageUrl = imageUrl
-                print("Debug (iPad): Using original PNG URL: \(finalImageUrl)")
-            }
-        } else {
-            // Default JPG handling
-            let components = imageUrl.components(separatedBy: "/")
-            if let last = components.last, let range = last.range(of: ".") {
-                let filename = String(last[..<range.lowerBound])
-                let thumbnailFilename = filename + "s.jpg"
-                finalImageUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
-                print("Debug (iPad): Using JPG thumbnail: \(finalImageUrl)")
-            } else {
-                finalImageUrl = imageUrl
-                print("Debug (iPad): Using original URL: \(finalImageUrl)")
-            }
+
+        let isSpoiler = dataIndex < threadRepliesSpoilers.count && threadRepliesSpoilers[dataIndex]
+        let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        guard let thumbnailURL = MediaSettings.thumbnailURL(from: imageUrl, useHighQuality: useHQ, isSpoiler: isSpoiler) else {
+            cell.threadImage.setImage(UIImage(named: "loadingBoardImage"), for: .normal)
+            return
         }
+        let finalImageUrl = thumbnailURL.absoluteString
                 
         // Correct way to set image on UIButton using Kingfisher
         if let url = URL(string: finalImageUrl) {
@@ -856,7 +888,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
                 }
         }
                 
-        cell.threadImage.tag = indexPath.row
+        cell.threadImage.tag = dataIndex
         cell.threadImage.layer.cornerRadius = 12
         cell.threadImage.contentMode = .scaleAspectFill
         cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
@@ -895,9 +927,14 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
         var imageURLs: [URL] = []
         var galleryPostNumbers: [String] = []
         var galleryReplyCounts: [Int] = []
+        var selectedGalleryIndex: Int?
 
         for (index, urlString) in processedImageLinks.enumerated() {
             guard let url = URL(string: urlString) else { continue }
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" || !MediaSettings.isSupportedGalleryURL(url) { continue }
+            if index == selectedIndex {
+                selectedGalleryIndex = imageURLs.count
+            }
             imageURLs.append(url)
             if index < threadBoardReplyNumber.count {
                 let postNo = threadBoardReplyNumber[index]
@@ -917,8 +954,8 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate {
                 self?.showThreadForPostNumber(postNumber)
             }
         }
-        if selectedIndex < imageURLs.count {
-            galleryVC.selectedImageURL = imageURLs[selectedIndex]
+        if let selectedGalleryIndex = selectedGalleryIndex, selectedGalleryIndex < imageURLs.count {
+            galleryVC.selectedImageURL = imageURLs[selectedGalleryIndex]
         }
 
         print("Debug (iPad): Presenting image gallery with \(imageURLs.count) images")

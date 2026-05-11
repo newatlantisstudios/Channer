@@ -118,24 +118,7 @@ extension threadRepliesTV {
     ///   - useHQ: Whether to use high-quality thumbnails
     /// - Returns: Thumbnail URL or nil if conversion fails
     private func thumbnailURL(from raw: String, useHQ: Bool) -> URL? {
-        if raw.contains("/.media/") {
-            return URL(string: raw)
-        }
-        if raw.hasSuffix(".webm") || raw.hasSuffix(".mp4") {
-            let comps = raw.split(separator: "/")
-            if let last = comps.last {
-                let base = last.replacingOccurrences(of: ".webm", with: "").replacingOccurrences(of: ".mp4", with: "")
-                return URL(string: raw.replacingOccurrences(of: String(last), with: "\(base)s.jpg"))
-            }
-            return URL(string: raw)
-        }
-        if useHQ { return URL(string: raw) }
-        let comps = raw.split(separator: "/")
-        if let last = comps.last, let dot = last.firstIndex(of: ".") {
-            let filename = String(last[..<dot]) + "s.jpg"
-            return URL(string: raw.replacingOccurrences(of: String(last), with: filename))
-        }
-        return URL(string: raw)
+        return MediaSettings.thumbnailURL(from: raw, useHighQuality: useHQ)
     }
 }
 
@@ -227,7 +210,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Open gallery view
     @objc func openGallery() {
         // Implementation depends on how your gallery view is shown
-        if totalImagesInThread > 0 {
+        if threadRepliesImages.contains(where: hasGalleryMedia) {
             showGallery()
         }
     }
@@ -1393,6 +1376,27 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 ThreadMoreOption(title: "Open in Browser", subtitle: "View this thread on the web", systemImageName: "safari") { [weak self] in
                     self?.openInBrowser()
                 }
+            ]),
+            ThreadMoreOptionsSection(title: "Media", options: [
+                ThreadMoreOption(title: MediaSettings.hidePostsWithoutImages ? "Show Text Posts" : "Hide Text Posts",
+                                 subtitle: "Toggle posts without attachments",
+                                 systemImageName: MediaSettings.hidePostsWithoutImages ? "text.bubble" : "photo.on.rectangle.angled") { [weak self] in
+                    MediaSettings.hidePostsWithoutImages.toggle()
+                    self?.hasPreloadedContent = false
+                    self?.debugReloadData(context: "Media visibility changed")
+                },
+                ThreadMoreOption(title: MediaSettings.hideAllImages ? "Show Images" : "Hide All Images",
+                                 subtitle: "Keep post text visible while hiding media thumbnails",
+                                 systemImageName: MediaSettings.hideAllImages ? "eye" : "eye.slash") { [weak self] in
+                    MediaSettings.hideAllImages.toggle()
+                    self?.hasPreloadedContent = false
+                    self?.debugReloadData(context: "Media visibility changed")
+                },
+                ThreadMoreOption(title: "Prefetch Media Now",
+                                 subtitle: "Warm image and video thumbnails for this thread",
+                                 systemImageName: "bolt") { [weak self] in
+                    self?.prefetchVisibleMediaNow()
+                }
             ])
         ]
 
@@ -1457,6 +1461,26 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         present(optionsController, animated: true)
     }
 
+    private func prefetchVisibleMediaNow() {
+        let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
+        let urls: [URL] = threadRepliesImages.enumerated().compactMap { index, raw in
+            guard isVisibleBySearchAndMediaSettings(index),
+                  raw != "https://i.4cdn.org/\(boardAbv)/" else { return nil }
+            let isSpoiler = index < postMetadataList.count && postMetadataList[index].isSpoiler
+            return MediaSettings.thumbnailURL(from: raw, useHighQuality: useHQ, isSpoiler: isSpoiler)
+        }
+
+        guard !urls.isEmpty else {
+            showAlert(title: "No Media", message: "No visible media is available to prefetch.")
+            return
+        }
+
+        imagePrefetcher?.stop()
+        imagePrefetcher = ImagePrefetcher(urls: urls)
+        imagePrefetcher?.start()
+        showAlert(title: "Prefetch Started", message: "\(urls.count) media thumbnail\(urls.count == 1 ? "" : "s") queued.")
+    }
+
     private func anchorMoreOptionsPopover(_ popover: UIPopoverPresentationController, sender: Any?) {
         if let barButtonItem = sender as? UIBarButtonItem {
             popover.channerAnchor(in: self, barButtonItem: barButtonItem, permittedArrowDirections: .up)
@@ -1504,7 +1528,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         for (index, imageUrlString) in threadRepliesImages.enumerated() {
             guard let url = URL(string: imageUrlString) else { continue }
-            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" { continue }
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" || !MediaSettings.isSupportedGalleryURL(url) { continue }
 
             imageUrls.append(url)
 
@@ -1636,8 +1660,30 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         let posterText = metadata?.posterId?.isEmpty == false ? metadata?.posterId ?? "" : "Unknown"
         let hashText = metadata?.fileHash?.isEmpty == false ? metadata?.fileHash ?? "" : "None"
-        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)"
-        showAlert(title: "Post Info", message: message)
+        let spoilerText = metadata?.isSpoiler == true ? "\nSpoiler: Yes" : ""
+        let soundURL = MediaSettings.soundPostURL(from: metadata?.imageName)
+        let soundText = soundURL.map { "\nSound: \($0.absoluteString)" } ?? ""
+        let message = "Poster ID: \(posterText)\nFile: \(fileName)\nFile Hash: \(hashText)\nPosted: \(postedText)\(spoilerText)\(soundText)"
+
+        let alert = UIAlertController(title: "Post Info", message: message, preferredStyle: .alert)
+        if MediaSettings.webMMetadataEnabled,
+           metadata?.imageExtension?.lowercased() == ".webm",
+           let rawURL = metadata?.imageUrl,
+           let url = URL(string: rawURL) {
+            alert.addAction(UIAlertAction(title: "Fetch WebM Title", style: .default) { [weak self] _ in
+                WebMMetadataFetcher.shared.fetchTitle(for: url) { title in
+                    let titleText = title?.isEmpty == false ? title! : "No title metadata found."
+                    self?.showAlert(title: "WebM Metadata", message: titleText)
+                }
+            })
+        }
+        if let soundURL = soundURL {
+            alert.addAction(UIAlertAction(title: "Open Sound", style: .default) { _ in
+                UIApplication.shared.open(soundURL, options: [:], completionHandler: nil)
+            })
+        }
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     // MARK: - Table View Data Source Methods
@@ -1645,10 +1691,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func actualIndex(for indexPath: IndexPath) -> Int? {
         var visibleIndex = 0
         for dataIndex in 0..<threadReplies.count {
-            let postNumber = dataIndex < threadBoardReplyNumber.count ? threadBoardReplyNumber[dataIndex] : nil
-            let isPruned = postNumber.map { prunedPostNumbers.contains($0) } ?? false
-            let isSearchFiltered = isSearchActive && !searchText.isEmpty && searchFilteredIndices.contains(dataIndex)
-            if !isPruned && !isSearchFiltered {
+            if isVisibleBySearchAndMediaSettings(dataIndex) {
                 if visibleIndex == indexPath.row {
                     return dataIndex
                 }
@@ -1657,6 +1700,40 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
 
         return nil
+    }
+
+    private func isVisibleBySearchAndMediaSettings(_ index: Int) -> Bool {
+        let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
+        if postNumber.map({ prunedPostNumbers.contains($0) }) ?? false {
+            return false
+        }
+        if isSearchActive && !searchText.isEmpty && searchFilteredIndices.contains(index) {
+            return false
+        }
+        if MediaSettings.hidePostsWithoutImages && !postHasMedia(at: index) {
+            return false
+        }
+        return true
+    }
+
+    private func visiblePostCount() -> Int {
+        var count = 0
+        for index in 0..<threadReplies.count where isVisibleBySearchAndMediaSettings(index) {
+            count += 1
+        }
+        return count
+    }
+
+    private func postHasMedia(at index: Int) -> Bool {
+        guard index < threadRepliesImages.count else { return false }
+        let raw = threadRepliesImages[index]
+        return !raw.isEmpty && raw != "https://i.4cdn.org/\(boardAbv)/"
+    }
+
+    private func hasGalleryMedia(_ raw: String) -> Bool {
+        guard let url = URL(string: raw),
+              raw != "https://i.4cdn.org/\(boardAbv)/" else { return false }
+        return MediaSettings.isSupportedGalleryURL(url)
     }
     func numberOfSections(in tableView: UITableView) -> Int {
         return 1
@@ -1667,20 +1744,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         if isLoading {
             return 0
         }
-        
-        // If search is active, only count unfiltered rows
-        if isSearchActive && !searchText.isEmpty {
-            return (0..<threadReplies.count).filter { index in
-                let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
-                let isPruned = postNumber.map { prunedPostNumbers.contains($0) } ?? false
-                return !isPruned && !searchFilteredIndices.contains(index)
-            }.count
-        }
-        
-        return threadReplies.indices.filter { index in
-            let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : nil
-            return !(postNumber.map { prunedPostNumbers.contains($0) } ?? false)
-        }.count
+
+        return visiblePostCount()
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -1734,7 +1799,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                            replyCount: 0)
         } else {
             let imageUrl = threadRepliesImages[actualIndex]
-            let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/"
+            let hasImage = imageUrl != "https://i.4cdn.org/\(boardAbv)/" && !MediaSettings.hideAllImages
             let attributedText = threadReplies[actualIndex]
             let boardNumber = threadBoardReplyNumber[actualIndex]
             let isFiltered = filteredReplyIndices.contains(actualIndex)
@@ -1772,7 +1837,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             // Set up image if present
             if hasImage {
                 print("🔄 CELL: Cell \(indexPath.row) has image, calling configureImage")
-                configureImage(for: cell, with: imageUrl, at: indexPath)
+                configureImage(for: cell, with: imageUrl, at: indexPath, postIndex: actualIndex)
                 
                 // Prepare cell for hover interaction
                 if #available(iOS 13.4, *) {
@@ -1780,7 +1845,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     cell.threadImage.layer.borderWidth = 0.0
                     
                     // Store the image URL for hover preview
-                    cell.setImageURL(imageUrl) 
+                    cell.setImageURL(imageUrl)
                 }
                 cell.threadImage.tag = actualIndex
                 cell.threadImage.addTarget(self, action: #selector(threadContentOpen), for: .touchUpInside)
@@ -1861,11 +1926,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
         let urls: [URL] = indexPaths.compactMap { ip in
-            guard ip.row < threadRepliesImages.count else { return nil }
-            let raw = threadRepliesImages[ip.row]
+            guard let actualIndex = actualIndex(for: ip),
+                  actualIndex < threadRepliesImages.count else { return nil }
+            let raw = threadRepliesImages[actualIndex]
             guard !raw.isEmpty, raw != "https://i.4cdn.org/\(boardAbv)/" else { return nil }
             let useHQ = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
-            return thumbnailURL(from: raw, useHQ: useHQ)
+            let isSpoiler = actualIndex < postMetadataList.count && postMetadataList[actualIndex].isSpoiler
+            return MediaSettings.thumbnailURL(from: raw, useHighQuality: useHQ, isSpoiler: isSpoiler)
         }
         guard !urls.isEmpty else { return }
         imagePrefetcher?.stop()
@@ -2534,6 +2601,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let fileHash = post["md5"].stringValue.isEmpty
             ? (post["files"].array?.first?["hash"].stringValue ?? "")
             : post["md5"].stringValue  // File hash (if available)
+        let isSpoiler = post["spoiler"].boolValue
 
         // Create PostMetadata for advanced filtering
         let metadata = PostMetadata(
@@ -2547,7 +2615,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             imageUrl: imageURL.isEmpty ? nil : imageURL,
             imageExtension: imageExtension.isEmpty ? nil : imageExtension,
             imageName: imageName.isEmpty ? nil : imageName,
-            fileHash: fileHash.isEmpty ? nil : fileHash
+            fileHash: fileHash.isEmpty ? nil : fileHash,
+            isSpoiler: isSpoiler
         )
         postMetadataList.append(metadata)
     }
@@ -2908,11 +2977,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     // MARK: - Image Handling Methods
     /// Methods to handle image loading and interactions
-    private func configureImage(for cell: threadRepliesCell, with imageUrl: String, at indexPath: IndexPath? = nil) {
+    private func configureImage(for cell: threadRepliesCell, with imageUrl: String, at indexPath: IndexPath? = nil, postIndex: Int? = nil) {
         print("Debug: Starting image configuration for URL: \(imageUrl)")
 
         let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
-        let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
+        let resolvedPostIndex = postIndex ?? indexPath.flatMap { actualIndex(for: $0) }
+        let isSpoiler = resolvedPostIndex.flatMap { $0 < postMetadataList.count ? postMetadataList[$0].isSpoiler : nil } ?? false
+        let thumbnailUrl = MediaSettings.thumbnailURL(from: imageUrl, useHighQuality: useHighQualityThumbnails, isSpoiler: isSpoiler)
 
         if let thumbnailUrl, cell.displayedThumbnailURL == thumbnailUrl, cell.threadImage.thumbnailImageView.image != nil {
             cell.setImageURL(imageUrl)
@@ -2941,69 +3012,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
             return
         }
-        
-        // Extract file extension from URL
-        let fileExtension: String
-        if imageUrl.hasSuffix(".jpg") {
-            fileExtension = ".jpg"
-        } else if imageUrl.hasSuffix(".png") {
-            fileExtension = ".png"
-            print("Debug: PNG image detected in configureImage: \(imageUrl)")
-        } else if imageUrl.hasSuffix(".webm") {
-            fileExtension = ".webm"
-        } else if imageUrl.hasSuffix(".mp4") {
-            fileExtension = ".mp4"
-        } else {
-            // Default to JPG if extension can't be determined
-            fileExtension = ".jpg"
-            print("Debug: Unknown extension, defaulting to JPG for: \(imageUrl)")
-        }
-        
-        let finalUrl: String
-        if fileExtension == ".webm" || fileExtension == ".mp4" {
-            let components = imageUrl.components(separatedBy: "/")
-            if let last = components.last {
-                let base = last.replacingOccurrences(of: fileExtension, with: "")
-                
-                // For videos, always use thumbnail ("s.jpg" suffix)
-                finalUrl = imageUrl.replacingOccurrences(of: last, with: "\(base)s.jpg")
-                print("Debug: Video thumbnail URL: \(finalUrl)")
-            } else {
-                finalUrl = imageUrl
-            }
-        } else {
-            // For images, use full image URL or thumbnail URL based on user preference
-            if useHighQualityThumbnails {
-                // Use the original full-quality image URL
-                finalUrl = imageUrl
-                print("Debug: Using high-quality image: \(finalUrl)")
-            } else if imageUrl.contains("/.media/") {
-                finalUrl = imageUrl
-                print("Debug: Using original media URL for LynxChan image: \(finalUrl)")
-            } else {
-                // Use the thumbnail URL by adding "s" before the extension
-                let components = imageUrl.components(separatedBy: "/")
-                if let last = components.last, let range = last.range(of: ".") {
-                    let filename = String(last[..<range.lowerBound])
-                    
-                    // 4chan always uses JPG for thumbnails regardless of the original file type
-                    let thumbnailFilename = filename + "s.jpg"
-                    finalUrl = imageUrl.replacingOccurrences(of: last, with: thumbnailFilename)
-                    
-                    if fileExtension == ".png" {
-                        print("Debug: Using JPG thumbnail for PNG image: \(finalUrl)")
-                    } else {
-                        print("Debug: Generated thumbnail URL: \(finalUrl) for image type: \(fileExtension)")
-                    }
-                } else {
-                    finalUrl = imageUrl
-                    print("Debug: Could not parse URL components, using original: \(finalUrl)")
-                }
-            }
-        }
-        
-        guard let url = URL(string: finalUrl) else {
-            print("Debug: Invalid URL: \(finalUrl)")
+
+        guard let url = thumbnailUrl else {
+            print("Debug: Invalid URL: \(imageUrl)")
             cell.threadImage.thumbnailImageView.image = UIImage(named: "loadingBoardImage")
             return
         }
@@ -3032,6 +3043,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         ]
         
         print("Debug: Loading image with URL: \(url)")
+        let finalUrl = url.absoluteString
 
         if cell.displayedThumbnailURL != url {
             cell.threadImage.thumbnailImageView.kf.cancelDownloadTask()
@@ -5486,11 +5498,12 @@ extension threadRepliesTV {
     }
     
     private func configureCellImage(cell: threadRepliesCell, at indexPath: IndexPath) {
-        guard indexPath.row < threadRepliesImages.count else { return }
+        guard let actualIndex = actualIndex(for: indexPath),
+              actualIndex < threadRepliesImages.count else { return }
         
-        let imageURL = threadRepliesImages[indexPath.row]
+        let imageURL = threadRepliesImages[actualIndex]
         if !imageURL.isEmpty && imageURL != "https://i.4cdn.org/\(boardAbv)/" {
-            configureImage(for: cell, with: imageURL)
+            configureImage(for: cell, with: imageURL, at: indexPath, postIndex: actualIndex)
         }
     }
     
@@ -5503,7 +5516,7 @@ extension threadRepliesTV {
         let useHighQualityThumbnails = UserDefaults.standard.bool(forKey: "channer_high_quality_thumbnails_enabled")
         
         // Generate thumbnail URL using same method as normal loading
-        let thumbnailUrl = thumbnailURL(from: imageUrl, useHQ: useHighQualityThumbnails)
+        let thumbnailUrl = MediaSettings.thumbnailURL(from: imageUrl, useHighQuality: useHighQualityThumbnails)
         print("🚀 LOAD: Thumbnail URL: \(thumbnailUrl?.absoluteString ?? "nil")")
         
         guard let url = thumbnailUrl else {

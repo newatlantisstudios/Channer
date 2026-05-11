@@ -3376,6 +3376,10 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
     private enum Section: Int, CaseIterable {
         case mode
         case battery
+        case thumbnailControls
+        case visibility
+        case sound
+        case gallery
         case perBoard
 
         var title: String {
@@ -3384,6 +3388,14 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
                 return "Network"
             case .battery:
                 return "Battery"
+            case .thumbnailControls:
+                return "Thumbnail Replacement"
+            case .visibility:
+                return "Thread Media"
+            case .sound:
+                return "Video and Sound"
+            case .gallery:
+                return "Gallery"
             case .perBoard:
                 return "Per-board Rules"
             }
@@ -3393,6 +3405,30 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
     private enum BatteryRow: Int, CaseIterable {
         case pauseLowPower
         case minimumBattery
+    }
+
+    private enum ThumbnailRow: Int, CaseIterable {
+        case revealSpoilers
+        case replaceJPG
+        case replacePNG
+        case replaceGIF
+        case replaceVideos
+    }
+
+    private enum VisibilityRow: Int, CaseIterable {
+        case hidePostsWithoutImages
+        case hideAllImages
+    }
+
+    private enum SoundRow: Int, CaseIterable {
+        case defaultVolume
+        case mouseWheelVolume
+        case soundPosts
+        case webMMetadata
+    }
+
+    private enum GalleryRow: Int, CaseIterable {
+        case pdfInGallery
     }
 
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -3436,6 +3472,14 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
             return 1
         case .battery:
             return BatteryRow.allCases.count
+        case .thumbnailControls:
+            return ThumbnailRow.allCases.count
+        case .visibility:
+            return VisibilityRow.allCases.count
+        case .sound:
+            return SoundRow.allCases.count
+        case .gallery:
+            return GalleryRow.allCases.count
         case .perBoard:
             return 1
         }
@@ -3452,6 +3496,14 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
             return "Prefetches thumbnails to make scrolling smoother."
         case .battery:
             return "Prefetching pauses when Low Power Mode is enabled or the battery is below the selected threshold."
+        case .thumbnailControls:
+            return "Matches 4chan XT media controls: spoiler reveal and replacing thumbnails with full originals or videos."
+        case .visibility:
+            return "Hide text-only posts or hide media thumbnails without losing post text."
+        case .sound:
+            return "WebM metadata fetches the title from the first bytes of the file. Sound posts load URLs from [sound=] filenames."
+        case .gallery:
+            return "PDF files appear in the media gallery only when enabled."
         case .perBoard:
             return "Overrides apply to both board and thread views."
         }
@@ -3496,6 +3548,45 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
                 cell.accessoryType = .disclosureIndicator
                 cell.selectionStyle = .default
             }
+        case .thumbnailControls:
+            guard let row = ThumbnailRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .revealSpoilers:
+                configureSwitchCell(cell, title: "Reveal Spoiler Thumbnails", isOn: MediaSettings.revealSpoilerThumbnails, action: #selector(revealSpoilerThumbnailsChanged(_:)))
+            case .replaceJPG:
+                configureSwitchCell(cell, title: "Replace JPG Thumbnails", isOn: MediaSettings.replaceJPGThumbnails, action: #selector(replaceJPGThumbnailsChanged(_:)))
+            case .replacePNG:
+                configureSwitchCell(cell, title: "Replace PNG Thumbnails", isOn: MediaSettings.replacePNGThumbnails, action: #selector(replacePNGThumbnailsChanged(_:)))
+            case .replaceGIF:
+                configureSwitchCell(cell, title: "Replace GIF Thumbnails", isOn: MediaSettings.replaceGIFThumbnails, action: #selector(replaceGIFThumbnailsChanged(_:)))
+            case .replaceVideos:
+                configureSwitchCell(cell, title: "Replace Video Thumbnails", isOn: MediaSettings.replaceVideoThumbnails, action: #selector(replaceVideoThumbnailsChanged(_:)))
+            }
+        case .visibility:
+            guard let row = VisibilityRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .hidePostsWithoutImages:
+                configureSwitchCell(cell, title: "Hide Posts Without Images", isOn: MediaSettings.hidePostsWithoutImages, action: #selector(hidePostsWithoutImagesChanged(_:)))
+            case .hideAllImages:
+                configureSwitchCell(cell, title: "Hide All Images", isOn: MediaSettings.hideAllImages, action: #selector(hideAllImagesChanged(_:)))
+            }
+        case .sound:
+            guard let row = SoundRow(rawValue: indexPath.row) else { return cell }
+            switch row {
+            case .defaultVolume:
+                cell.textLabel?.text = "Default Video Volume"
+                cell.detailTextLabel?.text = "\(Int((MediaSettings.defaultVideoVolume * 100).rounded()))%"
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
+            case .mouseWheelVolume:
+                configureSwitchCell(cell, title: "Mouse-wheel Volume", isOn: MediaSettings.mouseWheelVolumeEnabled, action: #selector(mouseWheelVolumeChanged(_:)))
+            case .soundPosts:
+                configureSwitchCell(cell, title: "Enable Sound Posts", isOn: MediaSettings.soundPostsEnabled, action: #selector(soundPostsChanged(_:)))
+            case .webMMetadata:
+                configureSwitchCell(cell, title: "WebM Metadata", isOn: MediaSettings.webMMetadataEnabled, action: #selector(webMMetadataChanged(_:)))
+            }
+        case .gallery:
+            configureSwitchCell(cell, title: "PDF in Gallery", isOn: MediaSettings.pdfInGallery, action: #selector(pdfInGalleryChanged(_:)))
         case .perBoard:
             cell.textLabel?.text = "Manage Per-board Rules"
             let count = manager.boardOverrideCount()
@@ -3521,15 +3612,43 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
                let cell = tableView.cellForRow(at: indexPath) {
                 presentBatteryPicker(from: cell)
             }
+        case .sound:
+            if SoundRow(rawValue: indexPath.row) == .defaultVolume,
+               let cell = tableView.cellForRow(at: indexPath) {
+                presentVolumePicker(from: cell)
+            }
+        case .thumbnailControls, .visibility, .gallery:
+            break
         case .perBoard:
             let perBoardVC = MediaPrefetchBoardRulesViewController()
             navigationController?.pushViewController(perBoardVC, animated: true)
         }
     }
 
+    private func configureSwitchCell(_ cell: UITableViewCell, title: String, isOn: Bool, action: Selector) {
+        cell.textLabel?.text = title
+        let toggle = UISwitch()
+        toggle.isOn = isOn
+        toggle.addTarget(self, action: action, for: .valueChanged)
+        cell.accessoryView = toggle
+        cell.selectionStyle = .none
+    }
+
     @objc private func pauseOnLowPowerChanged(_ sender: UISwitch) {
         manager.pauseOnLowPowerMode = sender.isOn
     }
+
+    @objc private func revealSpoilerThumbnailsChanged(_ sender: UISwitch) { MediaSettings.revealSpoilerThumbnails = sender.isOn }
+    @objc private func replaceJPGThumbnailsChanged(_ sender: UISwitch) { MediaSettings.replaceJPGThumbnails = sender.isOn }
+    @objc private func replacePNGThumbnailsChanged(_ sender: UISwitch) { MediaSettings.replacePNGThumbnails = sender.isOn }
+    @objc private func replaceGIFThumbnailsChanged(_ sender: UISwitch) { MediaSettings.replaceGIFThumbnails = sender.isOn }
+    @objc private func replaceVideoThumbnailsChanged(_ sender: UISwitch) { MediaSettings.replaceVideoThumbnails = sender.isOn }
+    @objc private func hidePostsWithoutImagesChanged(_ sender: UISwitch) { MediaSettings.hidePostsWithoutImages = sender.isOn }
+    @objc private func hideAllImagesChanged(_ sender: UISwitch) { MediaSettings.hideAllImages = sender.isOn }
+    @objc private func mouseWheelVolumeChanged(_ sender: UISwitch) { MediaSettings.mouseWheelVolumeEnabled = sender.isOn }
+    @objc private func soundPostsChanged(_ sender: UISwitch) { MediaSettings.soundPostsEnabled = sender.isOn }
+    @objc private func webMMetadataChanged(_ sender: UISwitch) { MediaSettings.webMMetadataEnabled = sender.isOn }
+    @objc private func pdfInGalleryChanged(_ sender: UISwitch) { MediaSettings.pdfInGallery = sender.isOn }
 
     private func presentModePicker(from cell: UITableViewCell) {
         let alert = UIAlertController(title: "Prefetch Mode", message: "Choose when to prefetch media", preferredStyle: .actionSheet)
@@ -3579,6 +3698,25 @@ final class MediaPrefetchSettingsViewController: UIViewController, UITableViewDe
             popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds, permittedArrowDirections: [.up, .down])
         }
 
+        present(alert, animated: true)
+    }
+
+    private func presentVolumePicker(from cell: UITableViewCell) {
+        let alert = UIAlertController(title: "Default Video Volume", message: "Choose the volume used when videos start unmuted", preferredStyle: .actionSheet)
+        for value in [0, 25, 50, 75, 100] {
+            let action = UIAlertAction(title: "\(value)%", style: .default) { [weak self] _ in
+                MediaSettings.defaultVideoVolume = Float(value) / 100
+                self?.tableView.reloadSections(IndexSet(integer: Section.sound.rawValue), with: .none)
+            }
+            if value == Int((MediaSettings.defaultVideoVolume * 100).rounded()) {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.channerAnchor(in: self, sourceView: cell, sourceRect: cell.bounds, permittedArrowDirections: [.up, .down])
+        }
         present(alert, animated: true)
     }
 }
