@@ -14,7 +14,9 @@ class AdvancedFilterViewController: UIViewController {
     // Section indices
     private enum Section: Int, CaseIterable {
         case globalSettings = 0
+        case xtFilters
         case regexFilters
+        case md5Filters
         case fileTypeFilters
         case countryFilters
         case tripCodeFilters
@@ -23,7 +25,9 @@ class AdvancedFilterViewController: UIViewController {
         var title: String {
             switch self {
             case .globalSettings: return "Global Settings"
+            case .xtFilters: return "XT Filters"
             case .regexFilters: return "Regex Filters"
+            case .md5Filters: return "MD5 Filters"
             case .fileTypeFilters: return "File Type Filters"
             case .countryFilters: return "Country Flag Filters"
             case .tripCodeFilters: return "Trip Code Filters"
@@ -33,8 +37,10 @@ class AdvancedFilterViewController: UIViewController {
 
         var footer: String {
             switch self {
-            case .globalSettings: return "Enable or disable all advanced filtering globally."
+            case .globalSettings: return "XT-compatible behavior for filtering, stubs, reasons, backlinks, recursion, and anonymized names."
+            case .xtFilters: return "Add XT lines like /general/i;boards:v;op:only;type:subject,comment;reason:General."
             case .regexFilters: return "Filter posts matching regular expression patterns."
+            case .md5Filters: return "Exact MD5 filters match XT's image MD5 behavior and quick filter entries."
             case .fileTypeFilters: return "Filter posts based on attachment type (videos, images, GIFs)."
             case .countryFilters: return "Filter posts by country flag. Use whitelist to only show specific countries."
             case .tripCodeFilters: return "Filter posts by trip code. Use whitelist to only show specific tripcodes."
@@ -45,7 +51,9 @@ class AdvancedFilterViewController: UIViewController {
         var filterType: FilterType? {
             switch self {
             case .globalSettings: return nil
+            case .xtFilters: return .xtGeneral
             case .regexFilters: return .regex
+            case .md5Filters: return .md5
             case .fileTypeFilters: return .fileType
             case .countryFilters: return .countryFlag
             case .tripCodeFilters: return .tripCode
@@ -142,6 +150,10 @@ class AdvancedFilterViewController: UIViewController {
     }
 
     private func filters(for section: Section) -> [AdvancedFilter] {
+        if section == .xtFilters {
+            let xtTypes: Set<FilterType> = [.xtGeneral, .subject, .email, .capcode, .passDate, .dimensions, .fileSize]
+            return advancedFilters.filter { xtTypes.contains($0.filterType) }
+        }
         guard let type = section.filterType else { return [] }
         return advancedFilters.filter { $0.filterType == type }
     }
@@ -157,6 +169,14 @@ class AdvancedFilterViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "Regex Pattern", style: .default) { [weak self] _ in
             self?.showAddRegexFilter()
+        })
+
+        alert.addAction(UIAlertAction(title: "XT Filter Line", style: .default) { [weak self] _ in
+            self?.showAddXTFilter()
+        })
+
+        alert.addAction(UIAlertAction(title: "MD5", style: .default) { [weak self] _ in
+            self?.showAddMD5Filter()
         })
 
         alert.addAction(UIAlertAction(title: "File Type", style: .default) { [weak self] _ in
@@ -185,6 +205,56 @@ class AdvancedFilterViewController: UIViewController {
     }
 
     // MARK: - Add Filter Dialogs
+
+    private func showAddXTFilter() {
+        let alert = UIAlertController(
+            title: "Add XT Filter",
+            message: "Use /pattern/flags;options syntax",
+            preferredStyle: .alert
+        )
+
+        alert.addTextField { textField in
+            textField.placeholder = "/general/i;boards:v;op:only;reason:General"
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+        }
+
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let line = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !line.isEmpty else { return }
+            if !ContentFilterManager.shared.addXTFilterLine(line) {
+                self?.showError("Invalid XT filter line")
+            }
+        })
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func showAddMD5Filter() {
+        let alert = UIAlertController(
+            title: "Add MD5 Filter",
+            message: "Enter an image MD5 hash",
+            preferredStyle: .alert
+        )
+
+        alert.addTextField { textField in
+            textField.placeholder = "Base64 MD5"
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+        }
+
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let hash = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !hash.isEmpty else { return }
+            if !ContentFilterManager.shared.quickFilterMD5(hash) {
+                self?.showError("Invalid MD5 hash")
+            }
+        })
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
 
     private func showAddRegexFilter() {
         let alert = UIAlertController(
@@ -347,9 +417,24 @@ class AdvancedFilterViewController: UIViewController {
     // MARK: - Toggle Actions
 
     @objc private func toggleAdvancedFiltering(_ sender: UISwitch) {
-        contentFilterManager.setAdvancedFilteringEnabled(sender.isOn)
+        switch sender.tag {
+        case 0:
+            contentFilterManager.setAdvancedFilteringEnabled(sender.isOn)
+        case 1:
+            contentFilterManager.setShowStubsForFilteredPosts(sender.isOn)
+        case 2:
+            contentFilterManager.setShowFilterReasons(sender.isOn)
+        case 3:
+            contentFilterManager.setShowFilteredBacklinks(sender.isOn)
+        case 4:
+            contentFilterManager.setRecursiveHidingEnabled(sender.isOn)
+        case 5:
+            contentFilterManager.setAnonymizeModeEnabled(sender.isOn)
+        default:
+            break
+        }
 
-        let message = sender.isOn ? "Advanced filtering enabled" : "Advanced filtering disabled"
+        let message = sender.isOn ? "Enabled" : "Disabled"
         showBriefMessage(message)
     }
 
@@ -393,7 +478,7 @@ extension AdvancedFilterViewController: UITableViewDataSource {
         guard let sectionType = Section(rawValue: section) else { return 0 }
 
         if sectionType == .globalSettings {
-            return 1
+            return 6
         }
 
         return filters(for: sectionType).count
@@ -406,9 +491,19 @@ extension AdvancedFilterViewController: UITableViewDataSource {
 
         if section == .globalSettings {
             let cell = tableView.dequeueReusableCell(withIdentifier: "SwitchCell", for: indexPath) as! SwitchTableViewCell
-            cell.textLabel?.text = "Enable Advanced Filtering"
+            let rows: [(String, Bool)] = [
+                ("Enable Advanced Filtering", contentFilterManager.isAdvancedFilteringEnabled()),
+                ("Show Stubs", contentFilterManager.showStubsForFilteredPosts()),
+                ("Show Filter Reasons", contentFilterManager.showFilterReasons()),
+                ("Show Filtered Backlinks", contentFilterManager.showFilteredBacklinks()),
+                ("Recursive Hiding", contentFilterManager.isRecursiveHidingEnabled()),
+                ("Anonymize Mode", contentFilterManager.isAnonymizeModeEnabled())
+            ]
+            let row = rows[indexPath.row]
+            cell.textLabel?.text = row.0
             cell.textLabel?.textColor = ThemeManager.shared.primaryTextColor
-            cell.switchControl.isOn = contentFilterManager.isAdvancedFilteringEnabled()
+            cell.switchControl.isOn = row.1
+            cell.switchControl.tag = indexPath.row
             cell.switchControl.removeTarget(nil, action: nil, for: .valueChanged)
             cell.switchControl.addTarget(self, action: #selector(toggleAdvancedFiltering(_:)), for: .valueChanged)
             cell.backgroundColor = ThemeManager.shared.cellBackgroundColor

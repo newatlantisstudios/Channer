@@ -153,13 +153,20 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
     private func applyFiltersAndSearch() {
         var results = threadData
 
-        if ContentFilterManager.shared.isFilteringEnabled() {
-            let filters = ContentFilterManager.shared.getAllFilters()
-            if !filters.keywords.isEmpty {
-                let lowercasedKeywords = filters.keywords.map { $0.lowercased() }
-                results = results.filter { thread in
-                    let threadContent = (thread.title + " " + thread.comment).lowercased()
-                    return !lowercasedKeywords.contains { threadContent.contains($0) }
+        let manager = ContentFilterManager.shared
+        if manager.isFilteringEnabled() || manager.isAdvancedFilteringEnabled() {
+            results = results.compactMap { thread in
+                let result = manager.filterResult(for: postMetadata(for: thread))
+                return result.isFiltered && !result.showStub ? nil : thread
+            }
+            if results.contains(where: { manager.filterResult(for: postMetadata(for: $0)).pinToTop }) {
+                results.sort { lhs, rhs in
+                    let lhsResult = manager.filterResult(for: postMetadata(for: lhs))
+                    let rhsResult = manager.filterResult(for: postMetadata(for: rhs))
+                    if lhsResult.pinToTop != rhsResult.pinToTop {
+                        return lhsResult.pinToTop
+                    }
+                    return (lhs.bumpIndex ?? Int.max) < (rhs.bumpIndex ?? Int.max)
                 }
             }
         }
@@ -174,6 +181,22 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
         }
 
         filteredThreadData = results
+    }
+
+    private func postMetadata(for thread: ThreadData) -> PostMetadata {
+        let ext = URL(string: thread.imageUrl)?.pathExtension
+        return PostMetadata(
+            postNumber: thread.number,
+            comment: thread.comment,
+            timestamp: thread.lastReplyTime,
+            imageUrl: thread.imageUrl.isEmpty ? nil : thread.imageUrl,
+            imageExtension: ext.map { ".\($0)" },
+            boardAbv: thread.boardAbv,
+            threadNumber: thread.number,
+            subject: thread.title.isEmpty ? nil : thread.title,
+            isOP: true,
+            isTopThread: (thread.bumpIndex ?? Int.max) == 0
+        )
     }
 
     // MARK: - Data Loading

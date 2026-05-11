@@ -1362,27 +1362,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             self.threadData = Array(dedupedThreads.values).sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
             ThreadData.logFetchedThreads(self.threadData, boardAbv: self.boardAbv, source: "list view")
             
-            // Apply content filtering if enabled
-            if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-               let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-               let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
-               isFilteringEnabled {
-                
-                // Get keyword filters through KVC
-                if let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]),
-                   !getAllFilters.keywords.isEmpty {
-                    
-                    let keywordFilters = getAllFilters.keywords
-                    self.filteredThreadData = self.threadData.filter { thread in
-                        let threadContent = (thread.title + " " + thread.comment).lowercased()
-                        return !keywordFilters.contains { threadContent.contains($0.lowercased()) }
-                    }
-                } else {
-                    self.filteredThreadData = self.threadData
-                }
-            } else {
-                self.filteredThreadData = self.threadData
-            }
+            self.filteredThreadData = self.applyContentFilters(to: self.threadData)
 
             self.updateFilterCache()
             self.tableView.reloadData()
@@ -1393,28 +1373,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         // Loads favorite threads.
         print("boardTV - loadFavorites")
         threadData = FavoritesManager.shared.loadFavorites()
-        
-        // Apply content filtering if enabled
-        if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
-           let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
-           let isFilteringEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
-           isFilteringEnabled {
-            
-            // Get keyword filters through KVC
-            if let getAllFilters = manager.perform(NSSelectorFromString("getAllFilters"))?.takeUnretainedValue() as? (keywords: [String], posters: [String], images: [String]),
-               !getAllFilters.keywords.isEmpty {
-                
-                let keywordFilters = getAllFilters.keywords
-                filteredThreadData = threadData.filter { thread in
-                    let threadContent = (thread.title + " " + thread.comment).lowercased()
-                    return !keywordFilters.contains { threadContent.contains($0.lowercased()) }
-                }
-            } else {
-                filteredThreadData = threadData
-            }
-        } else {
-            filteredThreadData = threadData
-        }
+        filteredThreadData = applyContentFilters(to: threadData)
 
         // Update filter cache and reload the table view
         updateFilterCache()
@@ -1428,30 +1387,61 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     private func updateFilterCache() {
         filteredThreadNumbers.removeAll()
 
-        // Check if content filtering is enabled using direct access
-        guard ContentFilterManager.shared.isFilteringEnabled() else {
+        let manager = ContentFilterManager.shared
+        guard manager.isFilteringEnabled() || manager.isAdvancedFilteringEnabled() else {
             filterCacheValid = true
             return
         }
 
-        let filters = ContentFilterManager.shared.getAllFilters()
-        guard !filters.keywords.isEmpty else {
-            filterCacheValid = true
-            return
-        }
-
-        // Pre-compute lowercased keywords once
-        let lowercasedKeywords = filters.keywords.map { $0.lowercased() }
-
-        // Cache which threads match filters
         for thread in filteredThreadData {
-            let threadContent = (thread.title + " " + thread.comment).lowercased()
-            if lowercasedKeywords.contains(where: { threadContent.contains($0) }) {
+            let metadata = postMetadata(for: thread)
+            if manager.filterResult(for: metadata).isFiltered {
                 filteredThreadNumbers.insert(thread.number)
             }
         }
 
         filterCacheValid = true
+    }
+
+    private func applyContentFilters(to threads: [ThreadData]) -> [ThreadData] {
+        let manager = ContentFilterManager.shared
+        guard manager.isFilteringEnabled() || manager.isAdvancedFilteringEnabled() else {
+            return threads
+        }
+
+        let visibleThreads = threads.compactMap { thread in
+            let result = manager.filterResult(for: postMetadata(for: thread))
+            return result.isFiltered && !result.showStub ? nil : thread
+        }
+        guard visibleThreads.contains(where: { manager.filterResult(for: postMetadata(for: $0)).pinToTop }) else {
+            return visibleThreads
+        }
+
+        return visibleThreads.sorted { lhs, rhs in
+            let lhsResult = manager.filterResult(for: postMetadata(for: lhs))
+            let rhsResult = manager.filterResult(for: postMetadata(for: rhs))
+            if lhsResult.pinToTop != rhsResult.pinToTop {
+                return lhsResult.pinToTop
+            }
+            return (lhs.bumpIndex ?? Int.max) < (rhs.bumpIndex ?? Int.max)
+        }
+    }
+
+    private func postMetadata(for thread: ThreadData) -> PostMetadata {
+        let ext = URL(string: thread.imageUrl)?.pathExtension
+        return PostMetadata(
+            postNumber: thread.number,
+            comment: thread.comment,
+            timestamp: thread.lastReplyTime,
+            imageUrl: thread.imageUrl.isEmpty ? nil : thread.imageUrl,
+            imageExtension: ext.map { ".\($0)" },
+            boardAbv: thread.boardAbv,
+            threadNumber: thread.number,
+            subject: thread.title.isEmpty ? nil : thread.title,
+            name: nil,
+            isOP: true,
+            isTopThread: (thread.bumpIndex ?? Int.max) == 0
+        )
     }
 
     // MARK: - TableView DataSource Methods
