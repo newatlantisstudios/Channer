@@ -450,6 +450,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         return button
     }()
 
+    private let quoteScrollMarkerContainer: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isUserInteractionEnabled = true
+        view.backgroundColor = .clear
+        return view
+    }()
+
     // MARK: - Initializer
     
     init() {
@@ -584,6 +592,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         // Setup floating reply button for multi-quote
         setupFloatingReplyButton()
+        setupQuoteScrollMarkers()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -1056,17 +1065,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
 
             self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
-
-            // Briefly highlight the cell to draw attention
-            if let cell = self.tableView.cellForRow(at: indexPath) {
-                UIView.animate(withDuration: 0.3, animations: {
-                    cell.backgroundColor = ThemeManager.shared.cellBorderColor.withAlphaComponent(0.3)
-                }) { _ in
-                    UIView.animate(withDuration: 0.5, delay: 0.5) {
-                        cell.backgroundColor = ThemeManager.shared.backgroundColor
-                    }
-                }
-            }
+            self.flashPost(at: indexPath)
 
             self.scrollToPostNumber = nil
         }
@@ -1823,7 +1822,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                            replyCount: replyCount,
                            subject: subject,
                            isLastReadBoundary: isLastReadBoundary,
-                           isNewPosterAfterRead: isNewPosterAfterRead)
+                           isNewPosterAfterRead: isNewPosterAfterRead,
+                           isOwnPost: isUserPost(boardNumber),
+                           quotesUser: postQuotesUser(at: actualIndex))
             
             // Set the attributed text based on whether the cell has an image
             if hasImage {
@@ -2756,8 +2757,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         for (index, originalText) in originalTexts.enumerated() {
             // Get post number for tap-to-reveal spoiler tracking
             let postNumber = index < threadBoardReplyNumber.count ? threadBoardReplyNumber[index] : ""
-            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers, postNumber: postNumber)
-            threadReplies[index] = updatedText
+            let context = quoteFormattingContext()
+            let updatedText = TextFormatter.formatText(originalText, showSpoilers: showSpoilers, postNumber: postNumber, quoteContext: context)
+            threadReplies[index] = TextFormatter.appendBacklinks(
+                to: updatedText,
+                replyNumbers: threadBoardReplies[postNumber] ?? [],
+                quoteContext: context
+            )
         }
 
         // Reload the table view
@@ -2804,8 +2810,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         if let postIndex = threadBoardReplyNumber.firstIndex(of: postNumber),
            postIndex < originalTexts.count {
             // Reformat just this post with updated spoiler state
-            let updatedText = TextFormatter.formatText(originalTexts[postIndex], showSpoilers: showSpoilers, postNumber: postNumber)
-            threadReplies[postIndex] = updatedText
+            let context = quoteFormattingContext()
+            let updatedText = TextFormatter.formatText(originalTexts[postIndex], showSpoilers: showSpoilers, postNumber: postNumber, quoteContext: context)
+            threadReplies[postIndex] = TextFormatter.appendBacklinks(
+                to: updatedText,
+                replyNumbers: threadBoardReplies[postNumber] ?? [],
+                quoteContext: context
+            )
 
             // Reload just the affected cell
             let indexPath = IndexPath(row: postIndex, section: 0)
@@ -2945,9 +2956,61 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
             return false // Prevent default interaction
         }
+        if URL.scheme == "postjump" {
+            let postNumber = URL.host ?? ""
+            if !postNumber.isEmpty {
+                scrollToPostNumber(postNumber)
+            }
+            return false
+        }
         
         // Handle any other types of URL as needed
         return true
+    }
+
+    private func scrollToPostNumber(_ postNumber: String) {
+        guard let dataIndex = threadBoardReplyNumber.firstIndex(of: postNumber) else {
+            showThreadForPostNumber(postNumber)
+            return
+        }
+
+        let visibleRow: Int
+        if isSearchActive && !searchText.isEmpty {
+            var row = 0
+            var foundRow: Int?
+            for index in 0..<threadReplies.count where !searchFilteredIndices.contains(index) {
+                if index == dataIndex {
+                    foundRow = row
+                    break
+                }
+                row += 1
+            }
+            guard let foundRow else { return }
+            visibleRow = foundRow
+        } else {
+            visibleRow = dataIndex
+        }
+
+        let indexPath = IndexPath(row: visibleRow, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+        flashPost(at: indexPath)
+    }
+
+    private func flashPost(at indexPath: IndexPath) {
+        flashPost(at: indexPath, remainingAttempts: 4)
+    }
+
+    private func flashPost(at indexPath: IndexPath, remainingAttempts: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self = self else { return }
+
+            if let cell = self.tableView.cellForRow(at: indexPath) as? threadRepliesCell {
+                cell.flashQuoteTarget()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } else if remainingAttempts > 0 {
+                self.flashPost(at: indexPath, remainingAttempts: remainingAttempts - 1)
+            }
+        }
     }
     
     func textViewDidBeginEditing(_ textView: UITextView) {
@@ -3256,6 +3319,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Thread Structure Methods
     /// Methods to structure and display thread replies
     private func structureThreadReplies() {
+        threadBoardReplies.removeAll()
         for (i, reply) in threadReplies.enumerated() {
             // Get the string content from NSAttributedString
             let replyString = reply.string
@@ -3272,8 +3336,104 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 }
             }
         }
-        
-        debugReloadData(context: "Search filter update")
+
+        enrichQuoteText()
+        debugReloadData(context: "Quote enrichment")
+    }
+
+    private func enrichQuoteText() {
+        guard !originalTexts.isEmpty else { return }
+
+        for index in originalTexts.indices where index < threadBoardReplyNumber.count {
+            let postNumber = threadBoardReplyNumber[index]
+            let context = quoteFormattingContext()
+            let formatted = TextFormatter.formatText(
+                originalTexts[index],
+                showSpoilers: showSpoilers,
+                postNumber: postNumber,
+                quoteContext: context
+            )
+            threadReplies[index] = TextFormatter.appendBacklinks(
+                to: formatted,
+                replyNumbers: threadBoardReplies[postNumber] ?? [],
+                quoteContext: context
+            )
+        }
+    }
+
+    private func quoteFormattingContext() -> QuoteFormattingContext {
+        let userPosts = MyPostsManager.shared
+            .getUserPosts(forThread: threadNumber, board: boardAbv)
+            .map(\.postNo)
+        let filteredNumbers = filteredReplyIndices.compactMap { index in
+            threadBoardReplyNumber.indices.contains(index) ? threadBoardReplyNumber[index] : nil
+        }
+
+        return QuoteFormattingContext(
+            boardAbv: boardAbv,
+            threadNumber: threadNumber,
+            opPostNumber: threadBoardReplyNumber.first,
+            availablePostNumbers: Set(threadBoardReplyNumber),
+            userPostNumbers: Set(userPosts),
+            filteredPostNumbers: Set(filteredNumbers),
+            includeHashNavigation: true
+        )
+    }
+
+    private func isUserPost(_ postNumber: String) -> Bool {
+        MyPostsManager.shared.isUserPost(postNo: postNumber, threadNo: threadNumber, boardAbv: boardAbv)
+    }
+
+    private func postQuotesUser(at index: Int) -> Bool {
+        guard threadReplies.indices.contains(index) else { return false }
+        let userPosts = Set(MyPostsManager.shared.getUserPosts(forThread: threadNumber, board: boardAbv).map(\.postNo))
+        guard !userPosts.isEmpty else { return false }
+        let sourceText = originalTexts.indices.contains(index)
+            ? originalTexts[index].decodingHTMLEntities()
+            : threadReplies[index].string
+        return userPosts.contains { sourceText.contains(">>\($0)") }
+    }
+
+    private func setupQuoteScrollMarkers() {
+        view.addSubview(quoteScrollMarkerContainer)
+        NSLayoutConstraint.activate([
+            quoteScrollMarkerContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            quoteScrollMarkerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            quoteScrollMarkerContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            quoteScrollMarkerContainer.widthAnchor.constraint(equalToConstant: 18)
+        ])
+    }
+
+    private func updateQuoteScrollMarkers() {
+        quoteScrollMarkerContainer.subviews.forEach { $0.removeFromSuperview() }
+        guard tableView.contentSize.height > 0, quoteScrollMarkerContainer.bounds.height > 0 else { return }
+
+        for index in threadBoardReplyNumber.indices {
+            let postNumber = threadBoardReplyNumber[index]
+            let own = isUserPost(postNumber)
+            let quotesUser = postQuotesUser(at: index)
+            guard own || quotesUser else { continue }
+
+            let rowRect = tableView.rectForRow(at: IndexPath(row: index, section: 0))
+            let topRatio = max(0, min(1, rowRect.minY / max(tableView.contentSize.height, 1)))
+            let heightRatio = max(0.006, rowRect.height / max(tableView.contentSize.height, 1))
+            let markerHeight = max(6, quoteScrollMarkerContainer.bounds.height * heightRatio)
+            let y = min(quoteScrollMarkerContainer.bounds.height - markerHeight, quoteScrollMarkerContainer.bounds.height * topRatio)
+
+            let button = UIButton(type: .custom)
+            button.frame = CGRect(x: 7, y: y, width: 10, height: markerHeight)
+            button.layer.cornerRadius = 4
+            button.backgroundColor = quotesUser ? UIColor.systemOrange : UIColor.systemBlue.withAlphaComponent(0.65)
+            button.accessibilityLabel = quotesUser ? "Jump to post quoting you" : "Jump to your post"
+            button.accessibilityIdentifier = postNumber
+            button.addTarget(self, action: #selector(quoteScrollMarkerTapped(_:)), for: .touchUpInside)
+            quoteScrollMarkerContainer.addSubview(button)
+        }
+    }
+
+    @objc private func quoteScrollMarkerTapped(_ sender: UIButton) {
+        guard let postNumber = sender.accessibilityIdentifier else { return }
+        scrollToPostNumber(postNumber)
     }
     /// Shows thread replies for the post at the given index (called from long press menu)
     private func showThreadForIndex(_ index: Int) {
@@ -5417,6 +5577,8 @@ extension threadRepliesTV {
             self.cellHeightCache.removeAll()
             
             self.tableView.reloadData()
+            self.tableView.layoutIfNeeded()
+            self.updateQuoteScrollMarkers()
             self.pendingReloadContext = nil
         }
     }
@@ -5436,6 +5598,7 @@ extension threadRepliesTV {
         let velocity = scrollView.panGestureRecognizer.velocity(in: scrollView).y
         lastScrollVelocity = velocity
         print("📱 SCROLL: Velocity = \(velocity), isScrolling = \(isScrolling)")
+        updateQuoteScrollMarkers()
     }
     
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {

@@ -41,6 +41,15 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
     private var quoteLinkPreviewView: UIView?
     private var quoteLinkOverlayView: UIView?
     private var currentlyHoveredPostNumber: String?
+    private static let quoteLinkColor = UIColor { traitCollection in
+        traitCollection.userInterfaceStyle == .dark
+            ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            : UIColor.systemBlue
+    }
+    private static let quoteLinkTextAttributes: [NSAttributedString.Key: Any] = [
+        .foregroundColor: quoteLinkColor,
+        .underlineStyle: NSUnderlineStyle.single.rawValue
+    ]
 
     // Subject label for OP
     lazy var subjectLabel: UILabel = {
@@ -67,6 +76,8 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
 
     override func awakeFromNib() {
         super.awakeFromNib()
+        configureQuoteLinkTextView(replyText)
+        configureQuoteLinkTextView(replyTextNoImage)
         setupPointerInteraction()
         setupQuoteLinkHoverGestures()
 
@@ -86,6 +97,11 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
             // Increase size (will need to adjust constraints in storyboard)
             threadButton.transform = CGAffineTransform(scaleX: 1.5, y: 1.5)
         }
+    }
+
+    private func configureQuoteLinkTextView(_ textView: UITextView?) {
+        textView?.tintColor = Self.quoteLinkColor
+        textView?.linkTextAttributes = Self.quoteLinkTextAttributes
     }
     
     // Prepare for reuse to clean up resources
@@ -820,6 +836,61 @@ class threadReplyCell: UICollectionViewCell, VLCMediaPlayerDelegate {
             view.removeFromSuperview()
         }
         linkPreviewStackView.isHidden = true
+    }
+
+    func flashQuoteTarget() {
+        let originalBackgroundColor = contentView.backgroundColor?.cgColor ?? UIColor.clear.cgColor
+        let originalBorderColor = contentView.layer.borderColor ?? UIColor.clear.cgColor
+        let originalBorderWidth = contentView.layer.borderWidth
+
+        let flashBackgroundColor = UIColor.systemYellow.withAlphaComponent(0.34).cgColor
+        let flashBorderColor = UIColor.systemYellow.cgColor
+        let flashBorderWidth = max(originalBorderWidth, 4)
+        let keyTimes: [NSNumber] = [0, 0.14, 0.34, 0.54, 1]
+        let wasRasterized = contentView.layer.shouldRasterize
+
+        contentView.layer.removeAnimation(forKey: "quoteTargetFlashBackground")
+        contentView.layer.removeAnimation(forKey: "quoteTargetFlashBorderColor")
+        contentView.layer.removeAnimation(forKey: "quoteTargetFlashBorderWidth")
+        contentView.layer.shouldRasterize = false
+
+        let backgroundAnimation = CAKeyframeAnimation(keyPath: "backgroundColor")
+        backgroundAnimation.values = [
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor
+        ]
+        backgroundAnimation.keyTimes = keyTimes
+        backgroundAnimation.duration = 0.8
+        backgroundAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderColorAnimation = CAKeyframeAnimation(keyPath: "borderColor")
+        borderColorAnimation.values = [
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor
+        ]
+        borderColorAnimation.keyTimes = keyTimes
+        borderColorAnimation.duration = 0.8
+        borderColorAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderWidthAnimation = CAKeyframeAnimation(keyPath: "borderWidth")
+        borderWidthAnimation.values = [originalBorderWidth, flashBorderWidth, originalBorderWidth, flashBorderWidth, originalBorderWidth]
+        borderWidthAnimation.keyTimes = keyTimes
+        borderWidthAnimation.duration = 0.8
+        borderWidthAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        contentView.layer.add(backgroundAnimation, forKey: "quoteTargetFlashBackground")
+        contentView.layer.add(borderColorAnimation, forKey: "quoteTargetFlashBorderColor")
+        contentView.layer.add(borderWidthAnimation, forKey: "quoteTargetFlashBorderWidth")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + backgroundAnimation.duration) { [weak self] in
+            self?.contentView.layer.shouldRasterize = wasRasterized
+        }
     }
 
     func setImageURL(_ url: String?) {

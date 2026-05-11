@@ -33,7 +33,8 @@ class EnhancedTextFormatter {
         _ text: String,
         boardAbv: String = "",
         postNumber: String = "",
-        showAllSpoilers: Bool = false
+        showAllSpoilers: Bool = false,
+        quoteContext: QuoteFormattingContext? = nil
     ) -> NSAttributedString {
         // Step 1: Basic HTML processing
         let processedText = text
@@ -114,6 +115,14 @@ class EnhancedTextFormatter {
                     if isSpoiler {
                         let isRevealed = showAllSpoilers || isSpoilerRevealed(postNumber: postNumber, index: spoilerIndex)
                         attributes = getSpoilerAttributes(revealed: isRevealed, spoilerIndex: spoilerIndex)
+                    } else if isQuotelink, let postNum = quotelinkPostNumber {
+                        let reference = QuoteReference(boardAbv: nil, threadNumber: nil, postNumber: postNum)
+                        attributes = getQuotelinkAttributes(postNumber: postNum, quoteContext: quoteContext)
+                        result.append(NSAttributedString(
+                            string: processedContent + (quoteContext?.annotations(for: reference) ?? ""),
+                            attributes: attributes
+                        ))
+                        continue
                     } else if isQuote {
                         attributes = getGreentextAttributes()
                         // Check if this is the start of the greentext (begins with >)
@@ -124,8 +133,6 @@ class EnhancedTextFormatter {
                             result.append(arrow)
                             processedContent = String(processedContent.dropFirst())
                         }
-                    } else if isQuotelink, let postNum = quotelinkPostNumber {
-                        attributes = getQuotelinkAttributes(postNumber: postNum)
                     } else {
                         // Process inline math on math boards
                         if MathBoards.isMathBoard(boardAbv) && MathRenderer.shared.containsMath(processedContent) {
@@ -335,18 +342,19 @@ class EnhancedTextFormatter {
         ]
     }
 
-    private func getQuotelinkAttributes(postNumber: String) -> [NSAttributedString.Key: Any] {
+    private func getQuotelinkAttributes(postNumber: String, quoteContext: QuoteFormattingContext? = nil) -> [NSAttributedString.Key: Any] {
         let linkColor = UIColor { traitCollection in
             traitCollection.userInterfaceStyle == .dark
                 ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
                 : UIColor.systemBlue
         }
 
+        let reference = QuoteReference(boardAbv: nil, threadNumber: nil, postNumber: postNumber)
         return [
             .foregroundColor: linkColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue,
             .font: UIFont.systemFont(ofSize: 14, weight: .medium),
-            .link: URL(string: "post://\(postNumber)")!
+            .link: quoteContext?.quoteURL(for: reference) ?? URL(string: "post://\(postNumber)")!
         ]
     }
 

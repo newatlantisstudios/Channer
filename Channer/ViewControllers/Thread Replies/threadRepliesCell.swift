@@ -90,6 +90,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.dataDetectorTypes = [.link]
+        textView.tintColor = threadRepliesCell.quoteLinkColor
+        textView.linkTextAttributes = threadRepliesCell.quoteLinkTextAttributes
         textView.backgroundColor = .clear
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -104,6 +106,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.dataDetectorTypes = [.link]
+        textView.tintColor = threadRepliesCell.quoteLinkColor
+        textView.linkTextAttributes = threadRepliesCell.quoteLinkTextAttributes
         textView.backgroundColor = .clear
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -266,6 +270,15 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     private var imageTopToBoardReply: NSLayoutConstraint?
     private var replyCountTrailingToBackground: NSLayoutConstraint?
     private var replyCountTrailingToFilterBadge: NSLayoutConstraint?
+    private static let quoteLinkColor = UIColor { traitCollection in
+        traitCollection.userInterfaceStyle == .dark
+            ? UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            : UIColor.systemBlue
+    }
+    private static let quoteLinkTextAttributes: [NSAttributedString.Key: Any] = [
+        .foregroundColor: quoteLinkColor,
+        .underlineStyle: NSUnderlineStyle.single.rawValue
+    ]
 
     // MARK: - Initializer
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -305,6 +318,8 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         lastReadLineView.isHidden = true
         subjectLabel.isHidden = true
         subjectLabel.text = nil
+        customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+        customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
         replyCountTrailingToFilterBadge?.isActive = false
         replyCountTrailingToBackground?.isActive = true
         updateThumbnailSize()
@@ -540,7 +555,18 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     }
 
     // MARK: - Configuration Method
-    func configure(withImage: Bool, text: NSAttributedString, boardNumber: String, isFiltered: Bool = false, replyCount: Int = 0, subject: String? = nil, isLastReadBoundary: Bool = false, isNewPosterAfterRead: Bool = false) {
+    func configure(
+        withImage: Bool,
+        text: NSAttributedString,
+        boardNumber: String,
+        isFiltered: Bool = false,
+        replyCount: Int = 0,
+        subject: String? = nil,
+        isLastReadBoundary: Bool = false,
+        isNewPosterAfterRead: Bool = false,
+        isOwnPost: Bool = false,
+        quotesUser: Bool = false
+    ) {
         print("threadRepliesCell - Configure called with withImage: \(withImage)")
         threadImage.isHidden = !withImage
         replyText.isHidden = !withImage
@@ -601,6 +627,17 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             customBackgroundView.alpha = 1.0 // Normal opacity
         }
 
+        if quotesUser {
+            customBackgroundView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.22)
+            customBackgroundView.layer.borderColor = UIColor.systemOrange.cgColor
+        } else if isOwnPost {
+            customBackgroundView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.14)
+            customBackgroundView.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.8).cgColor
+        } else {
+            customBackgroundView.backgroundColor = ThemeManager.shared.cellBackgroundColor
+            customBackgroundView.layer.borderColor = ThemeManager.shared.cellBorderColor.cgColor
+        }
+
         // Handle reply count display
         if replyCount > 0 {
             replyCountLabel.text = " \(replyCount) "
@@ -647,6 +684,61 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             view.removeFromSuperview()
         }
         linkPreviewStackView.isHidden = true
+    }
+
+    func flashQuoteTarget() {
+        let originalBackgroundColor = customBackgroundView.backgroundColor?.cgColor ?? UIColor.clear.cgColor
+        let originalBorderColor = customBackgroundView.layer.borderColor ?? UIColor.clear.cgColor
+        let originalBorderWidth = customBackgroundView.layer.borderWidth
+
+        let flashBackgroundColor = UIColor.systemYellow.withAlphaComponent(0.36).cgColor
+        let flashBorderColor = UIColor.systemYellow.cgColor
+        let flashBorderWidth = max(originalBorderWidth, 8)
+        let keyTimes: [NSNumber] = [0, 0.14, 0.34, 0.54, 1]
+        let wasRasterized = customBackgroundView.layer.shouldRasterize
+
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBackground")
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBorderColor")
+        customBackgroundView.layer.removeAnimation(forKey: "quoteTargetFlashBorderWidth")
+        customBackgroundView.layer.shouldRasterize = false
+
+        let backgroundAnimation = CAKeyframeAnimation(keyPath: "backgroundColor")
+        backgroundAnimation.values = [
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor,
+            flashBackgroundColor,
+            originalBackgroundColor
+        ]
+        backgroundAnimation.keyTimes = keyTimes
+        backgroundAnimation.duration = 0.8
+        backgroundAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderColorAnimation = CAKeyframeAnimation(keyPath: "borderColor")
+        borderColorAnimation.values = [
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor,
+            flashBorderColor,
+            originalBorderColor
+        ]
+        borderColorAnimation.keyTimes = keyTimes
+        borderColorAnimation.duration = 0.8
+        borderColorAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        let borderWidthAnimation = CAKeyframeAnimation(keyPath: "borderWidth")
+        borderWidthAnimation.values = [originalBorderWidth, flashBorderWidth, originalBorderWidth, flashBorderWidth, originalBorderWidth]
+        borderWidthAnimation.keyTimes = keyTimes
+        borderWidthAnimation.duration = 0.8
+        borderWidthAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        customBackgroundView.layer.add(backgroundAnimation, forKey: "quoteTargetFlashBackground")
+        customBackgroundView.layer.add(borderColorAnimation, forKey: "quoteTargetFlashBorderColor")
+        customBackgroundView.layer.add(borderWidthAnimation, forKey: "quoteTargetFlashBorderWidth")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + backgroundAnimation.duration) { [weak self] in
+            self?.customBackgroundView.layer.shouldRasterize = wasRasterized
+        }
     }
 
     override func layoutSubviews() {
@@ -1176,11 +1268,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
                 return
             }
 
-            // Check for a .link attribute with post:// scheme
-            if let link = attributedText.attribute(.link, at: characterIndex, effectiveRange: nil),
-               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
-               url.scheme == "post",
-               let postNum = url.host, !postNum.isEmpty {
+            if let postNum = hoveredQuotePostNumber(in: attributedText, at: characterIndex) {
                 // Avoid re-showing for the same post
                 if currentlyHoveredPostNumber == postNum { return }
                 removeQuoteLinkPreview()
@@ -1195,6 +1283,41 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         default:
             break
         }
+    }
+
+    private func hoveredQuotePostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
+        if let postNum = quoteLinkPostNumber(in: attributedText, at: characterIndex) {
+            return postNum
+        }
+
+        let nsText = attributedText.string as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        guard let regex = try? NSRegularExpression(pattern: ">>(\\d+)") else { return nil }
+
+        return regex
+            .matches(in: attributedText.string, range: range)
+            .first(where: { NSLocationInRange(characterIndex, $0.range) })
+            .map { nsText.substring(with: $0.range(at: 1)) }
+    }
+
+    private func quoteLinkPostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
+        let candidateIndexes = [
+            characterIndex,
+            max(characterIndex - 1, 0),
+            min(characterIndex + 1, max(attributedText.length - 1, 0))
+        ]
+
+        for index in candidateIndexes where index < attributedText.length {
+            if let link = attributedText.attribute(.link, at: index, effectiveRange: nil),
+               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
+               (url.scheme == "post" || url.scheme == "postjump"),
+               let postNum = url.host,
+               !postNum.isEmpty {
+                return postNum
+            }
+        }
+
+        return nil
     }
 
     private func showQuoteLinkPreview(for postNum: String) {
