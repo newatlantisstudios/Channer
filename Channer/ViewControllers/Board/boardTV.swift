@@ -31,23 +31,37 @@ struct ThreadData: Codable {
     // Initializer from JSON
     init(from json: JSON, boardAbv: String) {
         self.boardAbv = boardAbv
-        if let firstPost = json["posts"].array?.first {
-            self.number = firstPost["no"].stringValue
-            self.stats = "\(firstPost["replies"].stringValue)/\(firstPost["images"].stringValue)"
-            self.title = firstPost["sub"].stringValue
-            self.comment = firstPost["com"].stringValue
-            self.replies = firstPost["replies"].intValue
-            self.createdAt = firstPost["now"].stringValue
-            if let tim = firstPost["tim"].int64, let ext = firstPost["ext"].string {
-                self.imageUrl = "https://i.4cdn.org/\(boardAbv)/\(tim)\(ext)"
+        let normalizedPosts = ThreadData.postsArray(from: json)
+        let posts = normalizedPosts.isEmpty ? nil : normalizedPosts
+        let firstPost = posts?.first ?? json
+
+        if let postNumber = ThreadData.postNumber(from: firstPost) {
+            let replies = firstPost["replies"].int
+                ?? firstPost["replyposts"].int
+                ?? firstPost["postCount"].int.map { max($0 - 1, 0) }
+                ?? firstPost["posts_count"].int.map { max($0 - 1, 0) }
+                ?? max((posts?.count ?? 1) - 1, 0)
+            let images = firstPost["images"].int
+                ?? firstPost["fileCount"].int
+                ?? firstPost["files_count"].int
+                ?? (firstPost["replyfiles"].intValue + (firstPost["files"].array?.count ?? 0))
+
+            self.number = postNumber
+            self.stats = "\(replies)/\(images)"
+            self.title = ThreadData.postSubject(from: firstPost)
+            self.comment = ThreadData.postComment(from: firstPost)
+            self.replies = replies
+            self.createdAt = ThreadData.postCreatedAt(from: firstPost)
+            self.imageUrl = ThreadData.postImageURL(from: firstPost, boardAbv: boardAbv)
+            // Last reply time is the timestamp of the last post in the thread.
+            if let lastPost = posts?.last {
+                self.lastReplyTime = ThreadData.postUnixTimestamp(from: lastPost)
+            } else if let lastModified = firstPost["last_modified"].int {
+                self.lastReplyTime = lastModified
+            } else if let bumped = ThreadData.postBumpedUnixTimestamp(from: firstPost) {
+                self.lastReplyTime = bumped
             } else {
-                self.imageUrl = ""
-            }
-            // Last reply time is the timestamp of the last post in the thread
-            if let lastPost = json["posts"].array?.last {
-                self.lastReplyTime = lastPost["time"].int
-            } else {
-                self.lastReplyTime = firstPost["time"].int
+                self.lastReplyTime = ThreadData.postUnixTimestamp(from: firstPost)
             }
             self.bumpIndex = nil // This will be set based on position in board
         } else {
@@ -95,6 +109,355 @@ struct ThreadData: Codable {
         self.bumpIndex = bumpIndex
         self.isDead = isDead
     }
+
+    static func parseThreadList(from data: Data, boardAbv: String) throws -> [ThreadData] {
+        guard let json = try? JSON(data: data) else {
+            return parseHTMLThreadList(from: data, boardAbv: boardAbv)
+        }
+        var parsedThreads: [ThreadData] = []
+        var bumpIndex = 0
+
+        if let pages = json.array {
+            let isPageArray = pages.contains { $0["threads"].array != nil }
+            guard isPageArray else {
+                return pages.enumerated().compactMap { index, threadJson in
+                    var thread = ThreadData(from: threadJson, boardAbv: boardAbv)
+                    thread.bumpIndex = index
+                    return thread.number.isEmpty ? nil : thread
+                }
+            }
+
+            for page in pages {
+                for threadJson in page["threads"].arrayValue {
+                    var thread = ThreadData(from: threadJson, boardAbv: boardAbv)
+                    thread.bumpIndex = bumpIndex
+                    bumpIndex += 1
+                    if !thread.number.isEmpty {
+                        parsedThreads.append(thread)
+                    }
+                }
+            }
+            return parsedThreads
+        }
+
+        if let threads = json["threads"].array {
+            return threads.enumerated().compactMap { index, threadJson in
+                var thread = ThreadData(from: threadJson, boardAbv: boardAbv)
+                thread.bumpIndex = index
+                return thread.number.isEmpty ? nil : thread
+            }
+        }
+
+        return []
+    }
+
+    static func parseThreadResponse(from data: Data, boardAbv: String) throws -> JSON {
+        if let json = try? JSON(data: data), !postsArray(from: json).isEmpty {
+            return json
+        }
+
+        let posts = parseHTMLPosts(from: data, boardAbv: boardAbv)
+        guard !posts.isEmpty else {
+            throw NSError(domain: "Channer.ThreadData", code: 1, userInfo: [NSLocalizedDescriptionKey: "No posts found in thread response"])
+        }
+        return JSON(["posts": posts.map { $0.object }])
+    }
+
+    static func postsArray(from json: JSON) -> [JSON] {
+        if postNumber(from: json) != nil {
+            if let posts = json["posts"].array {
+                return uniquePosts([json] + posts)
+            }
+
+            return uniquePosts([json] + json["replies"].arrayValue)
+        }
+
+        if let posts = json["posts"].array {
+            return posts
+        }
+
+        if let posts = json["thread"]["posts"].array {
+            return posts
+        }
+
+        if let posts = json["threads"].array?.first?["posts"].array {
+            return posts
+        }
+
+        if let posts = json.array, posts.contains(where: { postNumber(from: $0) != nil }) {
+            return posts
+        }
+
+        return []
+    }
+
+    private static func uniquePosts(_ posts: [JSON]) -> [JSON] {
+        var seen = Set<String>()
+        return posts.filter { post in
+            guard let number = postNumber(from: post) else { return true }
+            return seen.insert(number).inserted
+        }
+    }
+
+    static func postNumber(from post: JSON) -> String? {
+        let yotsubaNumber = post["no"].stringValue
+        if !yotsubaNumber.isEmpty { return yotsubaNumber }
+
+        let jschanNumber = post["postId"].stringValue
+        if !jschanNumber.isEmpty { return jschanNumber }
+
+        let lynxThreadNumber = post["threadId"].stringValue
+        if !lynxThreadNumber.isEmpty { return lynxThreadNumber }
+
+        let makabaNumber = post["num"].stringValue
+        if !makabaNumber.isEmpty { return makabaNumber }
+
+        return nil
+    }
+
+    static func postSubject(from post: JSON) -> String {
+        let yotsubaSubject = post["sub"].stringValue
+        if !yotsubaSubject.isEmpty { return yotsubaSubject }
+
+        let subject = post["subject"].stringValue
+        if !subject.isEmpty { return subject }
+
+        return post["title"].stringValue
+    }
+
+    static func postComment(from post: JSON) -> String {
+        let yotsubaComment = post["com"].stringValue
+        if !yotsubaComment.isEmpty { return yotsubaComment }
+
+        let message = post["message"].stringValue
+        if !message.isEmpty { return message }
+
+        let markdown = post["markdown"].stringValue
+        if !markdown.isEmpty { return markdown }
+
+        return post["comment"].stringValue
+    }
+
+    static func postCreatedAt(from post: JSON) -> String {
+        let yotsubaDate = post["now"].stringValue
+        if !yotsubaDate.isEmpty { return yotsubaDate }
+
+        let jschanDate = post["date"].stringValue
+        if !jschanDate.isEmpty { return jschanDate }
+
+        let lynxDate = post["creation"].stringValue
+        if !lynxDate.isEmpty { return lynxDate }
+
+        return post["time"].stringValue
+    }
+
+    static func postImageURL(from post: JSON, boardAbv: String) -> String {
+        let directPath = firstString(in: post, keys: ["thumb", "path", "thumbnail", "file"])
+        if !directPath.isEmpty {
+            return BoardsService.shared.imageURL(board: boardAbv, timestamp: directPath, extension: "")
+        }
+
+        let imageTimestamp = post["tim"].stringValue
+        let imageExtension = post["ext"].stringValue
+        if !imageTimestamp.isEmpty {
+            return BoardsService.shared.imageURL(
+                board: boardAbv,
+                timestamp: imageTimestamp,
+                extension: imageExtension
+            )
+        }
+
+        guard let firstFile = post["files"].array?.first else { return "" }
+        let filename = firstString(in: firstFile, keys: ["path", "thumb", "thumbnail", "filename", "name"])
+        guard !filename.isEmpty else { return "" }
+
+        return BoardsService.shared.imageURL(
+            board: boardAbv,
+            timestamp: filename,
+            extension: firstString(in: firstFile, keys: ["extension", "ext"])
+        )
+    }
+
+    static func postUnixTimestamp(from post: JSON) -> Int? {
+        if let unixTime = post["time"].int {
+            return unixTime
+        }
+
+        if let milliseconds = post["u"].int {
+            return milliseconds / 1_000
+        }
+
+        if let timestamp = post["timestamp"].int {
+            return timestamp
+        }
+
+        if let bumped = post["bumped"].string,
+           let bumpedDate = ISO8601DateFormatter.channerThreadDateFormatter.date(from: bumped) {
+            return Int(bumpedDate.timeIntervalSince1970)
+        }
+
+        if let lastBump = post["lastBump"].string,
+           let bumpedDate = ISO8601DateFormatter.channerThreadDateFormatter.date(from: lastBump) {
+            return Int(bumpedDate.timeIntervalSince1970)
+        }
+
+        if let creation = post["creation"].string,
+           let createdDate = ISO8601DateFormatter.channerThreadDateFormatter.date(from: creation) {
+            return Int(createdDate.timeIntervalSince1970)
+        }
+
+        if let date = post["date"].string,
+           let createdDate = ISO8601DateFormatter.channerThreadDateFormatter.date(from: date) {
+            return Int(createdDate.timeIntervalSince1970)
+        }
+
+        return nil
+    }
+
+    static func postBumpedUnixTimestamp(from post: JSON) -> Int? {
+        let bumped = post["bumped"].string ?? post["lastBump"].string
+        guard let bumped = bumped else { return nil }
+        return ISO8601DateFormatter.channerThreadDateFormatter.date(from: bumped).map { Int($0.timeIntervalSince1970) }
+    }
+
+    private static func parseHTMLThreadList(from data: Data, boardAbv: String) -> [ThreadData] {
+        let html = String(decoding: data, as: UTF8.self)
+        let patterns = [
+            #"<a\b[^>]*\bhref\s*=\s*["'][^"']*/(?:res/)?([0-9]+)(?:\.html)?(?:#[0-9]+)?["'][^>]*>(.*?)</a>"#,
+            #"<[^>]*\bdata-thread-id\s*=\s*["']([0-9]+)["'][^>]*>(.*?)</[^>]+>"#
+        ]
+        var seenNumbers = Set<String>()
+        var threads: [ThreadData] = []
+
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+                continue
+            }
+            let range = NSRange(html.startIndex..<html.endIndex, in: html)
+            for match in regex.matches(in: html, options: [], range: range) {
+                guard
+                    let numberRange = Range(match.range(at: 1), in: html),
+                    let titleRange = Range(match.range(at: 2), in: html)
+                else {
+                    continue
+                }
+                let number = String(html[numberRange])
+                guard !seenNumbers.contains(number) else { continue }
+                seenNumbers.insert(number)
+
+                let title = htmlText(String(html[titleRange]))
+                guard !title.isEmpty || match.range(at: 2).length > 0 else { continue }
+                var thread = ThreadData(
+                    number: number,
+                    stats: "0/0",
+                    title: title,
+                    comment: "",
+                    imageUrl: "",
+                    boardAbv: boardAbv,
+                    replies: 0,
+                    createdAt: ""
+                )
+                thread.bumpIndex = threads.count
+                threads.append(thread)
+            }
+        }
+
+        return threads
+    }
+
+    private static func parseHTMLPosts(from data: Data, boardAbv: String) -> [JSON] {
+        let html = String(decoding: data, as: UTF8.self)
+        let postPattern = #"<[^>]*\b(?:id|data-post-id)\s*=\s*["'](?:reply_?|post_?)?([0-9]+)["'][^>]*>(.*?)</(?:div|article)>"#
+        guard let regex = try? NSRegularExpression(pattern: postPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+            return []
+        }
+
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        var posts: [JSON] = []
+        var seenNumbers = Set<String>()
+        for match in regex.matches(in: html, options: [], range: range) {
+            guard
+                let numberRange = Range(match.range(at: 1), in: html),
+                let bodyRange = Range(match.range(at: 2), in: html)
+            else {
+                continue
+            }
+
+            let number = String(html[numberRange])
+            guard !seenNumbers.contains(number) else { continue }
+            seenNumbers.insert(number)
+            let body = String(html[bodyRange])
+            var object: [String: Any] = [
+                "no": number,
+                "com": htmlText(body)
+            ]
+            if let image = firstHTMLImagePath(in: body) {
+                object["thumb"] = image
+            }
+            posts.append(JSON(object))
+        }
+        return posts
+    }
+
+    private static func firstHTMLImagePath(in html: String) -> String? {
+        let pattern = #"<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        guard let match = regex.firstMatch(in: html, options: [], range: range),
+              let pathRange = Range(match.range(at: 1), in: html) else {
+            return nil
+        }
+        return String(html[pathRange])
+    }
+
+    private static func htmlText(_ html: String) -> String {
+        let withoutTags = html.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        guard let data = withoutTags.data(using: .utf8) else {
+            return withoutTags.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let attributed = try? NSAttributedString(
+            data: data,
+            options: [.documentType: NSAttributedString.DocumentType.html,
+                      .characterEncoding: String.Encoding.utf8.rawValue],
+            documentAttributes: nil
+        ) {
+            return attributed.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return withoutTags.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func firstString(in json: JSON, keys: [String]) -> String {
+        for key in keys {
+            let value = json[key].stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty {
+                return value
+            }
+        }
+        return ""
+    }
+
+    static func logFetchedThreads(_ threads: [ThreadData], boardAbv: String, source: String) {
+        print("Fetched \(threads.count) threads for /\(boardAbv)/ (\(source)):")
+
+        for (index, thread) in threads.enumerated() {
+            let subject = thread.title.isEmpty ? "(no subject)" : thread.title
+            let commentPreview = thread.comment
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = commentPreview.isEmpty ? "" : " - \(String(commentPreview.prefix(120)))"
+            let bumpText = thread.bumpIndex.map { "bump=\($0)" } ?? "bump=unknown"
+
+            print("[\(index + 1)] /\(thread.boardAbv)/\(thread.number) \(subject) \(thread.stats) \(bumpText)\(preview)")
+        }
+    }
+}
+
+private extension ISO8601DateFormatter {
+    static let channerThreadDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 }
 
 /// Main view controller for displaying threads from a selected board
@@ -455,7 +818,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         buttons.append(moreButton)
 
         // Add new thread button for regular board view (not favorites or history)
-        if !isFavoritesView && !isHistoryView {
+        if !isFavoritesView && !isHistoryView && BoardsService.shared.selectedSite.supportsPosting {
             let newThreadImage = UIImage(systemName: "plus.square")
             let newThreadButton = UIBarButtonItem(image: newThreadImage, style: .plain, target: self, action: #selector(showNewThreadCompose))
             newThreadButton.tintColor = .black
@@ -848,6 +1211,8 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     }
 
     @objc private func showNewThreadCompose() {
+        guard BoardsService.shared.selectedSite.supportsPosting else { return }
+
         let composeVC = ComposeViewController(board: boardAbv, threadNumber: 0, quoteText: nil)
         composeVC.delegate = self
         let navController = CatalystNavigationController(rootViewController: composeVC)
@@ -909,26 +1274,18 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     
         let serialQueue = DispatchQueue(label: "com.channer.threadDataQueue")
     
-        for page in 1...totalPages {
+        let threadListURLs = BoardsService.shared.threadListURLs(for: boardAbv, totalPages: totalPages)
+        for url in threadListURLs {
             dispatchGroup.enter()
-    
-            let url = "https://a.4cdn.org/\(boardAbv)/\(page).json"
-    
-            AF.request(url).responseData { response in
+
+            BoardsService.shared.fetchData(from: url) { response in
                 defer { dispatchGroup.leave() }
     
-                switch response.result {
-                case .success(let data):
+                switch response {
+                case .success(let dataResponse):
                     do {
-                        let json = try JSON(data: data)
-                        if let threads = json["threads"].array {
-                            let pageThreads = threads.enumerated().compactMap { (index, threadJson) in
-                                var thread = ThreadData(from: threadJson, boardAbv: self.boardAbv)
-                                // Set bump index based on position in board (0 = top/newest bump)
-                                thread.bumpIndex = (page - 1) * threads.count + index
-                                return thread.number.isEmpty ? nil : thread
-                            }
-    
+                        let pageThreads = try ThreadData.parseThreadList(from: dataResponse.data, boardAbv: self.boardAbv)
+                        if !pageThreads.isEmpty {
                             serialQueue.sync {
                                 newThreadData.append(contentsOf: pageThreads)
                             }
@@ -976,6 +1333,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             }
 
             self.threadData = Array(dedupedThreads.values).sorted { Int($0.number) ?? 0 > Int($1.number) ?? 0 }
+            ThreadData.logFetchedThreads(self.threadData, boardAbv: self.boardAbv, source: "list view")
             
             // Apply content filtering if enabled
             if let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
@@ -1099,9 +1457,9 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     // MARK: - TableView Delegate Methods
     // UITableViewDelegate methods for handling table view interactions.
 
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let thread = filteredThreadData[indexPath.row]
-        let url = "https://a.4cdn.org/\(thread.boardAbv)/thread/\(thread.number).json"
+        let url = BoardsService.shared.threadJSONURL(board: thread.boardAbv, threadNumber: thread.number)
     
         //print("Selected thread at index \(indexPath.row): \(thread)")
     
@@ -1125,14 +1483,14 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
         indicator.startAnimating()
     
         // Load thread data
-        AF.request(url).response { response in
+        BoardsService.shared.fetchData(from: url) { response in
             DispatchQueue.main.async {
                 loadingView.removeFromSuperview()
             }
     
-            guard let data = response.data,
-                  let json = try? JSON(data: data),
-                  !json["posts"].isEmpty else {
+            guard case .success(let dataResponse) = response,
+                  let json = try? ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: thread.boardAbv),
+                  !ThreadData.postsArray(from: json).isEmpty else {
                 print("Thread not available or invalid response.")
                 self.handleThreadUnavailable(at: indexPath, thread: thread)
                 return
@@ -1247,6 +1605,13 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             .memoryCacheExpiration(.days(1)),
             .diskCacheExpiration(.days(7)),
             .backgroundDecode,
+            .requestModifier(AnyModifier { request in
+                var request = request
+                if request.url?.host?.lowercased() == "8chan.moe" {
+                    EightChanMoePOWBlock.applyStoredCookies(to: &request)
+                }
+                return request
+            }),
             .loadDiskFileSynchronously
         ]
 

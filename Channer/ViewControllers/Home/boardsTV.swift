@@ -5,6 +5,7 @@ import LocalAuthentication
 import Combine
 
 private let reuseIdentifier = "boardTVCell"
+private let defaultBoardKey = "defaultBoard"
 
 class boardsTV: UITableViewController {
 
@@ -42,6 +43,7 @@ class boardsTV: UITableViewController {
     var boardsAbv: [String] = []
     
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
+    private var imageboardSiteButton: UIBarButtonItem?
     
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
@@ -147,6 +149,12 @@ class boardsTV: UITableViewController {
             name: HiddenBoardsManager.hiddenBoardsChangedNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(imageboardSiteDidChange),
+            name: .imageboardSiteChanged,
+            object: nil
+        )
         
         // Set theme background color for automatic light/dark mode support
         view.backgroundColor = ThemeManager.shared.backgroundColor
@@ -156,9 +164,10 @@ class boardsTV: UITableViewController {
         tableView.register(boardsTVCell.self, forCellReuseIdentifier: reuseIdentifier)
         
         // Configure table view appearance
-        tableView.separatorStyle = .singleLine
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 60
+        tableView.separatorStyle = .none
+        tableView.rowHeight = 52
+        tableView.estimatedRowHeight = 52
+        tableView.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 12, right: 0)
         
         // Set backBarButtonItem to have just the arrow without text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
@@ -166,7 +175,7 @@ class boardsTV: UITableViewController {
         // Add toolbox button that contains History, Favorites, Search, and Files
         let toolboxImage = UIImage(named: "toolbox")?.withRenderingMode(.alwaysTemplate).resized(to: CGSize(width: 22, height: 22))
         let toolboxButton = UIBarButtonItem(image: toolboxImage, style: .plain, target: self, action: #selector(showToolboxMenu))
-        toolboxButton.tintColor = .black
+        toolboxButton.tintColor = .label
         navigationItem.leftBarButtonItem = toolboxButton
         
         // Add notification bell button
@@ -175,17 +184,18 @@ class boardsTV: UITableViewController {
         // Scale to exact size to ensure consistency
         let resizedBellImage = bellImage?.resized(to: CGSize(width: 22, height: 22))
         let notificationButton = UIBarButtonItem(image: resizedBellImage, style: .plain, target: self, action: #selector(showNotifications))
-        notificationButton.tintColor = .black
+        notificationButton.tintColor = .label
         notificationButton.tag = 100 // Tag for updating badge later
+
+        let imageboardSiteButton = makeImageboardSiteButton()
         
         // Add settings button
         let settingsImage = UIImage(named: "setting")?.withRenderingMode(.alwaysTemplate)
         let resizedSettingsImage = settingsImage?.resized(to: CGSize(width: 22, height: 22))
         let settingsButton = UIBarButtonItem(image: resizedSettingsImage, style: .plain, target: self, action: #selector(openSettings))
-        settingsButton.tintColor = .black
+        settingsButton.tintColor = .label
         
-        // Set both buttons as right bar button items
-        navigationItem.rightBarButtonItems = [settingsButton, notificationButton]
+        navigationItem.rightBarButtonItems = [settingsButton, imageboardSiteButton, notificationButton]
         
         // Register for UserDefaults changes notification
         NotificationCenter.default.addObserver(
@@ -238,6 +248,15 @@ class boardsTV: UITableViewController {
     /// Called when hidden boards settings change
     @objc private func hiddenBoardsDidChange() {
         // Reload boards from service and reapply filters
+        boardNames = BoardsService.shared.boardNames
+        boardsAbv = BoardsService.shared.boardAbv
+        sortBoardsAlphabetically()
+        filterHiddenBoards()
+        tableView.reloadData()
+    }
+
+    @objc private func imageboardSiteDidChange() {
+        updateImageboardSiteButtonTitle()
         boardNames = BoardsService.shared.boardNames
         boardsAbv = BoardsService.shared.boardAbv
         sortBoardsAlphabetically()
@@ -413,6 +432,107 @@ class boardsTV: UITableViewController {
         navController.modalPresentationStyle = .formSheet
         present(navController, animated: true)
     }
+
+    private func makeImageboardSiteButton() -> UIBarButtonItem {
+        #if targetEnvironment(macCatalyst)
+        let button = UIBarButtonItem(
+            title: imageboardSiteButtonTitle(),
+            image: UIImage(systemName: "globe"),
+            primaryAction: nil,
+            menu: makeImageboardSitePullDownMenu()
+        )
+        #else
+        let button = UIBarButtonItem(
+            title: imageboardSiteButtonTitle(),
+            style: .plain,
+            target: self,
+            action: #selector(showImageboardSiteMenu)
+        )
+        #endif
+        button.tintColor = .label
+        button.accessibilityIdentifier = "ImageboardSiteButton"
+        button.accessibilityLabel = "Imageboard Site: \(BoardsService.shared.selectedSite.displayName)"
+        imageboardSiteButton = button
+        return button
+    }
+
+    private func imageboardSiteButtonTitle() -> String {
+        let displayName = BoardsService.shared.selectedSite.displayName
+        guard displayName != "4chan" else { return displayName }
+        return displayName.split(separator: ".").first.map(String.init) ?? displayName
+    }
+
+    private func updateImageboardSiteButtonTitle() {
+        imageboardSiteButton?.title = imageboardSiteButtonTitle()
+        #if targetEnvironment(macCatalyst)
+        imageboardSiteButton?.menu = makeImageboardSitePullDownMenu()
+        #endif
+        imageboardSiteButton?.accessibilityLabel = "Imageboard Site: \(BoardsService.shared.selectedSite.displayName)"
+    }
+
+    private func makeImageboardSitePullDownMenu() -> UIMenu {
+        let currentSite = BoardsService.shared.selectedSite
+        let actions = BoardsService.shared.supportedSites.map { site in
+            UIAction(
+                title: site.displayName,
+                state: site == currentSite ? .on : .off
+            ) { [weak self] _ in
+                self?.selectImageboardSite(site)
+            }
+        }
+        return UIMenu(title: "Imageboard Site", children: actions)
+    }
+
+    @objc private func showImageboardSiteMenu() {
+        #if targetEnvironment(macCatalyst)
+        imageboardSiteButton?.menu = makeImageboardSitePullDownMenu()
+        return
+        #endif
+
+        let alert = UIAlertController(
+            title: "Imageboard Site",
+            message: "Choose the site used for board discovery.",
+            preferredStyle: .actionSheet
+        )
+        let currentSite = BoardsService.shared.selectedSite
+
+        for site in BoardsService.shared.supportedSites {
+            let action = UIAlertAction(title: site.displayName, style: .default) { [weak self] _ in
+                self?.selectImageboardSite(site)
+            }
+            if site == currentSite {
+                action.setValue(true, forKey: "checked")
+            }
+            alert.addAction(action)
+        }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.channerAnchor(in: self, barButtonItem: imageboardSiteButton)
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func selectImageboardSite(_ site: ImageboardSite) {
+        guard site != BoardsService.shared.selectedSite else { return }
+
+        UserDefaults.standard.removeObject(forKey: defaultBoardKey)
+        BoardsService.shared.setSelectedSite(site) { [weak self] in
+            guard let self = self else { return }
+            self.updateImageboardSiteButtonTitle()
+            self.boardNames = BoardsService.shared.boardNames
+            self.boardsAbv = BoardsService.shared.boardAbv
+            self.sortBoardsAlphabetically()
+            self.filterHiddenBoards()
+            self.tableView.reloadData()
+        }
+        updateImageboardSiteButtonTitle()
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
     
     /// Updates the notification badge count
     @objc private func updateNotificationBadge() {
@@ -443,7 +563,7 @@ class boardsTV: UITableViewController {
                 notificationButton.tintColor = .systemRed
             } else {
                 iconName = "bell"
-                notificationButton.tintColor = .black
+                notificationButton.tintColor = .label
             }
             
             // Create and resize the icon consistently with other nav buttons
@@ -526,24 +646,25 @@ class boardsTV: UITableViewController {
             return fallbackCell
         }
 
-        // Configure the cell
-        cell.boardNameLabel.text = boardNames[indexPath.row]
-        cell.boardAbvLabel.text = "/" + boardsAbv[indexPath.row] + "/"
+        cell.configure(name: boardNames[indexPath.row], abbreviation: boardsAbv[indexPath.row])
         
         return cell
     }
     
     // MARK: - UITableViewDelegate
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print(indexPath.row)
         guard indexPath.row < boardNames.count else {
             print("Index \(indexPath.row) out of bounds for boardNames array.")
             return
         }
 
+        let selectedBoardName = boardNames[indexPath.row]
+        let selectedBoardAbv = boardsAbv[indexPath.row]
+        print("Selected board /\(selectedBoardAbv)/ - \(selectedBoardName); fetching threads.")
+
         let vc = ThreadViewControllerFactory.makeBoardViewController(
-            boardName: boardNames[indexPath.row],
-            boardAbv: boardsAbv[indexPath.row],
+            boardName: selectedBoardName,
+            boardAbv: selectedBoardAbv,
             boardPassed: true
         )
         

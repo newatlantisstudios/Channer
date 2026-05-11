@@ -507,6 +507,11 @@ class ComposeViewController: UIViewController {
     @objc private func postTapped() {
         guard !isPosting else { return }
 
+        guard BoardsService.shared.selectedSite.supportsPosting else {
+            showAlert(title: "Read Only", message: "Posting is only supported on 4chan. Other imageboard sites are read-only.")
+            return
+        }
+
         // Validate
         let comment = commentTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
 

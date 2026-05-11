@@ -73,7 +73,16 @@ class threadCatalogCell: UICollectionViewCell {
             thumbnailImageView.kf.setImage(
                 with: url,
                 placeholder: placeholderImage,
-                options: [.loadDiskFileSynchronously]
+                options: [
+                    .requestModifier(AnyModifier { request in
+                        var request = request
+                        if request.url?.host?.lowercased() == "8chan.moe" {
+                            EightChanMoePOWBlock.applyStoredCookies(to: &request)
+                        }
+                        return request
+                    }),
+                    .loadDiskFileSynchronously
+                ]
             ) { [weak self] result in
                 switch result {
                 case .success:
