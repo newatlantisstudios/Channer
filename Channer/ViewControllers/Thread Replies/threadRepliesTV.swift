@@ -51,12 +51,21 @@ extension threadRepliesTV {
     /// Optimizes scrolling performance by precalculating content dimensions
     /// - Parameter completion: Called when preloading completes
     private func preloadThreadContent(completion: @escaping () -> Void) {
-        guard !hasPreloadedContent else { completion(); return }
+        threadLoadDebug("preloadThreadContent start hasPreloaded=\(hasPreloadedContent) replies=\(threadReplies.count) images=\(threadRepliesImages.count)")
+        guard !hasPreloadedContent else {
+            threadLoadDebug("preloadThreadContent skipped; already preloaded")
+            completion()
+            return
+        }
         self.view.layoutIfNeeded()
         self.tableView.layoutIfNeeded()
 
         let width = self.tableView.bounds.width
-        guard width > 0 else { completion(); return }
+        guard width > 0 else {
+            threadLoadDebug("preloadThreadContent skipped; table width is 0")
+            completion()
+            return
+        }
 
         let replies = self.threadReplies
         let images = self.threadRepliesImages
@@ -94,15 +103,16 @@ extension threadRepliesTV {
             DispatchQueue.main.async {
                 for (k, v) in newHeights { self.cellHeightCache[k] = v }
                 self.hasPreloadedContent = true
+                self.threadLoadDebug("preloadThreadContent computed heights=\(newHeights.count) firstScreenPrefetch=\(firstScreenUrls.count) shouldPrefetch=\(shouldPrefetchMedia)")
+
+                self.threadLoadDebug("preloadThreadContent calling completion before image prefetch")
+                completion()
 
                 if shouldPrefetchMedia, !firstScreenUrls.isEmpty {
                     self.imagePrefetcher?.stop()
-                    self.imagePrefetcher = ImagePrefetcher(urls: firstScreenUrls, progressBlock: nil) { _, _, _ in
-                        completion()
-                    }
+                    self.imagePrefetcher = ImagePrefetcher(urls: firstScreenUrls)
                     self.imagePrefetcher?.start()
-                } else {
-                    completion()
+                    self.threadLoadDebug("preloadThreadContent started first-screen image prefetch")
                 }
 
                 // Background prefetch remaining thumbnails
@@ -113,6 +123,7 @@ extension threadRepliesTV {
                 if shouldPrefetchMedia, !remainingUrls.isEmpty {
                     let backgroundPrefetcher = ImagePrefetcher(urls: remainingUrls)
                     backgroundPrefetcher.start()
+                    self.threadLoadDebug("preloadThreadContent started background image prefetch count=\(remainingUrls.count)")
                 }
             }
         }
@@ -370,6 +381,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // Whether we have preloaded heights and first-screen images
     private var hasPreloadedContent = false
 
+    private func threadLoadDebug(_ message: String) {
+        print("[ChannerThreadLoadDebug][ThreadRepliesTV board=/\(boardAbv)/ thread=\(threadNumber)] \(message)")
+    }
+
     // MARK: - Reply Quoting
     /// Stores post numbers that the user wants to quote in their reply
     private var pendingQuotes: [String] = []
@@ -481,6 +496,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Lifecycle methods to set up the view
     override func loadView() {
         super.loadView()
+        threadLoadDebug("loadView isLoading=\(isLoading) shouldLoadFullThread=\(shouldLoadFullThread)")
 
         // Set background color early to prevent black flash during navigation transitions
         // This ensures there's no transparent gap when the navbar background is resizing
@@ -493,10 +509,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
         loadingIndicator.startAnimating()
+        threadLoadDebug("loadView started loading indicator")
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        threadLoadDebug("viewDidLoad start shouldLoadFullThread=\(shouldLoadFullThread) forceCache=\(forceLoadFromCache) forceArchive=\(forceLoadFromArchive) replies=\(threadReplies.count)")
 
         // Set the current board for enhanced text formatting
         TextFormatter.currentBoard = boardAbv
@@ -582,7 +600,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         setupJumpToNewButton()
         setupNavigationItems()
         checkIfFavorited()
+        threadLoadDebug("viewDidLoad calling loadInitialData")
         loadInitialData()
+        threadLoadDebug("viewDidLoad returned from loadInitialData")
         setupAutoRefreshTimer()
 
         // Start tracking thread view for statistics
@@ -1981,11 +2001,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var shouldLoadFullThread: Bool = true
     
     private func loadInitialData() {
+        threadLoadDebug("loadInitialData start shouldLoadFullThread=\(shouldLoadFullThread) threadNumberEmpty=\(threadNumber.isEmpty) boardEmpty=\(boardAbv.isEmpty) isLoading=\(isLoading)")
         // If shouldLoadFullThread is false, do not reload data
         guard shouldLoadFullThread else {
             isLoading = false
-            print("Loading initial data...")
-            print("Reply count: \(replyCount), Thread replies: \(threadReplies.count)")
+            threadLoadDebug("loadInitialData using existing in-memory reply subset replyCount=\(replyCount) replies=\(threadReplies.count)")
             debugReloadData(context: "Search filter update")
             return
         }
@@ -1993,32 +2013,36 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Check if threadNumber is set
         guard !threadNumber.isEmpty else {
             isLoading = false
+            threadLoadDebug("loadInitialData aborted; threadNumber is empty")
             onViewReady?()
             return
         }
         
         let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
-        print("Loading data from: \(threadURL.absoluteString)") // Debug print
+        threadLoadDebug("loadInitialData url=\(threadURL.absoluteString)")
         
         if forceLoadFromArchive {
+            threadLoadDebug("loadInitialData forcing archive copy")
             loadArchivedThreadCopy()
             return
         }
 
         // Check if thread should be loaded from cache (forced or offline)
         if forceLoadFromCache || (ThreadCacheManager.shared.isOfflineReadingEnabled() && !Reachability.isConnectedToNetwork()) {
-            print("Device is offline, checking cache")
+            threadLoadDebug("loadInitialData checking cache forceCache=\(forceLoadFromCache) offlineReading=\(ThreadCacheManager.shared.isOfflineReadingEnabled()) connected=\(Reachability.isConnectedToNetwork())")
             if let cachedData = ThreadCacheManager.shared.getCachedThread(boardAbv: boardAbv, threadNumber: threadNumber) {
-                print("Loading thread from cache")
+                threadLoadDebug("loadInitialData cache hit bytes=\(cachedData.count)")
                 DispatchQueue.main.async {
                     do {
                         // Parse JSON response from cached data
                         let json = try ThreadData.parseThreadResponse(from: cachedData, boardAbv: self.boardAbv)
+                        self.threadLoadDebug("loadInitialData parsed cached thread posts=\(ThreadData.postsArray(from: json).count)")
                         self.processThreadData(json)
                         self.rebuildSearchFilterIndices()
                         self.structureThreadReplies()
                         self.preloadThreadContent { [weak self] in
                             guard let self = self else { return }
+                            self.threadLoadDebug("loadInitialData cache preload completion; stopping spinner and reloading")
                             self.isLoading = false
                             self.loadingIndicator.stopAnimating()
                             self.tableView.reloadData()
@@ -2027,7 +2051,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                             self.onViewReady?()
                         }
                     } catch {
-                        print("Error parsing cached JSON: \(error)")
+                        self.threadLoadDebug("loadInitialData cached parse error=\(error)")
                         self.handleLoadError()
                         self.onViewReady?()
                     }
@@ -2035,14 +2059,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 return
             } else {
                 // No cached version available
+                threadLoadDebug("loadInitialData cache miss; showing offline error")
                 self.handleOfflineError()
                 return
             }
         }
         
         // Perform network request
+        threadLoadDebug("loadInitialData starting network fetch")
         BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
+            self.threadLoadDebug("loadInitialData network fetch completion received")
             
             // Process the response on main thread
             DispatchQueue.main.async {
@@ -2052,7 +2079,9 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func handleNetworkResponse(_ response: Result<BoardsService.FetchDataResponse, Error>) {
+        threadLoadDebug("handleNetworkResponse start")
         if case .success(let dataResponse) = response, dataResponse.response?.statusCode == 404 {
+            threadLoadDebug("handleNetworkResponse thread unavailable HTTP 404")
             handleThreadUnavailable()
             onViewReady?()
             return
@@ -2060,10 +2089,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         switch response {
         case .success(let dataResponse):
+            threadLoadDebug("handleNetworkResponse success status=\(dataResponse.response?.statusCode ?? -1) bytes=\(dataResponse.data.count)")
             do {
                 // Parse JSON response
                 let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
-                guard !ThreadData.postsArray(from: json).isEmpty else {
+                let postsCount = ThreadData.postsArray(from: json).count
+                threadLoadDebug("handleNetworkResponse parsed posts=\(postsCount)")
+                guard postsCount > 0 else {
+                    threadLoadDebug("handleNetworkResponse parsed zero posts; treating unavailable")
                     self.handleThreadUnavailable()
                     self.onViewReady?()
                     return
@@ -2081,6 +2114,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 // Preload heights and first-screen thumbnails, then present
                 self.preloadThreadContent { [weak self] in
                     guard let self = self else { return }
+                    self.threadLoadDebug("handleNetworkResponse preload completion; stopping spinner and reloading table replies=\(self.threadReplies.count) images=\(self.threadRepliesImages.count)")
                     self.isLoading = false
                     self.loadingIndicator.stopAnimating()
                     self.tableView.reloadData()
@@ -2089,12 +2123,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     self.onViewReady?()
                 }
             } catch {
-                print("Error parsing JSON: \(error)")
+                self.threadLoadDebug("handleNetworkResponse parse error=\(error)")
                 self.handleLoadError()
                 self.onViewReady?()
             }
         case .failure(let error):
-            print("Network error: \(error)")
+            self.threadLoadDebug("handleNetworkResponse network error=\(error)")
             self.handleLoadError()
             self.onViewReady?()
         }
@@ -2103,10 +2137,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func loadData() {
         guard !threadNumber.isEmpty else {
             isLoading = false
+            threadLoadDebug("loadData aborted; threadNumber is empty")
             return
         }
         
         let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
+        threadLoadDebug("loadData refresh fetch url=\(threadURL.absoluteString)")
         
         BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
@@ -2119,15 +2155,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     private func handleLoadDataResponse(_ response: Result<BoardsService.FetchDataResponse, Error>) {
         if case .success(let dataResponse) = response, dataResponse.response?.statusCode == 404 {
+            threadLoadDebug("handleLoadDataResponse thread unavailable HTTP 404")
             handleThreadUnavailable()
             return
         }
 
         switch response {
         case .success(let dataResponse):
+            threadLoadDebug("handleLoadDataResponse success status=\(dataResponse.response?.statusCode ?? -1) bytes=\(dataResponse.data.count)")
             do {
                 let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
-                guard !ThreadData.postsArray(from: json).isEmpty else {
+                let postsCount = ThreadData.postsArray(from: json).count
+                threadLoadDebug("handleLoadDataResponse parsed posts=\(postsCount)")
+                guard postsCount > 0 else {
                     self.handleThreadUnavailable()
                     return
                 }
@@ -2136,22 +2176,24 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 self.structureThreadReplies()
                 self.preloadThreadContent { [weak self] in
                     guard let self = self else { return }
+                    self.threadLoadDebug("handleLoadDataResponse preload completion; reloading")
                     self.isLoading = false
                     self.tableView.reloadData()
                     self.restoreScrollPositionIfNeeded()
                     self.scrollToPostIfNeeded()
                 }
             } catch {
-                print("JSON parsing error: \(error)")
+                self.threadLoadDebug("handleLoadDataResponse parse error=\(error)")
                 self.handleLoadError()
             }
         case .failure(let error):
-            print("Network error: \(error)")
+            self.threadLoadDebug("handleLoadDataResponse network error=\(error)")
             self.handleLoadError()
         }
     }
     
     private func handleThreadUnavailable() {
+        threadLoadDebug("handleThreadUnavailable")
         isLoading = false
         loadingIndicator.stopAnimating()
         removeReplyButton()
@@ -2315,11 +2357,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     private func handleLoadError() {
+        threadLoadDebug("handleLoadError start existingReplies=\(threadReplies.count) appState=\(UIApplication.shared.applicationState.rawValue)")
         isLoading = false
 
         // If we already have content loaded, keep showing it and silently recover.
         // This avoids false "Loading Error" alerts when the app is backgrounded and resumed.
         if !threadReplies.isEmpty {
+            threadLoadDebug("handleLoadError keeping existing content")
             tableView.refreshControl?.endRefreshing()
             return
         }
@@ -2327,9 +2371,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Don't present alerts while the app is inactive/backgrounded.
         // Retry once when we become active again.
         if UIApplication.shared.applicationState != .active {
+            threadLoadDebug("handleLoadError app inactive; scheduling retry")
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self = self else { return }
                 if UIApplication.shared.applicationState == .active && self.threadReplies.isEmpty {
+                    self.threadLoadDebug("handleLoadError retrying after app became active")
                     self.isLoading = true
                     self.loadInitialData()
                 }
@@ -2337,6 +2383,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
 
+        threadLoadDebug("handleLoadError presenting Loading Error alert")
         let alert = UIAlertController(
             title: "Loading Error",
             message: "Failed to load thread data. Please try again.",
@@ -2344,10 +2391,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         )
 
         alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
+            self?.threadLoadDebug("handleLoadError retry tapped")
             self?.loadInitialData()
         })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.threadLoadDebug("handleLoadError cancel tapped; popping")
             self?.navigationController?.popViewController(animated: true)
         })
 
@@ -2355,6 +2404,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func handleOfflineError() {
+        threadLoadDebug("handleOfflineError")
         isLoading = false
         
         let alert = UIAlertController(
@@ -2371,25 +2421,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func processThreadData(_ json: JSON) {
+        threadLoadDebug("processThreadData start rawPosts=\(ThreadData.postsArray(from: json).count)")
         hasPreloadedContent = false
         // Clear existing data before processing
+        threadLoadDebug("processThreadData clearing existing arrays replies=\(threadReplies.count) replyNumbers=\(threadBoardReplyNumber.count) images=\(threadRepliesImages.count)")
         threadReplies.removeAll()
         threadBoardReplyNumber.removeAll()
         threadRepliesImages.removeAll()
         threadBoardReplies.removeAll()
         originalTexts.removeAll()
         postMetadataList.removeAll()
+        threadLoadDebug("processThreadData cleared arrays")
 
         // Record this visit in history regardless of how the thread was opened
         // (board list, search, notifications, offline cache, handoff, etc.)
         let rawPosts = ThreadData.postsArray(from: json)
+        threadLoadDebug("processThreadData resolved rawPosts=\(rawPosts.count)")
 
         if !boardAbv.isEmpty, !rawPosts.isEmpty {
-            HistoryManager.shared.addThreadToHistory(ThreadData(from: json, boardAbv: boardAbv))
+            threadLoadDebug("processThreadData adding thread to history")
+            let historyThread = ThreadData(from: json, boardAbv: boardAbv)
+            threadLoadDebug("processThreadData built history ThreadData number=\(historyThread.number)")
+            HistoryManager.shared.addThreadToHistory(historyThread)
+            threadLoadDebug("processThreadData returned from addThreadToHistory")
         }
 
         // Extract thread subject from OP (decode HTML entities)
         let originalPost = rawPosts.first ?? JSON()
+        threadLoadDebug("processThreadData extracting OP metadata")
         threadSubject = ThreadData.postSubject(from: originalPost).decodingHTMLEntities()
 
         // Store OP creation timestamp for dead thread info
@@ -2402,46 +2461,67 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             ?? originalPost["postCount"].int.map { max($0 - 1, 0) }
             ?? originalPost["posts_count"].int.map { max($0 - 1, 0) }
             ?? max(rawPosts.count - 1, 0)
+        threadLoadDebug("processThreadData OP metadata extracted replyCount=\(replyCount) subjectLength=\(threadSubject.count)")
         
         // Handle case with no replies
         if replyCount == 0 && rawPosts.count <= 1 {
+            threadLoadDebug("processThreadData single-post path; processing OP")
             processPost(originalPost, index: 0)
             replyCount = 1
+            threadLoadDebug("processThreadData single-post path; structuring replies")
             structureThreadReplies()
+            threadLoadDebug("processThreadData finished single-post thread replies=\(threadReplies.count) replyNumbers=\(threadBoardReplyNumber.count) images=\(threadRepliesImages.count)")
             return
         }
         
         // Apply content filtering to JSON if enabled
         var filteredJson: JSON = json
+        threadLoadDebug("processThreadData checking legacy reflection filter path")
         if json["posts"].array != nil,
            let utilContentFilterManager = NSClassFromString("Channer.ContentFilterManager") as? NSObject.Type,
            let manager = utilContentFilterManager.value(forKeyPath: "shared") as? NSObject,
            let isEnabled = manager.perform(NSSelectorFromString("isFilteringEnabled"))?.takeUnretainedValue() as? Bool,
            isEnabled {
+            threadLoadDebug("processThreadData reflection filter enabled; invoking filterPosts")
             // Use raw invocation to filter posts
             if let returnValue = manager.perform(NSSelectorFromString("filterPosts:"), with: json) {
                 filteredJson = returnValue.takeUnretainedValue() as? JSON ?? json
             }
+            threadLoadDebug("processThreadData reflection filter returned")
         }
         
         // Process all posts in the thread
         let posts = ThreadData.postsArray(from: filteredJson)
+        threadLoadDebug("processThreadData processing posts count=\(posts.count)")
         for (index, post) in posts.enumerated() {
+            threadLoadDebug("processThreadData processPost start index=\(index) postNo=\(ThreadData.postNumber(from: post) ?? "nil")")
             processPost(post, index: index)
+            threadLoadDebug("processThreadData processPost finished index=\(index) replies=\(threadReplies.count) images=\(threadRepliesImages.count)")
         }
         
         // Apply additional content filtering
+        threadLoadDebug("processThreadData applying content filtering")
         applyContentFiltering()
+        threadLoadDebug("processThreadData content filtering finished filtered=\(filteredReplyIndices.count) hidden=\(hiddenFilteredReplyIndices.count)")
 
         // Finalize thread structure
+        threadLoadDebug("processThreadData structuring replies")
         structureThreadReplies()
+        threadLoadDebug("processThreadData structureThreadReplies finished replyMapKeys=\(threadBoardReplies.count)")
+        threadLoadDebug("processThreadData updating read state")
         updateReadStateFromLoadedPosts()
+        threadLoadDebug("processThreadData read state updated unread=\(unreadPostNumbers.count) pruned=\(prunedPostNumbers.count)")
 
         // Check for new replies to watched posts
+        threadLoadDebug("processThreadData checking watched posts")
         checkWatchedPostsForNewReplies()
+        threadLoadDebug("processThreadData watched posts checked")
 
         // Check watch rules for new matches
+        threadLoadDebug("processThreadData checking watch rules")
         checkWatchRulesForNewMatches()
+        threadLoadDebug("processThreadData watch rules checked")
+        threadLoadDebug("processThreadData finished replies=\(threadReplies.count) replyNumbers=\(threadBoardReplyNumber.count) images=\(threadRepliesImages.count) filtered=\(filteredReplyIndices.count) replyCount=\(replyCount)")
     }
 
     private func updateReadStateFromLoadedPosts() {
@@ -5462,6 +5542,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     private func updateLoadingUI() {
+        threadLoadDebug("updateLoadingUI isLoading=\(isLoading) tableHiddenBefore=\(tableView.isHidden) indicatorAnimating=\(loadingIndicator.isAnimating)")
         if isLoading {
             loadingIndicator.startAnimating()
             tableView.isHidden = true
@@ -5469,6 +5550,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             loadingIndicator.stopAnimating()
             tableView.isHidden = false
         }
+        threadLoadDebug("updateLoadingUI complete tableHidden=\(tableView.isHidden) indicatorAnimating=\(loadingIndicator.isAnimating)")
     }
     
     private func updateLoadingState() {

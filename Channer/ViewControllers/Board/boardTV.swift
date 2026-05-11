@@ -591,6 +591,10 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     var isHistoryView: Bool = false
     var isFavoritesView: Bool = false
     var boardPassed = false
+
+    private func threadLoadDebug(_ message: String) {
+        print("[ChannerThreadLoadDebug][boardTV board=/\(boardAbv)/ history=\(isHistoryView) favorites=\(isFavoritesView)] \(message)")
+    }
     
     // Search is launched from the More menu and rendered in the bottom toolbar.
     private let searchController = UISearchController(searchResultsController: nil)
@@ -1475,8 +1479,10 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     // UITableViewDelegate methods for handling table view interactions.
 
         override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        threadLoadDebug("didSelectRowAt row=\(indexPath.row) filteredCount=\(filteredThreadData.count)")
         let thread = filteredThreadData[indexPath.row]
         let url = BoardsService.shared.threadJSONURL(board: thread.boardAbv, threadNumber: thread.number)
+        threadLoadDebug("selected thread board=/\(thread.boardAbv)/ thread=\(thread.number) url=\(url.absoluteString) stats=\(thread.stats) title=\(thread.title)")
     
         //print("Selected thread at index \(indexPath.row): \(thread)")
     
@@ -1498,20 +1504,23 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             indicator.centerYAnchor.constraint(equalTo: loadingView.centerYAnchor)
         ])
         indicator.startAnimating()
+        threadLoadDebug("selection overlay shown; starting validation fetch")
     
         // Load thread data
         BoardsService.shared.fetchData(from: url) { response in
             DispatchQueue.main.async {
                 loadingView.removeFromSuperview()
+                self.threadLoadDebug("selection overlay removed after validation fetch")
             }
     
             guard case .success(let dataResponse) = response,
                   let json = try? ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: thread.boardAbv),
                   !ThreadData.postsArray(from: json).isEmpty else {
-                print("Thread not available or invalid response.")
+                self.threadLoadDebug("validation failed or invalid response for /\(thread.boardAbv)/\(thread.number)")
                 self.handleThreadUnavailable(at: indexPath, thread: thread)
                 return
             }
+            self.threadLoadDebug("validation succeeded status=\(dataResponse.response?.statusCode ?? -1) bytes=\(dataResponse.data.count) posts=\(ThreadData.postsArray(from: json).count); pushing threadRepliesTV")
     
             // Instantiate threadRepliesTV view controller
             let vc = threadRepliesTV()
@@ -1522,7 +1531,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     
             // Handle navigation - same behavior on all devices
             self.navigationController?.pushViewController(vc, animated: true)
-            print("Pushed threadRepliesTV on navigation stack.")
+            self.threadLoadDebug("pushed threadRepliesTV navigationControllerExists=\(self.navigationController != nil)")
         }
     }
 
@@ -1647,6 +1656,7 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
     }
     
     private func handleThreadUnavailable(at indexPath: IndexPath, thread: ThreadData) {
+        threadLoadDebug("handleThreadUnavailable board=/\(thread.boardAbv)/ thread=\(thread.number) row=\(indexPath.row)")
         // Mark thread as dead so it won't be rechecked
         if self.isFavoritesView {
             FavoritesManager.shared.markThreadAsDead(threadNumber: thread.number, boardAbv: thread.boardAbv)
