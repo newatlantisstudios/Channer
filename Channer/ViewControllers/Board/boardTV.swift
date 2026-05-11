@@ -1658,6 +1658,23 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                     }))
                 }
 
+                if ArchiveManager.shared.canFetchArchivedThread(boardAbv: thread.boardAbv) {
+                    alert.addAction(UIAlertAction(title: "Load Archive Copy", style: .default, handler: { _ in
+                        let vc = threadRepliesTV()
+                        vc.boardAbv = thread.boardAbv
+                        vc.threadNumber = thread.number
+                        vc.forceLoadFromArchive = true
+                        vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+                        self.navigationController?.pushViewController(vc, animated: true)
+                    }))
+                }
+
+                if !ArchiveManager.shared.archiveThreadURLs(boardAbv: thread.boardAbv, threadNumber: thread.number).isEmpty {
+                    alert.addAction(UIAlertAction(title: "Open Archive", style: .default, handler: { _ in
+                        self.openArchive(thread: thread)
+                    }))
+                }
+
                 alert.addAction(UIAlertAction(title: "Remove Favorite", style: .destructive, handler: { _ in
                     FavoritesManager.shared.removeFavorite(threadNumber: thread.number, boardAbv: thread.boardAbv)
                     self.filteredThreadData.remove(at: indexPath.row)
@@ -1675,6 +1692,21 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                 self.present(alert, animated: true, completion: nil)
             } else if self.isHistoryView {
                 let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
+                if ArchiveManager.shared.canFetchArchivedThread(boardAbv: thread.boardAbv) {
+                    alert.addAction(UIAlertAction(title: "Load Archive Copy", style: .default, handler: { _ in
+                        let vc = threadRepliesTV()
+                        vc.boardAbv = thread.boardAbv
+                        vc.threadNumber = thread.number
+                        vc.forceLoadFromArchive = true
+                        vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+                        self.navigationController?.pushViewController(vc, animated: true)
+                    }))
+                }
+                if !ArchiveManager.shared.archiveThreadURLs(boardAbv: thread.boardAbv, threadNumber: thread.number).isEmpty {
+                    alert.addAction(UIAlertAction(title: "Open Archive", style: .default, handler: { _ in
+                        self.openArchive(thread: thread)
+                    }))
+                }
                 alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
                     HistoryManager.shared.verifyAndRemoveInvalidHistory { updatedHistory in
                         self.threadData = updatedHistory
@@ -1687,6 +1719,21 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                 self.present(alert, animated: true, completion: nil)
             } else {
                 let alert = UIAlertController(title: "Thread Unavailable", message: "This thread is no longer available.", preferredStyle: .alert)
+                if ArchiveManager.shared.canFetchArchivedThread(boardAbv: thread.boardAbv) {
+                    alert.addAction(UIAlertAction(title: "Load Archive Copy", style: .default, handler: { _ in
+                        let vc = threadRepliesTV()
+                        vc.boardAbv = thread.boardAbv
+                        vc.threadNumber = thread.number
+                        vc.forceLoadFromArchive = true
+                        vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+                        self.navigationController?.pushViewController(vc, animated: true)
+                    }))
+                }
+                if !ArchiveManager.shared.archiveThreadURLs(boardAbv: thread.boardAbv, threadNumber: thread.number).isEmpty {
+                    alert.addAction(UIAlertAction(title: "Open Archive", style: .default, handler: { _ in
+                        self.openArchive(thread: thread)
+                    }))
+                }
                 alert.addAction(UIAlertAction(title: "OK", style: .default, handler: { _ in
                     self.filteredThreadData.remove(at: indexPath.row)
                     if let index = self.threadData.firstIndex(where: { $0.number == thread.number && $0.boardAbv == thread.boardAbv }) {
@@ -1700,6 +1747,30 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
                 self.present(alert, animated: true, completion: nil)
             }
         }
+    }
+
+    private func openArchive(thread: ThreadData) {
+        let targets = ArchiveManager.shared.archiveThreadURLs(boardAbv: thread.boardAbv, threadNumber: thread.number)
+        guard !targets.isEmpty else { return }
+
+        if targets.count == 1, let url = targets.first?.1 {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            return
+        }
+
+        let alert = UIAlertController(title: "Open Archive", message: nil, preferredStyle: .actionSheet)
+        for (archive, url) in targets {
+            alert.addAction(UIAlertAction(title: archive.name, style: .default, handler: { _ in
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            }))
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        present(alert, animated: true)
     }
     
     private func refreshThreadList() {

@@ -39,6 +39,11 @@ class EnhancedTextFormatter {
         let processedText = text
             .replacingOccurrences(of: "<br>", with: "\n")
             .replacingOccurrences(of: "<wbr>", with: "")
+            .replacingOccurrences(
+                of: "<span class=\"deadlink\">(?:&gt;&gt;|>>)(\\d+)</span>",
+                with: "<a href=\"#p$1\" class=\"quotelink\">&gt;&gt;$1</a>",
+                options: .regularExpression
+            )
 
         // Step 2: Tokenize and build attributed string
         let result = NSMutableAttributedString()
