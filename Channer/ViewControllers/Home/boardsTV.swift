@@ -44,6 +44,25 @@ class boardsTV: UITableViewController {
     
     private let faceIDEnabledKey = "channer_faceID_authentication_enabled"
     private var imageboardSiteButton: UIBarButtonItem?
+    private var isBoardListLoading = false
+    private let boardLoadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.hidesWhenStopped = true
+        indicator.accessibilityIdentifier = "BoardsLoadingIndicator"
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+    private lazy var boardLoadingView: UIView = {
+        let container = UIView()
+        container.backgroundColor = .clear
+        container.isHidden = true
+        container.addSubview(boardLoadingIndicator)
+        NSLayoutConstraint.activate([
+            boardLoadingIndicator.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            boardLoadingIndicator.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+        return container
+    }()
     
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
@@ -125,6 +144,32 @@ class boardsTV: UITableViewController {
         boardNames = filtered.names
         boardsAbv = filtered.codes
     }
+
+    private func reloadBoardListFromService() {
+        boardNames = BoardsService.shared.boardNames
+        boardsAbv = BoardsService.shared.boardAbv
+        sortBoardsAlphabetically()
+        filterHiddenBoards()
+        tableView.reloadData()
+    }
+
+    private func clearBoardListForImageboardSwitch() {
+        boardNames.removeAll()
+        boardsAbv.removeAll()
+        tableView.setContentOffset(.zero, animated: false)
+        tableView.reloadData()
+        setBoardListLoading(true)
+    }
+
+    private func setBoardListLoading(_ isLoading: Bool) {
+        isBoardListLoading = isLoading
+        boardLoadingView.isHidden = !isLoading
+        if isLoading {
+            boardLoadingIndicator.startAnimating()
+        } else {
+            boardLoadingIndicator.stopAnimating()
+        }
+    }
     
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
@@ -159,6 +204,7 @@ class boardsTV: UITableViewController {
         // Set theme background color for automatic light/dark mode support
         view.backgroundColor = ThemeManager.shared.backgroundColor
         tableView.backgroundColor = ThemeManager.shared.backgroundColor
+        tableView.backgroundView = boardLoadingView
         
         // Register cell class
         tableView.register(boardsTVCell.self, forCellReuseIdentifier: reuseIdentifier)
@@ -237,31 +283,21 @@ class boardsTV: UITableViewController {
         // Fetch latest boards and refresh table on completion
         BoardsService.shared.fetchBoards { [weak self] in
             guard let self = self else { return }
-            self.boardNames = BoardsService.shared.boardNames
-            self.boardsAbv = BoardsService.shared.boardAbv
-            self.sortBoardsAlphabetically()
-            self.filterHiddenBoards()
-            self.tableView.reloadData()
+            self.reloadBoardListFromService()
         }
     }
 
     /// Called when hidden boards settings change
     @objc private func hiddenBoardsDidChange() {
         // Reload boards from service and reapply filters
-        boardNames = BoardsService.shared.boardNames
-        boardsAbv = BoardsService.shared.boardAbv
-        sortBoardsAlphabetically()
-        filterHiddenBoards()
-        tableView.reloadData()
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
     }
 
     @objc private func imageboardSiteDidChange() {
         updateImageboardSiteButtonTitle()
-        boardNames = BoardsService.shared.boardNames
-        boardsAbv = BoardsService.shared.boardAbv
-        sortBoardsAlphabetically()
-        filterHiddenBoards()
-        tableView.reloadData()
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
     }
     
     deinit {
@@ -468,6 +504,10 @@ class boardsTV: UITableViewController {
         imageboardSiteButton?.menu = makeImageboardSitePullDownMenu()
         #endif
         imageboardSiteButton?.accessibilityLabel = "Imageboard Site: \(BoardsService.shared.selectedSite.displayName)"
+        if let items = navigationItem.rightBarButtonItems {
+            navigationItem.setRightBarButtonItems(items, animated: false)
+        }
+        (navigationController as? CatalystNavigationController)?.refreshBottomToolbar(animated: false)
     }
 
     private func makeImageboardSitePullDownMenu() -> UIMenu {
@@ -519,14 +559,13 @@ class boardsTV: UITableViewController {
         guard site != BoardsService.shared.selectedSite else { return }
 
         UserDefaults.standard.removeObject(forKey: defaultBoardKey)
+        clearBoardListForImageboardSwitch()
         BoardsService.shared.setSelectedSite(site) { [weak self] in
             guard let self = self else { return }
+            guard BoardsService.shared.selectedSite == site else { return }
             self.updateImageboardSiteButtonTitle()
-            self.boardNames = BoardsService.shared.boardNames
-            self.boardsAbv = BoardsService.shared.boardAbv
-            self.sortBoardsAlphabetically()
-            self.filterHiddenBoards()
-            self.tableView.reloadData()
+            self.reloadBoardListFromService()
+            self.setBoardListLoading(false)
         }
         updateImageboardSiteButtonTitle()
 

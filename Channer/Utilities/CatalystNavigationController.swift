@@ -336,6 +336,11 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         syncBottomToolbar(animated: false)
     }
 
+    func refreshBottomToolbar(animated: Bool = false) {
+        lastToolbarSignature = ""
+        syncBottomToolbar(animated: animated)
+    }
+
     #if targetEnvironment(macCatalyst)
     override var keyCommands: [UIKeyCommand]? {
         let backCommand = UIKeyCommand(
@@ -864,6 +869,14 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
         let identifier = ObjectIdentifier(sourceItem)
         if let item = mirroredToolbarItems[identifier] {
+            updateMirroredToolbarButton(item.customView, from: sourceItem)
+            item.isEnabled = sourceItem.isEnabled
+            item.tintColor = sourceItem.tintColor
+            item.width = sourceItem.width
+            item.tag = sourceItem.tag
+            item.accessibilityLabel = sourceItem.accessibilityLabel
+            item.accessibilityIdentifier = sourceItem.accessibilityIdentifier
+            item.menu = sourceItem.menu
             return item
         }
 
@@ -925,6 +938,28 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         return button
     }
 
+    private func updateMirroredToolbarButton(_ customView: UIView?, from sourceItem: UIBarButtonItem) {
+        guard let button = customView as? UIButton else { return }
+
+        button.tintColor = sourceItem.tintColor
+        button.isEnabled = sourceItem.isEnabled
+        button.accessibilityLabel = sourceItem.accessibilityLabel ?? sourceItem.title
+        button.accessibilityIdentifier = sourceItem.accessibilityIdentifier
+
+        if let image = sourceItem.image {
+            button.setTitle(nil, for: .normal)
+            button.setImage(image.withRenderingMode(.alwaysTemplate), for: .normal)
+        } else {
+            button.setImage(nil, for: .normal)
+            button.setTitle(sourceItem.title ?? sourceItem.accessibilityLabel ?? "", for: .normal)
+        }
+
+        button.menu = sourceItem.menu
+        button.showsMenuAsPrimaryAction = sourceItem.menu != nil && sourceItem.action == nil
+        button.invalidateIntrinsicContentSize()
+        button.setNeedsLayout()
+    }
+
     private func makeInternalToolbarButtonItem(systemImageName: String, accessibilityLabel: String, action: Selector) -> UIBarButtonItem {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -970,6 +1005,15 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
         }
         if let searchContainer = item.customView as? BottomToolbarSearchContainer {
             return "search-container:\(searchContainer.toolbarSignature)"
+        }
+        if let button = item.customView as? UIButton {
+            let title = button.title(for: .normal) ?? ""
+            let image = button.image(for: .normal)?.accessibilityIdentifier ?? button.image(for: .normal)?.description ?? ""
+            let enabled = button.isEnabled ? "enabled" : "disabled"
+            let menu = button.menu?.identifier.rawValue ?? ""
+            let accessibilityIdentifier = item.accessibilityIdentifier ?? button.accessibilityIdentifier ?? ""
+            let accessibilityLabel = item.accessibilityLabel ?? ""
+            return "button:\(title)|\(image)|\(item.tag)|\(enabled)|\(menu)|\(accessibilityIdentifier)|\(accessibilityLabel)"
         }
         if item.customView != nil {
             return "custom:\(item.customView?.bounds.width ?? 0)"

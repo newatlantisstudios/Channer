@@ -53,6 +53,25 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     private let maxGridCellWidth: CGFloat = 140
     private let minimumGridCellHeight: CGFloat = 96
     private var imageboardSiteButton: UIBarButtonItem?
+    private var isBoardListLoading = false
+    private let boardLoadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.hidesWhenStopped = true
+        indicator.accessibilityIdentifier = "BoardsLoadingIndicator"
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+    private lazy var boardLoadingView: UIView = {
+        let container = UIView()
+        container.backgroundColor = .clear
+        container.isHidden = true
+        container.addSubview(boardLoadingIndicator)
+        NSLayoutConstraint.activate([
+            boardLoadingIndicator.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            boardLoadingIndicator.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+        return container
+    }()
     
     // MARK: - Authentication
     /// Authenticates the user using Face ID or Touch ID.
@@ -134,6 +153,32 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         boardNames = filtered.names
         boardsAbv = filtered.codes
     }
+
+    private func reloadBoardListFromService() {
+        boardNames = BoardsService.shared.boardNames
+        boardsAbv = BoardsService.shared.boardAbv
+        sortBoardsAlphabetically()
+        filterHiddenBoards()
+        collectionView.reloadData()
+    }
+
+    private func clearBoardListForImageboardSwitch() {
+        boardNames.removeAll()
+        boardsAbv.removeAll()
+        collectionView.setContentOffset(.zero, animated: false)
+        collectionView.reloadData()
+        setBoardListLoading(true)
+    }
+
+    private func setBoardListLoading(_ isLoading: Bool) {
+        isBoardListLoading = isLoading
+        boardLoadingView.isHidden = !isLoading
+        if isLoading {
+            boardLoadingIndicator.startAnimating()
+        } else {
+            boardLoadingIndicator.stopAnimating()
+        }
+    }
     
     /// Called after the controller's view is loaded into memory.
     override func viewDidLoad() {
@@ -167,6 +212,7 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         
         // Set theme background color for automatic light/dark mode support
         collectionView.backgroundColor = ThemeManager.shared.backgroundColor
+        collectionView.backgroundView = boardLoadingView
 
         // Ensure the collection view is using a UICollectionViewFlowLayout
         if collectionView.collectionViewLayout as? UICollectionViewFlowLayout == nil {
@@ -248,31 +294,21 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         // Fetch latest boards and refresh the grid
         BoardsService.shared.fetchBoards { [weak self] in
             guard let self = self else { return }
-            self.boardNames = BoardsService.shared.boardNames
-            self.boardsAbv = BoardsService.shared.boardAbv
-            self.sortBoardsAlphabetically()
-            self.filterHiddenBoards()
-            self.collectionView.reloadData()
+            self.reloadBoardListFromService()
         }
     }
 
     /// Called when hidden boards settings change
     @objc private func hiddenBoardsDidChange() {
         // Reload boards from service and reapply filters
-        boardNames = BoardsService.shared.boardNames
-        boardsAbv = BoardsService.shared.boardAbv
-        sortBoardsAlphabetically()
-        filterHiddenBoards()
-        collectionView.reloadData()
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
     }
 
     @objc private func imageboardSiteDidChange() {
         updateImageboardSiteButtonTitle()
-        boardNames = BoardsService.shared.boardNames
-        boardsAbv = BoardsService.shared.boardAbv
-        sortBoardsAlphabetically()
-        filterHiddenBoards()
-        collectionView.reloadData()
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
     }
     
     deinit {
@@ -491,6 +527,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         imageboardSiteButton?.menu = makeImageboardSitePullDownMenu()
         #endif
         imageboardSiteButton?.accessibilityLabel = "Imageboard Site: \(BoardsService.shared.selectedSite.displayName)"
+        if let items = navigationItem.rightBarButtonItems {
+            navigationItem.setRightBarButtonItems(items, animated: false)
+        }
+        (navigationController as? CatalystNavigationController)?.refreshBottomToolbar(animated: false)
     }
 
     private func makeImageboardSitePullDownMenu() -> UIMenu {
@@ -542,14 +582,13 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         guard site != BoardsService.shared.selectedSite else { return }
 
         UserDefaults.standard.removeObject(forKey: defaultBoardKey)
+        clearBoardListForImageboardSwitch()
         BoardsService.shared.setSelectedSite(site) { [weak self] in
             guard let self = self else { return }
+            guard BoardsService.shared.selectedSite == site else { return }
             self.updateImageboardSiteButtonTitle()
-            self.boardNames = BoardsService.shared.boardNames
-            self.boardsAbv = BoardsService.shared.boardAbv
-            self.sortBoardsAlphabetically()
-            self.filterHiddenBoards()
-            self.collectionView.reloadData()
+            self.reloadBoardListFromService()
+            self.setBoardListLoading(false)
         }
         updateImageboardSiteButtonTitle()
 
