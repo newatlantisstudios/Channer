@@ -42,6 +42,14 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     private let maxPlayingVideos = 12
     /// Set to track currently playing video cells by their index paths
     private var playingVideoCells = Set<Int>()
+
+    private static let videoExtensions: Set<String> = ["webm", "mp4"]
+    private let debugID = UUID().uuidString.prefix(8)
+    private let debugStartTime = Date()
+    private var debugLayoutPassCount = 0
+    private var debugCellConfigCount = 0
+    private var debugSizeRequestCount = 0
+    private var debugLoggedImageCompletions = 0
     
     // MARK: - Cell Classes
     
@@ -71,9 +79,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             super.prepareForReuse()
             
             // Clean up existing content
+            stopMediaPlayback()
+            imageView?.kf.cancelDownloadTask()
             imageView?.image = nil
-            webView?.stopLoading()
-            webView?.loadHTMLString("", baseURL: nil)
             activityIndicator?.stopAnimating()
             
             // Reset any styling
@@ -137,8 +145,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         
         func setupForImage() {
             // Clear any existing web view
-            webView?.removeFromSuperview()
-            webView = nil
+            stopMediaPlayback()
             isVideoCell = false
             
             // Create image view if needed
@@ -199,6 +206,27 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             }
             activityIndicator?.startAnimating()
         }
+
+        func stopMediaPlayback() {
+            if let webView = webView {
+                webView.navigationDelegate = nil
+                webView.stopLoading()
+                webView.evaluateJavaScript("""
+                    document.querySelectorAll('video').forEach(function(video) {
+                        video.pause();
+                        video.removeAttribute('src');
+                        video.load();
+                    });
+                """, completionHandler: nil)
+                webView.loadHTMLString("", baseURL: nil)
+                webView.removeFromSuperview()
+                self.webView = nil
+            }
+
+            imageView?.kf.cancelDownloadTask()
+            activityIndicator?.stopAnimating()
+            isVideoCell = false
+        }
     }
 
     // MARK: - Initializers
@@ -212,15 +240,22 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         self.collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         self.images = images
         super.init(nibName: nil, bundle: nil)
+        galleryDebugLog("init images=\(images.count) preloadVideos=\(preloadVideos) replaceVideoThumbnails=\(MediaSettings.replaceVideoThumbnails)")
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        galleryDebugLog("deinit")
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Lifecycle Methods
     override func viewDidLoad() {
         super.viewDidLoad()
+        galleryDebugLog("viewDidLoad begin selectedImageURL=\(selectedImageURL?.absoluteString ?? "nil") viewBounds=\(view.bounds) collectionBounds=\(collectionView.bounds)")
 
         view.backgroundColor = .systemBackground
         collectionView.delegate = self
@@ -245,27 +280,37 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         if let selectedURL = selectedImageURL, let index = images.firstIndex(of: selectedURL) {
             selectedIndex = index
             let indexPath = IndexPath(item: index, section: 0)
+            galleryDebugLog("viewDidLoad scrolling to selected index=\(index)")
             collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
         }
         
         // Setup navigation bar with media counter
         setupNavigationBarWithCounter()
+        galleryDebugLog("viewDidLoad navigation configured")
 
         // Process URLs to determine media types
         processMediaURLs()
+        galleryDebugLog("viewDidLoad media processing finished correctedVideos=\(correctedURLs.count) alternates=\(alternateURLs.count)")
         
         // Apply preload setting from UserDefaults
         if preloadVideos {
+            galleryDebugLog("viewDidLoad applying preload setting")
             applyPreloadSetting()
         } else {
+            galleryDebugLog("viewDidLoad reloadData without preload")
             collectionView.reloadData()
         }
 
         NotificationCenter.default.addObserver(self, selector: #selector(galleryCellSizeDidChange), name: .galleryCellSizeDidChange, object: nil)
+        galleryDebugLog("viewDidLoad end")
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        debugLayoutPassCount += 1
+        if debugLayoutPassCount <= 10 || debugLayoutPassCount % 25 == 0 {
+            galleryDebugLog("viewDidLayoutSubviews pass=\(debugLayoutPassCount) viewBounds=\(view.bounds) collectionBounds=\(collectionView.bounds) safeInsets=\(view.safeAreaInsets) contentInset=\(collectionView.contentInset) offset=\(collectionView.contentOffset)")
+        }
         updateGalleryCollectionInsets()
     }
 
@@ -278,6 +323,8 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
 
         guard abs(oldTopInset - topInset) > 0.5 || abs(oldBottomInset - bottomInset) > 0.5 else { return }
 
+        galleryDebugLog("updateGalleryCollectionInsets top \(oldTopInset)->\(topInset) bottom \(oldBottomInset)->\(bottomInset) offsetBefore=\(collectionView.contentOffset)")
+
         let viewportTop = collectionView.contentOffset.y + oldTopInset
         contentInset.top = topInset
         contentInset.bottom = bottomInset
@@ -289,9 +336,11 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             CGPoint(x: collectionView.contentOffset.x, y: adjustedOffsetY),
             animated: false
         )
+        galleryDebugLog("updateGalleryCollectionInsets offsetAfter=\(collectionView.contentOffset)")
     }
 
     @objc private func galleryCellSizeDidChange() {
+        galleryDebugLog("galleryCellSizeDidChange columns=\(GalleryCellSizeManager.shared.columns)")
         collectionView.collectionViewLayout.invalidateLayout()
     }
     
@@ -341,151 +390,26 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // MARK: - URL Processing
     /// Processes media URLs to determine the correct file types
     private func processMediaURLs() {
-        print("🔍 Processing \(images.count) media URLs to identify videos")
-        
-        // IMPORTANT: When preload is enabled, we'll convert ALL image URLs to potential video URLs
-        // This ensures thumbnail images are tried as videos, which is what users expect
-        let aggressiveConversion = true
+        galleryDebugLog("processMediaURLs begin images=\(images.count)")
+
+        correctedURLs.removeAll()
+        alternateURLs.removeAll()
         
         for (index, url) in images.enumerated() {
-            print("🔍 URL \(index): \(url.absoluteString)")
-            
-            // Case 1: Direct video URL - use it directly
-            if url.pathExtension.lowercased() == "webm" || url.pathExtension.lowercased() == "mp4" {
+            let fileExtension = url.pathExtension.lowercased()
+
+            // Direct video URL - use it directly. The thread reply pipeline already
+            // preserves the media extension, so guessing videos from image URLs can
+            // create many failing WKWebViews and lock up the gallery transition.
+            if Self.videoExtensions.contains(fileExtension) {
                 correctedURLs[index] = url
-                print("✅ Found direct video URL: \(url.absoluteString)")
+                galleryDebugLog("processMediaURLs video index=\(index) url=\(url.absoluteString)")
                 continue
-            }
-            
-            // Case 2: Thumbnail with "s.jpg" pattern (common in imageboard APIs)
-        if url.absoluteString.contains("s.jpg") {
-            // Create both WebM and MP4 URLs to try - store both to try either format
-            let webmString = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".webm")
-            let mp4String = url.absoluteString.replacingOccurrences(of: "s.jpg", with: ".mp4")
-            
-            var hasMP4 = false
-            var hasWebM = false
-            
-            // Store MP4 URL if valid
-            if let mp4URL = URL(string: mp4String) {
-                // We're testing both formats and storing both - MP4 as primary if possible
-                correctedURLs[index] = mp4URL
-                hasMP4 = true
-                print("✅ Storing MP4 URL: \(mp4URL.lastPathComponent)")
-            }
-            
-            // Store WebM URL
-            if let webmURL = URL(string: webmString) {
-                // If we already have MP4, store WebM as alternate
-                if hasMP4 {
-                    alternateURLs[index] = webmURL
-                    print("✅ Storing alternate WebM URL: \(webmURL.lastPathComponent)")
-                } else {
-                    // Otherwise use WebM as primary
-                    correctedURLs[index] = webmURL
-                    hasWebM = true
-                    print("✅ Storing WebM URL: \(webmURL.lastPathComponent)")
-                }
-            }
-            
-            // If we found either format, continue to next URL
-            if hasMP4 || hasWebM {
-                continue
-            }
-        }
-            
-            // Case 3: Aggressive conversion of ANY image URL to a potential video URL
-            if aggressiveConversion && (
-                url.pathExtension.lowercased() == "jpg" || 
-                url.pathExtension.lowercased() == "jpeg" || 
-                url.pathExtension.lowercased() == "png" ||
-                url.pathExtension.lowercased() == "gif") {
-                
-                // Generate both WebM and MP4 URLs to try
-                let mp4String = url.absoluteString.replacingOccurrences(
-                    of: ".\(url.pathExtension.lowercased())", 
-                    with: ".mp4")
-                
-                let webmString = url.absoluteString.replacingOccurrences(
-                    of: ".\(url.pathExtension.lowercased())", 
-                    with: ".webm")
-                
-                var hasMP4 = false
-                var hasWebM = false
-                
-                // Store MP4 URL if valid
-                if let mp4URL = URL(string: mp4String) {
-                    correctedURLs[index] = mp4URL
-                    hasMP4 = true
-                    print("🔄 Aggressive conversion to primary MP4: \(mp4URL.absoluteString)")
-                }
-                
-                // Store WebM format
-                if let webmURL = URL(string: webmString) {
-                    if hasMP4 {
-                        // Store as alternate if we already have MP4
-                        alternateURLs[index] = webmURL
-                        print("🔄 Aggressive conversion to alternate WebM: \(webmURL.absoluteString)")
-                    } else {
-                        // Otherwise use as primary
-                        correctedURLs[index] = webmURL
-                        hasWebM = true
-                        print("🔄 Aggressive conversion to primary WebM: \(webmURL.absoluteString)")
-                    }
-                }
-                
-                // If we found either format, continue to next URL
-                if hasMP4 || hasWebM {
-                    continue
-                }
             }
         }
         
         // Summary of processed URLs
-        print("📊 Processed URLs: Found \(correctedURLs.count) video URLs out of \(images.count) total URLs")
-        
-        // If we still don't have any video URLs, use a desperate approach
-        if correctedURLs.isEmpty && !images.isEmpty {
-            print("⚠️ No video URLs found - using desperate fallback approach")
-            
-            // Force ALL images to be treated as potential video files (both MP4 and WebM)
-            for (index, url) in images.enumerated() {
-                if let lastPathComponent = url.absoluteString.split(separator: "/").last {
-                    var hasMP4 = false
-                    
-                    // Try MP4
-                    let mp4String = url.absoluteString.replacingOccurrences(
-                        of: String(lastPathComponent),
-                        with: "\(lastPathComponent).mp4")
-                    
-                    if let mp4URL = URL(string: mp4String) {
-                        correctedURLs[index] = mp4URL
-                        hasMP4 = true
-                        print("⚠️ Desperate primary MP4 conversion: \(mp4URL.absoluteString)")
-                    }
-                    
-                    // Also try WebM
-                    let webmString = url.absoluteString.replacingOccurrences(
-                        of: String(lastPathComponent),
-                        with: "\(lastPathComponent).webm")
-                    
-                    if let webmURL = URL(string: webmString) {
-                        if hasMP4 {
-                            // Store as alternate if we already have MP4
-                            alternateURLs[index] = webmURL
-                            print("⚠️ Desperate alternate WebM conversion: \(webmURL.absoluteString)")
-                        } else {
-                            // Otherwise use as primary
-                            correctedURLs[index] = webmURL
-                            print("⚠️ Desperate primary WebM conversion: \(webmURL.absoluteString)")
-                        }
-                    }
-                }
-            }
-            
-            // After fallback, print summary again
-            print("📊 After desperate fallback: Found \(correctedURLs.count) primary videos and \(alternateURLs.count) alternate videos out of \(images.count) total URLs")
-        }
+        galleryDebugLog("processMediaURLs end videos=\(correctedURLs.count) alternates=\(alternateURLs.count)")
     }
     
     // This method is no longer needed as preloadVideos is now a computed property
@@ -493,7 +417,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // We're keeping the implementation as a helper method with a different name
     // in case it needs to be called when UserDefaults change
     private func applyPreloadSetting() {
-        print("🔄 Preload setting applied: \(preloadVideos ? "ON" : "OFF")")
+        galleryDebugLog("applyPreloadSetting begin enabled=\(preloadVideos) correctedVideos=\(correctedURLs.count)")
         
         // Process images to ensure we have video URLs
         if preloadVideos && correctedURLs.isEmpty {
@@ -508,13 +432,16 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         UIView.performWithoutAnimation {
             collectionView.reloadData()
         }
+        galleryDebugLog("applyPreloadSetting reloadData returned visibleCells=\(collectionView.visibleCells.count)")
         
         // Ensure we start playing videos if needed
         if preloadVideos {
-            print("▶️ Starting playback of visible videos")
+            galleryDebugLog("applyPreloadSetting scheduled visible video playback")
             
             // Add a delay to ensure cells are properly loaded
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self = self else { return }
+                self.galleryDebugLog("applyPreloadSetting delayed playback firing visibleCells=\(self.collectionView.visibleCells.count)")
                 // Start playing videos
                 for cell in self.collectionView.visibleCells {
                     if let mediaCell = cell as? MediaCell, let webView = mediaCell.webView {
@@ -544,6 +471,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     // MARK: - UICollectionViewDataSource
     /// Returns the number of items in the collection view section.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        galleryDebugLog("numberOfItems section=\(section) count=\(images.count)")
         return images.count
     }
 
@@ -552,62 +480,34 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellIdentifier, for: indexPath) as! MediaCell
         let imageURL = images[indexPath.row]
         let fileExtension = imageURL.pathExtension.lowercased()
+        cell.tag = indexPath.row
+        debugCellConfigCount += 1
         
-        print("📱 Configuring cell at index \(indexPath.row)")
+        if debugCellConfigCount <= 40 || debugCellConfigCount % 50 == 0 {
+            galleryDebugLog("cellForItem row=\(indexPath.row) count=\(debugCellConfigCount) ext=\(fileExtension) preload=\(preloadVideos) replaceVideo=\(MediaSettings.replaceVideoThumbnails) url=\(imageURL.absoluteString)")
+        }
         
         // Update selection state
         cell.setSelected(indexPath.row == selectedIndex, animated: false)
         
-        // Simplified approach: Treat all cells as potential videos in preload mode
+        // Keep image cells lightweight; only actual video URLs get WKWebView previews.
         if fileExtension == "pdf" {
             setupPDFCell(cell, url: imageURL)
-        } else if preloadVideos || (MediaSettings.replaceVideoThumbnails && (fileExtension == "webm" || fileExtension == "mp4")) {
+        } else if Self.videoExtensions.contains(fileExtension) && (preloadVideos || MediaSettings.replaceVideoThumbnails) {
             // Choose URL based on correctness map or fallback
             var videoURL = imageURL
-            
-            // Tag the cell with its index FIRST so setupVideoCell can use it
-            cell.tag = indexPath.row
             
             // If we have a corrected URL, use it
             if let correctedURL = correctedURLs[indexPath.row] {
                 videoURL = correctedURL
-                print("🎬 Using corrected video URL for cell \(indexPath.row): \(videoURL.lastPathComponent)")
+                galleryDebugLog("cellForItem using corrected video row=\(indexPath.row) file=\(videoURL.lastPathComponent)")
                 
                 // Check if we have an alternate URL too
                 if let alternateURL = alternateURLs[indexPath.row] {
-                    print("🔄 Also have alternate URL for cell \(indexPath.row): \(alternateURL.lastPathComponent)")
-                }
-            } 
-            // If not, try to create one by substituting extensions
-            else if videoURL.pathExtension.lowercased() == "jpg" || 
-                    videoURL.pathExtension.lowercased() == "jpeg" || 
-                    videoURL.pathExtension.lowercased() == "png" {
-                // Try both formats - MP4 first then WebM
-                let potentialMP4URL = URL(string: videoURL.absoluteString.replacingOccurrences(
-                    of: "." + videoURL.pathExtension, with: ".mp4"))
-                
-                let potentialWebmURL = URL(string: videoURL.absoluteString.replacingOccurrences(
-                    of: "." + videoURL.pathExtension, with: ".webm"))
-                
-                if let mp4URL = potentialMP4URL {
-                    videoURL = mp4URL
-                    correctedURLs[indexPath.row] = mp4URL // Store MP4 as primary
-                    print("🎬 Created primary MP4 URL: \(videoURL.lastPathComponent)")
-                    
-                    // Also store WebM as alternate if available
-                    if let webmURL = potentialWebmURL {
-                        alternateURLs[indexPath.row] = webmURL
-                        print("🎬 Created alternate WebM URL: \(webmURL.lastPathComponent)")
-                    }
-                }
-                else if let webmURL = potentialWebmURL {
-                    videoURL = webmURL
-                    correctedURLs[indexPath.row] = webmURL // Store WebM as primary
-                    print("🎬 Created primary WebM URL: \(videoURL.lastPathComponent)")
+                    galleryDebugLog("cellForItem alternate video row=\(indexPath.row) file=\(alternateURL.lastPathComponent)")
                 }
             }
-            
-            print("▶️ Setting up video cell for index \(indexPath.row)")
+            galleryDebugLog("cellForItem setup video row=\(indexPath.row)")
             
             // Setup cell for video with both primary and alternate URLs
             setupVideoCell(cell, url: videoURL)
@@ -617,7 +517,9 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         } 
         // Non-preload mode - use regular image cells
         else {
-            print("🖼️ Using image cell for index \(indexPath.row)")
+            if debugCellConfigCount <= 40 || debugCellConfigCount % 50 == 0 {
+                galleryDebugLog("cellForItem setup image row=\(indexPath.row)")
+            }
             setupImageCell(cell, url: imageURL)
         }
         
@@ -628,6 +530,10 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     
     /// Set up a cell to display an image
     private func setupImageCell(_ cell: MediaCell, url: URL) {
+        let row = cell.tag
+        if debugCellConfigCount <= 40 || debugCellConfigCount % 50 == 0 {
+            galleryDebugLog("setupImageCell begin row=\(row) url=\(url.absoluteString)")
+        }
         cell.setupForImage()
         
         // For video files, display thumbnail but keep original URL for playback
@@ -640,17 +546,29 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
                 let base = last.replacingOccurrences(of: ".\(fileExtension)", with: "")
                 if let thumbnailURL = URL(string: url.absoluteString.replacingOccurrences(of: last, with: "\(base)s.jpg")) {
                     displayURL = thumbnailURL
-                    print("Using thumbnail for display: \(thumbnailURL.absoluteString)")
+                    galleryDebugLog("setupImageCell using video thumbnail row=\(row) thumbnail=\(thumbnailURL.absoluteString)")
                 }
             }
         }
         
-        cell.imageView?.kf.setImage(with: displayURL) { _ in
-            cell.activityIndicator?.stopAnimating()
+        cell.imageView?.kf.setImage(with: displayURL) { [weak self, weak cell] result in
+            guard let self = self else { return }
+            cell?.activityIndicator?.stopAnimating()
+            self.debugLoggedImageCompletions += 1
+            if self.debugLoggedImageCompletions <= 25 || self.debugLoggedImageCompletions % 50 == 0 {
+                let currentRow = cell?.tag ?? row
+                switch result {
+                case .success:
+                    self.galleryDebugLog("setupImageCell image load success row=\(currentRow) completionCount=\(self.debugLoggedImageCompletions)")
+                case .failure(let error):
+                    self.galleryDebugLog("setupImageCell image load failed row=\(currentRow) completionCount=\(self.debugLoggedImageCompletions) error=\(error.localizedDescription)")
+                }
+            }
         }
     }
 
     private func setupPDFCell(_ cell: MediaCell, url: URL) {
+        galleryDebugLog("setupPDFCell row=\(cell.tag) url=\(url.absoluteString)")
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         cell.setupForVideo(configuration: config)
@@ -660,7 +578,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     
     /// Set up a cell to display a video - simpler, more reliable approach
     private func setupVideoCell(_ cell: MediaCell, url: URL) {
-        print("🎬 Setting up video cell for URL: \(url.absoluteString)")
+        galleryDebugLog("setupVideoCell begin row=\(cell.tag) url=\(url.absoluteString)")
         
         // Get the cell index from tag
         let cellIndex = cell.tag
@@ -670,7 +588,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         if cellIndex >= 0 {
             alternateURL = alternateURLs[cellIndex]
             if let altURL = alternateURL {
-                print("🔄 Found alternate URL for cell \(cellIndex): \(altURL.absoluteString)")
+                galleryDebugLog("setupVideoCell alternate row=\(cellIndex) url=\(altURL.absoluteString)")
             }
         }
         
@@ -708,10 +626,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             }
         }
         
-        print("🎬 Using primary MIME type: \(primaryMimeType)")
-        if !alternateMimeType.isEmpty {
-            print("🎬 Using alternate MIME type: \(alternateMimeType)")
-        }
+        galleryDebugLog("setupVideoCell mime row=\(cell.tag) primary=\(primaryMimeType) alternate=\(alternateMimeType.isEmpty ? "none" : alternateMimeType)")
         
         // Create HTML that includes both sources if available
         let alternateSourceTag = alternateURL != nil ? 
@@ -839,6 +754,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         // Load HTML directly
         cell.webView?.navigationDelegate = self
         cell.webView?.loadHTMLString(videoHTML, baseURL: nil)
+        galleryDebugLog("setupVideoCell loadHTMLString returned row=\(cell.tag)")
     }
     
     // MARK: - WKNavigationDelegate
@@ -992,8 +908,15 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
             }
         }
         
-        // We don't need to pause non-visible videos - WebKit will suspend non-visible WebViews automatically
-        // The operating system will manage memory for us
+        // Offscreen video previews are torn down in didEndDisplaying so rapid scrolling
+        // cannot leave WebKit playback and JavaScript timers alive behind reusable cells.
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        guard let mediaCell = cell as? MediaCell else { return }
+
+        mediaCell.stopMediaPlayback()
+        playingVideoCells.remove(indexPath.row)
     }
 
     // MARK: - UICollectionViewDelegate
@@ -1346,6 +1269,10 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         let columns = GalleryCellSizeManager.shared.columns
         let availableWidth = collectionView.frame.width - padding * (columns + 1)
         let widthPerItem = availableWidth / columns
+        debugSizeRequestCount += 1
+        if debugSizeRequestCount <= 20 || debugSizeRequestCount % 100 == 0 {
+            galleryDebugLog("sizeForItem row=\(indexPath.row) request=\(debugSizeRequestCount) columns=\(columns) collectionWidth=\(collectionView.frame.width) item=\(widthPerItem)")
+        }
         return CGSize(width: widthPerItem, height: widthPerItem)
     }
     
@@ -1353,6 +1280,7 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
     /// Updates gallery state when returning from full-screen view
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        galleryDebugLog("viewWillAppear animated=\(animated) visibleCells=\(collectionView.visibleCells.count) nav=\(String(describing: navigationController))")
         updateGalleryCollectionInsets()
 
         // Restore navigation bar appearance from theme when returning from media viewers
@@ -1383,7 +1311,24 @@ class ImageGalleryVC: UIViewController, UICollectionViewDelegate, UICollectionVi
         }
 
         // Refresh the selection state when returning from urlWeb
+        galleryDebugLog("viewWillAppear reloadData before visibleCells=\(collectionView.visibleCells.count)")
         collectionView.reloadData()
         updateMediaCounter()
+        galleryDebugLog("viewWillAppear end visibleCells=\(collectionView.visibleCells.count)")
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        galleryDebugLog("viewDidAppear animated=\(animated) visibleCells=\(collectionView.visibleCells.count) contentSize=\(collectionView.contentSize) offset=\(collectionView.contentOffset)")
+    }
+
+    private func galleryDebugLog(_ message: String) {
+        let elapsed = String(format: "%.3fs", Date().timeIntervalSince(debugStartTime))
+        #if targetEnvironment(macCatalyst)
+        let platform = "macCatalyst"
+        #else
+        let platform = "iOS"
+        #endif
+        print("[ImageGalleryDebug:\(debugID)] +\(elapsed) platform=\(platform) main=\(Thread.isMainThread) \(message)")
     }
 }

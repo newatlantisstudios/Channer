@@ -225,6 +225,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     private var wasConvertingWhenDisappeared = false
     /// Generation counter to ignore stale conversion callbacks after rapid navigation
     private var conversionGeneration: Int = 0
+    /// Generation counter to ignore stale playback callbacks after rapid video navigation
+    private var playbackGeneration: Int = 0
 
     // MARK: - UI Elements
     /// The view that displays the video content.
@@ -394,6 +396,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         return true
     }
 
+    deinit {
+        NSObject.cancelPreviousPerformRequests(withTarget: self)
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Lifecycle Methods
     override func loadView() {
         view = DebugHitTestView(debugName: "rootView")
@@ -496,8 +503,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         wasConvertingWhenDisappeared = isConversionInProgress
 
         // Cancel any active WebM conversion
+        conversionGeneration += 1
+        playbackGeneration += 1
         WebMConversionService.shared.cancelConversion()
         hideConversionOverlay()
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
 
         if isUsingAVPlayer {
             // Clean up AVPlayer
@@ -508,7 +518,6 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             vlcPlayer.delegate = nil
             vlcPlayer.drawable = nil
             vlcPlayer.stop()
-            NotificationCenter.default.removeObserver(self, name: NSNotification.Name("VLCMediaPlayerStateChanged"), object: nil)
 
             // Stop periodic audio checking
             stopPeriodicAudioChecking()
@@ -651,6 +660,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// On Mac Catalyst with WebM files, converts to MP4 first and uses AVPlayer.
     /// On iOS/iPadOS, uses VLCKit directly.
     private func setupVideo() {
+        playbackGeneration += 1
+        let expectedPlaybackGeneration = playbackGeneration
+
         print("DEBUG: WebMViewController - setupVideo called with URL: \(videoURL)")
         guard let url = URL(string: videoURL) else {
             print("DEBUG: WebMViewController - Failed to create URL from string: \(videoURL)")
@@ -666,7 +678,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             showConversionOverlay()
 
             WebMConversionService.shared.convertWebMToMP4(source: url, progress: { [weak self] progressValue in
-                guard let self = self, self.conversionGeneration == expectedGeneration else { return }
+                guard let self = self,
+                      self.conversionGeneration == expectedGeneration,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 // Stop shimmer when first determinate progress arrives
                 if progressValue > 0 {
                     self.conversionShimmer.layer.removeAllAnimations()
@@ -678,7 +692,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             }) { [weak self] result in
                 guard let self = self else { return }
                 // Ignore stale callbacks from cancelled conversions after rapid navigation
-                guard self.conversionGeneration == expectedGeneration else { return }
+                guard self.conversionGeneration == expectedGeneration,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 switch result {
                 case .success(let mp4URL):
                     // Fill progress bar to 100%; setupAVPlayer will hide it once video renders
@@ -706,7 +721,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             Task {
                 isVP9 = await detectVP9Codec(fileURL: url)
 
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self,
+                          self.playbackGeneration == expectedPlaybackGeneration else { return }
                     if isVP9 {
                         print("DEBUG: WebMViewController - VP9 codec detected! VLCKit may have compatibility issues.")
                         print("DEBUG: WebMViewController - Consider using WKWebView playback instead for VP9 content.")
@@ -802,6 +819,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     
     /// Sets up VLC player with the given URL
     private func setupVLCPlayer(with url: URL) {
+        let expectedPlaybackGeneration = playbackGeneration
+
         // Restore drawable in case it was nilled during cleanup
         vlcPlayer.drawable = videoView
 
@@ -856,25 +875,33 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
             print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #1")
             
             // Attempt 2: Next run loop
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #2 (async)")
                 self.disableAudioTracksForMutedStart()
             }
             
             // Attempt 3: Microsecond delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) { [weak self] in
+                guard let self = self,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #3 (0.001s)")
                 self.disableAudioTracksForMutedStart()
             }
             
             // Attempt 4: 5ms delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.005) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.005) { [weak self] in
+                guard let self = self,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #4 (0.005s)")
                 self.disableAudioTracksForMutedStart()
             }
             
             // Attempt 5: 10ms delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+                guard let self = self,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 print("🎵 DEBUG: WebMViewController - IMMEDIATE mute attempt #5 (0.01s)")
                 self.disableAudioTracksForMutedStart()
             }
@@ -887,7 +914,8 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         // Add multiple delayed checks to track when audio settings change
         for delay in [0.1, 0.2, 0.5, 1.0, 2.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self else { return }
+                guard let self = self,
+                      self.playbackGeneration == expectedPlaybackGeneration else { return }
                 print("🎵 DEBUG: WebMViewController - \(delay)s delay check - Audio Muted: \(self.vlcPlayer.audio?.isMuted ?? false)")
                 print("🎵 DEBUG: WebMViewController - \(delay)s delay check - Audio Volume: \(self.vlcPlayer.audio?.volume ?? -1)")
                 print("🎵 DEBUG: WebMViewController - \(delay)s delay check - Player State: \(self.vlcPlayer.state.rawValue)")
@@ -914,7 +942,9 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
         // Start seek bar updates directly as a fallback (delegate may not always fire)
         // Use a small delay to allow VLC to initialize
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.startSeekBarUpdates()
+            guard let self = self,
+                  self.playbackGeneration == expectedPlaybackGeneration else { return }
+            self.startSeekBarUpdates()
         }
     }
 
@@ -1084,6 +1114,7 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
     /// Called when the VLC player state changes.
     @objc func vlcPlayerDidReachEnd(notification: Notification) {
         guard let player = notification.object as? VLCMediaPlayer else { return }
+        guard player === vlcPlayer else { return }
         print("DEBUG: WebMViewController - VLC state changed via Notification: \(player.state.rawValue), position: \(player.position)")
         
         // Robust loop trigger on stop near the end
@@ -1980,9 +2011,11 @@ class WebMViewController: UIViewController, VLCMediaPlayerDelegate {
 extension WebMViewController {
     func mediaPlayerStateChanged(_ aNotification: Notification!) {
         guard let player = aNotification.object as? VLCMediaPlayer else { return }
+        guard player === vlcPlayer else { return }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            guard player === self.vlcPlayer else { return }
             
             print("DEBUG: WebMViewController - VLC State changed to: \(player.state.rawValue)")
             self.logAudioDebug("delegate-state-\(player.state.rawValue)")
@@ -1995,6 +2028,7 @@ extension WebMViewController {
             
             switch player.state {
             case .playing:
+                let expectedPlaybackGeneration = self.playbackGeneration
                 print("DEBUG: WebMViewController - VLC player started playing")
                 print("🎵 DEBUG: WebMViewController - === PLAYING STATE ENTERED ===")
 
@@ -2031,7 +2065,9 @@ extension WebMViewController {
                 // Additional safety measure: programmatically trigger mute after multiple delays
                 for delay in [0.05, 0.1, 0.2, 0.5] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                        guard let self = self else { return }
+                        guard let self = self,
+                              self.playbackGeneration == expectedPlaybackGeneration,
+                              player === self.vlcPlayer else { return }
                         print("🎵 DEBUG: WebMViewController - \(delay)s delegate delay check - Audio Muted: \(player.audio?.isMuted ?? false)")
                         print("🎵 DEBUG: WebMViewController - \(delay)s delegate delay check - Audio Volume: \(player.audio?.volume ?? -1)")
                         print("🎵 DEBUG: WebMViewController - \(delay)s delegate delay check - isMuted variable: \(self.isMuted)")
@@ -2075,6 +2111,7 @@ extension WebMViewController {
                 let pos = player.position
                 print("DEBUG: WebMViewController - VLC stopped at position: \(pos)")
                 if pos >= 0.99 {
+                    let expectedPlaybackGeneration = self.playbackGeneration
                     print("DEBUG: WebMViewController - Looping VLC video from .stopped state")
                     print("🎵 DEBUG: WebMViewController - Pre-loop Audio Muted: \(player.audio?.isMuted ?? false)")
                     print("🎵 DEBUG: WebMViewController - Pre-loop Audio Volume: \(player.audio?.volume ?? -1)")
@@ -2091,13 +2128,17 @@ extension WebMViewController {
 
                     // Additional delayed enforcement to catch any VLC timing issues
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-                        guard let self = self else { return }
+                        guard let self = self,
+                              self.playbackGeneration == expectedPlaybackGeneration,
+                              player === self.vlcPlayer else { return }
                         self.disableAudioTracksForMutedStart()
                         print("🎵 DEBUG: WebMViewController - Post-loop 0.01s delay mute enforced")
                     }
 
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                        guard let self = self else { return }
+                        guard let self = self,
+                              self.playbackGeneration == expectedPlaybackGeneration,
+                              player === self.vlcPlayer else { return }
                         self.disableAudioTracksForMutedStart()
                         print("🎵 DEBUG: WebMViewController - Post-loop 0.05s delay mute enforced")
                     }
@@ -2284,6 +2325,8 @@ extension WebMViewController {
         guard index >= 0, index < videoURLs.count else { return }
 
         // Cancel any active conversion and hide progress bar
+        conversionGeneration += 1
+        playbackGeneration += 1
         WebMConversionService.shared.cancelConversion()
         hideConversionOverlay()
 
@@ -2297,9 +2340,11 @@ extension WebMViewController {
             vlcPlayer.stop()
             stopLoopMonitoring()
             stopPeriodicAudioChecking()
+            stopAggressiveMuteEnforcement()
         }
         stopSeekBarUpdates()
         stopAVPlayerSeekBarUpdates()
+        stopControlsHideTimer()
 
         // Reset seek bar
         seekBar.value = 0

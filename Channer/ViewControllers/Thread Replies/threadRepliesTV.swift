@@ -227,8 +227,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Open gallery view
     @objc func openGallery() {
         // Implementation depends on how your gallery view is shown
+        galleryDebugLog("openGallery requested totalReplies=\(threadReplies.count) totalMediaSlots=\(threadRepliesImages.count)")
         if threadRepliesImages.contains(where: hasGalleryMedia) {
             showGallery()
+        } else {
+            galleryDebugLog("openGallery ignored because no supported gallery media was found")
         }
     }
     
@@ -256,6 +259,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     // MARK: - Properties
     /// Outlets and general properties for the thread view
     let tableView = UITableView()
+    private let readStateCommitQueue = DispatchQueue(label: "com.channer.threadReplies.readStateCommit", qos: .utility)
     var onViewReady: (() -> Void)?
     var boardAbv = ""
     var threadNumber = ""
@@ -640,21 +644,84 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // End tracking thread view for statistics
         StatisticsManager.shared.endCurrentThreadView()
 
-        /// Marks the thread as seen in the favorites list when the view disappears, ensuring the reply count is updated.
-        /// - Uses `threadNumber` to identify the thread and calls `markThreadAsSeen` in `FavoritesManager`.
-        /// This ensures that the thread is no longer highlighted as having new replies in the favorites view.
-        if !threadNumber.isEmpty { // Use threadNumber instead of threadID
-            markThreadReadThroughVisibleContent()
-            FavoritesManager.shared.markThreadAsSeen(threadID: threadNumber)
-            FavoritesManager.shared.clearNewRepliesFlag(threadNumber: threadNumber)
-            
-            // Update application badge count
+        if shouldCommitThreadReadStateOnDisappear {
+            commitThreadReadStateOnDisappear()
+        } else {
+            galleryDebugLog(
+                "viewWillDisappear skipped read-state commit movingFromParent=\(isMovingFromParent) beingDismissed=\(isBeingDismissed) to=\(String(describing: transitionCoordinator?.viewController(forKey: .to).map { type(of: $0) }))"
+            )
+        }
+    }
+
+    private var shouldCommitThreadReadStateOnDisappear: Bool {
+        guard !threadNumber.isEmpty else { return false }
+
+        if isMovingFromParent || isBeingDismissed || navigationController?.isBeingDismissed == true {
+            return true
+        }
+
+        if let toViewController = transitionCoordinator?.viewController(forKey: .to),
+           isThreadChildMediaViewController(toViewController) {
+            return false
+        }
+
+        return false
+    }
+
+    private func isThreadChildMediaViewController(_ viewController: UIViewController) -> Bool {
+        switch viewController {
+        case is ImageGalleryVC,
+             is ImageViewController,
+             is WebMViewController,
+             is urlWeb:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func commitThreadReadStateOnDisappear() {
+        let debugStart = Date()
+        galleryDebugLog("commitThreadReadStateOnDisappear begin", since: debugStart)
+
+        let committedBoardAbv = self.boardAbv
+        let committedThreadNumber = self.threadNumber
+        let visibleReadPostNumber = lastVisibleReadPostNumber()
+
+        readStateCommitQueue.async { [weak self] in
+            if let visibleReadPostNumber {
+                ThreadReadStateManager.shared.markReadThrough(
+                    boardAbv: committedBoardAbv,
+                    threadNumber: committedThreadNumber,
+                    postNumber: visibleReadPostNumber
+                )
+            }
+            FavoritesManager.shared.markThreadAsSeen(threadID: committedThreadNumber)
+            FavoritesManager.shared.clearNewRepliesFlag(threadNumber: committedThreadNumber)
+
             DispatchQueue.main.async {
+                self?.galleryDebugLog("commitThreadReadStateOnDisappear saved read/favorite state", since: debugStart)
+
                 let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-                let badgeCount = notificationsEnabled ? NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount() : 0
+                let badgeCount = notificationsEnabled
+                    ? NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount()
+                    : 0
                 UIApplication.shared.applicationIconBadgeNumber = badgeCount
             }
         }
+    }
+
+    private func lastVisibleReadPostNumber() -> String? {
+        let visibleRows = tableView.indexPathsForVisibleRows ?? []
+        let lastVisibleActualIndex = visibleRows
+            .compactMap { actualIndex(for: $0) }
+            .max()
+
+        let fallbackIndex = threadBoardReplyNumber.indices.last
+        guard let index = lastVisibleActualIndex ?? fallbackIndex,
+              index < threadBoardReplyNumber.count else { return nil }
+
+        return threadBoardReplyNumber[index]
     }
 
     deinit {
@@ -1545,19 +1612,40 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
     
     @objc private func showGallery() {
-        print("Gallery button tapped.")
+        let debugStart = Date()
+        galleryDebugLog(
+            "showGallery tapped board=/\(boardAbv)/ thread=\(threadNumber) totalImages=\(threadRepliesImages.count) replyNumbers=\(threadBoardReplyNumber.count) repliesMap=\(threadBoardReplies.count)",
+            since: debugStart
+        )
 
         // Build parallel arrays of URLs, post numbers, and reply counts
         // Only include posts that have valid image URLs
         var imageUrls: [URL] = []
         var galleryPostNumbers: [String] = []
         var galleryReplyCounts: [Int] = []
+        var invalidURLCount = 0
+        var placeholderCount = 0
+        var unsupportedCount = 0
+        var extensionCounts: [String: Int] = [:]
 
         for (index, imageUrlString) in threadRepliesImages.enumerated() {
-            guard let url = URL(string: imageUrlString) else { continue }
-            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" || !MediaSettings.isSupportedGalleryURL(url) { continue }
+            guard let url = URL(string: imageUrlString) else {
+                invalidURLCount += 1
+                continue
+            }
+
+            if url.absoluteString == "https://i.4cdn.org/\(boardAbv)/" {
+                placeholderCount += 1
+                continue
+            }
+
+            guard MediaSettings.isSupportedGalleryURL(url) else {
+                unsupportedCount += 1
+                continue
+            }
 
             imageUrls.append(url)
+            extensionCounts[url.pathExtension.lowercased(), default: 0] += 1
 
             if index < threadBoardReplyNumber.count {
                 let postNo = threadBoardReplyNumber[index]
@@ -1569,26 +1657,56 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             }
         }
 
-        print("Filtered image URLs for gallery: \(imageUrls)")
+        let firstURL = imageUrls.first?.absoluteString ?? "none"
+        let lastURL = imageUrls.last?.absoluteString ?? "none"
+        galleryDebugLog(
+            "filtered gallery media count=\(imageUrls.count) invalid=\(invalidURLCount) placeholder=\(placeholderCount) unsupported=\(unsupportedCount) extensions=\(extensionCounts) first=\(firstURL) last=\(lastURL)",
+            since: debugStart
+        )
 
         // Instantiate the gallery view controller with original URLs
+        galleryDebugLog("creating ImageGalleryVC", since: debugStart)
         let galleryVC = ImageGalleryVC(images: imageUrls)
         galleryVC.postNumbers = galleryPostNumbers
         galleryVC.replyCounts = galleryReplyCounts
         galleryVC.onShowReplies = { [weak self] postNumber in
             self?.showThreadForPostNumber(postNumber)
         }
-        print("GalleryVC instantiated with original URLs.")
+        galleryDebugLog("ImageGalleryVC configured postNumbers=\(galleryPostNumbers.count) replyCounts=\(galleryReplyCounts.count)", since: debugStart)
 
         // Navigate to the gallery
         if let navController = navigationController {
-            print("Pushing galleryVC onto navigation stack.")
-            navController.pushViewController(galleryVC, animated: true)
+            #if targetEnvironment(macCatalyst)
+            let shouldAnimateGalleryPush = false
+            #else
+            let shouldAnimateGalleryPush = true
+            #endif
+            galleryDebugLog(
+                "pushing galleryVC navType=\(type(of: navController)) stackDepthBefore=\(navController.viewControllers.count) animated=\(shouldAnimateGalleryPush)",
+                since: debugStart
+            )
+            navController.pushViewController(galleryVC, animated: shouldAnimateGalleryPush)
+            galleryDebugLog("pushViewController returned stackDepthAfter=\(navController.viewControllers.count)", since: debugStart)
+            DispatchQueue.main.async { [weak self, weak navController] in
+                self?.galleryDebugLog("next runloop after push stackDepth=\(navController?.viewControllers.count ?? -1)", since: debugStart)
+            }
         } else {
-            print("Navigation controller is nil. Attempting modal presentation.")
+            galleryDebugLog("navigationController nil; presenting modal CatalystNavigationController", since: debugStart)
             let navController = CatalystNavigationController(rootViewController: galleryVC)
-            present(navController, animated: true)
+            present(navController, animated: true) { [weak self] in
+                self?.galleryDebugLog("modal presentation completed", since: debugStart)
+            }
         }
+    }
+
+    private func galleryDebugLog(_ message: String, since start: Date? = nil) {
+        let elapsed = start.map { String(format: "%.3fs", Date().timeIntervalSince($0)) } ?? "-"
+        #if targetEnvironment(macCatalyst)
+        let platform = "macCatalyst"
+        #else
+        let platform = "iOS"
+        #endif
+        print("[ThreadGalleryDebug] +\(elapsed) platform=\(platform) main=\(Thread.isMainThread) \(message)")
     }
 
     // MARK: - Save All Media

@@ -10,15 +10,21 @@ final class GalleryCellSizeManager {
     private let defaultSizeIndex = 4
 
     private init() {
-        if UserDefaults.standard.object(forKey: galleryCellSizeKey) == nil {
-            UserDefaults.standard.set(defaultSizeIndex, forKey: galleryCellSizeKey)
-            UserDefaults.standard.set(true, forKey: galleryCellSizeMigrationV2Key)
-        } else if !UserDefaults.standard.bool(forKey: galleryCellSizeMigrationV2Key) {
+        let defaults = UserDefaults.standard
+        let hasStoredSize = defaults.object(forKey: galleryCellSizeKey) != nil
+        let hasMigrationFlag = defaults.object(forKey: galleryCellSizeMigrationV2Key) != nil
+
+        defaults.register(defaults: [
+            galleryCellSizeKey: defaultSizeIndex,
+            galleryCellSizeMigrationV2Key: true
+        ])
+
+        if hasStoredSize && !hasMigrationFlag {
             // columnOptions gained two smaller entries at the front; shift saved index by +2
             // so existing users keep the same physical scale.
-            let storedIndex = UserDefaults.standard.integer(forKey: galleryCellSizeKey)
-            UserDefaults.standard.set(storedIndex + 2, forKey: galleryCellSizeKey)
-            UserDefaults.standard.set(true, forKey: galleryCellSizeMigrationV2Key)
+            let storedIndex = defaults.integer(forKey: galleryCellSizeKey)
+            defaults.set(storedIndex + 2, forKey: galleryCellSizeKey)
+            defaults.set(true, forKey: galleryCellSizeMigrationV2Key)
         }
     }
 

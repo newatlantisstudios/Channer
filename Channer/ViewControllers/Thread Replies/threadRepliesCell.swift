@@ -1243,32 +1243,12 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         switch gesture.state {
         case .began, .changed:
             let location = gesture.location(in: textView)
-            let layoutManager = textView.layoutManager
-            let textContainer = textView.textContainer
-
-            var fraction: CGFloat = 0
-            let characterIndex = layoutManager.characterIndex(
-                for: location,
-                in: textContainer,
-                fractionOfDistanceBetweenInsertionPoints: &fraction
-            )
-
-            guard characterIndex < attributedText.length else {
+            guard let characterIndex = quoteLinkCharacterIndex(at: location, in: textView) else {
                 removeQuoteLinkPreview()
                 return
             }
 
-            // Verify the pointer is actually over the glyph, not just near it
-            let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
-            let glyphRect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyphIndex, length: 1), in: textContainer)
-            let textOffset = textView.textContainerInset
-            let adjustedRect = glyphRect.offsetBy(dx: textOffset.left, dy: textOffset.top)
-            guard adjustedRect.contains(location) else {
-                removeQuoteLinkPreview()
-                return
-            }
-
-            if let postNum = hoveredQuotePostNumber(in: attributedText, at: characterIndex) {
+            if let postNum = quoteLinkPostNumber(in: attributedText, at: characterIndex) {
                 // Avoid re-showing for the same post
                 if currentlyHoveredPostNumber == postNum { return }
                 removeQuoteLinkPreview()
@@ -1285,39 +1265,64 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         }
     }
 
-    private func hoveredQuotePostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
-        if let postNum = quoteLinkPostNumber(in: attributedText, at: characterIndex) {
-            return postNum
+    private func quoteLinkCharacterIndex(at location: CGPoint, in textView: UITextView) -> Int? {
+        let layoutManager = textView.layoutManager
+        let textContainer = textView.textContainer
+        let containerLocation = CGPoint(
+            x: location.x - textView.textContainerInset.left,
+            y: location.y - textView.textContainerInset.top
+        )
+
+        guard containerLocation.x >= 0, containerLocation.y >= 0 else {
+            return nil
         }
 
-        let nsText = attributedText.string as NSString
-        let range = NSRange(location: 0, length: nsText.length)
-        guard let regex = try? NSRegularExpression(pattern: ">>(\\d+)") else { return nil }
+        var fraction: CGFloat = 0
+        let characterIndex = layoutManager.characterIndex(
+            for: containerLocation,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: &fraction
+        )
 
-        return regex
-            .matches(in: attributedText.string, range: range)
-            .first(where: { NSLocationInRange(characterIndex, $0.range) })
-            .map { nsText.substring(with: $0.range(at: 1)) }
+        guard characterIndex < textView.attributedText.length else {
+            return nil
+        }
+
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+        let glyphRect = layoutManager.boundingRect(
+            forGlyphRange: NSRange(location: glyphIndex, length: 1),
+            in: textContainer
+        )
+        guard glyphRect.contains(containerLocation) else {
+            return nil
+        }
+
+        return characterIndex
     }
 
     private func quoteLinkPostNumber(in attributedText: NSAttributedString, at characterIndex: Int) -> String? {
-        let candidateIndexes = [
-            characterIndex,
-            max(characterIndex - 1, 0),
-            min(characterIndex + 1, max(attributedText.length - 1, 0))
-        ]
-
-        for index in candidateIndexes where index < attributedText.length {
-            if let link = attributedText.attribute(.link, at: index, effectiveRange: nil),
-               let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
-               (url.scheme == "post" || url.scheme == "postjump"),
-               let postNum = url.host,
-               !postNum.isEmpty {
-                return postNum
-            }
+        guard characterIndex < attributedText.length,
+              let link = attributedText.attribute(.link, at: characterIndex, effectiveRange: nil),
+              let url = (link as? URL) ?? (link as? String).flatMap({ URL(string: $0) }),
+              (url.scheme == "post" || url.scheme == "postjump"),
+              let postNum = url.host,
+              !postNum.isEmpty,
+              isPostNumberQuote(at: characterIndex, postNumber: postNum, in: attributedText) else {
+            return nil
         }
 
-        return nil
+        return postNum
+    }
+
+    private func isPostNumberQuote(at characterIndex: Int, postNumber: String, in attributedText: NSAttributedString) -> Bool {
+        let nsText = attributedText.string as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        guard let regex = try? NSRegularExpression(pattern: ">>(\\d+)") else { return false }
+
+        return regex.matches(in: attributedText.string, range: range).contains { match in
+            NSLocationInRange(characterIndex, match.range) &&
+            nsText.substring(with: match.range(at: 1)) == postNumber
+        }
     }
 
     private func showQuoteLinkPreview(for postNum: String) {

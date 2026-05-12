@@ -350,8 +350,10 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
     #endif
 
     override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        debugPrintBottomToolbarChrome("pushViewController begin target=\(String(describing: type(of: viewController))) animated=\(animated)")
         collapseBottomSearchIfNeeded()
         super.pushViewController(viewController, animated: animated)
+        debugPrintBottomToolbarChrome("pushViewController super returned target=\(String(describing: type(of: viewController))) stackDepth=\(viewControllers.count)")
         updateInteractivePopGestureState()
         scheduleBottomToolbarSync(animated: animated)
     }
@@ -596,6 +598,7 @@ class CatalystNavigationController: UINavigationController, UINavigationControll
 
     private func scheduleBottomToolbarSync(animated: Bool) {
         DispatchQueue.main.async { [weak self] in
+            self?.debugPrintBottomToolbarChrome("scheduleBottomToolbarSync firing animated=\(animated)")
             self?.syncBottomToolbar(animated: animated)
         }
     }

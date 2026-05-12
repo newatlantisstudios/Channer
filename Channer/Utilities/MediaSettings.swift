@@ -16,12 +16,28 @@ struct MediaSettings {
     static let soundPostsKey = "channer_media_sound_posts_enabled"
     static let pdfInGalleryKey = "channer_media_pdf_in_gallery"
 
-    private static func bool(for key: String, default defaultValue: Bool) -> Bool {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: key) == nil {
-            defaults.set(defaultValue, forKey: key)
-        }
-        return defaults.bool(forKey: key)
+    private static let registeredDefaults: Void = {
+        UserDefaults.standard.register(defaults: [
+            defaultMutedKey: true,
+            videoPreviewInDownloadsKey: false,
+            defaultVideoVolumeKey: 0.5,
+            webMMetadataKey: true,
+            revealSpoilerThumbnailsKey: false,
+            replaceGIFThumbnailsKey: false,
+            replaceJPGThumbnailsKey: false,
+            replacePNGThumbnailsKey: false,
+            replaceVideoThumbnailsKey: false,
+            hidePostsWithoutImagesKey: false,
+            hideAllImagesKey: false,
+            mouseWheelVolumeKey: true,
+            soundPostsKey: false,
+            pdfInGalleryKey: false
+        ])
+    }()
+
+    private static func bool(for key: String, default _: Bool) -> Bool {
+        _ = registeredDefaults
+        return UserDefaults.standard.bool(forKey: key)
     }
 
     private static func setBool(_ value: Bool, for key: String) {
@@ -48,11 +64,8 @@ struct MediaSettings {
 
     static var defaultVideoVolume: Float {
         get {
-            let defaults = UserDefaults.standard
-            if defaults.object(forKey: defaultVideoVolumeKey) == nil {
-                defaults.set(0.5, forKey: defaultVideoVolumeKey)
-            }
-            return max(0, min(1, defaults.float(forKey: defaultVideoVolumeKey)))
+            _ = Self.registeredDefaults
+            return max(0, min(1, UserDefaults.standard.float(forKey: defaultVideoVolumeKey)))
         }
         set {
             UserDefaults.standard.set(max(0, min(1, newValue)), forKey: defaultVideoVolumeKey)
