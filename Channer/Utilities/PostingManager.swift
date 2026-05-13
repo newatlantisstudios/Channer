@@ -63,6 +63,8 @@ class PostingManager {
             headers.add(name: "Cookie", value: cookieHeader)
         }
 
+        debugLogPostRequest(postData, url: url, headers: headers)
+
         // Upload with multipart form data
         AF.upload(multipartFormData: { multipartFormData in
             // Required fields
@@ -245,10 +247,10 @@ class PostingManager {
         }
 
         AF.request(url, method: .post, parameters: parameters, encoder: URLEncodedFormParameterEncoder.default, headers: headers)
-            .responseString { [weak self] response in
+            .responseString { response in
                 switch response.result {
                 case .success(let htmlString):
-                    if let errorMessage = self?.parseErrorResponse(htmlString) {
+                    if let errorMessage = PostingResponseParser.errorMessage(from: htmlString) {
                         completion(.failure(.serverError(errorMessage)))
                         return
                     }
@@ -315,32 +317,41 @@ class PostingManager {
             let htmlString = String(data: data, encoding: .utf8) ?? ""
 
             print("=== PostingManager RESPONSE DEBUG ===")
+            print("Request URL: \(response.request?.url?.absoluteString ?? "nil")")
+            print("Final URL: \(response.response?.url?.absoluteString ?? "nil")")
             print("HTTP Status: \(response.response?.statusCode ?? -1)")
-            print("Response length: \(htmlString.count) chars")
+            print("MIME Type: \(response.response?.mimeType ?? "nil")")
+            print("Response bytes: \(data.count)")
+            print("Response chars: \(htmlString.count)")
+            print("Response headers: \(PostingDebugFormatter.redactedHeaders(response.response?.allHeaderFields))")
+            print("HTML title: \(PostingResponseParser.title(from: htmlString) ?? "nil")")
+            print("Parser isErrorPage: \(PostingResponseParser.isErrorPage(htmlString))")
+            print("Parser success: \(String(describing: PostingResponseParser.success(from: htmlString)))")
+            print("Parser errorMessage: \(PostingResponseParser.errorMessage(from: htmlString) ?? "nil")")
+            print("Response preview: \(PostingDebugFormatter.redactedPreview(htmlString, limit: 2000))")
             print("=== END RESPONSE DEBUG ===")
 
             // Check if 4chan explicitly marks this as an error page via JS variable
             // 4chan returns full board pages with is_error = "true" on post failure
-            let isErrorPage = htmlString.contains("is_error") &&
-                (htmlString.contains("is_error = \"true\"") || htmlString.contains("is_error=\"true\""))
+            let isErrorPage = PostingResponseParser.isErrorPage(htmlString)
 
             if !isErrorPage {
-                // Only check for success if this is NOT an error page
-                if let postNumber = parseSuccessResponse(htmlString) {
+                // Only check for success if this is NOT an error page.
+                // 4chan's current success page uses title "Post successful!" and body text:
+                // "thread:<threadNumber>,no:<postNumber>".
+                if let success = PostingResponseParser.success(from: htmlString) {
                     lastPostTime = Date()
-                    completion(.success(PostResult.success(postNumber: postNumber)))
-                    return
-                }
-
-                if let threadNumber = parseThreadCreationResponse(htmlString) {
-                    lastPostTime = Date()
-                    completion(.success(PostResult.success(threadNumber: threadNumber)))
+                    if success.isNewThread {
+                        completion(.success(PostResult.success(threadNumber: success.threadNumber)))
+                    } else {
+                        completion(.success(PostResult.success(postNumber: success.postNumber)))
+                    }
                     return
                 }
             }
 
             // Check for error message
-            if let errorMessage = parseErrorResponse(htmlString) {
+            if let errorMessage = PostingResponseParser.errorMessage(from: htmlString) {
                 let msg = errorMessage.lowercased()
                 if msg.contains("banned") {
                     completion(.failure(.banned))
@@ -368,118 +379,71 @@ class PostingManager {
             completion(.failure(.serverError("Unknown server response")))
 
         case .failure(let error):
+            print("=== PostingManager RESPONSE DEBUG ===")
+            print("Request URL: \(response.request?.url?.absoluteString ?? "nil")")
+            print("HTTP Status: \(response.response?.statusCode ?? -1)")
+            print("MIME Type: \(response.response?.mimeType ?? "nil")")
+            print("Response headers: \(PostingDebugFormatter.redactedHeaders(response.response?.allHeaderFields))")
+            if let data = response.data, let htmlString = String(data: data, encoding: .utf8) {
+                print("Response bytes: \(data.count)")
+                print("Response chars: \(htmlString.count)")
+                print("Response preview: \(PostingDebugFormatter.redactedPreview(htmlString, limit: 2000))")
+            }
+            print("Network error: \(error)")
+            print("=== END RESPONSE DEBUG ===")
             completion(.failure(.networkError(error)))
         }
     }
 
-    /// Parse success response to extract post number
-    private func parseSuccessResponse(_ html: String) -> Int? {
-        // Look for patterns like "Post successful" or redirect with post number
-        // 4chan returns HTML with meta refresh or JavaScript redirect
-
-        // Pattern 1: Meta refresh with thread/post number
-        // <meta http-equiv="refresh" content="1;URL=https://boards.4chan.org/g/thread/12345#p67890">
-        if let range = html.range(of: "#p(\\d+)", options: .regularExpression) {
-            let postNumberStr = html[range].dropFirst(2) // Remove "#p"
-            return Int(postNumberStr)
-        }
-
-        // Pattern 2: JavaScript redirect with various formats
-        // location.href = "https://boards.4chan.org/g/thread/12345#p67890"
-        // document.location = "..."
-        // window.location = "..."
-        if let range = html.range(of: "thread/\\d+#p(\\d+)", options: .regularExpression) {
-            let match = html[range]
-            if let pRange = match.range(of: "#p(\\d+)", options: .regularExpression) {
-                let postNumberStr = match[pRange].dropFirst(2)
-                return Int(postNumberStr)
+    private func debugLogPostRequest(_ postData: PostData, url: String, headers: HTTPHeaders) {
+        let headerSummary = headers.map { header -> String in
+            if header.name.caseInsensitiveCompare("Cookie") == .orderedSame {
+                return "\(header.name): [redacted \(header.value.count) chars]"
             }
+            return "\(header.name): \(header.value)"
+        }.joined(separator: ", ")
+
+        var fieldSummary: [String] = [
+            "mode=regist",
+            "resto=\(postData.resto)",
+            "pwd=[redacted]",
+            "com=[\(postData.comment.count) chars]"
+        ]
+
+        if let name = postData.name, !name.isEmpty {
+            fieldSummary.append("name=[\(name.count) chars]")
+        }
+        if let email = postData.email, !email.isEmpty {
+            fieldSummary.append("email=\(PostingDebugFormatter.safeShortValue(email, limit: 80))")
+        }
+        if let subject = postData.subject, !subject.isEmpty {
+            fieldSummary.append("sub=[\(subject.count) chars]")
+        }
+        if let imageData = postData.imageData {
+            let filename = postData.imageFilename ?? "nil"
+            let mimeType = postData.imageMimeType ?? "nil"
+            fieldSummary.append("upfile=\(filename) \(mimeType) \(imageData.count) bytes")
+        }
+        if postData.spoiler {
+            fieldSummary.append("spoiler=on")
+        }
+        if let captchaChallenge = postData.captchaChallenge, !captchaChallenge.isEmpty {
+            fieldSummary.append("t-challenge=[redacted \(captchaChallenge.count) chars]")
+        }
+        if let captchaResponse = postData.captchaResponse, !captchaResponse.isEmpty {
+            fieldSummary.append("t-response=[redacted \(captchaResponse.count) chars]")
         }
 
-        // Pattern 3: "Post successful" text with post number
-        if html.lowercased().contains("post successful") || html.lowercased().contains("uploaded") {
-            // Try to extract any number that looks like a post number
-            if let range = html.range(of: "(?:no\\.?|#)\\s*(\\d{6,})", options: .regularExpression) {
-                let match = html[range]
-                if let numRange = match.range(of: "\\d{6,}", options: .regularExpression) {
-                    return Int(match[numRange])
-                }
-            }
-        }
-
-        return nil
-    }
-
-    /// Parse thread creation response to extract thread number
-    private func parseThreadCreationResponse(_ html: String) -> Int? {
-        // For new threads, look for the thread number in redirect
-        // location.href = "https://boards.4chan.org/g/thread/12345"
-        if let range = html.range(of: "thread/(\\d+)(?:[^#]|$)", options: .regularExpression) {
-            let match = html[range]
-            if let numRange = match.range(of: "\\d+", options: .regularExpression) {
-                return Int(match[numRange])
-            }
-        }
-
-        return nil
-    }
-
-    /// Parse error response to extract error message
-    private func parseErrorResponse(_ html: String) -> String? {
-        // Pattern 1: Extract full content from <span id="errmsg">...</span>
-        // 4chan wraps error messages in this span, which may contain inner HTML like <br>, <a>, etc.
-        if let startRange = html.range(of: "id=\"errmsg\""),
-           let tagClose = html.range(of: ">", range: startRange.upperBound..<html.endIndex),
-           let endRange = html.range(of: "</span>", range: tagClose.upperBound..<html.endIndex) {
-            let content = String(html[tagClose.upperBound..<endRange.lowerBound])
-            let stripped = content.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: .whitespacesAndNewlines)
-                .filter { !$0.isEmpty }
-                .joined(separator: " ")
-            if !stripped.isEmpty {
-                return stripped
-            }
-        }
-
-        // Pattern 2: <font color=red><b>Error: message</b></font>
-        if let range = html.range(of: "(?<=<b>Error:)[^<]+", options: .regularExpression) {
-            return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        // Pattern 3: <b>Error</b>: message or <b>Error:</b> message
-        if let range = html.range(of: "<b>Error:?</b>:?\\s*([^<]+)", options: .regularExpression) {
-            let match = String(html[range])
-            let stripped = match.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "Error:", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !stripped.isEmpty {
-                return stripped
-            }
-        }
-
-        // Pattern 4: Cloudflare or CDN block pages
-        if html.lowercased().contains("cloudflare") || html.lowercased().contains("access denied") {
-            return "Request blocked by Cloudflare. Try opening 4chan in Safari first."
-        }
-
-        // Pattern 5: Extract error from body for simple error pages
-        if html.lowercased().contains("error") && !html.contains("is_error") {
-            if let bodyStart = html.range(of: "<body"),
-               let bodyEnd = html.range(of: "</body>") {
-                let content = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
-                let stripped = content.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .components(separatedBy: .whitespaces)
-                    .filter { !$0.isEmpty }
-                    .joined(separator: " ")
-                if stripped.count < 300 {
-                    return stripped
-                }
-            }
-        }
-
-        return nil
+        print("=== PostingManager REQUEST DEBUG ===")
+        print("URL: \(url)")
+        print("Board: /\(postData.board)/")
+        print("Resto: \(postData.resto)")
+        print("Is new thread: \(postData.isNewThread)")
+        print("Pass authenticated: \(PassAuthManager.shared.isAuthenticated)")
+        print("Has cookie header: \(headers.contains { $0.name.caseInsensitiveCompare("Cookie") == .orderedSame })")
+        print("Headers: \(headerSummary)")
+        print("Multipart fields: \(fieldSummary.joined(separator: ", "))")
+        print("=== END REQUEST DEBUG ===")
     }
 
     // MARK: - Helper Methods
@@ -503,5 +467,192 @@ class PostingManager {
         default:
             return "application/octet-stream"
         }
+    }
+}
+
+struct ParsedPostingSuccess: Equatable {
+    let threadNumber: Int
+    let postNumber: Int
+
+    var isNewThread: Bool {
+        threadNumber == postNumber
+    }
+}
+
+enum PostingResponseParser {
+    static func title(from html: String) -> String? {
+        guard let captures = firstMatch(in: html, pattern: "(?is)<title[^>]*>\\s*(.*?)\\s*</title>"),
+              let title = captures.first?.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .decodingHTMLEntities(),
+              !title.isEmpty else {
+            return nil
+        }
+
+        return title
+    }
+
+    static func isErrorPage(_ html: String) -> Bool {
+        html.contains("is_error") &&
+            (html.contains("is_error = \"true\"") || html.contains("is_error=\"true\""))
+    }
+
+    /// Parse 4chan success responses and redirects.
+    static func success(from html: String) -> ParsedPostingSuccess? {
+        // Current 4chan success page:
+        // <title>Post successful!</title> ... thread:12345,no:67890
+        if let captures = firstMatch(in: html, pattern: "thread:(\\d+),no:(\\d+)"),
+           let threadNumber = Int(captures[0]),
+           let postNumber = Int(captures[1]) {
+            return ParsedPostingSuccess(threadNumber: threadNumber, postNumber: postNumber)
+        }
+
+        // Meta refresh / JavaScript redirects:
+        // https://boards.4chan.org/g/thread/12345#p67890
+        if let captures = firstMatch(in: html, pattern: "thread/(\\d+)#p(\\d+)"),
+           let threadNumber = Int(captures[0]),
+           let postNumber = Int(captures[1]) {
+            return ParsedPostingSuccess(threadNumber: threadNumber, postNumber: postNumber)
+        }
+
+        // New-thread redirects may omit the post anchor.
+        if let captures = firstMatch(in: html, pattern: "thread/(\\d+)(?:[\"'\\s<>]|$)"),
+           let threadNumber = Int(captures[0]) {
+            return ParsedPostingSuccess(threadNumber: threadNumber, postNumber: threadNumber)
+        }
+
+        return nil
+    }
+
+    /// Parse error response to extract error message.
+    static func errorMessage(from html: String) -> String? {
+        // Pattern 1: Extract full content from <span id="errmsg">...</span>
+        // 4chan wraps error messages in this span, which may contain inner HTML like <br>, <a>, etc.
+        if let startRange = html.range(of: "id=\"errmsg\""),
+           let tagClose = html.range(of: ">", range: startRange.upperBound..<html.endIndex),
+           let endRange = html.range(of: "</span>", range: tagClose.upperBound..<html.endIndex) {
+            let content = String(html[tagClose.upperBound..<endRange.lowerBound])
+            let stripped = content.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+                .decodingHTMLEntities()
+            if !stripped.isEmpty {
+                return stripped
+            }
+        }
+
+        // Pattern 2: <font color=red><b>Error: message</b></font>
+        if let range = html.range(of: "(?<=<b>Error:)[^<]+", options: .regularExpression) {
+            return String(html[range])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .decodingHTMLEntities()
+        }
+
+        // Pattern 3: <b>Error</b>: message or <b>Error:</b> message
+        if let range = html.range(of: "<b>Error:?</b>:?\\s*([^<]+)", options: .regularExpression) {
+            let match = String(html[range])
+            let stripped = match.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "Error:", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !stripped.isEmpty {
+                return stripped.decodingHTMLEntities()
+            }
+        }
+
+        // Pattern 4: Cloudflare or CDN block pages
+        if html.lowercased().contains("cloudflare") || html.lowercased().contains("access denied") {
+            return "Request blocked by Cloudflare. Try opening 4chan in Safari first."
+        }
+
+        // Pattern 5: Extract error from body for simple error pages
+        if html.lowercased().contains("error") && !html.contains("is_error") {
+            if let bodyStart = html.range(of: "<body"),
+               let bodyEnd = html.range(of: "</body>") {
+                let content = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
+                let stripped = content.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .components(separatedBy: .whitespaces)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                if stripped.count < 300 {
+                    return stripped.decodingHTMLEntities()
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private static func firstMatch(in text: String, pattern: String) -> [String]? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+
+        let nsRange = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: nsRange),
+              match.numberOfRanges > 1 else {
+            return nil
+        }
+
+        var captures: [String] = []
+        for index in 1..<match.numberOfRanges {
+            guard let range = Range(match.range(at: index), in: text) else {
+                return nil
+            }
+            captures.append(String(text[range]))
+        }
+
+        return captures
+    }
+}
+
+enum PostingDebugFormatter {
+    static func redactedHeaders(_ headers: [AnyHashable: Any]?) -> String {
+        guard let headers = headers else { return "nil" }
+
+        return headers
+            .map { key, value -> String in
+                let name = String(describing: key)
+                if name.caseInsensitiveCompare("Set-Cookie") == .orderedSame ||
+                    name.caseInsensitiveCompare("Cookie") == .orderedSame {
+                    return "\(name): [redacted]"
+                }
+
+                return "\(name): \(value)"
+            }
+            .sorted()
+            .joined(separator: ", ")
+    }
+
+    static func redactedPreview(_ text: String, limit: Int) -> String {
+        var preview = text
+        preview = preview.replacingOccurrences(
+            of: "(?i)(pass_id|pass_enabled|pass_hash|cf_clearance|__cf_bm|4chan_pass|t-challenge|t-response|g-recaptcha-response|recaptcha_[a-z_]+)([\"'\\s:=]+)([^\"'&<>\\s]+)",
+            with: "$1$2[redacted]",
+            options: .regularExpression
+        )
+        preview = preview.replacingOccurrences(
+            of: "(?i)(Set-Cookie:\\s*)[^\\n\\r]+",
+            with: "$1[redacted]",
+            options: .regularExpression
+        )
+        preview = preview.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if preview.count > limit {
+            return String(preview.prefix(limit)) + "... [truncated \(preview.count - limit) chars]"
+        }
+
+        return preview
+    }
+
+    static func safeShortValue(_ value: String, limit: Int) -> String {
+        let normalized = value.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.count > limit {
+            return String(normalized.prefix(limit)) + "...[\(normalized.count - limit) more chars]"
+        }
+
+        return normalized
     }
 }

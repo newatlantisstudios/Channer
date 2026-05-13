@@ -263,6 +263,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     var onViewReady: (() -> Void)?
     var boardAbv = ""
     var threadNumber = ""
+    private var isRefreshInFlight = false
+    private var postSubmitRefreshWorkItems: [DispatchWorkItem] = []
+    private var threadFreshnessRetryAttempt = 0
+    private let threadFreshnessRetryDelays: [TimeInterval] = [1.25, 3.5, 6.5, 11.0]
     /// When true, loads thread data from cache instead of the network (e.g., for viewing dead favorited threads)
     var forceLoadFromCache = false
     /// When true, loads the thread from the configured archive instead of the live 4chan API.
@@ -327,6 +331,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private var hiddenFilteredReplyIndices = Set<Int>()
     private var filteredReplyReasons: [Int: String] = [:]
     var totalImagesInThread: Int = 0
+    var expectedReplyCountFromBoard: Int?
 
     // Post metadata for advanced filtering
     var postMetadataList = [PostMetadata]()
@@ -387,6 +392,95 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     private func threadLoadDebug(_ message: String) {
         print("[ChannerThreadLoadDebug][ThreadRepliesTV board=/\(boardAbv)/ thread=\(threadNumber)] \(message)")
+    }
+
+    private func debugPostNumberSummary(_ numbers: [String]) -> String {
+        let first = numbers.first ?? "nil"
+        let last = numbers.last ?? "nil"
+        let suffix = numbers.suffix(5).joined(separator: ",")
+        let duplicateCount = numbers.count - Set(numbers).count
+        return "count=\(numbers.count) first=\(first) last=\(last) last5=[\(suffix)] duplicates=\(duplicateCount)"
+    }
+
+    private func debugJSONPostSummary(_ posts: [JSON]) -> String {
+        debugPostNumberSummary(posts.map { ThreadData.postNumber(from: $0) ?? "nil" })
+    }
+
+    private func observedReplyCount(in posts: [JSON]) -> Int {
+        posts.first?["replies"].int ?? max(posts.count - 1, 0)
+    }
+
+    private func freshnessRetryDelayIfNeeded(posts: [JSON], context: String) -> TimeInterval? {
+        guard let expectedReplyCountFromBoard else { return nil }
+
+        let observedReplyCount = observedReplyCount(in: posts)
+        guard observedReplyCount < expectedReplyCountFromBoard else {
+            if threadFreshnessRetryAttempt > 0 {
+                threadLoadDebug("\(context) response caught up to board expectedReplies=\(expectedReplyCountFromBoard) observedReplies=\(observedReplyCount); resetting freshness retries")
+            }
+            threadFreshnessRetryAttempt = 0
+            return nil
+        }
+
+        guard threadFreshnessRetryAttempt < threadFreshnessRetryDelays.count else {
+            threadLoadDebug("\(context) response still behind board after retries; using available data expectedReplies=\(expectedReplyCountFromBoard) observedReplies=\(observedReplyCount) posts{\(debugJSONPostSummary(posts))}")
+            threadFreshnessRetryAttempt = 0
+            return nil
+        }
+
+        let delay = threadFreshnessRetryDelays[threadFreshnessRetryAttempt]
+        threadFreshnessRetryAttempt += 1
+        threadLoadDebug("\(context) response behind board expectedReplies=\(expectedReplyCountFromBoard) observedReplies=\(observedReplyCount) posts{\(debugJSONPostSummary(posts))}; retryAttempt=\(threadFreshnessRetryAttempt)/\(threadFreshnessRetryDelays.count) delay=\(delay)s")
+        return delay
+    }
+
+    private func preferWebThreadDataIfNewer(than apiJSON: JSON, context: String, completion: @escaping (JSON) -> Void) {
+        guard BoardsService.shared.selectedSite == ImageboardSite.fourChan,
+              !boardAbv.isEmpty,
+              !threadNumber.isEmpty else {
+            completion(apiJSON)
+            return
+        }
+
+        let apiPosts = ThreadData.postsArray(from: apiJSON)
+        let webURL = BoardsService.shared.webThreadURL(board: boardAbv, threadNumber: threadNumber)
+        threadLoadDebug("\(context) web comparison start url=\(webURL.absoluteString) apiPosts{\(debugJSONPostSummary(apiPosts))} expectedScrollPost=\(scrollToPostNumber ?? "nil")")
+
+        BoardsService.shared.fetchData(from: webURL) { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .success(let dataResponse):
+                do {
+                    let webJSON = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
+                    let webPosts = ThreadData.postsArray(from: webJSON)
+                    let apiNumbers = Set(apiPosts.compactMap { ThreadData.postNumber(from: $0) })
+                    let webNumbers = webPosts.compactMap { ThreadData.postNumber(from: $0) }
+                    let missingFromAPI = webNumbers.filter { !apiNumbers.contains($0) }
+                    let expectedPostNumber = self.scrollToPostNumber
+                    let webHasExpectedPost = expectedPostNumber.map { webNumbers.contains($0) } ?? false
+                    let apiHasExpectedPost = expectedPostNumber.map { apiNumbers.contains($0) } ?? false
+                    let webObservedReplies = self.observedReplyCount(in: webPosts)
+                    let apiObservedReplies = self.observedReplyCount(in: apiPosts)
+
+                    self.threadLoadDebug("\(context) web comparison result status=\(dataResponse.response?.statusCode ?? -1) bytes=\(dataResponse.data.count) apiReplies=\(apiObservedReplies) webReplies=\(webObservedReplies) apiPosts{\(self.debugJSONPostSummary(apiPosts))} webPosts{\(self.debugJSONPostSummary(webPosts))} missingFromAPI=[\(missingFromAPI.suffix(8).joined(separator: ","))] expectedPost=\(expectedPostNumber ?? "nil") apiHasExpected=\(apiHasExpectedPost) webHasExpected=\(webHasExpectedPost)")
+
+                    if webPosts.count > apiPosts.count || webObservedReplies > apiObservedReplies || (webHasExpectedPost && !apiHasExpectedPost) {
+                        self.threadLoadDebug("\(context) using web thread data because it is newer than API")
+                        completion(webJSON)
+                    } else {
+                        completion(apiJSON)
+                    }
+                } catch {
+                    self.threadLoadDebug("\(context) web comparison parse error=\(error); using API data")
+                    completion(apiJSON)
+                }
+
+            case .failure(let error):
+                self.threadLoadDebug("\(context) web comparison fetch error=\(error); using API data")
+                completion(apiJSON)
+            }
+        }
     }
 
     // MARK: - Reply Quoting
@@ -725,6 +819,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     deinit {
+        cancelPostSubmitRefreshRetries()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -1110,13 +1205,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
     /// Action when jump to new posts button is tapped
     @objc private func jumpToNewPostsTapped() {
-        guard let firstNewIndex = firstNewPostIndex, firstNewIndex < threadReplies.count else {
+        guard let firstNewIndex = firstNewPostIndex,
+              let targetIndex = firstVisibleDataIndex(startingAt: firstNewIndex),
+              scrollToDataIndex(targetIndex, at: .top, animated: true) else {
             hideJumpToNewButton()
             return
         }
-
-        let indexPath = IndexPath(row: firstNewIndex, section: 0)
-        tableView.scrollToRow(at: indexPath, at: .top, animated: true)
 
         // Hide the button after jumping
         hideJumpToNewButton()
@@ -1148,9 +1242,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 return
             }
 
-            let indexPath = IndexPath(row: index, section: 0)
-            let rowCount = self.tableView.numberOfRows(inSection: indexPath.section)
-            guard rowCount > indexPath.row else {
+            guard let visibleRow = self.visibleRow(forDataIndex: index) else {
+                self.scrollToPostNumber = nil
+                return
+            }
+
+            let indexPath = IndexPath(row: visibleRow, section: 0)
+            guard self.scrollToVisibleRow(visibleRow, at: .top, animated: true) else {
                 if retryCount > 0 {
                     self.scrollToPostIfNeeded(retryCount: retryCount - 1)
                 } else {
@@ -1159,7 +1257,6 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 return
             }
 
-            self.tableView.scrollToRow(at: indexPath, at: .top, animated: true)
             self.flashPost(at: indexPath)
 
             self.scrollToPostNumber = nil
@@ -1193,12 +1290,13 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         }
 
         let rowRect = tableView.rectForRow(at: indexPath)
-        let postNumber = indexPath.row < threadBoardReplyNumber.count ? threadBoardReplyNumber[indexPath.row] : nil
+        let dataIndex = actualIndex(for: indexPath)
+        let postNumber = dataIndex.flatMap { threadBoardReplyNumber.indices.contains($0) ? threadBoardReplyNumber[$0] : nil }
         ThreadScrollPositionManager.shared.savePosition(
             boardAbv: boardAbv,
             threadNumber: threadNumber,
             postNumber: postNumber,
-            itemIndex: indexPath.row,
+            itemIndex: dataIndex ?? indexPath.row,
             offsetWithinItem: viewportTop - rowRect.minY,
             contentOffsetY: tableView.contentOffset.y
         )
@@ -1220,15 +1318,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         guard let position = ThreadScrollPositionManager.shared.position(boardAbv: boardAbv, threadNumber: threadNumber) else {
             if let firstUnreadPostNumber,
                let index = threadBoardReplyNumber.firstIndex(of: firstUnreadPostNumber),
-               index < tableView.numberOfRows(inSection: 0) {
-                tableView.scrollToRow(at: IndexPath(row: index, section: 0), at: .top, animated: false)
+               let visibleRow = visibleRow(forDataIndex: index) {
+                scrollToVisibleRow(visibleRow, at: .top, animated: false)
             }
             return
         }
 
-        if let index = restoreIndex(for: position) {
-            let indexPath = IndexPath(row: index, section: 0)
-            tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+        if let visibleRow = restoreIndex(for: position),
+           scrollToVisibleRow(visibleRow, at: .top, animated: false) {
             tableView.layoutIfNeeded()
             let restoredY = tableView.contentOffset.y + CGFloat(position.offsetWithinItem)
             tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(restoredY)), animated: false)
@@ -1240,12 +1337,12 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func restoreIndex(for position: ThreadScrollPosition) -> Int? {
         if let postNumber = position.postNumber,
            let index = threadBoardReplyNumber.firstIndex(of: postNumber),
-           index < tableView.numberOfRows(inSection: 0) {
-            return index
+           let visibleRow = visibleRow(forDataIndex: index) {
+            return visibleRow
         }
 
-        if position.itemIndex >= 0, position.itemIndex < tableView.numberOfRows(inSection: 0) {
-            return position.itemIndex
+        if let visibleRow = visibleRow(forDataIndex: position.itemIndex) {
+            return visibleRow
         }
 
         return nil
@@ -1872,6 +1969,43 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         return count
     }
 
+    private func visibleRow(forDataIndex dataIndex: Int) -> Int? {
+        guard threadReplies.indices.contains(dataIndex),
+              isVisibleBySearchAndMediaSettings(dataIndex) else { return nil }
+
+        var visibleRow = 0
+        for index in 0..<threadReplies.count where isVisibleBySearchAndMediaSettings(index) {
+            if index == dataIndex {
+                return visibleRow
+            }
+            visibleRow += 1
+        }
+
+        return nil
+    }
+
+    private func firstVisibleDataIndex(startingAt dataIndex: Int) -> Int? {
+        guard dataIndex < threadReplies.count else { return nil }
+        let startIndex = max(dataIndex, 0)
+        return (startIndex..<threadReplies.count).first { isVisibleBySearchAndMediaSettings($0) }
+    }
+
+    @discardableResult
+    private func scrollToDataIndex(_ dataIndex: Int, at scrollPosition: UITableView.ScrollPosition, animated: Bool) -> Bool {
+        guard let visibleRow = visibleRow(forDataIndex: dataIndex) else { return false }
+        return scrollToVisibleRow(visibleRow, at: scrollPosition, animated: animated)
+    }
+
+    @discardableResult
+    private func scrollToVisibleRow(_ row: Int, at scrollPosition: UITableView.ScrollPosition, animated: Bool) -> Bool {
+        guard tableView.numberOfSections > 0,
+              row >= 0,
+              row < tableView.numberOfRows(inSection: 0) else { return false }
+
+        tableView.scrollToRow(at: IndexPath(row: row, section: 0), at: scrollPosition, animated: animated)
+        return true
+    }
+
     private func postHasMedia(at index: Int) -> Bool {
         guard index < threadRepliesImages.count else { return false }
         let raw = threadRepliesImages[index]
@@ -2219,26 +2353,39 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     self.onViewReady?()
                     return
                 }
-                self.processThreadData(json)
-                self.rebuildSearchFilterIndices()
-                self.structureThreadReplies()
-                
-                // Cache thread if offline reading is enabled
-                if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
-                   ThreadCacheManager.shared.isCached(boardAbv: self.boardAbv, threadNumber: self.threadNumber) {
-                    print("Thread was successfully loaded and is already cached")
+                let responsePosts = ThreadData.postsArray(from: json)
+                if let retryDelay = freshnessRetryDelayIfNeeded(posts: responsePosts, context: "handleNetworkResponse initial load") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) { [weak self] in
+                        guard let self = self else { return }
+                        self.threadLoadDebug("handleNetworkResponse freshness retry firing after \(retryDelay)s")
+                        self.loadInitialData()
+                    }
+                    return
                 }
-                
-                // Preload heights and first-screen thumbnails, then present
-                self.preloadThreadContent { [weak self] in
+                preferWebThreadDataIfNewer(than: json, context: "handleNetworkResponse initial load") { [weak self] freshestJSON in
                     guard let self = self else { return }
-                    self.threadLoadDebug("handleNetworkResponse preload completion; stopping spinner and reloading table replies=\(self.threadReplies.count) images=\(self.threadRepliesImages.count)")
-                    self.isLoading = false
-                    self.loadingIndicator.stopAnimating()
-                    self.tableView.reloadData()
-                    self.restoreScrollPositionIfNeeded()
-                    self.scrollToPostIfNeeded()
-                    self.onViewReady?()
+
+                    self.processThreadData(freshestJSON)
+                    self.rebuildSearchFilterIndices()
+                    self.structureThreadReplies()
+                    
+                    // Cache thread if offline reading is enabled
+                    if ThreadCacheManager.shared.isOfflineReadingEnabled() && 
+                       ThreadCacheManager.shared.isCached(boardAbv: self.boardAbv, threadNumber: self.threadNumber) {
+                        print("Thread was successfully loaded and is already cached")
+                    }
+                    
+                    // Preload heights and first-screen thumbnails, then present
+                    self.preloadThreadContent { [weak self] in
+                        guard let self = self else { return }
+                        self.threadLoadDebug("handleNetworkResponse preload completion; stopping spinner and reloading table replies=\(self.threadReplies.count) images=\(self.threadRepliesImages.count)")
+                        self.isLoading = false
+                        self.loadingIndicator.stopAnimating()
+                        self.tableView.reloadData()
+                        self.restoreScrollPositionIfNeeded()
+                        self.scrollToPostIfNeeded()
+                        self.onViewReady?()
+                    }
                 }
             } catch {
                 self.threadLoadDebug("handleNetworkResponse parse error=\(error)")
@@ -2289,16 +2436,20 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                     self.handleThreadUnavailable()
                     return
                 }
-                self.processThreadData(json)
-                self.rebuildSearchFilterIndices()
-                self.structureThreadReplies()
-                self.preloadThreadContent { [weak self] in
+                preferWebThreadDataIfNewer(than: json, context: "handleLoadDataResponse") { [weak self] freshestJSON in
                     guard let self = self else { return }
-                    self.threadLoadDebug("handleLoadDataResponse preload completion; reloading")
-                    self.isLoading = false
-                    self.tableView.reloadData()
-                    self.restoreScrollPositionIfNeeded()
-                    self.scrollToPostIfNeeded()
+
+                    self.processThreadData(freshestJSON)
+                    self.rebuildSearchFilterIndices()
+                    self.structureThreadReplies()
+                    self.preloadThreadContent { [weak self] in
+                        guard let self = self else { return }
+                        self.threadLoadDebug("handleLoadDataResponse preload completion; reloading")
+                        self.isLoading = false
+                        self.tableView.reloadData()
+                        self.restoreScrollPositionIfNeeded()
+                        self.scrollToPostIfNeeded()
+                    }
                 }
             } catch {
                 self.threadLoadDebug("handleLoadDataResponse parse error=\(error)")
@@ -2554,7 +2705,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         // Record this visit in history regardless of how the thread was opened
         // (board list, search, notifications, offline cache, handoff, etc.)
         let rawPosts = ThreadData.postsArray(from: json)
-        threadLoadDebug("processThreadData resolved rawPosts=\(rawPosts.count)")
+        threadLoadDebug("processThreadData resolved rawPosts{\(debugJSONPostSummary(rawPosts))}")
 
         if !boardAbv.isEmpty, !rawPosts.isEmpty {
             threadLoadDebug("processThreadData adding thread to history")
@@ -2610,7 +2761,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         
         // Process all posts in the thread
         let posts = ThreadData.postsArray(from: filteredJson)
-        threadLoadDebug("processThreadData processing posts count=\(posts.count)")
+        threadLoadDebug("processThreadData processing filteredPosts{\(debugJSONPostSummary(posts))} droppedByManagerFilter=\(rawPosts.count - posts.count)")
         for (index, post) in posts.enumerated() {
             threadLoadDebug("processThreadData processPost start index=\(index) postNo=\(ThreadData.postNumber(from: post) ?? "nil")")
             processPost(post, index: index)
@@ -2621,6 +2772,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         threadLoadDebug("processThreadData applying content filtering")
         applyContentFiltering()
         threadLoadDebug("processThreadData content filtering finished filtered=\(filteredReplyIndices.count) hidden=\(hiddenFilteredReplyIndices.count)")
+        threadLoadDebug("processThreadData arrays after processing posts{\(debugPostNumberSummary(threadBoardReplyNumber))} replies=\(threadReplies.count) images=\(threadRepliesImages.count) metadata=\(postMetadataList.count)")
 
         // Finalize thread structure
         threadLoadDebug("processThreadData structuring replies")
@@ -3066,8 +3218,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             )
 
             // Reload just the affected cell
-            let indexPath = IndexPath(row: postIndex, section: 0)
-            tableView.reloadRows(at: [indexPath], with: .none)
+            if let visibleRow = visibleRow(forDataIndex: postIndex),
+               visibleRow < tableView.numberOfRows(inSection: 0) {
+                let indexPath = IndexPath(row: visibleRow, section: 0)
+                tableView.reloadRows(at: [indexPath], with: .none)
+            }
         }
     }
 
@@ -3221,25 +3376,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
 
-        let visibleRow: Int
-        if isSearchActive && !searchText.isEmpty {
-            var row = 0
-            var foundRow: Int?
-            for index in 0..<threadReplies.count where !searchFilteredIndices.contains(index) {
-                if index == dataIndex {
-                    foundRow = row
-                    break
-                }
-                row += 1
-            }
-            guard let foundRow else { return }
-            visibleRow = foundRow
-        } else {
-            visibleRow = dataIndex
-        }
+        guard let visibleRow = visibleRow(forDataIndex: dataIndex),
+              scrollToVisibleRow(visibleRow, at: .middle, animated: true) else { return }
 
         let indexPath = IndexPath(row: visibleRow, section: 0)
-        tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
         flashPost(at: indexPath)
     }
 
@@ -3567,25 +3707,34 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     /// Methods to structure and display thread replies
     private func structureThreadReplies() {
         threadBoardReplies.removeAll()
-        for (i, reply) in threadReplies.enumerated() {
-            // Get the string content from NSAttributedString
-            let replyString = reply.string
-            
-            if replyString.contains(">>") {
-                for (_, boardReplyNumber) in threadBoardReplyNumber.enumerated() {
-                    if replyString.contains(">>" + boardReplyNumber) {
-                        if threadBoardReplies[boardReplyNumber] == nil {
-                            threadBoardReplies[boardReplyNumber] = [threadBoardReplyNumber[i]]
-                        } else if !threadBoardReplies[boardReplyNumber]!.contains(threadBoardReplyNumber[i]) {
-                            threadBoardReplies[boardReplyNumber]?.append(threadBoardReplyNumber[i])
-                        }
-                    }
+        for index in threadBoardReplyNumber.indices where threadReplies.indices.contains(index) {
+            let sourcePostNumber = threadBoardReplyNumber[index]
+            let referencedPostNumbers = TextFormatter.sameThreadPostReferences(
+                in: sourceTextForReplyReferenceParsing(at: index),
+                availablePostNumbers: threadBoardReplyNumber,
+                sourcePostNumber: sourcePostNumber
+            )
+
+            for referencedPostNumber in referencedPostNumbers {
+                var replies = threadBoardReplies[referencedPostNumber] ?? []
+                if !replies.contains(sourcePostNumber) {
+                    replies.append(sourcePostNumber)
+                    threadBoardReplies[referencedPostNumber] = replies
                 }
             }
         }
 
         enrichQuoteText()
         debugReloadData(context: "Quote enrichment")
+    }
+
+    private func sourceTextForReplyReferenceParsing(at index: Int) -> String {
+        if originalTexts.indices.contains(index) {
+            return originalTexts[index]
+        }
+
+        guard threadReplies.indices.contains(index) else { return "" }
+        return TextFormatter.removingAppendedBacklinks(from: threadReplies[index].string)
     }
 
     private func enrichQuoteText() {
@@ -3659,9 +3808,10 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             let postNumber = threadBoardReplyNumber[index]
             let own = isUserPost(postNumber)
             let quotesUser = postQuotesUser(at: index)
-            guard own || quotesUser else { continue }
+            guard own || quotesUser,
+                  let visibleRow = visibleRow(forDataIndex: index) else { continue }
 
-            let rowRect = tableView.rectForRow(at: IndexPath(row: index, section: 0))
+            let rowRect = tableView.rectForRow(at: IndexPath(row: visibleRow, section: 0))
             let topRatio = max(0, min(1, rowRect.minY / max(tableView.contentSize.height, 1)))
             let heightRatio = max(0.006, rowRect.height / max(tableView.contentSize.height, 1))
             let markerHeight = max(6, quoteScrollMarkerContainer.bounds.height * heightRatio)
@@ -5101,8 +5251,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func loadDataWithScrollPreservation(scrollOffset: CGPoint) {
         guard !threadNumber.isEmpty else {
             isLoading = false
+            threadLoadDebug("loadDataWithScrollPreservation aborted; threadNumber empty")
             return
         }
+        guard !isRefreshInFlight else {
+            threadLoadDebug("loadDataWithScrollPreservation skipped; refresh already in flight currentPosts{\(debugPostNumberSummary(threadBoardReplyNumber))} scrollOffsetY=\(scrollOffset.y)")
+            return
+        }
+        isRefreshInFlight = true
 
         // Store previous post count before refresh
         let previousCount = threadReplies.count
@@ -5115,11 +5271,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         let previousVisibleMetadata = postMetadataList
 
         let threadURL = BoardsService.shared.threadJSONURL(board: boardAbv, threadNumber: threadNumber)
+        threadLoadDebug("loadDataWithScrollPreservation begin url=\(threadURL.absoluteString) previousCount=\(previousCount) previousPosts{\(debugPostNumberSummary(previousVisibleReplyNumbers))} isReplySubsetView=\(isReplySubsetView) expectedScrollPost=\(scrollToPostNumber ?? "nil")")
 
         BoardsService.shared.fetchData(from: threadURL) { [weak self] response in
             guard let self = self else { return }
 
             DispatchQueue.main.async {
+                defer { self.isRefreshInFlight = false }
+
                 // Check for 404 during auto-refresh
                 self.tableView.refreshControl?.endRefreshing()
 
@@ -5132,83 +5291,105 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                 case .success(let dataResponse):
                     do {
                         let json = try ThreadData.parseThreadResponse(from: dataResponse.data, boardAbv: self.boardAbv)
+                        let responsePosts = ThreadData.postsArray(from: json)
+                        self.threadLoadDebug("loadDataWithScrollPreservation parsed response status=\(dataResponse.response?.statusCode ?? -1) bytes=\(dataResponse.data.count) responsePosts{\(self.debugJSONPostSummary(responsePosts))} expectedScrollPost=\(self.scrollToPostNumber ?? "nil")")
 
-                        guard !ThreadData.postsArray(from: json).isEmpty else {
+                        guard !responsePosts.isEmpty else {
+                            self.threadLoadDebug("loadDataWithScrollPreservation parsed empty post array; treating unavailable")
                             self.handleThreadUnavailable()
                             return
                         }
 
-                        self.processThreadData(json)
-                        self.rebuildSearchFilterIndices()
-                        self.structureThreadReplies()
-
-                        let refreshedFullReplies = self.threadReplies
-                        let refreshedFullReplyNumbers = self.threadBoardReplyNumber
-                        let refreshedFullImages = self.threadRepliesImages
-                        let refreshedFullReplyMap = self.threadBoardReplies
-                        let refreshedFullMetadata = self.postMetadataList
-
-                        if isReplySubsetView, let rootPostNumber = replySubsetRootPostNumber {
-                            self.fullThreadReplies = refreshedFullReplies
-                            self.fullThreadBoardReplyNumber = refreshedFullReplyNumbers
-                            self.fullThreadRepliesImages = refreshedFullImages
-                            self.fullThreadBoardReplies = refreshedFullReplyMap
-                            self.fullThreadPostMetadataList = refreshedFullMetadata
-                            self.replyViewRootPostNumber = rootPostNumber
-                            self.title = rootPostNumber
-
-                            if let replyContent = self.replyViewContent(
-                                for: rootPostNumber,
-                                replies: refreshedFullReplies,
-                                replyNumbers: refreshedFullReplyNumbers,
-                                images: refreshedFullImages,
-                                replyMap: refreshedFullReplyMap,
-                                metadataList: refreshedFullMetadata
-                            ) {
-                                self.threadReplies = replyContent.replies
-                                self.threadBoardReplyNumber = replyContent.replyNumbers
-                                self.threadRepliesImages = replyContent.images
-                                self.threadBoardReplies = refreshedFullReplyMap
-                                self.postMetadataList = replyContent.metadata
-                                self.replyCount = replyContent.replies.count
-                            } else {
-                                self.threadReplies = previousVisibleReplies
-                                self.threadBoardReplyNumber = previousVisibleReplyNumbers
-                                self.threadRepliesImages = previousVisibleImages
-                                self.threadBoardReplies = previousVisibleReplyMap
-                                self.postMetadataList = previousVisibleMetadata
-                                self.replyCount = previousVisibleReplies.count
+                        if let retryDelay = self.freshnessRetryDelayIfNeeded(posts: responsePosts, context: "loadDataWithScrollPreservation refresh") {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) { [weak self] in
+                                guard let self = self else { return }
+                                self.threadLoadDebug("loadDataWithScrollPreservation freshness retry firing after \(retryDelay)s")
+                                self.loadDataWithScrollPreservation(scrollOffset: scrollOffset)
                             }
+                            return
                         }
 
-                        self.isLoading = false
+                        self.preferWebThreadDataIfNewer(than: json, context: "loadDataWithScrollPreservation refresh") { [weak self] freshestJSON in
+                            guard let self = self else { return }
 
-                        // Calculate new posts
-                        let currentCount = self.threadReplies.count
-                        let newCount = currentCount - previousCount
+                            self.processThreadData(freshestJSON)
+                            self.rebuildSearchFilterIndices()
+                            self.structureThreadReplies()
+                            self.threadLoadDebug("loadDataWithScrollPreservation after process visiblePosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))} filtered=\(self.filteredReplyIndices.count) hiddenFiltered=\(self.hiddenFilteredReplyIndices.count) tableRowsBeforeReload=\(self.tableView.numberOfRows(inSection: 0))")
 
-                        if newCount > 0 && previousCount > 0 {
-                            // We have new posts
-                            self.newPostCount = newCount
-                            self.firstNewPostIndex = previousCount
+                            let refreshedFullReplies = self.threadReplies
+                            let refreshedFullReplyNumbers = self.threadBoardReplyNumber
+                            let refreshedFullImages = self.threadRepliesImages
+                            let refreshedFullReplyMap = self.threadBoardReplies
+                            let refreshedFullMetadata = self.postMetadataList
 
-                            // Update the refresh status to show new post count
-                            self.updateRefreshStatusWithNewPosts(newCount)
+                            if isReplySubsetView, let rootPostNumber = replySubsetRootPostNumber {
+                                self.fullThreadReplies = refreshedFullReplies
+                                self.fullThreadBoardReplyNumber = refreshedFullReplyNumbers
+                                self.fullThreadRepliesImages = refreshedFullImages
+                                self.fullThreadBoardReplies = refreshedFullReplyMap
+                                self.fullThreadPostMetadataList = refreshedFullMetadata
+                                self.replyViewRootPostNumber = rootPostNumber
+                                self.title = rootPostNumber
 
-                            // Handle new post behavior based on user setting
-                            self.handleNewPostsBehavior(
-                                newCount: newCount,
-                                firstNewIndex: previousCount,
-                                scrollOffset: scrollOffset
-                            )
-                        } else {
-                            // No new posts, just restore scroll position
-                            self.tableView.reloadData()
-                            self.tableView.setContentOffset(scrollOffset, animated: false)
+                                if let replyContent = self.replyViewContent(
+                                    for: rootPostNumber,
+                                    replies: refreshedFullReplies,
+                                    replyNumbers: refreshedFullReplyNumbers,
+                                    images: refreshedFullImages,
+                                    replyMap: refreshedFullReplyMap,
+                                    metadataList: refreshedFullMetadata
+                                ) {
+                                    self.threadReplies = replyContent.replies
+                                    self.threadBoardReplyNumber = replyContent.replyNumbers
+                                    self.threadRepliesImages = replyContent.images
+                                    self.threadBoardReplies = refreshedFullReplyMap
+                                    self.postMetadataList = replyContent.metadata
+                                    self.replyCount = replyContent.replies.count
+                                    self.threadLoadDebug("loadDataWithScrollPreservation reply-subset reapplied root=\(rootPostNumber) subsetPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))} fullPosts{\(self.debugPostNumberSummary(refreshedFullReplyNumbers))}")
+                                } else {
+                                    self.threadReplies = previousVisibleReplies
+                                    self.threadBoardReplyNumber = previousVisibleReplyNumbers
+                                    self.threadRepliesImages = previousVisibleImages
+                                    self.threadBoardReplies = previousVisibleReplyMap
+                                    self.postMetadataList = previousVisibleMetadata
+                                    self.replyCount = previousVisibleReplies.count
+                                    self.threadLoadDebug("loadDataWithScrollPreservation reply-subset root=\(rootPostNumber) missing after refresh; restored previousPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
+                                }
+                            }
+
+                            self.isLoading = false
+
+                            // Calculate new posts
+                            let currentCount = self.threadReplies.count
+                            let newCount = currentCount - previousCount
+                            self.threadLoadDebug("loadDataWithScrollPreservation count comparison previous=\(previousCount) current=\(currentCount) new=\(newCount) currentPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
+
+                            if newCount > 0 && previousCount > 0 {
+                                // We have new posts
+                                self.newPostCount = newCount
+                                self.firstNewPostIndex = previousCount
+                                self.threadLoadDebug("loadDataWithScrollPreservation detected new posts firstNewIndex=\(previousCount) newCount=\(newCount) firstNewPost=\(self.threadBoardReplyNumber.indices.contains(previousCount) ? self.threadBoardReplyNumber[previousCount] : "nil")")
+
+                                // Update the refresh status to show new post count
+                                self.updateRefreshStatusWithNewPosts(newCount)
+
+                                // Handle new post behavior based on user setting
+                                self.handleNewPostsBehavior(
+                                    newCount: newCount,
+                                    firstNewIndex: previousCount,
+                                    scrollOffset: scrollOffset
+                                )
+                            } else {
+                                // No new posts, just restore scroll position
+                                self.tableView.reloadData()
+                                self.tableView.setContentOffset(scrollOffset, animated: false)
+                                self.threadLoadDebug("loadDataWithScrollPreservation no new posts; reloadedRows=\(self.tableView.numberOfRows(inSection: 0)) restoredOffsetY=\(scrollOffset.y)")
+                            }
+
+                            // Check for watched post replies and send notifications
+                            self.checkWatchedPostsAndNotify()
                         }
-
-                        // Check for watched post replies and send notifications
-                        self.checkWatchedPostsAndNotify()
 
                     } catch {
                         print("JSON parsing error: \(error)")
@@ -5255,13 +5436,20 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     private func handleNewPostsBehavior(newCount: Int, firstNewIndex: Int, scrollOffset: CGPoint) {
         // Get user preference: 0 = Show button, 1 = Auto-scroll, 2 = Do nothing
         let behavior = UserDefaults.standard.integer(forKey: newPostBehaviorKey)
+        threadLoadDebug("handleNewPostsBehavior behavior=\(behavior) newCount=\(newCount) firstNewIndex=\(firstNewIndex) firstVisibleNew=\(String(describing: firstVisibleDataIndex(startingAt: firstNewIndex))) rowsBeforeReload=\(tableView.numberOfRows(inSection: 0))")
 
         tableView.reloadData()
+        threadLoadDebug("handleNewPostsBehavior after reload rows=\(tableView.numberOfRows(inSection: 0)) posts{\(debugPostNumberSummary(threadBoardReplyNumber))}")
 
         switch behavior {
         case 1: // Auto-scroll to new posts
-            let indexPath = IndexPath(row: firstNewIndex, section: 0)
-            tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+            guard let targetIndex = firstVisibleDataIndex(startingAt: firstNewIndex),
+                  scrollToDataIndex(targetIndex, at: .top, animated: true) else {
+                tableView.setContentOffset(scrollOffset, animated: false)
+                threadLoadDebug("handleNewPostsBehavior auto-scroll failed; restoredOffsetY=\(scrollOffset.y)")
+                return
+            }
+            threadLoadDebug("handleNewPostsBehavior auto-scrolled targetDataIndex=\(targetIndex) targetPost=\(threadBoardReplyNumber.indices.contains(targetIndex) ? threadBoardReplyNumber[targetIndex] : "nil")")
 
             // Provide haptic feedback
             let generator = UINotificationFeedbackGenerator()
@@ -5269,10 +5457,17 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         case 2: // Do nothing - preserve scroll position
             tableView.setContentOffset(scrollOffset, animated: false)
+            threadLoadDebug("handleNewPostsBehavior do-nothing; restoredOffsetY=\(scrollOffset.y)")
 
         default: // 0 or undefined - Show jump button
             tableView.setContentOffset(scrollOffset, animated: false)
-            showJumpToNewButton(count: newCount)
+            if firstVisibleDataIndex(startingAt: firstNewIndex) != nil {
+                showJumpToNewButton(count: newCount)
+                threadLoadDebug("handleNewPostsBehavior showing jump button count=\(newCount) restoredOffsetY=\(scrollOffset.y)")
+            } else {
+                hideJumpToNewButton()
+                threadLoadDebug("handleNewPostsBehavior no visible new post after filters; hiding jump button restoredOffsetY=\(scrollOffset.y)")
+            }
         }
     }
 
@@ -5549,7 +5744,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     @objc func refresh() {
-        print("Refresh triggered")
+        threadLoadDebug("refresh triggered shouldLoadFullThread=\(shouldLoadFullThread) isRefreshInFlight=\(isRefreshInFlight) threadRepliesEmpty=\(threadReplies.isEmpty) currentPosts{\(debugPostNumberSummary(threadBoardReplyNumber))} expectedScrollPost=\(scrollToPostNumber ?? "nil")")
         guard shouldLoadFullThread else {
             tableView.refreshControl?.endRefreshing()
             debugReloadData(context: "Search filter update")
@@ -5568,6 +5763,56 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         let savedOffset = tableView.contentOffset
         loadDataWithScrollPreservation(scrollOffset: savedOffset)
+    }
+
+    private func schedulePostSubmitRefreshes(postNumber: Int?) {
+        cancelPostSubmitRefreshRetries()
+
+        if let postNumber {
+            scrollToPostNumber = String(postNumber)
+        }
+
+        threadLoadDebug("schedulePostSubmitRefreshes postNumber=\(postNumber.map(String.init) ?? "nil") currentPosts{\(debugPostNumberSummary(threadBoardReplyNumber))}")
+        refresh()
+
+        let retryDelays: [TimeInterval] = postNumber == nil ? [5] : [2, 5, 10, 20]
+        for delay in retryDelays {
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                guard self.isViewLoaded, self.view.window != nil else {
+                    self.threadLoadDebug("post-submit retry delay=\(delay)s skipped; view not visible")
+                    return
+                }
+
+                if let postNumber {
+                    let postNumberString = String(postNumber)
+                    if self.threadBoardReplyNumber.contains(postNumberString) {
+                        self.threadLoadDebug("post-submit retry delay=\(delay)s found expectedPost=\(postNumberString); cancelling remaining retries currentPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
+                        self.cancelPostSubmitRefreshRetries()
+                        self.scrollToPostNumber = postNumberString
+                        self.scrollToPostIfNeeded()
+                        return
+                    }
+                    self.scrollToPostNumber = postNumberString
+                    self.threadLoadDebug("post-submit retry delay=\(delay)s expectedPost=\(postNumberString) not present; refreshing currentPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
+                } else {
+                    self.threadLoadDebug("post-submit retry delay=\(delay)s without post number; refreshing currentPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
+                }
+
+                self.refresh()
+            }
+
+            postSubmitRefreshWorkItems.append(workItem)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        }
+    }
+
+    private func cancelPostSubmitRefreshRetries() {
+        if !postSubmitRefreshWorkItems.isEmpty {
+            threadLoadDebug("cancelPostSubmitRefreshRetries count=\(postSubmitRefreshWorkItems.count)")
+        }
+        postSubmitRefreshWorkItems.forEach { $0.cancel() }
+        postSubmitRefreshWorkItems.removeAll()
     }
     
     @objc func saveForOfflineReading() {
@@ -5645,8 +5890,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     
     @objc private func down() {
         let lastRow = tableView.numberOfRows(inSection: 0) - 1
-        let indexPath = IndexPath(row: lastRow, section: 0)
-        tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+        scrollToVisibleRow(lastRow, at: .top, animated: false)
     }
     
     @objc private func openInBrowser() {
@@ -6210,14 +6454,9 @@ extension threadRepliesTV: ComposeViewControllerDelegate {
             )
         }
 
-        // Refresh the thread to show the new post
-        refresh()
-
-        // The 4chan API often hasn't surfaced the new post by the time the
-        // immediate refresh fires, so refresh again after a short delay.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            self?.refresh()
-        }
+        // 4chan can acknowledge a post before the thread JSON includes it.
+        // Keep retrying briefly, and stop once the submitted post is visible.
+        schedulePostSubmitRefreshes(postNumber: postNumber)
 
         // Show success message
         let message = postNumber != nil ? "Post #\(postNumber!) submitted successfully" : "Post submitted successfully"

@@ -440,7 +440,10 @@ class BoardsService {
             case .success(let dataResponse):
                 let statusCode = dataResponse.response?.statusCode ?? -1
                 let mimeType = dataResponse.response?.mimeType ?? "nil"
-                print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] success status=\(statusCode) bytes=\(dataResponse.data.count) mime=\(mimeType) elapsed=\(elapsed)s mainThread=\(Thread.isMainThread)")
+                let finalURL = dataResponse.response?.url?.absoluteString ?? "nil"
+                let cacheHeaders = Self.debugCacheHeaderSummary(dataResponse.response)
+                let payloadSummary = Self.debugPayloadSummary(dataResponse.data, originalURL: url)
+                print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] success status=\(statusCode) bytes=\(dataResponse.data.count) mime=\(mimeType) elapsed=\(elapsed)s mainThread=\(Thread.isMainThread) finalURL=\(finalURL) \(cacheHeaders) \(payloadSummary)")
             case .failure(let error):
                 print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] failure error=\(error.localizedDescription) elapsed=\(elapsed)s mainThread=\(Thread.isMainThread)")
             }
@@ -454,9 +457,13 @@ class BoardsService {
             }
         }
 
-        var request = URLRequest(url: url)
+        let requestURL = Self.cacheBypassedURL(for: url)
+        var request = URLRequest(url: requestURL)
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         request.timeoutInterval = 30
-        print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] request timeout=\(request.timeoutInterval)s")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        print("[ChannerThreadLoadDebug][BoardsService][\(debugID)] request url=\(requestURL.absoluteString) originalUrl=\(url.absoluteString) cachePolicy=\(request.cachePolicy.rawValue) timeout=\(request.timeoutInterval)s")
         if site.id == "8chan.moe" {
             EightChanMoePOWBlock.applyStoredCookies(to: &request)
         }
@@ -494,6 +501,63 @@ class BoardsService {
             completeOnMain(.success(FetchDataResponse(data: data, response: httpResponse)))
         }
         task.resume()
+    }
+
+    static func cacheBypassedURL(for url: URL) -> URL {
+        guard let host = url.host,
+              ["a.4cdn.org", "boards.4chan.org"].contains(host),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+
+        var queryItems = components.queryItems ?? []
+        queryItems.removeAll { $0.name == "_" || $0.name == "channer_ts" }
+        queryItems.append(URLQueryItem(name: "channer_ts", value: "\(Int(Date().timeIntervalSince1970 * 1000))"))
+        components.queryItems = queryItems
+
+        return components.url ?? url
+    }
+
+    private static func debugCacheHeaderSummary(_ response: HTTPURLResponse?) -> String {
+        guard let response else { return "headers=nil" }
+
+        let headers = response.allHeaderFields
+        let interestingHeaders = ["Date", "Age", "Cache-Control", "ETag", "Last-Modified", "Expires", "CF-Cache-Status"]
+            .map { name -> String in
+                let value = headers.first { key, _ in
+                    String(describing: key).caseInsensitiveCompare(name) == .orderedSame
+                }?.value
+                return "\(name)=\(value.map { String(describing: $0) } ?? "nil")"
+            }
+            .joined(separator: " ")
+
+        return "headers{\(interestingHeaders)}"
+    }
+
+    private static func debugPayloadSummary(_ data: Data, originalURL: URL) -> String {
+        let hash = SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
+        guard originalURL.path.contains("/thread/") else {
+            return "payload{sha256_8=\(hash)}"
+        }
+
+        let json: JSON?
+        if originalURL.host == "a.4cdn.org" {
+            json = try? JSON(data: data)
+        } else if originalURL.host == "boards.4chan.org" {
+            json = try? ThreadData.parseThreadResponse(from: data, boardAbv: originalURL.path.split(separator: "/").first.map(String.init) ?? "")
+        } else {
+            json = nil
+        }
+
+        guard let posts = json?["posts"].array else {
+            return "payload{sha256_8=\(hash)}"
+        }
+
+        let firstNo = posts.first?["no"].stringValue.nonEmptyDebugValue ?? "nil"
+        let lastNo = posts.last?["no"].stringValue.nonEmptyDebugValue ?? "nil"
+        let opReplies = posts.first?["replies"].int.map(String.init) ?? "nil"
+        let lastModified = posts.first?["last_modified"].int.map(String.init) ?? "nil"
+        return "payload{sha256_8=\(hash) posts=\(posts.count) first=\(firstNo) last=\(lastNo) opReplies=\(opReplies) last_modified=\(lastModified)}"
     }
 
     private func fetchBoards(for site: ImageboardSite, urls: [URL], completion: (() -> Void)?) {
@@ -1111,6 +1175,12 @@ class BoardsService {
 
     static func requiresEightChanPOWBlockSolve(_ response: HTTPURLResponse) -> Bool {
         isPOWBlockRequired(response) || response.statusCode == 403
+    }
+}
+
+private extension String {
+    var nonEmptyDebugValue: String? {
+        isEmpty ? nil : self
     }
 }
 

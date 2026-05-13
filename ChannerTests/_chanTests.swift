@@ -65,6 +65,67 @@ class _chanTests: XCTestCase {
         XCTAssertEqual(service.threadJSONURL(board: "b", threadNumber: "123").absoluteString, "https://9ch.site/b/res/123.json")
     }
 
+    func testFourChanFetchURLAddsCacheBuster() throws {
+        let url = try XCTUnwrap(URL(string: "https://a.4cdn.org/g/thread/123.json?channer_ts=old&foo=bar"))
+        let bypassed = BoardsService.cacheBypassedURL(for: url)
+        let components = try XCTUnwrap(URLComponents(url: bypassed, resolvingAgainstBaseURL: false))
+        let queryItems = components.queryItems ?? []
+
+        XCTAssertEqual(components.scheme, "https")
+        XCTAssertEqual(components.host, "a.4cdn.org")
+        XCTAssertEqual(components.path, "/g/thread/123.json")
+        XCTAssertEqual(queryItems.filter { $0.name == "channer_ts" }.count, 1)
+        XCTAssertEqual(queryItems.first(where: { $0.name == "foo" })?.value, "bar")
+        XCTAssertNotEqual(bypassed.absoluteString, url.absoluteString)
+    }
+
+    func testCacheBusterLeavesNonFourChanURLUnchanged() throws {
+        let url = try XCTUnwrap(URL(string: "https://endchan.net/b/res/77440.json"))
+        XCTAssertEqual(BoardsService.cacheBypassedURL(for: url), url)
+    }
+
+    func testFourChanWebThreadURLAddsCacheBuster() throws {
+        let url = try XCTUnwrap(URL(string: "https://boards.4chan.org/an/thread/5124297"))
+        let bypassed = BoardsService.cacheBypassedURL(for: url)
+        let components = try XCTUnwrap(URLComponents(url: bypassed, resolvingAgainstBaseURL: false))
+
+        XCTAssertEqual(components.host, "boards.4chan.org")
+        XCTAssertEqual(components.path, "/an/thread/5124297")
+        XCTAssertEqual(components.queryItems?.filter { $0.name == "channer_ts" }.count, 1)
+    }
+
+    func testSameThreadPostReferencesIgnoreSelfQuotes() {
+        let references = TextFormatter.sameThreadPostReferences(
+            in: "<a href=\"#p5124525\" class=\"quotelink\">&gt;&gt;5124525</a>\nAlso >>5124532",
+            availablePostNumbers: ["5124525", "5124532"],
+            sourcePostNumber: "5124532"
+        )
+
+        XCTAssertEqual(references, ["5124525"])
+    }
+
+    func testSameThreadPostReferencesDoNotMatchPartialPostNumbers() {
+        let references = TextFormatter.sameThreadPostReferences(
+            in: "This quotes >>5124525 only.",
+            availablePostNumbers: ["512", "5124525"],
+            sourcePostNumber: "5124532"
+        )
+
+        XCTAssertEqual(references, ["5124525"])
+    }
+
+    func testRemovingAppendedBacklinksPreventsReciprocalReferenceParsing() {
+        let renderedText = "Older post body\nReplies: >>5124532"
+        let sourceText = TextFormatter.removingAppendedBacklinks(from: renderedText)
+        let references = TextFormatter.sameThreadPostReferences(
+            in: sourceText,
+            availablePostNumbers: ["5124525", "5124532"],
+            sourcePostNumber: "5124525"
+        )
+
+        XCTAssertTrue(references.isEmpty)
+    }
+
     func testBoardParsersForNewAdapterFamilies() throws {
         let lynxHTML = """
         <a class="linkBoard" href="/polru/">/polru/ - pol - Russian Edition</a>
@@ -144,6 +205,28 @@ class _chanTests: XCTestCase {
         let htmlThreads = try ThreadData.parseThreadList(from: Data(htmlCatalog.utf8), boardAbv: "meta")
         XCTAssertEqual(htmlThreads.first?.number, "99")
         XCTAssertEqual(htmlThreads.first?.title, "A public thread")
+
+        BoardsService.shared.setSelectedSiteForTesting(.fourChan)
+        let fourChanThreadHTML = """
+        <div class="post op" id="p5124297">
+          <span class="subject">Thread subject</span>
+          <span data-utc="1778636103"></span>
+          <a class="fileThumb" href="//i.4cdn.org/an/1778636103000.jpg"><img src="//i.4cdn.org/an/1778636103000s.jpg"></a>
+          <blockquote class="postMessage" id="m5124297">OP text</blockquote>
+        </div>
+        <div class="post reply" id="p5124525">
+          <span data-utc="1778636497"></span>
+          <blockquote class="postMessage" id="m5124525">reply <a href="#p5124297">&gt;&gt;5124297</a></blockquote>
+        </div>
+        """
+        let fourChanNormalized = try ThreadData.parseThreadResponse(from: Data(fourChanThreadHTML.utf8), boardAbv: "an")
+        let fourChanPosts = ThreadData.postsArray(from: fourChanNormalized)
+        XCTAssertEqual(fourChanPosts.count, 2)
+        XCTAssertEqual(ThreadData.postNumber(from: fourChanPosts[0]), "5124297")
+        XCTAssertEqual(fourChanPosts[0]["replies"].int, 1)
+        XCTAssertEqual(ThreadData.postSubject(from: fourChanPosts[0]), "Thread subject")
+        XCTAssertEqual(ThreadData.postImageURL(from: fourChanPosts[0], boardAbv: "an"), "https://i.4cdn.org/an/1778636103000.jpg")
+        XCTAssertEqual(ThreadData.postNumber(from: fourChanPosts[1]), "5124525")
     }
 
     func testEightChanPOWBlockChallengeParsingAndSolving() throws {

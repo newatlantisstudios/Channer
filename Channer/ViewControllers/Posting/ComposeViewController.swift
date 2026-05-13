@@ -1219,8 +1219,10 @@ class ComposeViewController: UIViewController {
 
     private func handlePostSuccess(_ result: PostResult) {
         let postNumber = result.postNumber ?? result.threadNumber
-        delegate?.composeViewControllerDidPost(self, postNumber: postNumber)
+        print("[ComposeViewController] Post success result postNumber=\(String(describing: result.postNumber)) threadNumber=\(String(describing: result.threadNumber)) resolved=\(String(describing: postNumber)) dumpMode=\(dumpModeSwitch.isOn)")
+
         if dumpModeSwitch.isOn {
+            delegate?.composeViewControllerDidPost(self, postNumber: postNumber)
             commentTextView.text = ""
             updateCharacterCount()
             removeImageTapped()
@@ -1231,7 +1233,12 @@ class ComposeViewController: UIViewController {
             loadCaptchaIfNeeded(forceReload: true)
             return
         }
-        dismiss(animated: true)
+
+        dismiss(animated: true) { [weak self] in
+            guard let self = self else { return }
+            print("[ComposeViewController] Dismiss completed; notifying delegate for postNumber=\(String(describing: postNumber))")
+            self.delegate?.composeViewControllerDidPost(self, postNumber: postNumber)
+        }
     }
 
     private func setLoading(_ loading: Bool) {

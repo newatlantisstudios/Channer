@@ -264,6 +264,15 @@ struct ThreadData: Codable {
     static func postImageURL(from post: JSON, boardAbv: String) -> String {
         let directPath = firstString(in: post, keys: ["thumb", "path", "thumbnail", "file"])
         if !directPath.isEmpty {
+            if directPath.hasPrefix("https://") || directPath.hasPrefix("http://") {
+                return directPath
+            }
+            if directPath.hasPrefix("//") {
+                return "https:\(directPath)"
+            }
+            if directPath.hasPrefix("/") {
+                return URL(string: directPath, relativeTo: BoardsService.shared.selectedSite.rootURL)?.absoluteURL.absoluteString ?? directPath
+            }
             return BoardsService.shared.imageURL(board: boardAbv, timestamp: directPath, extension: "")
         }
 
@@ -377,6 +386,11 @@ struct ThreadData: Codable {
 
     private static func parseHTMLPosts(from data: Data, boardAbv: String) -> [JSON] {
         let html = String(decoding: data, as: UTF8.self)
+        let fourChanPosts = parseFourChanHTMLPosts(from: html)
+        if !fourChanPosts.isEmpty {
+            return fourChanPosts
+        }
+
         let postPattern = #"<[^>]*\b(?:id|data-post-id)\s*=\s*["'](?:reply_?|post_?)?([0-9]+)["'][^>]*>(.*?)</(?:div|article)>"#
         guard let regex = try? NSRegularExpression(pattern: postPattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return []
@@ -407,6 +421,83 @@ struct ThreadData: Codable {
             posts.append(JSON(object))
         }
         return posts
+    }
+
+    private static func parseFourChanHTMLPosts(from html: String) -> [JSON] {
+        let postStartPattern = #"<div\b(?=[^>]*\bid\s*=\s*["']p([0-9]+)["'])(?=[^>]*\bclass\s*=\s*["'][^"']*\bpost\b)[^>]*>"#
+        guard let regex = try? NSRegularExpression(pattern: postStartPattern, options: [.caseInsensitive]) else {
+            return []
+        }
+
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        let matches = regex.matches(in: html, options: [], range: range)
+        guard !matches.isEmpty else { return [] }
+
+        var postObjects: [[String: Any]] = []
+        var seenNumbers = Set<String>()
+
+        for (index, match) in matches.enumerated() {
+            guard let numberRange = Range(match.range(at: 1), in: html) else { continue }
+
+            let number = String(html[numberRange])
+            guard seenNumbers.insert(number).inserted else { continue }
+
+            let bodyStart = match.range.location
+            let bodyEnd = index + 1 < matches.count ? matches[index + 1].range.location : range.upperBound
+            guard bodyStart < bodyEnd,
+                  let bodyRange = Range(NSRange(location: bodyStart, length: bodyEnd - bodyStart), in: html) else { continue }
+
+            let body = String(html[bodyRange])
+            var object: [String: Any] = [
+                "no": number,
+                "com": htmlText(firstPostMessageHTML(in: body) ?? body)
+            ]
+
+            if let unixTimestamp = firstRegexCapture(#"\bdata-utc\s*=\s*["']([0-9]+)["']"#, in: body).flatMap(Int.init) {
+                object["time"] = unixTimestamp
+            }
+            if let subjectHTML = firstRegexCapture(#"<span\b[^>]*\bclass\s*=\s*["'][^"']*\bsubject\b[^"']*["'][^>]*>(.*?)</span>"#, in: body) {
+                let subject = htmlText(subjectHTML)
+                if !subject.isEmpty {
+                    object["sub"] = subject
+                }
+            }
+            if let imagePath = firstRegexCapture(#"<a\b[^>]*\bclass\s*=\s*["'][^"']*\bfileThumb\b[^"']*["'][^>]*\bhref\s*=\s*["']([^"']+)["']"#, in: body)
+                ?? firstHTMLImagePath(in: body) {
+                object["thumb"] = imagePath
+            }
+
+            postObjects.append(object)
+        }
+
+        guard !postObjects.isEmpty else { return [] }
+
+        let imageCount = postObjects.reduce(0) { count, object in
+            count + ((object["thumb"] as? String)?.isEmpty == false ? 1 : 0)
+        }
+        postObjects[0]["replies"] = max(postObjects.count - 1, 0)
+        postObjects[0]["images"] = imageCount
+
+        return postObjects.map(JSON.init)
+    }
+
+    private static func firstPostMessageHTML(in html: String) -> String? {
+        firstRegexCapture(#"<blockquote\b[^>]*\bclass\s*=\s*["'][^"']*\bpostMessage\b[^"']*["'][^>]*>([\s\S]*?)</blockquote>"#, in: html)
+    }
+
+    private static func firstRegexCapture(_ pattern: String, in html: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
+            return nil
+        }
+
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        guard let match = regex.firstMatch(in: html, options: [], range: range),
+              match.numberOfRanges > 1,
+              let captureRange = Range(match.range(at: 1), in: html) else {
+            return nil
+        }
+
+        return String(html[captureRange])
     }
 
     private static func firstHTMLImagePath(in html: String) -> String? {
@@ -1528,6 +1619,8 @@ class boardTV: UITableViewController, UISearchBarDelegate, BottomToolbarSearchDi
             vc.boardAbv = thread.boardAbv
             vc.threadNumber = thread.number
             vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+            vc.expectedReplyCountFromBoard = thread.currentReplies ?? thread.replies
+            self.threadLoadDebug("configured threadRepliesTV expectedReplyCountFromBoard=\(vc.expectedReplyCountFromBoard.map(String.init) ?? "nil") validationPosts=\(ThreadData.postsArray(from: json).count)")
     
             // Handle navigation - same behavior on all devices
             self.navigationController?.pushViewController(vc, animated: true)

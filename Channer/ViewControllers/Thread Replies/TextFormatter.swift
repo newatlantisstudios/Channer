@@ -393,6 +393,44 @@ class TextFormatter {
         return result
     }
 
+    static func removingAppendedBacklinks(from text: String) -> String {
+        guard let backlinkRange = text.range(of: "\nReplies: ", options: .backwards) else {
+            return text
+        }
+
+        return String(text[..<backlinkRange.lowerBound])
+    }
+
+    static func sameThreadPostReferences(
+        in text: String,
+        availablePostNumbers: [String],
+        sourcePostNumber: String? = nil
+    ) -> [String] {
+        let availablePostNumberSet = Set(availablePostNumbers)
+        guard !availablePostNumberSet.isEmpty else { return [] }
+
+        let decodedText = text.decodingHTMLEntities()
+        let pattern = #">>(\d+)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+
+        let nsText = decodedText as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        var references: [String] = []
+        var seenReferences = Set<String>()
+
+        for match in regex.matches(in: decodedText, range: range) {
+            guard match.numberOfRanges > 1 else { continue }
+            let postNumber = nsText.substring(with: match.range(at: 1))
+            guard availablePostNumberSet.contains(postNumber),
+                  postNumber != sourcePostNumber,
+                  seenReferences.insert(postNumber).inserted else { continue }
+
+            references.append(postNumber)
+        }
+
+        return references
+    }
+
     private static func appendTextWithQuoteLinks(
         _ text: String,
         attributes: [NSAttributedString.Key: Any],

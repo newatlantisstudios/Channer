@@ -335,6 +335,8 @@ class threadCatalogCV: UICollectionViewController, UICollectionViewDelegateFlowL
             vc.boardAbv = thread.boardAbv
             vc.threadNumber = thread.number
             vc.totalImagesInThread = thread.stats.components(separatedBy: "/").last.flatMap { Int($0) } ?? 0
+            vc.expectedReplyCountFromBoard = thread.currentReplies ?? thread.replies
+            print("[ChannerThreadLoadDebug][threadCatalogCV board=/\(self.boardAbv)] configured threadRepliesTV thread=\(thread.number) expectedReplyCountFromBoard=\(vc.expectedReplyCountFromBoard.map(String.init) ?? "nil") validationPosts=\(ThreadData.postsArray(from: json).count)")
 
             self.navigationController?.pushViewController(vc, animated: true)
         }

@@ -796,13 +796,19 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITex
     private func structureThreadReplies() {
         threadBoardReplies.removeAll()
         for (index, comment) in threadReplies.enumerated() where index < threadBoardReplyNumber.count {
-            let decodedComment = comment.decodingHTMLEntities()
-            for candidate in threadBoardReplyNumber where decodedComment.contains(">>\(candidate)") && candidate != threadBoardReplyNumber[index] {
-                var replies = threadBoardReplies[candidate] ?? []
+            let sourcePostNumber = threadBoardReplyNumber[index]
+            let referencedPostNumbers = TextFormatter.sameThreadPostReferences(
+                in: comment,
+                availablePostNumbers: threadBoardReplyNumber,
+                sourcePostNumber: sourcePostNumber
+            )
+
+            for referencedPostNumber in referencedPostNumbers {
+                var replies = threadBoardReplies[referencedPostNumber] ?? []
                 if !replies.contains(threadBoardReplyNumber[index]) {
                     replies.append(threadBoardReplyNumber[index])
                 }
-                threadBoardReplies[candidate] = replies
+                threadBoardReplies[referencedPostNumber] = replies
             }
         }
     }
