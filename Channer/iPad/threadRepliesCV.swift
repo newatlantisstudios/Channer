@@ -167,6 +167,7 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITex
     /// Thread subject from OP
     var threadSubject: String = ""
     private var hasRestoredSavedScrollPosition = false
+    private var didUserInteractAfterInitialScrollRestore = false
     private var isPostingSupported: Bool {
         BoardsService.shared.selectedSite.supportsPosting
     }
@@ -478,14 +479,47 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITex
             return
         }
 
+        applySavedScrollPosition(position, in: collectionView)
+        scheduleInitialScrollPositionReassertion(position)
+    }
+
+    @discardableResult
+    private func applySavedScrollPosition(_ position: ThreadScrollPosition, in collectionView: UICollectionView) -> Bool {
+        collectionView.layoutIfNeeded()
+
         if let index = restoreIndex(for: position, itemCount: collectionView.numberOfItems(inSection: 0)) {
             let indexPath = IndexPath(item: index, section: 0)
             collectionView.scrollToItem(at: indexPath, at: .top, animated: false)
             collectionView.layoutIfNeeded()
             let restoredY = collectionView.contentOffset.y + CGFloat(position.offsetWithinItem)
             collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: clampedContentOffsetY(restoredY, in: collectionView)), animated: false)
-        } else {
-            collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY), in: collectionView)), animated: false)
+            return true
+        }
+
+        collectionView.setContentOffset(CGPoint(x: collectionView.contentOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY), in: collectionView)), animated: false)
+        return false
+    }
+
+    private func scheduleInitialScrollPositionReassertion(_ position: ThreadScrollPosition) {
+        let restoredBoard = boardAbv
+        let restoredThread = threadNumber
+
+        for delay in [0.05, 0.2, 0.6] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self,
+                      self.boardAbv == restoredBoard,
+                      self.threadNumber == restoredThread,
+                      !self.didUserInteractAfterInitialScrollRestore,
+                      let collectionView = self.collectionView,
+                      !collectionView.isDragging,
+                      !collectionView.isDecelerating,
+                      !collectionView.isTracking,
+                      collectionView.numberOfItems(inSection: 0) > 0 else {
+                    return
+                }
+
+                self.applySavedScrollPosition(position, in: collectionView)
+            }
         }
     }
 
@@ -555,6 +589,20 @@ class threadRepliesCV: UICollectionViewController, QuoteLinkHoverDelegate, UITex
             threadNumber: threadNumber,
             postNumber: threadBoardReplyNumber[lastVisibleIndex]
         )
+    }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        didUserInteractAfterInitialScrollRestore = true
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            saveCurrentScrollPosition()
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        saveCurrentScrollPosition()
     }
 
     override func numberOfSections(in collectionView: UICollectionView) -> Int {

@@ -6,6 +6,7 @@ class boardsTVCell: UITableViewCell {
     private let containerView = UIView()
     let boardNameLabel = UILabel()
     let boardAbvLabel = UILabel()
+    private let pinImageView = UIImageView(image: UIImage(systemName: "pin.fill"))
     
     // MARK: - Initialization
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -37,6 +38,12 @@ class boardsTVCell: UITableViewCell {
         boardNameLabel.lineBreakMode = .byTruncatingTail
         boardNameLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(boardNameLabel)
+
+        pinImageView.tintColor = .systemYellow
+        pinImageView.contentMode = .scaleAspectFit
+        pinImageView.isHidden = true
+        pinImageView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(pinImageView)
         
         // Board abbreviation label
         boardAbvLabel.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
@@ -58,8 +65,13 @@ class boardsTVCell: UITableViewCell {
 
             // Board name label
             boardNameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 14),
-            boardNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: boardAbvLabel.leadingAnchor, constant: -12),
+            boardNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: pinImageView.leadingAnchor, constant: -8),
             boardNameLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+
+            pinImageView.trailingAnchor.constraint(equalTo: boardAbvLabel.leadingAnchor, constant: -10),
+            pinImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            pinImageView.widthAnchor.constraint(equalToConstant: 15),
+            pinImageView.heightAnchor.constraint(equalToConstant: 15),
             
             // Board abbreviation label
             boardAbvLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -14),
@@ -69,9 +81,11 @@ class boardsTVCell: UITableViewCell {
         ])
     }
 
-    func configure(name: String, abbreviation: String) {
+    func configure(name: String, abbreviation: String, isPinned: Bool) {
         boardNameLabel.text = name
         boardAbvLabel.text = "/\(abbreviation)/"
+        pinImageView.isHidden = !isPinned
+        accessibilityLabel = isPinned ? "\(name), /\(abbreviation)/, pinned" : "\(name), /\(abbreviation)/"
     }
     
     // MARK: - Theme Update
@@ -86,6 +100,7 @@ class boardsTVCell: UITableViewCell {
             boardNameLabel.textColor = .label
             boardAbvLabel.textColor = .secondaryLabel
             boardAbvLabel.backgroundColor = .tertiarySystemFill
+            pinImageView.tintColor = .systemYellow
         }
     }
 
@@ -93,5 +108,7 @@ class boardsTVCell: UITableViewCell {
         super.prepareForReuse()
         boardNameLabel.text = nil
         boardAbvLabel.text = nil
+        pinImageView.isHidden = true
+        accessibilityLabel = nil
     }
 }

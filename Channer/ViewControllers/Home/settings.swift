@@ -92,12 +92,6 @@ class settings: UIViewController {
     private var threadsDisplayModeLabel: UILabel!
     private var threadsDisplayModeSegment: UISegmentedControl!
 
-    // Hidden Boards UI
-    private let hiddenBoardsView = UIView()
-    private let hiddenBoardsLabel = UILabel()
-    private let hiddenBoardsCountLabel = UILabel()
-    private let hiddenBoardsButton = UIButton(type: .system)
-    
     // UI for preload videos toggle
     private let preloadVideosView = UIView()
     private let preloadVideosLabel = UILabel()
@@ -160,7 +154,6 @@ class settings: UIViewController {
             offlineReadingView,
             iCloudSyncView,
             launchWithStartupBoardView,
-            hiddenBoardsView,
             themeSettingsView,
             fontSizeView,
             contentFilteringView,
@@ -210,7 +203,6 @@ class settings: UIViewController {
             offlineReadingLabel,
             iCloudSyncLabel,
             launchWithStartupBoardLabel,
-            hiddenBoardsLabel,
             themeSettingsLabel,
             fontSizeLabel,
             fontSizeValueLabel,
@@ -256,8 +248,7 @@ class settings: UIViewController {
     private var secondarySettingsLabels: [UILabel] {
         return [
             offlineReadingSubtitleLabel,
-            iCloudSyncStatusLabel,
-            hiddenBoardsCountLabel
+            iCloudSyncStatusLabel
         ]
     }
 
@@ -266,7 +257,6 @@ class settings: UIViewController {
             selectBoardButton,
             offlineReadingManageButton,
             iCloudForceSync,
-            hiddenBoardsButton,
             themeSettingsButton,
             contentFilteringButton,
             watchRulesButton,
@@ -601,46 +591,6 @@ class settings: UIViewController {
         launchWithStartupBoardToggle.transform = CGAffineTransform(scaleX: 0.85, y: 0.85) // Make toggle slightly smaller
         launchWithStartupBoardToggle.addTarget(self, action: #selector(launchWithStartupBoardToggleChanged), for: .valueChanged)
         launchWithStartupBoardView.addSubview(launchWithStartupBoardToggle)
-
-        // Hidden Boards View
-        hiddenBoardsView.backgroundColor = UIColor.secondarySystemGroupedBackground
-        hiddenBoardsView.layer.cornerRadius = 10
-        hiddenBoardsView.clipsToBounds = true
-        hiddenBoardsView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(hiddenBoardsView)
-
-        // Hidden Boards Label
-        hiddenBoardsLabel.text = "Hidden Boards"
-        hiddenBoardsLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        hiddenBoardsLabel.textAlignment = .left
-        hiddenBoardsLabel.numberOfLines = 1
-        hiddenBoardsLabel.adjustsFontSizeToFitWidth = true
-        hiddenBoardsLabel.minimumScaleFactor = 0.8
-        hiddenBoardsLabel.translatesAutoresizingMaskIntoConstraints = false
-        hiddenBoardsView.addSubview(hiddenBoardsLabel)
-
-        // Hidden Boards Count Label
-        updateHiddenBoardsCountLabel()
-        hiddenBoardsCountLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        hiddenBoardsCountLabel.textColor = .secondaryLabel
-        hiddenBoardsCountLabel.textAlignment = .right
-        hiddenBoardsCountLabel.translatesAutoresizingMaskIntoConstraints = false
-        hiddenBoardsView.addSubview(hiddenBoardsCountLabel)
-
-        // Hidden Boards Button
-        hiddenBoardsButton.setTitle("Manage", for: .normal)
-        hiddenBoardsButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        hiddenBoardsButton.translatesAutoresizingMaskIntoConstraints = false
-        hiddenBoardsButton.addTarget(self, action: #selector(hiddenBoardsButtonTapped), for: .touchUpInside)
-        hiddenBoardsView.addSubview(hiddenBoardsButton)
-
-        // Register for hidden boards changes
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(hiddenBoardsDidChange),
-            name: HiddenBoardsManager.hiddenBoardsChangedNotification,
-            object: nil
-        )
 
         // Theme Settings View
         themeSettingsView.backgroundColor = UIColor.secondarySystemGroupedBackground
@@ -1346,28 +1296,6 @@ class settings: UIViewController {
         // Provide haptic feedback
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
-    }
-
-    @objc private func hiddenBoardsButtonTapped() {
-        let hiddenBoardsVC = HiddenBoardsViewController()
-        navigationController?.pushViewController(hiddenBoardsVC, animated: true)
-
-        // Provide haptic feedback
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-    }
-
-    @objc private func hiddenBoardsDidChange() {
-        updateHiddenBoardsCountLabel()
-    }
-
-    private func updateHiddenBoardsCountLabel() {
-        let count = HiddenBoardsManager.shared.hiddenBoardsCount
-        if count == 0 {
-            hiddenBoardsCountLabel.text = "None"
-        } else {
-            hiddenBoardsCountLabel.text = "\(count) hidden"
-        }
     }
 
     private func updatePassStatusIndicator() {
@@ -2470,27 +2398,8 @@ class settings: UIViewController {
             launchWithStartupBoardToggle.centerYAnchor.constraint(equalTo: launchWithStartupBoardView.centerYAnchor),
             launchWithStartupBoardToggle.trailingAnchor.constraint(equalTo: launchWithStartupBoardView.trailingAnchor, constant: -30),
 
-            // Hidden Boards View
-            hiddenBoardsView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
-            hiddenBoardsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            hiddenBoardsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            hiddenBoardsView.heightAnchor.constraint(equalToConstant: scaledRowHeight),
-
-            // Hidden Boards Label
-            hiddenBoardsLabel.centerYAnchor.constraint(equalTo: hiddenBoardsView.centerYAnchor),
-            hiddenBoardsLabel.leadingAnchor.constraint(equalTo: hiddenBoardsView.leadingAnchor, constant: 20),
-            hiddenBoardsLabel.trailingAnchor.constraint(lessThanOrEqualTo: hiddenBoardsCountLabel.leadingAnchor, constant: -10),
-
-            // Hidden Boards Count Label
-            hiddenBoardsCountLabel.centerYAnchor.constraint(equalTo: hiddenBoardsView.centerYAnchor),
-            hiddenBoardsCountLabel.trailingAnchor.constraint(equalTo: hiddenBoardsButton.leadingAnchor, constant: -10),
-
-            // Hidden Boards Button
-            hiddenBoardsButton.centerYAnchor.constraint(equalTo: hiddenBoardsView.centerYAnchor),
-            hiddenBoardsButton.trailingAnchor.constraint(equalTo: hiddenBoardsView.trailingAnchor, constant: -20),
-
             // FaceID View
-            faceIDView.topAnchor.constraint(equalTo: hiddenBoardsView.bottomAnchor, constant: 16),
+            faceIDView.topAnchor.constraint(equalTo: launchWithStartupBoardView.bottomAnchor, constant: 16),
             faceIDView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             faceIDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             faceIDView.heightAnchor.constraint(equalToConstant: scaledRowHeight),

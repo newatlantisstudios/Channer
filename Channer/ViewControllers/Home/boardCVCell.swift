@@ -44,6 +44,15 @@ class boardCVCell: UICollectionViewCell {
         return label
     }()
 
+    private let pinImageView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(systemName: "pin.fill"))
+        imageView.tintColor = .systemYellow
+        imageView.contentMode = .scaleAspectFit
+        imageView.isHidden = true
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+
     // MARK: - Initializers
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -72,6 +81,7 @@ class boardCVCell: UICollectionViewCell {
         
         // Add subviews
         contentView.addSubview(containerView)
+        containerView.addSubview(pinImageView)
         containerView.addSubview(boardName)
         containerView.addSubview(boardNameAbv)
     }
@@ -89,6 +99,11 @@ class boardCVCell: UICollectionViewCell {
             containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -2),
             containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -2),
 
+            pinImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 6),
+            pinImageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -6),
+            pinImageView.widthAnchor.constraint(equalToConstant: 14),
+            pinImageView.heightAnchor.constraint(equalToConstant: 14),
+
             // Board name constraints - top portion of cell
             boardName.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
             boardName.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 4),
@@ -101,6 +116,13 @@ class boardCVCell: UICollectionViewCell {
             boardNameAbv.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -12)
         ])
     }
+
+    func configure(name: String, abbreviation: String, isPinned: Bool) {
+        boardName.text = name
+        boardNameAbv.text = "/\(abbreviation)/"
+        pinImageView.isHidden = !isPinned
+        accessibilityLabel = isPinned ? "\(name), /\(abbreviation)/, pinned" : "\(name), /\(abbreviation)/"
+    }
     
     // MARK: - Theme Updates
     
@@ -112,6 +134,7 @@ class boardCVCell: UICollectionViewCell {
             containerView.backgroundColor = .secondarySystemBackground
             boardName.textColor = .label
             boardNameAbv.textColor = .secondaryLabel
+            pinImageView.tintColor = .systemYellow
         }
     }
     
@@ -138,5 +161,9 @@ class boardCVCell: UICollectionViewCell {
         // Reset any properties that might have been changed
         transform = CGAffineTransform.identity
         containerView.backgroundColor = .secondarySystemBackground
+        boardName.text = nil
+        boardNameAbv.text = nil
+        pinImageView.isHidden = true
+        accessibilityLabel = nil
     }
 }

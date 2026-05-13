@@ -170,8 +170,19 @@ class ImagePickerHelper: NSObject {
     /// Error info from the last failed video processing attempt
     var lastVideoError: String?
 
+    /// Process a selected image or video file from a file URL.
+    func createSelectedMedia(fromFileURL url: URL, preferredFilename: String? = nil) -> SelectedImage? {
+        lastVideoError = nil
+        let filename = resolvedFilename(for: url, preferredFilename: preferredFilename)
+        if isVideoFilename(filename) {
+            return processVideoFile(at: url, preferredFilename: filename)
+        }
+
+        return processImageFile(at: url, preferredFilename: filename)
+    }
+
     /// Process a selected image file from a file URL
-    private func processImageFile(at url: URL) -> SelectedImage? {
+    private func processImageFile(at url: URL, preferredFilename: String? = nil) -> SelectedImage? {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
@@ -180,23 +191,25 @@ class ImagePickerHelper: NSObject {
             return nil
         }
 
-        let filename = url.lastPathComponent.isEmpty ? "image.jpg" : url.lastPathComponent
+        let filename = resolvedFilename(for: url, preferredFilename: preferredFilename, fallback: "image.jpg")
         return processImage(image, originalFilename: filename)
     }
 
     /// Process a selected video file, transcoding to H264 if needed for 4chan compatibility
-    private func processVideoFile(at url: URL) -> SelectedImage? {
+    private func processVideoFile(at url: URL, preferredFilename: String? = nil) -> SelectedImage? {
         lastVideoError = nil
         let accessing = url.startAccessingSecurityScopedResource()
         defer {
             if accessing { url.stopAccessingSecurityScopedResource() }
         }
 
-        let filename = url.lastPathComponent
+        let filename = resolvedFilename(for: url, preferredFilename: preferredFilename, fallback: "video.mp4")
         let ext = url.pathExtension.lowercased()
+        let filenameExt = (filename as NSString).pathExtension.lowercased()
+        let effectiveExt = ext.isEmpty ? filenameExt : ext
 
         // WebM files are passed through as-is (must already be VP8/VP9)
-        if ext == "webm" {
+        if effectiveExt == "webm" {
             guard let data = try? Data(contentsOf: url) else {
                 lastVideoError = "Could not read file: \(filename)"
                 return nil
@@ -240,6 +253,28 @@ class ImagePickerHelper: NSObject {
 
         let h264Filename = (filename as NSString).deletingPathExtension + ".mp4"
         return SelectedImage(data: transcodedData, filename: h264Filename, mimeType: "video/mp4", thumbnail: thumbnail)
+    }
+
+    private func resolvedFilename(for url: URL, preferredFilename: String?, fallback: String? = nil) -> String {
+        if let preferredFilename = preferredFilename?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !preferredFilename.isEmpty {
+            return preferredFilename
+        }
+
+        if !url.lastPathComponent.isEmpty {
+            return url.lastPathComponent
+        }
+
+        return fallback ?? "file"
+    }
+
+    private func isVideoFilename(_ filename: String) -> Bool {
+        let ext = (filename as NSString).pathExtension.lowercased()
+        if ["webm", "mp4", "m4v"].contains(ext) {
+            return true
+        }
+
+        return UTType(filenameExtension: ext)?.conforms(to: .movie) == true
     }
 
     /// Transcode a video asset to H264/MP4 using AVAssetExportSession

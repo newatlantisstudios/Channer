@@ -4,6 +4,46 @@ import WebKit
 import VLCKit
 import AVFoundation
 
+enum ThreadReplyLayoutDebug {
+    static let isEnabled = true
+    private static let prefix = "[ThreadReplyLayoutDebug]"
+
+    static func log(_ message: String) {
+        guard isEnabled else { return }
+        print("\(prefix) \(message)")
+    }
+
+    static func describe(_ view: UIView) -> String {
+        let name = view.accessibilityIdentifier ?? String(describing: type(of: view))
+        return "\(name) frame=\(view.frame.integral) bounds=\(view.bounds.integral) hidden=\(view.isHidden) alpha=\(String(format: "%.2f", view.alpha)) constraints=\(view.constraints.count)"
+    }
+
+    static func describe(_ constraint: NSLayoutConstraint) -> String {
+        let id = constraint.identifier ?? "no-id"
+        return "\(id) active=\(constraint.isActive) priority=\(constraint.priority.rawValue) \(constraint)"
+    }
+
+    static func printStack(_ stackView: UIStackView, context: String) {
+        guard isEnabled else { return }
+        let arranged = stackView.arrangedSubviews.enumerated().map { index, view in
+            "#\(index) \(describe(view))"
+        }.joined(separator: " | ")
+        log("STACK \(context): \(describe(stackView)) axis=\(stackView.axis.rawValue) spacing=\(stackView.spacing) arranged=[\(arranged)]")
+        log("STACK \(context) horizontal constraints: \(stackView.constraintsAffectingLayout(for: .horizontal).map(describe).joined(separator: " || "))")
+        log("STACK \(context) vertical constraints: \(stackView.constraintsAffectingLayout(for: .vertical).map(describe).joined(separator: " || "))")
+    }
+}
+
+final class DebugLayoutStackView: UIStackView {
+    var debugName = "UIStackView"
+
+    override func updateConstraints() {
+        ThreadReplyLayoutDebug.printStack(self, context: "\(debugName) before updateConstraints")
+        super.updateConstraints()
+        ThreadReplyLayoutDebug.printStack(self, context: "\(debugName) after updateConstraints")
+    }
+}
+
 final class ThreadThumbnailButton: UIButton {
     let thumbnailImageView: UIImageView = {
         let imageView = UIImageView()
@@ -242,7 +282,9 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
     }()
 
     private let linkPreviewStackView: UIStackView = {
-        let stackView = UIStackView()
+        let stackView = DebugLayoutStackView()
+        stackView.debugName = "threadRepliesCell.linkPreviewStackView"
+        stackView.accessibilityIdentifier = "threadRepliesCell.linkPreviewStackView"
         stackView.axis = .vertical
         stackView.spacing = 8
         stackView.isHidden = true
@@ -539,19 +581,49 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             replyTextNoImage.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
         ]
 
+        let linkPreviewImageTextTop = linkPreviewStackView.topAnchor.constraint(equalTo: replyText.bottomAnchor, constant: 6)
+        linkPreviewImageTextTop.priority = .defaultHigh
+
+        let linkPreviewImageTextTopMinimum = linkPreviewStackView.topAnchor.constraint(greaterThanOrEqualTo: replyText.bottomAnchor, constant: 6)
+        let linkPreviewImageThumbnailTopMinimum = linkPreviewStackView.topAnchor.constraint(greaterThanOrEqualTo: threadImage.bottomAnchor, constant: 8)
+        let linkPreviewImageBottom = linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+        [linkPreviewImageTextTopMinimum, linkPreviewImageThumbnailTopMinimum, linkPreviewImageBottom].forEach {
+            $0.priority = UILayoutPriority(999)
+        }
+
         linkPreviewWithImageConstraints = [
-            linkPreviewStackView.leadingAnchor.constraint(equalTo: replyText.leadingAnchor),
-            linkPreviewStackView.trailingAnchor.constraint(equalTo: replyText.trailingAnchor),
-            linkPreviewStackView.topAnchor.constraint(equalTo: replyText.bottomAnchor, constant: 6),
-            linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+            linkPreviewStackView.leadingAnchor.constraint(equalTo: customBackgroundView.leadingAnchor, constant: cornerInset),
+            linkPreviewStackView.trailingAnchor.constraint(equalTo: customBackgroundView.trailingAnchor, constant: -cornerInset),
+            linkPreviewImageTextTopMinimum,
+            linkPreviewImageThumbnailTopMinimum,
+            linkPreviewImageTextTop,
+            linkPreviewImageBottom
         ]
+
+        let linkPreviewNoImageTop = linkPreviewStackView.topAnchor.constraint(equalTo: replyTextNoImage.bottomAnchor, constant: 6)
+        let linkPreviewNoImageBottom = linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+        [linkPreviewNoImageTop, linkPreviewNoImageBottom].forEach {
+            $0.priority = UILayoutPriority(999)
+        }
 
         linkPreviewNoImageConstraints = [
             linkPreviewStackView.leadingAnchor.constraint(equalTo: replyTextNoImage.leadingAnchor),
             linkPreviewStackView.trailingAnchor.constraint(equalTo: replyTextNoImage.trailingAnchor),
-            linkPreviewStackView.topAnchor.constraint(equalTo: replyTextNoImage.bottomAnchor, constant: 6),
-            linkPreviewStackView.bottomAnchor.constraint(lessThanOrEqualTo: customBackgroundView.bottomAnchor, constant: -sideInset)
+            linkPreviewNoImageTop,
+            linkPreviewNoImageBottom
         ]
+
+        identifyConstraints(replyTextWithImageConstraints, prefix: "replyTextWithImage")
+        identifyConstraints(replyTextNoImageConstraints, prefix: "replyTextNoImage")
+        identifyConstraints(replyTextNoImageWithSubjectConstraints, prefix: "replyTextNoImageWithSubject")
+        identifyConstraints(linkPreviewWithImageConstraints, prefix: "linkPreviewWithImage")
+        identifyConstraints(linkPreviewNoImageConstraints, prefix: "linkPreviewNoImage")
+    }
+
+    private func identifyConstraints(_ constraints: [NSLayoutConstraint], prefix: String) {
+        constraints.enumerated().forEach { index, constraint in
+            constraint.identifier = "threadRepliesCell.\(prefix).\(index)"
+        }
     }
 
     // MARK: - Configuration Method
@@ -658,6 +730,11 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
 
         // Update hover interaction
         updatePointerInteractionIfNeeded()
+
+        ThreadReplyLayoutDebug.log(
+            "configured post=\(postNumber) boardNumber=\(boardNumber) withImage=\(withImage) hasSubject=\(hasSubject) linkPreviews=\(linkPreviewStackView.arrangedSubviews.count) contentWidth=\(contentView.bounds.width) cellBounds=\(bounds.integral)"
+        )
+        printLayoutDebugSnapshot(context: "after configure")
     }
 
     private func configureLinkPreviews(from text: NSAttributedString) {
@@ -667,8 +744,10 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         guard !links.isEmpty else { return }
 
         let previewWidth = max(bounds.width - 160, UIScreen.main.bounds.width - 96)
+        ThreadReplyLayoutDebug.log("configureLinkPreviews post=\(postNumber) linkCount=\(links.count) cellBounds=\(bounds.integral) calculatedPreviewWidth=\(previewWidth)")
         links.forEach { link in
             let preview = LinkPreviewView()
+            preview.accessibilityIdentifier = "LinkPreviewView.\(link.type.displayName).\(link.url.host ?? "unknown")"
             preview.configure(with: link, width: previewWidth) { url in
                 UIApplication.shared.open(url)
             }
@@ -676,6 +755,7 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
         }
 
         linkPreviewStackView.isHidden = false
+        ThreadReplyLayoutDebug.printStack(linkPreviewStackView, context: "post=\(postNumber) after adding link previews")
     }
 
     private func clearLinkPreviews() {
@@ -684,6 +764,14 @@ class threadRepliesCell: UITableViewCell, VLCMediaPlayerDelegate {
             view.removeFromSuperview()
         }
         linkPreviewStackView.isHidden = true
+    }
+
+    func printLayoutDebugSnapshot(context: String) {
+        ThreadReplyLayoutDebug.log("CELL \(context) post=\(postNumber) cell=\(ThreadReplyLayoutDebug.describe(self)) content=\(ThreadReplyLayoutDebug.describe(contentView)) background=\(ThreadReplyLayoutDebug.describe(customBackgroundView))")
+        ThreadReplyLayoutDebug.log("CELL \(context) textWithImage=\(ThreadReplyLayoutDebug.describe(replyText)) textNoImage=\(ThreadReplyLayoutDebug.describe(replyTextNoImage)) image=\(ThreadReplyLayoutDebug.describe(threadImage))")
+        ThreadReplyLayoutDebug.printStack(linkPreviewStackView, context: "cell post=\(postNumber) \(context)")
+        let activePreviewConstraints = (linkPreviewWithImageConstraints + linkPreviewNoImageConstraints).filter { $0.isActive }
+        ThreadReplyLayoutDebug.log("CELL \(context) active preview constraints: \(activePreviewConstraints.map(ThreadReplyLayoutDebug.describe).joined(separator: " || "))")
     }
 
     func flashQuoteTarget() {

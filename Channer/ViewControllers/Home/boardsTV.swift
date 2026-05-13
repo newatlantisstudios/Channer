@@ -122,20 +122,13 @@ class boardsTV: UITableViewController {
 
     // MARK: - View Lifecycle
 
-    /// Sorts the boards alphabetically by name while maintaining name-abbreviation pairs
+    /// Sorts pinned boards first, then the remaining boards alphabetically.
     private func sortBoardsAlphabetically() {
-        // Create array of tuples with board name and abbreviation
-        let combinedBoards = zip(boardNames, boardsAbv).map { ($0, $1) }
+        let orderedBoards = PinnedBoardsManager.shared.orderBoards(boardNames: boardNames, boardCodes: boardsAbv)
+        boardNames = orderedBoards.names
+        boardsAbv = orderedBoards.codes
 
-        // Sort the combined array by board name
-        let sortedBoards = combinedBoards.sorted { $0.0 < $1.0 }
-
-        // Update the original arrays with sorted values
-        boardNames = sortedBoards.map { $0.0 }
-        boardsAbv = sortedBoards.map { $0.1 }
-
-        // Print confirmation
-        print("Boards sorted alphabetically")
+        print("Boards sorted with pinned boards first")
     }
 
     /// Filters out hidden boards from the display
@@ -196,6 +189,12 @@ class boardsTV: UITableViewController {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(pinnedBoardsDidChange),
+            name: PinnedBoardsManager.pinnedBoardsChangedNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(imageboardSiteDidChange),
             name: .imageboardSiteChanged,
             object: nil
@@ -214,6 +213,10 @@ class boardsTV: UITableViewController {
         tableView.rowHeight = 52
         tableView.estimatedRowHeight = 52
         tableView.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 12, right: 0)
+
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleBoardLongPress(_:)))
+        longPressGesture.minimumPressDuration = 0.5
+        tableView.addGestureRecognizer(longPressGesture)
         
         // Set backBarButtonItem to have just the arrow without text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
@@ -290,6 +293,11 @@ class boardsTV: UITableViewController {
     /// Called when hidden boards settings change
     @objc private func hiddenBoardsDidChange() {
         // Reload boards from service and reapply filters
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
+    }
+
+    @objc private func pinnedBoardsDidChange() {
         guard !isBoardListLoading else { return }
         reloadBoardListFromService()
     }
@@ -685,12 +693,35 @@ class boardsTV: UITableViewController {
             return fallbackCell
         }
 
-        cell.configure(name: boardNames[indexPath.row], abbreviation: boardsAbv[indexPath.row])
+        let boardCode = boardsAbv[indexPath.row]
+        cell.configure(
+            name: boardNames[indexPath.row],
+            abbreviation: boardCode,
+            isPinned: PinnedBoardsManager.shared.isBoardPinned(boardCode)
+        )
         
         return cell
     }
     
     // MARK: - UITableViewDelegate
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard indexPath.row < boardsAbv.count else { return nil }
+
+        let boardCode = boardsAbv[indexPath.row]
+        let isPinned = PinnedBoardsManager.shared.isBoardPinned(boardCode)
+        let actionTitle = isPinned ? "Unpin" : "Pin"
+        let pinAction = UIContextualAction(style: .normal, title: actionTitle) { [weak self] _, _, completion in
+            self?.togglePinBoard(at: indexPath)
+            completion(true)
+        }
+        pinAction.backgroundColor = .systemYellow
+        pinAction.image = UIImage(systemName: isPinned ? "pin.slash" : "pin")
+
+        let configuration = UISwipeActionsConfiguration(actions: [pinAction])
+        configuration.performsFirstActionWithFullSwipe = true
+        return configuration
+    }
+
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard indexPath.row < boardNames.count else {
             print("Index \(indexPath.row) out of bounds for boardNames array.")
@@ -716,6 +747,23 @@ class boardsTV: UITableViewController {
             navController.modalPresentationStyle = .fullScreen
             present(navController, animated: true)
         }
+    }
+
+    @objc private func handleBoardLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        guard gestureRecognizer.state == .began else { return }
+
+        let location = gestureRecognizer.location(in: tableView)
+        guard let indexPath = tableView.indexPathForRow(at: location) else { return }
+        togglePinBoard(at: indexPath)
+    }
+
+    private func togglePinBoard(at indexPath: IndexPath) {
+        guard indexPath.row < boardsAbv.count else { return }
+
+        PinnedBoardsManager.shared.toggleBoard(boardsAbv[indexPath.row])
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
     }
     
     // MARK: - Keyboard Shortcuts

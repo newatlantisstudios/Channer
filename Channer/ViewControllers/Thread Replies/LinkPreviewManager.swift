@@ -1043,7 +1043,12 @@ class LinkPreviewManager {
 /// A reusable view component for displaying link previews inline
 class LinkPreviewView: UIView {
 
-    private let containerStackView = UIStackView()
+    private let containerStackView: UIStackView = {
+        let stackView = DebugLayoutStackView()
+        stackView.debugName = "LinkPreviewView.containerStackView"
+        stackView.accessibilityIdentifier = "LinkPreviewView.containerStackView"
+        return stackView
+    }()
     private var linkData: LinkPreviewData?
     private var onTap: ((URL) -> Void)?
 
@@ -1063,12 +1068,16 @@ class LinkPreviewView: UIView {
         containerStackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(containerStackView)
 
-        NSLayoutConstraint.activate([
+        let containerConstraints = [
             containerStackView.topAnchor.constraint(equalTo: topAnchor),
             containerStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             containerStackView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerStackView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        ]
+        containerConstraints.enumerated().forEach { index, constraint in
+            constraint.identifier = "LinkPreviewView.containerStack.\(index)"
+        }
+        NSLayoutConstraint.activate(containerConstraints)
 
         // Add tap gesture
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -1085,7 +1094,10 @@ class LinkPreviewView: UIView {
 
         // Create and add preview view
         let previewView = LinkPreviewManager.shared.createPreviewView(for: data, width: width)
+        previewView.accessibilityIdentifier = "RichLinkPreviewCardView.\(data.type.displayName).\(data.url.host ?? "unknown")"
         containerStackView.addArrangedSubview(previewView)
+        ThreadReplyLayoutDebug.log("LinkPreviewView configured type=\(data.type.displayName) url=\(data.url.absoluteString) requestedWidth=\(width) bounds=\(bounds.integral)")
+        ThreadReplyLayoutDebug.printStack(containerStackView, context: "LinkPreviewView after configure")
     }
 
     @objc private func handleTap() {
@@ -1109,6 +1121,7 @@ private final class RichLinkPreviewCardView: UIView {
     private var webView: WKWebView?
     private var webHeightConstraint: NSLayoutConstraint?
     private var linkData: LinkPreviewData?
+    private let fittingPriority = UILayoutPriority(999)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1165,7 +1178,29 @@ private final class RichLinkPreviewCardView: UIView {
         container.addSubview(embedButton)
         container.addSubview(floatButton)
 
-        NSLayoutConstraint.activate([
+        let flexibleHorizontalConstraints = [
+            thumbnailView.widthAnchor.constraint(equalToConstant: 96),
+            iconView.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
+            iconView.widthAnchor.constraint(equalToConstant: 18),
+            serviceLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 5),
+            serviceLabel.trailingAnchor.constraint(lessThanOrEqualTo: openButton.leadingAnchor, constant: -8),
+            openButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
+            openButton.widthAnchor.constraint(equalToConstant: 34),
+            floatButton.trailingAnchor.constraint(equalTo: openButton.leadingAnchor, constant: -2),
+            floatButton.widthAnchor.constraint(equalToConstant: 34),
+            embedButton.trailingAnchor.constraint(equalTo: floatButton.leadingAnchor, constant: -2),
+            embedButton.widthAnchor.constraint(equalToConstant: 34),
+            titleLabel.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
+            titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor)
+        ]
+        flexibleHorizontalConstraints.enumerated().forEach { index, constraint in
+            constraint.priority = fittingPriority
+            constraint.identifier = "RichLinkPreviewCardView.flexHorizontal.\(index)"
+        }
+
+        let requiredConstraints = [
             container.topAnchor.constraint(equalTo: topAnchor),
             container.leadingAnchor.constraint(equalTo: leadingAnchor),
             container.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -1173,44 +1208,33 @@ private final class RichLinkPreviewCardView: UIView {
 
             thumbnailView.topAnchor.constraint(equalTo: container.topAnchor),
             thumbnailView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            thumbnailView.widthAnchor.constraint(equalToConstant: 96),
             thumbnailView.heightAnchor.constraint(equalToConstant: 74),
 
-            iconView.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
             iconView.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
-            iconView.widthAnchor.constraint(equalToConstant: 18),
             iconView.heightAnchor.constraint(equalToConstant: 18),
 
-            serviceLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 5),
             serviceLabel.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
-            serviceLabel.trailingAnchor.constraint(lessThanOrEqualTo: openButton.leadingAnchor, constant: -8),
 
             openButton.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            openButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
-            openButton.widthAnchor.constraint(equalToConstant: 34),
             openButton.heightAnchor.constraint(equalToConstant: 34),
 
             floatButton.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            floatButton.trailingAnchor.constraint(equalTo: openButton.leadingAnchor, constant: -2),
-            floatButton.widthAnchor.constraint(equalToConstant: 34),
             floatButton.heightAnchor.constraint(equalToConstant: 34),
 
             embedButton.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            embedButton.trailingAnchor.constraint(equalTo: floatButton.leadingAnchor, constant: -2),
-            embedButton.widthAnchor.constraint(equalToConstant: 34),
             embedButton.heightAnchor.constraint(equalToConstant: 34),
 
-            titleLabel.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
             titleLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 4),
-            titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
 
-            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 3),
             subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -10),
 
             thumbnailView.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor)
-        ])
+        ]
+        requiredConstraints.enumerated().forEach { index, constraint in
+            constraint.identifier = "RichLinkPreviewCardView.required.\(index)"
+        }
+        NSLayoutConstraint.activate(requiredConstraints + flexibleHorizontalConstraints)
 
         openButton.addAction(UIAction { [weak self] _ in
             guard let url = self?.linkData?.url else { return }
@@ -1237,6 +1261,7 @@ private final class RichLinkPreviewCardView: UIView {
 
     func configure(with data: LinkPreviewData, width: CGFloat) {
         linkData = data
+        accessibilityIdentifier = "RichLinkPreviewCardView.\(data.type.displayName).\(data.url.host ?? "unknown")"
 
         iconView.image = data.type.icon
         iconView.tintColor = data.type.accentColor
@@ -1248,6 +1273,7 @@ private final class RichLinkPreviewCardView: UIView {
 
         embedButton.isHidden = !data.type.isEmbeddable
         floatButton.isHidden = !data.type.isEmbeddable
+        ThreadReplyLayoutDebug.log("RichLinkPreviewCard configure type=\(data.type.displayName) url=\(data.url.absoluteString) requestedWidth=\(width) bounds=\(bounds.integral) embeddable=\(data.type.isEmbeddable)")
 
         if let coverURL = data.type.coverURL {
             LinkPreviewManager.shared.loadImage(from: coverURL) { [weak self] image in

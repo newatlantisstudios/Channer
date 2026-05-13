@@ -131,20 +131,13 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
     // MARK: - View Lifecycle
 
-    /// Sorts the boards alphabetically by name while maintaining name-abbreviation pairs
+    /// Sorts pinned boards first, then the remaining boards alphabetically.
     private func sortBoardsAlphabetically() {
-        // Create array of tuples with board name and abbreviation
-        let combinedBoards = zip(boardNames, boardsAbv).map { ($0, $1) }
+        let orderedBoards = PinnedBoardsManager.shared.orderBoards(boardNames: boardNames, boardCodes: boardsAbv)
+        boardNames = orderedBoards.names
+        boardsAbv = orderedBoards.codes
 
-        // Sort the combined array by board name
-        let sortedBoards = combinedBoards.sorted { $0.0 < $1.0 }
-
-        // Update the original arrays with sorted values
-        boardNames = sortedBoards.map { $0.0 }
-        boardsAbv = sortedBoards.map { $0.1 }
-
-        // Print confirmation
-        print("Boards sorted alphabetically")
+        print("Boards sorted with pinned boards first")
     }
 
     /// Filters out hidden boards from the display
@@ -205,6 +198,12 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(pinnedBoardsDidChange),
+            name: PinnedBoardsManager.pinnedBoardsChangedNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(imageboardSiteDidChange),
             name: .imageboardSiteChanged,
             object: nil
@@ -221,6 +220,10 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
 
         // Register cell
         collectionView.register(boardCVCell.self, forCellWithReuseIdentifier: reuseIdentifier)
+
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleBoardLongPress(_:)))
+        longPressGesture.minimumPressDuration = 0.5
+        collectionView.addGestureRecognizer(longPressGesture)
         
         // Set backBarButtonItem to have just the arrow without text
         navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
@@ -301,6 +304,11 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
     /// Called when hidden boards settings change
     @objc private func hiddenBoardsDidChange() {
         // Reload boards from service and reapply filters
+        guard !isBoardListLoading else { return }
+        reloadBoardListFromService()
+    }
+
+    @objc private func pinnedBoardsDidChange() {
         guard !isBoardListLoading else { return }
         reloadBoardListFromService()
     }
@@ -707,11 +715,31 @@ class boardsCV: UICollectionViewController, UICollectionViewDelegateFlowLayout {
             fatalError("Failed to dequeue boardCVCell")
         }
 
-        // Configure the cell
-        cell.boardName.text = boardNames[indexPath.row] // Ensure this array has valid strings
-        cell.boardNameAbv.text = "/" + boardsAbv[indexPath.row] + "/" // Ensure this array matches `boardNames`
+        let boardCode = boardsAbv[indexPath.row]
+        cell.configure(
+            name: boardNames[indexPath.row],
+            abbreviation: boardCode,
+            isPinned: PinnedBoardsManager.shared.isBoardPinned(boardCode)
+        )
 
         return cell
+    }
+
+    @objc private func handleBoardLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
+        guard gestureRecognizer.state == .began else { return }
+
+        let location = gestureRecognizer.location(in: collectionView)
+        guard let indexPath = collectionView.indexPathForItem(at: location) else { return }
+        togglePinBoard(at: indexPath)
+    }
+
+    private func togglePinBoard(at indexPath: IndexPath) {
+        guard indexPath.row < boardsAbv.count else { return }
+
+        PinnedBoardsManager.shared.toggleBoard(boardsAbv[indexPath.row])
+
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
     }
     
     // MARK: - UICollectionView Delegate

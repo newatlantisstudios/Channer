@@ -24,7 +24,8 @@ class ICloudSyncManager {
         "channer_launch_with_startup_board",
         "channer_boards_auto_refresh_interval",
         "channer_threads_auto_refresh_interval",
-        "channer_hidden_boards"
+        "channer_hidden_boards",
+        "channer_pinned_boards"
     ]
 
     // Keys for complex data sync (Codable objects)
@@ -303,6 +304,12 @@ class ICloudSyncManager {
         if let localHiddenBoards = UserDefaults.standard.array(forKey: "channer_hidden_boards"),
            iCloudStore.array(forKey: "channer_hidden_boards") == nil {
             iCloudStore.set(localHiddenBoards, forKey: "channer_hidden_boards")
+        }
+
+        // Migrate pinned boards
+        if let localPinnedBoards = UserDefaults.standard.array(forKey: "channer_pinned_boards"),
+           iCloudStore.array(forKey: "channer_pinned_boards") == nil {
+            iCloudStore.set(localPinnedBoards, forKey: "channer_pinned_boards")
         }
 
         // Migrate pass credentials (pass_id cookie)

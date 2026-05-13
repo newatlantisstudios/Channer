@@ -1144,6 +1144,25 @@ class ComposeViewController: UIViewController {
     }
 
 #if targetEnvironment(macCatalyst)
+    private var supportedDropTypeIdentifiers: [String] {
+        var identifiers = [
+            UTType.image.identifier,
+            UTType.movie.identifier,
+            UTType.mpeg4Movie.identifier,
+            UTType.fileURL.identifier
+        ]
+
+        if let webm = UTType(filenameExtension: "webm") {
+            identifiers.append(webm.identifier)
+        }
+
+        return identifiers
+    }
+
+    private var mediaDropTypeIdentifiers: [String] {
+        supportedDropTypeIdentifiers.filter { $0 != UTType.fileURL.identifier }
+    }
+
     private func handleDroppedImage(_ image: UIImage, filename: String?) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -1154,30 +1173,66 @@ class ComposeViewController: UIViewController {
         }
     }
 
-    private func handleDroppedFileURL(_ url: URL) {
+    private func handleDroppedFileURL(_ url: URL, preferredFilename: String? = nil, removeWhenDone: Bool = false) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            let needsAccess = url.startAccessingSecurityScopedResource()
-            defer {
-                if needsAccess {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
+            defer { if removeWhenDone { try? FileManager.default.removeItem(at: url) } }
 
-            let filename = url.lastPathComponent.isEmpty ? "image.jpg" : url.lastPathComponent
-            guard let data = try? Data(contentsOf: url),
-                  let image = UIImage(data: data) else {
-                DispatchQueue.main.async {
-                    self.showAlert(title: "Unable to Load Image", message: "The dropped file could not be read as an image.")
-                }
-                return
-            }
-
-            let selectedImage = self.imagePicker.createSelectedImage(from: image, originalFilename: filename)
+            let selectedImage = self.imagePicker.createSelectedMedia(fromFileURL: url, preferredFilename: preferredFilename)
             DispatchQueue.main.async {
-                self.handleImageSelection(selectedImage)
+                if let selectedImage = selectedImage {
+                    self.handleImageSelection(selectedImage)
+                } else {
+                    let message = self.imagePicker.lastVideoError ?? "The dropped file could not be read as a supported image or video."
+                    self.showAlert(title: "Unable to Load File", message: message)
+                }
             }
         }
+    }
+
+    private func handleDroppedTemporaryFileURL(_ url: URL, preferredFilename: String?) {
+        let trimmedFilename = preferredFilename?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filename = trimmedFilename?.isEmpty == false ? trimmedFilename : nil
+        let copiedURL = copyDroppedTemporaryFile(at: url, preferredFilename: filename)
+        handleDroppedFileURL(copiedURL ?? url, preferredFilename: filename, removeWhenDone: copiedURL != nil)
+    }
+
+    private func copyDroppedTemporaryFile(at url: URL, preferredFilename: String?) -> URL? {
+        let filename = preferredFilename ?? url.lastPathComponent
+        let ext = (filename as NSString).pathExtension.isEmpty ? url.pathExtension : (filename as NSString).pathExtension
+        var tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        if !ext.isEmpty {
+            tempURL.appendPathExtension(ext)
+        }
+
+        do {
+            try FileManager.default.copyItem(at: url, to: tempURL)
+            return tempURL
+        } catch {
+            return nil
+        }
+    }
+
+    private func preferredDropFilename(from provider: NSItemProvider, typeIdentifier: String) -> String? {
+        let suggestedName = provider.suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let suggestedName = suggestedName, !suggestedName.isEmpty {
+            return suggestedName
+        }
+
+        if let webm = UTType(filenameExtension: "webm"),
+           typeIdentifier == webm.identifier {
+            return "dropped.webm"
+        }
+
+        if typeIdentifier == UTType.movie.identifier || typeIdentifier == UTType.mpeg4Movie.identifier {
+            return "dropped.mp4"
+        }
+
+        if typeIdentifier == UTType.image.identifier {
+            return "dropped.jpg"
+        }
+
+        return nil
     }
 
     private func setDropHighlight(_ isActive: Bool) {
@@ -1190,16 +1245,17 @@ class ComposeViewController: UIViewController {
         }
     }
 
-    private func loadDroppedImage(from provider: NSItemProvider) {
-        if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-            provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] url, _ in
+    private func loadDroppedMedia(from provider: NSItemProvider) {
+        if let typeIdentifier = mediaDropTypeIdentifiers.first(where: { provider.hasItemConformingToTypeIdentifier($0) }) {
+            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, _ in
                 guard let self = self else { return }
+                let filename = self.preferredDropFilename(from: provider, typeIdentifier: typeIdentifier)
                 if let url = url {
-                    self.handleDroppedFileURL(url)
+                    self.handleDroppedTemporaryFileURL(url, preferredFilename: filename)
                 } else if provider.canLoadObject(ofClass: UIImage.self) {
                     provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
                         guard let self = self, let image = object as? UIImage else { return }
-                        let filename = provider.suggestedName ?? "image.jpg"
+                        let filename = filename ?? "image.jpg"
                         self.handleDroppedImage(image, filename: filename)
                     }
                 }
@@ -1440,7 +1496,7 @@ final class QuickReplyPreferences {
 // MARK: - UIDropInteractionDelegate (macOS)
 extension ComposeViewController: UIDropInteractionDelegate {
     func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
-        return session.hasItemsConforming(toTypeIdentifiers: [UTType.image.identifier, UTType.fileURL.identifier])
+        return session.hasItemsConforming(toTypeIdentifiers: supportedDropTypeIdentifiers)
     }
 
     func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
@@ -1472,13 +1528,13 @@ extension ComposeViewController: UIDropInteractionDelegate {
                           let url = URL(dataRepresentation: data, relativeTo: nil) {
                     self.handleDroppedFileURL(url)
                 } else {
-                    self.loadDroppedImage(from: provider)
+                    self.loadDroppedMedia(from: provider)
                 }
             }
             return
         }
 
-        loadDroppedImage(from: provider)
+        loadDroppedMedia(from: provider)
     }
 }
 #endif
