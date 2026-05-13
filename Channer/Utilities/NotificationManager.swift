@@ -279,6 +279,18 @@ class NotificationManager {
         return notifications.filter { !$0.isRead }.count
     }
 
+    /// Count used for the iOS app icon badge.
+    ///
+    /// Keep this aligned with the in-app notifications screen: thread-level unread
+    /// post counts are shown on thread cells, not in Notifications.
+    func getApplicationBadgeCount() -> Int {
+        guard UserDefaults.standard.bool(forKey: Self.notificationsEnabledKey) else {
+            return 0
+        }
+
+        return getUnreadCount(respectingPushPreferences: true)
+    }
+
     // MARK: - Filtering & Grouping
 
     /// Gets notifications filtered by type

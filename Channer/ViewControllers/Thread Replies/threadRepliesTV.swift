@@ -796,11 +796,7 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             DispatchQueue.main.async {
                 self?.galleryDebugLog("commitThreadReadStateOnDisappear saved read/favorite state", since: debugStart)
 
-                let notificationsEnabled = UserDefaults.standard.bool(forKey: "channer_notifications_enabled")
-                let badgeCount = notificationsEnabled
-                    ? NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount()
-                    : 0
-                UIApplication.shared.applicationIconBadgeNumber = badgeCount
+                UIApplication.shared.applicationIconBadgeNumber = NotificationManager.shared.getApplicationBadgeCount()
             }
         }
     }

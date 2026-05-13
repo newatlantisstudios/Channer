@@ -478,6 +478,47 @@ class NotificationManagerTests: XCTestCase {
         XCTAssertEqual(manager.getUnreadCount(respectingPushPreferences: true), 1, "Preference-aware unread count should only include enabled notification types")
     }
 
+    func testNotificationManagerApplicationBadgeCountMatchesVisibleUnreadNotifications() {
+        // Arrange
+        manager.enabledPushNotificationOptions = [.watchedPosts]
+        let visibleNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "12345",
+            replyNo: "67890",
+            replyToNo: "11111",
+            replyText: "Watched post reply",
+            notificationType: .watchedPostReply
+        )
+        let hiddenNotification = ReplyNotification(
+            boardAbv: "g",
+            threadNo: "22222",
+            replyNo: "33333",
+            replyToNo: "",
+            replyText: "Thread update",
+            notificationType: .threadUpdate
+        )
+        manager.addNotification(visibleNotification)
+        manager.addNotification(hiddenNotification)
+
+        // Act
+        let badgeCount = manager.getApplicationBadgeCount()
+        let visibleUnreadCount = manager.getUnreadCount(respectingPushPreferences: true)
+
+        // Assert
+        XCTAssertEqual(badgeCount, visibleUnreadCount, "The app icon badge should match the in-app notifications unread count")
+        XCTAssertEqual(badgeCount, 1, "Disabled notification categories should not inflate the app icon badge")
+    }
+
+    func testNotificationManagerApplicationBadgeCountIsZeroWhenNotificationsDisabled() {
+        // Arrange
+        manager.enabledPushNotificationOptions = Set(PushNotificationOption.allCases)
+        manager.addNotification(TestDataFactory.createTestNotification())
+        UserDefaults.standard.set(false, forKey: NotificationManager.notificationsEnabledKey)
+
+        // Act & Assert
+        XCTAssertEqual(manager.getApplicationBadgeCount(), 0, "The app icon badge should clear when notifications are disabled")
+    }
+
     func testNotificationManagerGroupedNotificationsHideAllWhenNotificationsDisabled() {
         // Arrange
         manager.enabledPushNotificationOptions = Set(PushNotificationOption.allCases)

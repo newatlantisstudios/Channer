@@ -642,6 +642,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             name: .notificationDataChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(notificationBadgeNeedsUpdate),
+            name: .pushNotificationSettingsChanged,
+            object: nil
+        )
 
         updateApplicationBadgeCount()
     }
@@ -651,20 +657,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     private func updateApplicationBadgeCount() {
-        // Only update if notifications are enabled
-        let notificationsEnabled = UserDefaults.standard.bool(forKey: NotificationManager.notificationsEnabledKey)
-        if !notificationsEnabled {
-            UIApplication.shared.applicationIconBadgeNumber = 0
-            return
-        }
-
-        // Use NotificationManager's unread count for badge
-        let notificationBadgeCount = NotificationManager.shared.getUnreadCount(respectingPushPreferences: true)
-        let threadUnreadCount = ThreadReadStateManager.shared.totalUnreadCount()
-
-        // Update the application badge
+        let badgeCount = NotificationManager.shared.getApplicationBadgeCount()
         DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = notificationBadgeCount + threadUnreadCount
+            UIApplication.shared.applicationIconBadgeNumber = badgeCount
         }
     }
     

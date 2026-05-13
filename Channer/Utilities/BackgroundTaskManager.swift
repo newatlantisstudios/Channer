@@ -733,13 +733,7 @@ class BackgroundTaskManager {
 
     /// Updates the application badge count
     private func updateApplicationBadgeCount() {
-        guard UserDefaults.standard.bool(forKey: "channer_notifications_enabled") else {
-            UIApplication.shared.applicationIconBadgeNumber = 0
-            return
-        }
-
-        let badgeCount = NotificationManager.shared.getUnreadCount(respectingPushPreferences: true) + ThreadReadStateManager.shared.totalUnreadCount()
-
+        let badgeCount = NotificationManager.shared.getApplicationBadgeCount()
         DispatchQueue.main.async {
             UIApplication.shared.applicationIconBadgeNumber = badgeCount
         }
