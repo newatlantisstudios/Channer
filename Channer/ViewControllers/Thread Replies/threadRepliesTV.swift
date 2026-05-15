@@ -402,6 +402,18 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         return "post=\(position.postNumber ?? "nil") item=\(position.itemIndex) offsetWithin=\(String(format: "%.1f", position.offsetWithinItem)) rawY=\(String(format: "%.1f", position.contentOffsetY))"
     }
 
+    /// Returns the post number of the current top-of-viewport visible row (after filters/pruning).
+    /// Purely for debug logging during auto-refresh scroll diagnosis.
+    private func debugFirstVisiblePostNumber() -> String? {
+        let viewportTop = tableView.contentOffset.y + tableView.adjustedContentInset.top
+        let visibleIPs = (tableView.indexPathsForVisibleRows ?? []).sorted { $0.row < $1.row }
+        let anchorIP = visibleIPs.first { tableView.rectForRow(at: $0).maxY > viewportTop } ?? visibleIPs.first
+        guard let ip = anchorIP,
+              let dataIdx = actualIndex(for: ip),
+              dataIdx < threadBoardReplyNumber.count else { return nil }
+        return threadBoardReplyNumber[dataIdx]
+    }
+
     private func debugVisibleRowsSummary(limit: Int = 8) -> String {
         let rows = (tableView.indexPathsForVisibleRows ?? []).sorted { $0.row < $1.row }
         guard !rows.isEmpty else { return "none" }
@@ -1384,16 +1396,54 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             return
         }
 
+        // Tolerance check: if the anchor postNumber is already the top visible row
+        // and we are within ~3pt of the desired offsetWithinItem, skip the scrollTo/setContentOffset.
+        // This prevents the scheduled re-assertion timers (and any minor drift from async
+        // image loads or cell height changes after refresh) from causing visible "table movement".
+        var didSkipDueToTolerance = false
+        if let targetPost = position.postNumber {
+            let viewportTop = tableView.contentOffset.y + tableView.adjustedContentInset.top
+            let visibleIPs = (tableView.indexPathsForVisibleRows ?? []).sorted { $0.row < $1.row }
+            if let anchorIP = visibleIPs.first(where: { tableView.rectForRow(at: $0).maxY > viewportTop }) ?? visibleIPs.first,
+               let dataIdx = actualIndex(for: anchorIP),
+               dataIdx < threadBoardReplyNumber.count,
+               threadBoardReplyNumber[dataIdx] == targetPost {
+                let rowRect = tableView.rectForRow(at: anchorIP)
+                let currentOffsetWithin = max(0, viewportTop - rowRect.minY)
+                let targetOffset = CGFloat(position.offsetWithinItem)
+                let delta = abs(currentOffsetWithin - targetOffset)
+                threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] TOLERANCE CHECK targetPost=\(targetPost) currentOffsetWithin=\(String(format: "%.2f", currentOffsetWithin)) targetOffset=\(String(format: "%.2f", targetOffset)) delta=\(String(format: "%.2f", delta))")
+                if delta < 8.0 {
+                    didSkipDueToTolerance = true
+                    if let debugCycleID {
+                        debugAutoRefreshScrollState(cycleID: debugCycleID, context: "restoreScrollPosition skipped (already at anchor post within tolerance)")
+                    }
+                    threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] >>> SKIPPING setContentOffset (within 8pt tolerance)")
+                    return
+                }
+            } else {
+                threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] targetPost=\(targetPost) NOT currently the top visible row (or not found) — will try restoreIndex")
+            }
+        }
+
         if let visibleRow = restoreIndex(for: position),
            scrollToVisibleRow(visibleRow, at: .top, animated: false) {
             tableView.layoutIfNeeded()
             let restoredY = tableView.contentOffset.y + CGFloat(position.offsetWithinItem)
-            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: clampedContentOffsetY(restoredY)), animated: false)
+            let finalY = clampedContentOffsetY(restoredY)
+            threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] SUCCESS via postNumber/itemIndex visibleRow=\(visibleRow) preOffsetY=\(String(format: "%.1f", tableView.contentOffset.y)) targetRestoredY=\(String(format: "%.1f", restoredY)) finalY=\(String(format: "%.1f", finalY))")
+            tableView.setContentOffset(CGPoint(x: tableView.contentOffset.x, y: finalY), animated: false)
+            let afterSet = debugFirstVisiblePostNumber()
+            threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] AFTER setContentOffset topNow=\(afterSet ?? "nil") actualOffsetY=\(String(format: "%.2f", tableView.contentOffset.y))")
             if let debugCycleID {
                 debugAutoRefreshScrollState(cycleID: debugCycleID, context: "restoreScrollPosition after anchor visibleRow=\(visibleRow) restoredY=\(String(format: "%.1f", restoredY))")
             }
         } else {
-            tableView.setContentOffset(CGPoint(x: fallbackOffset.x, y: clampedContentOffsetY(CGFloat(position.contentOffsetY))), animated: false)
+            let finalY = clampedContentOffsetY(CGFloat(position.contentOffsetY))
+            threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] FALLBACK to raw contentOffsetY (restoreIndex returned nil) usingY=\(String(format: "%.1f", finalY))")
+            tableView.setContentOffset(CGPoint(x: fallbackOffset.x, y: finalY), animated: false)
+            let afterFallback = debugFirstVisiblePostNumber()
+            threadLoadDebug("restoreScrollPosition CYCLE[\(debugCycleID ?? -1)] AFTER fallback topNow=\(afterFallback ?? "nil") actualOffsetY=\(String(format: "%.2f", tableView.contentOffset.y))")
             if let debugCycleID {
                 debugAutoRefreshScrollState(cycleID: debugCycleID, context: "restoreScrollPosition after fallback-missing-anchor")
             }
@@ -1439,9 +1489,14 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     private func scheduleAutoRefreshPostRestoreDebug(cycleID: Int, maintainedPosition: ThreadScrollPosition? = nil, fallbackOffset: CGPoint? = nil) {
-        for delay in [0.0, 0.15, 0.5, 1.0, 2.0] {
+        // Start re-assertions at 0.1s (after initial layout settle) rather than 0.0s.
+        // This + the tolerance check in restoreScrollPosition prevents the re-assertion
+        // timers from causing visible "table movement" micro-adjustments after refresh.
+        for delay in [0.1, 0.35, 0.8, 1.5, 2.5] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self else { return }
+                let currentTopAtReassert = self.debugFirstVisiblePostNumber()
+                self.threadLoadDebug("autoRefresh[\(cycleID)] REASSERT TIMER +\(String(format: "%.2f", delay))s currentTop=\(currentTopAtReassert ?? "nil") isDragging=\(self.tableView.isDragging) isDecelerating=\(self.tableView.isDecelerating)")
                 if let maintainedPosition,
                    let fallbackOffset,
                    !self.tableView.isDragging,
@@ -1449,9 +1504,11 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                    !self.tableView.isTracking {
                     self.restoreScrollPosition(maintainedPosition, fallbackOffset: fallbackOffset, debugCycleID: cycleID)
                     self.threadLoadDebug("autoRefresh[\(cycleID)] reasserted maintained anchor at +\(String(format: "%.2f", delay))s position{\(self.debugScrollPositionDescription(maintainedPosition))}")
+                } else {
+                    self.threadLoadDebug("autoRefresh[\(cycleID)] REASSERT TIMER +\(String(format: "%.2f", delay))s SKIPPED restore (user interacting or no maintainedPosition)")
                 }
                 self.debugAutoRefreshScrollState(cycleID: cycleID, context: "post-restore checkpoint +\(String(format: "%.2f", delay))s")
-                if delay == 2.0, self.activeAutoRefreshDebugCycleID == cycleID {
+                if delay > 2.0, self.activeAutoRefreshDebugCycleID == cycleID {
                     self.activeAutoRefreshDebugCycleID = nil
                     self.threadLoadDebug("autoRefresh[\(cycleID)] debug window ended")
                 }
@@ -1460,14 +1517,24 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     private func restoreIndex(for position: ThreadScrollPosition) -> Int? {
-        if let postNumber = position.postNumber,
-           let index = threadBoardReplyNumber.firstIndex(of: postNumber),
-           let visibleRow = visibleRow(forDataIndex: index) {
-            return visibleRow
+        if let postNumber = position.postNumber {
+            if let index = threadBoardReplyNumber.firstIndex(of: postNumber) {
+                if let visibleRow = visibleRow(forDataIndex: index) {
+                    threadLoadDebug("restoreIndex CYCLE success postNumber=\(postNumber) dataIndex=\(index) visibleRow=\(visibleRow)")
+                    return visibleRow
+                } else {
+                    threadLoadDebug("restoreIndex CYCLE postNumber=\(postNumber) dataIndex=\(index) exists but visibleRow(forDataIndex:) returned NIL (filtered/pruned/hidden?)")
+                }
+            } else {
+                threadLoadDebug("restoreIndex CYCLE postNumber=\(postNumber) NOT FOUND in threadBoardReplyNumber (count=\(threadBoardReplyNumber.count))")
+            }
         }
 
         if let visibleRow = visibleRow(forDataIndex: position.itemIndex) {
+            threadLoadDebug("restoreIndex CYCLE falling back to itemIndex=\(position.itemIndex) -> visibleRow=\(visibleRow)")
             return visibleRow
+        } else {
+            threadLoadDebug("restoreIndex CYCLE itemIndex fallback also failed for itemIndex=\(position.itemIndex)")
         }
 
         return nil
@@ -2095,8 +2162,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
     }
 
     private func visibleRow(forDataIndex dataIndex: Int) -> Int? {
-        guard threadReplies.indices.contains(dataIndex),
-              isVisibleBySearchAndMediaSettings(dataIndex) else { return nil }
+        guard threadReplies.indices.contains(dataIndex) else {
+            threadLoadDebug("visibleRow(forDataIndex) dataIndex=\(dataIndex) out of range (replies.count=\(threadReplies.count))")
+            return nil
+        }
+        let isVisible = isVisibleBySearchAndMediaSettings(dataIndex)
+        if !isVisible {
+            threadLoadDebug("visibleRow(forDataIndex) dataIndex=\(dataIndex) post=\(threadBoardReplyNumber.indices.contains(dataIndex) ? threadBoardReplyNumber[dataIndex] : "?") isVisibleBySearchAndMediaSettings=FALSE (pruned/filtered/hidden/no-image)")
+            return nil
+        }
 
         var visibleRow = 0
         for index in 0..<threadReplies.count where isVisibleBySearchAndMediaSettings(index) {
@@ -5379,6 +5453,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
         activeAutoRefreshDebugCycleID = debugCycleID
         let savedOffset = tableView.contentOffset
         let savedPosition = currentScrollPosition()
+        let topPostBefore = debugFirstVisiblePostNumber()
+        threadLoadDebug("refreshThreadContent CYCLE[\(debugCycleID)] START behavior=\(UserDefaults.standard.integer(forKey: newPostBehaviorKey)) savedOffsetY=\(String(format: "%.1f", savedOffset.y)) savedPos{\(debugScrollPositionDescription(savedPosition))} topPostBefore=\(topPostBefore ?? "nil") pruned=\(prunedPostNumbers.count) filtered=\(filteredReplyIndices.count)/\(hiddenFilteredReplyIndices.count) visibleRows=\(tableView.numberOfRows(inSection: 0))")
         debugAutoRefreshScrollState(cycleID: debugCycleID, context: "timer fired savedPosition{\(debugScrollPositionDescription(savedPosition))}")
         
         // Re-fetch thread data
@@ -5509,12 +5585,15 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                             // Calculate new posts
                             let currentCount = self.threadReplies.count
                             let newCount = currentCount - previousCount
+                            let topPostAfterProcess = self.debugFirstVisiblePostNumber()
+                            self.threadLoadDebug("loadDataWithScrollPreservation CYCLE[\(debugCycleID ?? -1)] count previous=\(previousCount) current=\(currentCount) new=\(newCount) topAfterProcess=\(topPostAfterProcess ?? "nil") pruned=\(self.prunedPostNumbers.count) filtered=\(self.filteredReplyIndices.count)/\(self.hiddenFilteredReplyIndices.count) visibleRowsNow=\(self.tableView.numberOfRows(inSection: 0))")
                             self.threadLoadDebug("loadDataWithScrollPreservation count comparison previous=\(previousCount) current=\(currentCount) new=\(newCount) currentPosts{\(self.debugPostNumberSummary(self.threadBoardReplyNumber))}")
 
                             if newCount > 0 && previousCount > 0 {
                                 // We have new posts
                                 self.newPostCount = newCount
                                 self.firstNewPostIndex = previousCount
+                                self.threadLoadDebug("loadDataWithScrollPreservation CYCLE[\(debugCycleID ?? -1)] >>> TAKING NEW-POSTS BRANCH newCount=\(newCount) firstNewDataIndex=\(previousCount) topPost=\(self.debugFirstVisiblePostNumber() ?? "nil")")
                                 self.threadLoadDebug("loadDataWithScrollPreservation detected new posts firstNewIndex=\(previousCount) newCount=\(newCount) firstNewPost=\(self.threadBoardReplyNumber.indices.contains(previousCount) ? self.threadBoardReplyNumber[previousCount] : "nil")")
 
                                 // Update the refresh status to show new post count
@@ -5529,16 +5608,19 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
                                     debugCycleID: debugCycleID
                                 )
                             } else {
-                                // No new posts, just restore scroll position
-                                self.tableView.reloadData()
+                                // No new posts: the parsed data is identical to the existing data (same post count
+                                // and ordering), so skip reloadData entirely. This prevents the table from
+                                // flickering on auto-refresh or pull-to-refresh when no new replies arrived.
+                                let topNow = self.debugFirstVisiblePostNumber()
+                                self.threadLoadDebug("loadDataWithScrollPreservation CYCLE[\(debugCycleID ?? -1)] >>> NO-NEW-POSTS (skipping reload) topPostStill=\(topNow ?? "nil")")
                                 if let debugCycleID {
-                                    self.debugAutoRefreshScrollState(cycleID: debugCycleID, context: "after reload no-new-posts before restore")
+                                    self.debugAutoRefreshScrollState(cycleID: debugCycleID, context: "no-new-posts (skipped reload)")
+                                    if self.activeAutoRefreshDebugCycleID == debugCycleID {
+                                        self.activeAutoRefreshDebugCycleID = nil
+                                        self.threadLoadDebug("autoRefresh[\(debugCycleID)] debug window ended (no change)")
+                                    }
                                 }
-                                self.restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
-                                if let debugCycleID {
-                                    self.scheduleAutoRefreshPostRestoreDebug(cycleID: debugCycleID, maintainedPosition: scrollPosition, fallbackOffset: scrollOffset)
-                                }
-                                self.threadLoadDebug("loadDataWithScrollPreservation no new posts; reloadedRows=\(self.tableView.numberOfRows(inSection: 0)) restoredOffsetY=\(scrollOffset.y)")
+                                self.threadLoadDebug("loadDataWithScrollPreservation no new posts; skipped reloadData to prevent flicker (rows=\(self.tableView.numberOfRows(inSection: 0)))")
                             }
 
                             // Check for watched post replies and send notifications
@@ -5595,16 +5677,67 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             debugAutoRefreshScrollState(cycleID: debugCycleID, context: "handleNewPostsBehavior before reload behavior=\(behavior) savedPosition{\(debugScrollPositionDescription(scrollPosition))}")
         }
 
-        tableView.reloadData()
-        threadLoadDebug("handleNewPostsBehavior after reload rows=\(tableView.numberOfRows(inSection: 0)) posts{\(debugPostNumberSummary(threadBoardReplyNumber))}")
+        // === NEW: Use non-destructive batch update (insertRows + selective reloadRows)
+        // instead of reloadData(). This prevents the visible jump (top post changing)
+        // that was observed in the logs during refresh when new replies arrive.
+        // We insert only the newly visible rows at the bottom and selectively reload posts
+        // whose reply counts changed. This keeps existing visible cells on screen untouched.
+        let oldVisibleRowCount = tableView.numberOfRows(inSection: 0)
+        var newlyVisibleDataIndices: [Int] = []
+        for dataIdx in firstNewIndex..<threadBoardReplyNumber.count {
+            if isVisibleBySearchAndMediaSettings(dataIdx) {
+                newlyVisibleDataIndices.append(dataIdx)
+            }
+        }
+
+        let indexPathsToInsert = newlyVisibleDataIndices.compactMap { dataIdx -> IndexPath? in
+            guard let row = visibleRow(forDataIndex: dataIdx) else { return nil }
+            return IndexPath(row: row, section: 0)
+        }.sorted { $0.row < $1.row }
+
+        // Find posts whose reply count may have increased (quoted by the new posts).
+        // Only reload *currently visible* previous rows — never touch off-screen cells.
+        // This eliminates the "little movement" from reloading a long range of rows.
+        var indexPathsToReload: [IndexPath] = []
+        if !newlyVisibleDataIndices.isEmpty {
+            let visibleIPs = tableView.indexPathsForVisibleRows ?? []
+            let maxAffectedRow = (indexPathsToInsert.first?.row ?? Int.max) - 1
+            for ip in visibleIPs where ip.row <= maxAffectedRow {
+                indexPathsToReload.append(ip)
+            }
+        }
+
+        if !indexPathsToInsert.isEmpty || !indexPathsToReload.isEmpty {
+            threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] BATCH UPDATE: inserting \(indexPathsToInsert.count) new visible rows, reloading \(indexPathsToReload.count) potential quote parents (oldVisibleRows=\(oldVisibleRowCount))")
+            tableView.performBatchUpdates({
+                if !indexPathsToInsert.isEmpty {
+                    tableView.insertRows(at: indexPathsToInsert, with: .none)
+                }
+                if !indexPathsToReload.isEmpty {
+                    tableView.reloadRows(at: indexPathsToReload, with: .none)
+                }
+            }, completion: { _ in
+                let topAfterBatch = self.debugFirstVisiblePostNumber()
+                self.threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] BATCH UPDATE complete topAfterBatch=\(topAfterBatch ?? "nil") rowsNow=\(self.tableView.numberOfRows(inSection: 0))")
+            })
+        } else {
+            // Fallback: all new posts were filtered out or no visible change
+            tableView.reloadData()
+            tableView.layoutIfNeeded()
+            threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] FALLBACK full reload (no visible new rows to insert)")
+        }
+
+        let topAfterReload = debugFirstVisiblePostNumber()
+        threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] AFTER batch/fallback rows=\(tableView.numberOfRows(inSection: 0)) topAfter=\(topAfterReload ?? "nil") posts{\(debugPostNumberSummary(threadBoardReplyNumber))}")
         if let debugCycleID {
-            debugAutoRefreshScrollState(cycleID: debugCycleID, context: "handleNewPostsBehavior after reload before action behavior=\(behavior)")
+            debugAutoRefreshScrollState(cycleID: debugCycleID, context: "handleNewPostsBehavior after batch before action behavior=\(behavior)")
         }
 
         switch behavior {
         case 1: // Auto-scroll to new posts
             guard let targetIndex = firstVisibleDataIndex(startingAt: firstNewIndex),
                   scrollToDataIndex(targetIndex, at: .top, animated: true) else {
+                threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] AUTO-SCROLL failed, falling back to restore")
                 restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
                 if let debugCycleID {
                     scheduleAutoRefreshPostRestoreDebug(cycleID: debugCycleID, maintainedPosition: scrollPosition, fallbackOffset: scrollOffset)
@@ -5623,14 +5756,28 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
             generator.notificationOccurred(.success)
 
         case 2: // Do nothing - preserve scroll position
-            restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
+            let currentTop = debugFirstVisiblePostNumber()
+            let savedPost = scrollPosition?.postNumber
+            if currentTop != savedPost {
+                threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] CASE 2 (Do nothing) currentTop=\(currentTop ?? "nil") != saved=\(savedPost ?? "nil") — calling restore")
+                restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
+            } else {
+                threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] CASE 2 (Do nothing) position already correct (top=\(currentTop ?? "nil")) — skipping restore to avoid micro-movement")
+            }
             if let debugCycleID {
                 scheduleAutoRefreshPostRestoreDebug(cycleID: debugCycleID, maintainedPosition: scrollPosition, fallbackOffset: scrollOffset)
             }
             threadLoadDebug("handleNewPostsBehavior do-nothing; restoredOffsetY=\(scrollOffset.y)")
 
         default: // 0 or undefined - Show jump button
-            restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
+            let currentTop = debugFirstVisiblePostNumber()
+            let savedPost = scrollPosition?.postNumber
+            if currentTop != savedPost {
+                threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] CASE 0 (Show button) currentTop=\(currentTop ?? "nil") != saved=\(savedPost ?? "nil") — calling restore")
+                restoreScrollPosition(scrollPosition, fallbackOffset: scrollOffset, debugCycleID: debugCycleID)
+            } else {
+                threadLoadDebug("handleNewPostsBehavior CYCLE[\(debugCycleID ?? -1)] CASE 0 (Show button) position already correct (top=\(currentTop ?? "nil")) — skipping restore to avoid micro-movement")
+            }
             if let debugCycleID {
                 scheduleAutoRefreshPostRestoreDebug(cycleID: debugCycleID, maintainedPosition: scrollPosition, fallbackOffset: scrollOffset)
             }
@@ -5936,7 +6083,8 @@ class threadRepliesTV: UIViewController, UITableViewDelegate, UITableViewDataSou
 
         let savedOffset = tableView.contentOffset
         let savedPosition = currentScrollPosition()
-        threadLoadDebug("manual refresh savedPosition{\(debugScrollPositionDescription(savedPosition))} savedOffsetY=\(String(format: "%.1f", savedOffset.y))")
+        let topBeforeManual = debugFirstVisiblePostNumber()
+        threadLoadDebug("MANUAL PULL-TO-REFRESH savedOffsetY=\(String(format: "%.1f", savedOffset.y)) savedPos{\(debugScrollPositionDescription(savedPosition))} topBefore=\(topBeforeManual ?? "nil")")
         loadDataWithScrollPreservation(scrollOffset: savedOffset, scrollPosition: savedPosition)
     }
 
@@ -6265,10 +6413,26 @@ extension threadRepliesTV {
             guard let self = self else { return }
             print("🔄 RELOAD: \(self.pendingReloadContext ?? "Unknown")")
             
-            // Clear height cache when reloading data
+            let context = self.pendingReloadContext ?? "Unknown"
+            
+            // For quote enrichment (common during normal reading), avoid full reloadData
+            // and height cache clear — it causes the table to jump. Only reload visible rows.
+            if context.contains("Quote") || context.contains("enrichment") {
+                self.debugPrintVisibleCellLayoutSnapshots(context: "before quote-enrichment reloadRows context=\(context)")
+                let visibleIPs = self.tableView.indexPathsForVisibleRows ?? []
+                if !visibleIPs.isEmpty {
+                    self.tableView.reloadRows(at: visibleIPs, with: .none)
+                }
+                self.debugPrintVisibleCellLayoutSnapshots(context: "after quote-enrichment reloadRows context=\(context)")
+                self.updateQuoteScrollMarkers()
+                self.pendingReloadContext = nil
+                return
+            }
+            
+            // Clear height cache when doing a full reload (other contexts)
             self.cellHeightCache.removeAll()
             
-            self.debugPrintVisibleCellLayoutSnapshots(context: "before reloadData context=\(self.pendingReloadContext ?? "Unknown")")
+            self.debugPrintVisibleCellLayoutSnapshots(context: "before reloadData context=\(context)")
             self.tableView.reloadData()
             self.debugPrintVisibleCellLayoutSnapshots(context: "after reloadData before layoutIfNeeded context=\(self.pendingReloadContext ?? "Unknown")")
             ThreadReplyLayoutDebug.log(

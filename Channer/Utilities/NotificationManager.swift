@@ -205,6 +205,22 @@ class NotificationManager {
     /// - Parameter notification: The notification to add
     func addNotification(_ notification: ReplyNotification) {
         var notifications = getNotifications()
+
+        // Deduplicate reply notifications: prevent adding the same reply event twice
+        // (can happen across devices via iCloud sync of notifications, since WatchedPosts knownReplies are local-only)
+        if notification.notificationType == .myPostReply || notification.notificationType == .watchedPostReply {
+            let isDuplicate = notifications.contains { existing in
+                existing.notificationType == notification.notificationType &&
+                existing.boardAbv == notification.boardAbv &&
+                existing.threadNo == notification.threadNo &&
+                existing.replyNo == notification.replyNo &&
+                existing.replyToNo == notification.replyToNo
+            }
+            if isDuplicate {
+                return
+            }
+        }
+
         notifications.append(notification)
         saveNotifications(notifications)
         
